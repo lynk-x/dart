@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:lynk_core/auth/widgets/custom_text_field.dart';
-import 'package:lynk_core/auth/widgets/primary_button.dart';
+import 'package:lynk_core/core.dart';
 
 import 'package:go_router/go_router.dart';
 

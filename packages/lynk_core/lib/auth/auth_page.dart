@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'widgets/primary_button.dart';
+import '../src/widgets/primary_button.dart';
 import 'widgets/social_button.dart';
 import 'widgets/custom_text_field.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
