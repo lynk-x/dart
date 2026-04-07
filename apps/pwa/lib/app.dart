@@ -7,7 +7,6 @@ import 'package:lynk_x/presentation/features/profile/cubit/profile_state.dart';
 import 'package:lynk_x/presentation/features/notifications/cubit/notification_cubit.dart';
 import 'package:lynk_x/presentation/features/wallet/cubit/wallet_cubit.dart';
 import 'package:lynk_x/l10n/app_localizations.dart';
-import 'core/theme/app_theme.dart';
 
 class LynkXAppWrapper extends StatefulWidget {
   const LynkXAppWrapper({super.key});

@@ -5,7 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:lynk_core/core.dart' hide PrimaryButton;
 import 'package:lynk_x/presentation/shared/widgets/text_field.dart';
-import 'package:lynk_x/presentation/shared/widgets/primary_button.dart';
+import 'package:lynk_core/core.dart';
 import 'package:lynk_x/presentation/features/profile/cubit/profile_cubit.dart';
 import 'package:lynk_x/presentation/features/profile/cubit/profile_state.dart';
 

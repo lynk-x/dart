@@ -10,7 +10,7 @@ import 'package:lynk_x/presentation/features/homepage/cubit/home_cubit.dart';
 import 'package:lynk_x/presentation/features/homepage/cubit/home_state.dart';
 import 'package:lynk_x/presentation/features/homepage/widgets/forum_widget.dart';
 import 'package:lynk_x/presentation/features/homepage/widgets/home_drawer.dart';
-import 'package:lynk_x/presentation/shared/widgets/primary_button.dart';
+import 'package:lynk_core/core.dart';
 import 'package:lynk_x/presentation/shared/widgets/empty_state.dart';
 import 'package:lynk_x/core/utils/breakpoints.dart';
 import 'package:lynk_x/presentation/features/notifications/cubit/notification_cubit.dart';

@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:lynk_core/core.dart' hide PrimaryButton;
-import 'package:lynk_x/presentation/shared/widgets/primary_button.dart';
+import 'package:lynk_core/core.dart';
 import 'package:lynk_x/presentation/shared/widgets/empty_state.dart';
 import 'package:lynk_x/presentation/features/forum/models/forum_model.dart';
 

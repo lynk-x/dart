@@ -4,11 +4,12 @@ export 'src/theme/app_colors.dart';
 export 'src/theme/app_typography.dart';
 export 'src/theme/app_dimensions.dart';
 export 'src/theme/app_shadows.dart';
+export 'src/theme/app_theme.dart';
 
 export 'auth/auth_page.dart';
 export 'auth/forgot_password_page.dart';
 export 'auth/reset_password_page.dart';
-export 'auth/widgets/primary_button.dart';
+export 'src/widgets/primary_button.dart';
 export 'auth/widgets/social_button.dart';
 export 'auth/widgets/custom_text_field.dart';
 
