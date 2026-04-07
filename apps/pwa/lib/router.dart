@@ -1,0 +1,83 @@
+
+import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:lynk_core/core.dart';
+
+import 'router_refresh_stream.dart';
+import 'package:lynk_x/presentation/features/homepage/screens/home_screen.dart';
+import 'package:lynk_x/presentation/features/profile/screens/profile_screen.dart';
+import 'package:lynk_x/presentation/features/forum/screens/forum_screen.dart';
+import 'package:lynk_x/presentation/features/notifications/screens/notifications_screen.dart';
+import 'package:lynk_x/presentation/features/ticket/screens/ticket_screen.dart';
+import 'package:lynk_x/presentation/features/ticket/screens/tickets_list_screen.dart';
+import 'package:lynk_x/presentation/features/profile/screens/edit_profile_screen.dart';
+import 'package:lynk_x/presentation/features/profile/screens/profile_setup_screen.dart';
+import 'package:lynk_x/presentation/features/feedback/screens/feedback_screen.dart';
+import 'package:lynk_x/presentation/features/splashscreen/screens/splash_screen.dart';
+import 'package:lynk_x/presentation/features/wallet/screens/wallet_screen.dart';
+
+final GoRouter appRouter = GoRouter(
+  initialLocation: '/splash',
+  refreshListenable: GoRouterRefreshStream(
+    Supabase.instance.client.auth.onAuthStateChange,
+  ),
+  redirect: (context, state) {
+    final session = Supabase.instance.client.auth.currentSession;
+    final path = state.uri.toString();
+
+    const publicRoutes = {'/auth', '/splash', '/forgot-password', '/reset-password'};
+    final isPublic = publicRoutes.any((r) => path.startsWith(r));
+
+    if (session == null && !isPublic) return '/auth';
+    if (session != null && path == '/auth') return '/';
+
+    return null;
+  },
+  routes: [
+    GoRoute(path: '/auth', builder: (_, __) => const AuthPage()),
+    GoRoute(
+      path: '/forgot-password',
+      builder: (_, __) => const ForgotPasswordPage(),
+    ),
+    GoRoute(
+      path: '/reset-password',
+      builder: (_, __) => const ResetPasswordPage(),
+    ),
+    GoRoute(path: '/splash', builder: (_, __) => const SplashScreen()),
+    GoRoute(path: '/', builder: (_, __) => const HomePage()),
+    GoRoute(path: '/profile', builder: (_, __) => const ProfilePage()),
+    GoRoute(
+      path: '/forum/:id',
+      builder: (_, state) {
+        final forumId = state.pathParameters['id']!;
+        return ForumPage(forumId: forumId);
+      },
+    ),
+    GoRoute(
+      path: '/notifications',
+      builder: (_, __) => const NotificationsPage(),
+    ),
+    GoRoute(
+      path: '/ticket/:id',
+      builder: (_, state) {
+        final ticketId = state.pathParameters['id']!;
+        return TicketPage(ticketId: ticketId);
+      },
+    ),
+    GoRoute(
+      path: '/tickets',
+      builder: (_, __) => const TicketsListScreen(),
+    ),
+    GoRoute(path: '/wallet',  builder: (_, __) => const WalletPage()),
+    GoRoute(path: '/edit-profile', builder: (_, __) => const EditProfilePage()),
+    GoRoute(path: '/feedback', builder: (_, __) => const FeedbackScreen()),
+    GoRoute(
+      path: '/update-required',
+      builder: (_, __) => const UpdateRequiredPage(),
+    ),
+    GoRoute(
+      path: '/profile-setup',
+      builder: (_, __) => const ProfileSetupScreen(),
+    ),
+  ],
+);

@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <!--
+    Base href is replaced by Flutter's build tooling. The trailing slash is required.
+    For more details: https://developer.mozilla.org/en-US/docs/Web/HTML/Element/base
+  -->
+  <base href="$FLUTTER_BASE_HREF">
+
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta http-equiv="X-UA-Compatible" content="IE=Edge">
+
+  <!-- SEO -->
+  <title>Lynk-X — Discover &amp; Attend Events</title>
+  <meta name="description" content="Lynk-X is the ultimate event app. Discover, purchase tickets, and connect with your community through unforgettable live events.">
+  <meta name="keywords" content="events, tickets, live events, event discovery, lynk-x">
+
+  <!-- PWA: Theme & Display -->
+  <meta name="theme-color" content="#20F928">
+  <meta name="color-scheme" content="dark">
+  <link rel="manifest" href="manifest.json">
+
+  <!-- PWA: iOS / Safari specific -->
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Lynk-X">
+  <link rel="apple-touch-icon" href="icons/Icon-192.png">
+  <link rel="apple-touch-icon" sizes="512x512" href="icons/Icon-maskable-512.png">
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="alternate icon" type="image/png" href="favicon.png">
+
+  <!-- Open Graph (for sharing links) -->
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Lynk-X — Discover &amp; Attend Events">
+  <meta property="og:description" content="The ultimate event app. Discover, purchase tickets, and connect with your community.">
+  <meta property="og:image" content="icons/Icon-512.png">
+
+  <style>
+    body {
+      background-color: #000000;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+    }
+    .loading-container {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      width: 100vw;
+      background-color: #000000;
+      transition: opacity 0.5s ease-out;
+    }
+    .loader {
+      width: 50px;
+      aspect-ratio: 1;
+      border-radius: 50%;
+      border: 8px solid;
+      border-color: #20F928 #0000;
+      animation: l1 1s infinite;
+    }
+    @keyframes l1 {to{transform: rotate(.5turn)}}
+  </style>
+</head>
+<body>
+  <div id="loading" class="loading-container">
+    <span class="loader"></span>
+  </div>
+  <script src="flutter_bootstrap.js" async></script>
+  <script>
+    // The flutter_bootstrap.js script will eventually initialize the engine.
+    // We can listen for the app start to hide our loader.
+    // However, the simplest way is to let Flutter replace the body.
+    // To make it smoother, we use an interval to check if flutter is ready
+    // OR we can hook into the loader if we knew the entrypoint.
+    
+    // For now, the most reliable way is to let the loader be replaced when Flutter paints.
+    // But to ensure it's removed from DOM:
+    window.addEventListener('flutter-first-frame', function() {
+      var loader = document.getElementById('loading');
+      if (loader) {
+        loader.style.opacity = '0';
+        setTimeout(function() {
+          loader.remove();
+        }, 500);
+      }
+    });
+  </script>
+</body>
+</html>

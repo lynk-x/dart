@@ -1,0 +1,14 @@
+{
+  "profile": "Profil",
+  "editProfile": "Modifier le profil",
+  "comingSoon": "À venir",
+  "feedback": "Commentaires",
+  "notifications": "Notifications",
+  "logout": "Déconnexion",
+  "cancel": "Annuler",
+  "logoutConfirmTitle": "Déconnexion",
+  "logoutConfirmMessage": "Êtes-vous sûr de vouloir vous déconnecter ? Vous devrez vous reconnecter pour accéder à votre compte.",
+  "privacyPolicy": "Politique de confidentialité",
+  "termsConditions": "Termes et conditions",
+  "version": "Version"
+}

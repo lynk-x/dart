@@ -1,0 +1,14 @@
+{
+  "profile": "Profile",
+  "editProfile": "Edit Profile",
+  "comingSoon": "Coming soon",
+  "feedback": "Feedback",
+  "notifications": "Notifications",
+  "logout": "Logout",
+  "cancel": "Cancel",
+  "logoutConfirmTitle": "Logout",
+  "logoutConfirmMessage": "Are you sure you want to logout? You will need to sign in again to access your account.",
+  "privacyPolicy": "Privacy Policy",
+  "termsConditions": "Terms & Conditions",
+  "version": "Version"
+}
