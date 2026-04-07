@@ -276,40 +276,21 @@ class _WalletPageState extends State<WalletPage> {
               ),
               const SizedBox(height: 24),
               BlocBuilder<WalletCubit, WalletState>(
-                builder: (context, state) => SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      foregroundColor: Colors.black,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    onPressed: state.topUpStatus == TopUpStatus.submitting
-                        ? null
-                        : () {
-                            final amount = double.tryParse(amountController.text.trim());
-                            if (amount == null || amount <= 0) return;
-                            Navigator.pop(ctx);
-                            cubit.initiateTopUp(
-                              amount: amount,
-                              currency: selectedCurrency,
-                            );
-                          },
-                    child: state.topUpStatus == TopUpStatus.submitting
-                        ? const SizedBox(
-                            height: 20, width: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2, color: Colors.black,
-                            ),
-                          )
-                        : const Text(
-                            'Continue to Payment',
-                            style: TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                  ),
+                builder: (context, state) => PrimaryButton(
+                  text: 'Continue to Payment',
+                  isLoading: state.topUpStatus == TopUpStatus.submitting,
+                  onPressed: state.topUpStatus == TopUpStatus.submitting
+                      ? null
+                      : () {
+                          final amount =
+                              double.tryParse(amountController.text.trim());
+                          if (amount == null || amount <= 0) return;
+                          Navigator.pop(ctx);
+                          cubit.initiateTopUp(
+                            amount: amount,
+                            currency: selectedCurrency,
+                          );
+                        },
                 ),
               ),
             ],

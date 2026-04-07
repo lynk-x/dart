@@ -5,14 +5,13 @@ class AppTheme {
   static ThemeData get darkTheme {
     return ThemeData(
       brightness: Brightness.dark,
-      primaryColor: const Color(0xFF20F928),
+      primaryColor: AppColors.primary,
       scaffoldBackgroundColor: Colors.black,
       useMaterial3: true,
       snackBarTheme: const SnackBarThemeData(
         backgroundColor: AppColors.tertiary,
         contentTextStyle: TextStyle(color: Colors.white),
       ),
-      // Add more theme configurations here as needed
     );
   }
 }

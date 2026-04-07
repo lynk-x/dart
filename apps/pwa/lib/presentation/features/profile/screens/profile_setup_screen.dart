@@ -161,7 +161,6 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
     }
   }
 
-  // --- IDENTITY STEP ---
   Widget _buildIdentityStep() {
     return SingleChildScrollView(
       key: const ValueKey('identity'),
@@ -189,16 +188,16 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
               suffixIcon: _isCheckingUsername 
                 ? const SizedBox(width: 20, height: 20, child: Padding(padding: EdgeInsets.all(12), child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white24)))
                 : (_isUsernameAvailable == true 
-                    ? const Icon(Icons.check_circle, color: Color(0xFF20F928), size: 20)
+                    ? const Icon(Icons.check_circle, color: AppColors.primary, size: 20)
                     : (_isUsernameAvailable == false 
                         ? const Icon(Icons.error, color: Colors.redAccent, size: 20)
                         : null)),
               validator: (v) => v == null || v.isEmpty ? 'Required' : (_isUsernameAvailable == false ? 'Username already taken' : null),
             ).animate().slideX(begin: -0.1).fadeIn(delay: 200.ms),
             const SizedBox(height: 60),
-            _buildPrimaryButton(
-              'Next: Security', 
-              (_isCheckingUsername || _isUsernameAvailable == false) ? null : _goToSecurity
+            PrimaryButton(
+              text: 'Next: Security', 
+              onPressed: (_isCheckingUsername || _isUsernameAvailable == false) ? null : _goToSecurity
             ),
           ],
         ),
@@ -239,8 +238,8 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
             ).animate().slideX(begin: -0.1).fadeIn(delay: 100.ms),
             const SizedBox(height: 60),
             _isSubmitting 
-              ? const Center(child: CircularProgressIndicator(color: Color(0xFF20F928)))
-              : _buildPrimaryButton('Create Account Password', _goToNotifications),
+              ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
+              : PrimaryButton(text: 'Create Account Password', onPressed: _goToNotifications),
             TextButton(
               onPressed: () => setState(() => _currentStep = SetupStep.identity),
               child: const Text('Go Back', style: TextStyle(color: Colors.white30)),
@@ -260,7 +259,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
         mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Icon(Icons.notifications_active_outlined, size: 80, color: Color(0xFF20F928)).animate().scale(duration: 600.ms, curve: Curves.easeOutBack),
+          const Icon(Icons.notifications_active_outlined, size: 80, color: AppColors.primary).animate().scale(duration: 600.ms, curve: Curves.easeOutBack),
           const SizedBox(height: 40),
           const Text(
             'Keep Up with the Community',
@@ -274,7 +273,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
             style: TextStyle(fontSize: 16, color: Colors.white54, height: 1.5),
           ).animate().fadeIn(delay: 400.ms),
           const SizedBox(height: 60),
-          _buildPrimaryButton('Enable Notifications', _finishSetup),
+          PrimaryButton(text: 'Enable Notifications', onPressed: _finishSetup),
           TextButton(
             onPressed: _finishSetup,
             child: const Text('I\'ll do this later', style: TextStyle(color: Colors.white24)),
@@ -291,7 +290,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
       children: [
         Text(title, style: const TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.bold)),
         const SizedBox(height: 8),
-        Text(subtitle, style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 16)),
+        Text(subtitle, style: TextStyle(color: Colors.white54, fontSize: 16)),
       ],
     ).animate().fadeIn().slideY(begin: 0.1);
   }
@@ -306,12 +305,12 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
               width: 120, height: 120,
               decoration: BoxDecoration(
                 shape: BoxShape.circle, color: Colors.white10,
-                border: Border.all(color: const Color(0xFF20F928).withValues(alpha: 0.3), width: 1.5),
+                border: Border.all(color: AppColors.primary.withValues(alpha: 0.3), width: 1.5),
                 image: _imageFile != null ? DecorationImage(image: FileImage(_imageFile!), fit: BoxFit.cover) : null,
               ),
               child: _imageFile == null ? const Icon(Icons.person, size: 60, color: Colors.white24) : null,
             ),
-            Positioned(bottom: 0, right: 0, child: Container(padding: const EdgeInsets.all(8), decoration: const BoxDecoration(color: Color(0xFF20F928), shape: BoxShape.circle), child: const Icon(Icons.camera_alt, size: 20, color: Colors.black))),
+            Positioned(bottom: 0, right: 0, child: Container(padding: const EdgeInsets.all(8), decoration: const BoxDecoration(color: AppColors.primary, shape: BoxShape.circle), child: const Icon(Icons.camera_alt, size: 20, color: Colors.black))),
           ],
         ),
       ).animate().scale(curve: Curves.easeOutBack),
@@ -335,30 +334,14 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
           controller: controller, validator: validator, obscureText: obscureText,
           style: const TextStyle(color: Colors.white),
           decoration: InputDecoration(
-            hintText: hint, hintStyle: TextStyle(color: Colors.white10),
+            hintText: hint, hintStyle: const TextStyle(color: Colors.white10),
             filled: true, fillColor: Colors.white.withValues(alpha: 0.04),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
-            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Color(0xFF20F928), width: 1)),
+            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: AppColors.primary, width: 1)),
             suffixIcon: suffixIcon,
           ),
         ),
       ],
-    );
-  }
-
-  Widget _buildPrimaryButton(String text, VoidCallback? onPressed) {
-    return ElevatedButton(
-      onPressed: onPressed,
-      style: ElevatedButton.styleFrom(
-        backgroundColor: const Color(0xFF20F928), 
-        foregroundColor: Colors.black,
-        disabledBackgroundColor: Colors.white10,
-        disabledForegroundColor: Colors.white24,
-        padding: const EdgeInsets.symmetric(vertical: 20),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        elevation: 0,
-      ),
-      child: Text(text, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
     );
   }
 }

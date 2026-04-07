@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:lynk_core/core.dart';
 import 'router.dart';
 import 'package:lynk_x/presentation/features/notifications/cubit/notification_cubit.dart';
@@ -28,16 +31,6 @@ class _LynkXAppWrapperState extends State<LynkXAppWrapper> {
 
   @override
   Widget build(BuildContext context) {
-    return LynkXApp(locale: _locale);
-  }
-}
-
-class LynkXApp extends StatelessWidget {
-  final Locale? locale;
-  const LynkXApp({super.key, this.locale});
-
-  @override
-  Widget build(BuildContext context) {
     return MultiBlocProvider(
       providers: [
         BlocProvider(create: (context) => FeatureFlagCubit()..init()),
@@ -49,22 +42,50 @@ class LynkXApp extends StatelessWidget {
         ),
         BlocProvider(create: (context) => WalletCubit()),
       ],
-      child: BlocListener<ProfileCubit, ProfileState>(
-        listener: (context, state) {
-          if (state is ProfileLoaded && state.profile.isIncomplete) {
-            appRouter.go('/profile-setup');
-          }
-        },
-        child: MaterialApp.router(
-          title: 'Lynk-X',
-          debugShowCheckedModeBanner: false,
-          locale: locale,
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          theme: AppTheme.darkTheme,
-          routerConfig: appRouter,
-        ),
-      ),
+      child: LynkXApp(locale: _locale),
+    );
+  }
+}
+
+class LynkXApp extends StatefulWidget {
+  final Locale? locale;
+  const LynkXApp({super.key, this.locale});
+
+  @override
+  State<LynkXApp> createState() => _LynkXAppState();
+}
+
+class _LynkXAppState extends State<LynkXApp> {
+  late final GoRouter _router;
+
+  @override
+  void initState() {
+    super.initState();
+    // Initialize the router with combined refresh streams
+    _router = createRouter(
+      Supabase.instance.client.auth.onAuthStateChange,
+      context.read<ProfileCubit>().stream,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp.router(
+      routerConfig: _router,
+      title: 'Lynk-X',
+      debugShowCheckedModeBanner: false,
+      theme: AppTheme.darkTheme,
+      locale: widget.locale,
+      supportedLocales: const [
+        Locale('en', ''),
+        Locale('sw', ''),
+      ],
+      localizationsDelegates: const [
+        AppLocalizations.delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
     );
   }
 }
