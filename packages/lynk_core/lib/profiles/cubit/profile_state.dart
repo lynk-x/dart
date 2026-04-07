@@ -1,4 +1,4 @@
-import 'package:lynk_x/presentation/features/profile/models/profile_model.dart';
+import '../domain/models/profile_model.dart';
 
 abstract class ProfileState {
   const ProfileState();

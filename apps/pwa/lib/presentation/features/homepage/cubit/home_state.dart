@@ -1,5 +1,5 @@
 import 'package:equatable/equatable.dart';
-import 'package:lynk_x/presentation/features/homepage/models/home_model.dart';
+import 'package:lynk_core/core.dart';
 
 /// Immutable state for the home feed managed by [HomeCubit].
 class HomeState extends Equatable {

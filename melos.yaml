@@ -16,6 +16,14 @@ scripts:
     run: melos exec -- "flutter pub run build_runner build --delete-conflicting-outputs"
     description: Run 'build_runner build' in all packages.
 
+  build:watch:
+    run: melos exec --parallel -- "flutter pub run build_runner watch --delete-conflicting-outputs"
+    description: Run 'build_runner watch' in all packages simultaneously.
+
+  test:
+    run: melos exec -- "flutter test"
+    description: Run all tests in the workspace.
+
   clean:
     run: melos exec -- "flutter clean"
     description: Clean all packages.
@@ -23,3 +31,11 @@ scripts:
   lint:
     run: melos exec -- "flutter analyze"
     description: Run 'flutter analyze' in all packages.
+
+  fix:
+    run: melos exec -- "dart fix --apply"
+    description: Automatically fix lint issues in all packages at once.
+
+  upgrade:
+    run: melos exec -- "flutter pub upgrade"
+    description: Upgrade dependencies in all packages.

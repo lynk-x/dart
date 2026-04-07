@@ -1,6 +1,6 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:lynk_x/presentation/features/homepage/models/home_model.dart';
+import 'package:lynk_core/core.dart';
 import 'home_state.dart';
 
 /// Business logic for the Home feed.

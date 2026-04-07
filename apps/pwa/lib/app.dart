@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:lynk_core/core.dart';
 import 'router.dart';
-import 'package:lynk_x/presentation/features/profile/cubit/profile_cubit.dart';
-import 'package:lynk_x/presentation/features/profile/cubit/profile_state.dart';
 import 'package:lynk_x/presentation/features/notifications/cubit/notification_cubit.dart';
 import 'package:lynk_x/presentation/features/wallet/cubit/wallet_cubit.dart';
 import 'package:lynk_x/l10n/app_localizations.dart';

@@ -3,8 +3,6 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:lynk_core/core.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
-import 'package:lynk_x/presentation/shared/widgets/flame_badge.dart';
-import 'package:lynk_x/presentation/features/homepage/models/home_model.dart';
 
 /// A card widget displaying a forum event summary on the home feed.
 ///

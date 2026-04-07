@@ -6,7 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as sb;
-import 'package:lynk_x/presentation/features/profile/cubit/profile_cubit.dart';
+import 'package:lynk_core/core.dart';
 
 enum SetupStep { identity, security, notifications }
 

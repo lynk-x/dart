@@ -2,20 +2,26 @@ import 'dart:io';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'profile_state.dart';
-import 'package:lynk_x/presentation/features/profile/models/profile_model.dart';
+import '../domain/models/profile_model.dart';
 
 class ProfileCubit extends Cubit<ProfileState> {
   ProfileCubit() : super(const ProfileInitial());
 
-  String get userId => Supabase.instance.client.auth.currentUser!.id;
+  String? get userId => Supabase.instance.client.auth.currentUser?.id;
 
   Future<void> loadProfile() async {
+    final uid = userId;
+    if (uid == null) {
+      emit(const ProfileError('Not authenticated'));
+      return;
+    }
+
     emit(const ProfileLoading());
     try {
       final data = await Supabase.instance.client
           .from('user_profile')
           .select()
-          .eq('id', userId)
+          .eq('id', uid)
           .single();
       emit(ProfileLoaded(profile: ProfileModel.fromMap(data)));
     } catch (e) {
@@ -31,6 +37,8 @@ class ProfileCubit extends Cubit<ProfileState> {
   }) async {
     final currentState = state;
     if (currentState is! ProfileLoaded) return;
+    final uid = userId;
+    if (uid == null) return;
 
     emit(currentState.copyWith(isUpdating: true));
     try {
@@ -44,7 +52,7 @@ class ProfileCubit extends Cubit<ProfileState> {
       await Supabase.instance.client
           .from('user_profile')
           .update(updatedProfile.toMap())
-          .eq('id', userId);
+          .eq('id', uid);
 
       emit(ProfileLoaded(profile: updatedProfile));
     } catch (e) {
@@ -54,17 +62,18 @@ class ProfileCubit extends Cubit<ProfileState> {
 
   Future<void> uploadAvatar(File imageFile) async {
     final currentState = state;
-    if (currentState is! ProfileLoaded) return;
+    if (currentState is! ProfileLoaded || userId == null) return;
+    final uid = userId!;
 
     emit(currentState.copyWith(isUpdating: true));
     try {
       final fileExt = imageFile.path.split('.').last;
       final fileName =
-          '$userId-${DateTime.now().millisecondsSinceEpoch}.$fileExt';
+          '$uid-${DateTime.now().millisecondsSinceEpoch}.$fileExt';
       final path = 'avatars/$fileName';
 
       await Supabase.instance.client.storage
-          .from('profiles') // Ensure this bucket exists
+          .from('profiles')
           .upload(path, imageFile);
 
       final imageUrl =
@@ -74,7 +83,7 @@ class ProfileCubit extends Cubit<ProfileState> {
 
       await Supabase.instance.client
           .from('user_profile')
-          .update({'avatar_url': imageUrl}).eq('id', userId);
+          .update({'avatar_url': imageUrl}).eq('id', uid);
 
       emit(ProfileLoaded(profile: updatedProfile));
     } catch (e) {
@@ -88,10 +97,7 @@ class ProfileCubit extends Cubit<ProfileState> {
 
     emit(currentState.copyWith(isUpdating: true));
     try {
-      // Call the RPC to delete the profile data server-side
       await Supabase.instance.client.rpc('delete_user_account');
-
-      // Sign out immediately
       await Supabase.instance.client.auth.signOut();
     } catch (e) {
       emit(currentState.copyWith(isUpdating: false, error: e.toString()));

@@ -1,30 +1,17 @@
 import 'package:equatable/equatable.dart';
 
-/// Represents a single event entry in the home feed.
+/// Represents a single event entry in the Lynk-X ecosystem.
 ///
-/// Fields align with the `events` table in the Supabase DB schema
-/// (see `refinement_05_core_tables.sql`). Only the columns needed
-/// for list display are included here.
+/// Fields align with the common events database schema.
 class EventModel extends Equatable {
   final String id;
   final String title;
   final String description;
   final DateTime startDatetime;
   final DateTime endDatetime;
-
-  /// Optional human-readable location string (e.g. "Nairobi, Kenya").
   final String? locationName;
-
-  /// Square/portrait thumbnail URL served from Supabase Storage.
   final String? thumbnailUrl;
-
-  /// Category string (e.g. 'Arts&Entertainment', 'Business&Professional').
   final String? category;
-
-  /// Whether the event has unread forum messages / activity.
-  ///
-  /// Used by the home feed sort algorithm (unread events bubble to the top
-  /// within each date group).
   final int chatCount;
 
   const EventModel({
@@ -39,13 +26,9 @@ class EventModel extends Equatable {
     this.chatCount = 0,
   });
 
-  /// Whether the event's start time is in the past.
   bool get isPassed => startDatetime.isBefore(DateTime.now());
-
-  /// Whether this event has unread forum activity.
   bool get hasUnread => chatCount > 0;
 
-  /// Creates an [EventModel] from a Supabase row map.
   factory EventModel.fromMap(Map<String, dynamic> map) {
     return EventModel(
       id: (map['event_id'] ?? map['id']) as String,

@@ -4,8 +4,6 @@ import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:lynk_core/core.dart';
-import 'package:lynk_x/presentation/features/profile/cubit/profile_cubit.dart';
-import 'package:lynk_x/presentation/features/profile/cubit/profile_state.dart';
 
 import 'package:lynk_x/l10n/app_localizations.dart';
 import 'package:lynk_x/app.dart';
