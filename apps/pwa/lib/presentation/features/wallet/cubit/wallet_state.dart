@@ -4,6 +4,9 @@ import 'package:lynk_x/presentation/features/wallet/models/wallet_model.dart';
 /// Status of a wallet top-up submission.
 enum TopUpStatus { idle, submitting, success, error }
 
+/// Status of a wallet withdrawal submission.
+enum WithdrawStatus { idle, submitting, success, error }
+
 /// Immutable state for [WalletCubit].
 class WalletState extends Equatable {
   // ── Balances ───────────────────────────────────────────────────────────────
@@ -27,6 +30,11 @@ class WalletState extends Equatable {
   final String? topUpError;
   final String? topUpPaymentUrl; // Redirect URL returned by the payment gateway
 
+  // ── Withdrawal Flow ───────────────────────────────────────────────────────
+  final WithdrawStatus withdrawStatus;
+  final String? withdrawError;
+  final List<Map<String, dynamic>> payoutMethods;
+
   const WalletState({
     this.balances        = const [],
     this.transactions    = const [],
@@ -37,6 +45,9 @@ class WalletState extends Equatable {
     this.topUpStatus     = TopUpStatus.idle,
     this.topUpError,
     this.topUpPaymentUrl,
+    this.withdrawStatus  = WithdrawStatus.idle,
+    this.withdrawError,
+    this.payoutMethods   = const [],
   });
 
   WalletState copyWith({
@@ -52,6 +63,10 @@ class WalletState extends Equatable {
     bool clearTopUpError = false,
     String? topUpPaymentUrl,
     bool clearPaymentUrl = false,
+    WithdrawStatus? withdrawStatus,
+    String? withdrawError,
+    bool clearWithdrawError = false,
+    List<Map<String, dynamic>>? payoutMethods,
   }) {
     return WalletState(
       balances:        balances        ?? this.balances,
@@ -63,6 +78,9 @@ class WalletState extends Equatable {
       topUpStatus:     topUpStatus     ?? this.topUpStatus,
       topUpError:      clearTopUpError ? null : topUpError ?? this.topUpError,
       topUpPaymentUrl: clearPaymentUrl ? null : topUpPaymentUrl ?? this.topUpPaymentUrl,
+      withdrawStatus:  withdrawStatus  ?? this.withdrawStatus,
+      withdrawError:   clearWithdrawError ? null : withdrawError ?? this.withdrawError,
+      payoutMethods:   payoutMethods   ?? this.payoutMethods,
     );
   }
 
@@ -71,5 +89,6 @@ class WalletState extends Equatable {
     balances, transactions, hasMore,
     isLoading, isLoadingMore, error,
     topUpStatus, topUpError, topUpPaymentUrl,
+    withdrawStatus, withdrawError, payoutMethods,
   ];
 }

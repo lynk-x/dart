@@ -22,17 +22,17 @@ class ProfileModel {
   });
 
   factory ProfileModel.fromMap(Map<String, dynamic> map) {
-    final metadata = map['metadata'] as Map<String, dynamic>? ?? {};
+    final info = map['info'] as Map<String, dynamic>? ?? {};
     return ProfileModel(
       id: map['id'] as String,
       email: map['email'] as String?,
       avatarUrl: map['avatar_url'] as String?,
       userName: map['user_name'] as String? ?? 'user',
       fullName: map['full_name'] as String?,
-      bio: map['bio'] as String?,
-      tagline: map['tagline'] as String?,
-      subscriptionTier: metadata['subscription_tier'] as String? ?? 'free',
-      verificationStatus: (map['is_verified'] == true) ? 'verified' : 'none',
+      bio: info['bio'] as String?,
+      tagline: info['tagline'] as String?,
+      subscriptionTier: (map['is_premium'] == true) ? 'pro' : 'free',
+      verificationStatus: 'none',
     );
   }
 
@@ -40,9 +40,11 @@ class ProfileModel {
     return {
       'full_name': fullName,
       'user_name': userName,
-      'bio': bio,
-      'tagline': tagline,
       'avatar_url': avatarUrl,
+      'info': {
+        'bio': bio,
+        'tagline': tagline,
+      },
     };
   }
 

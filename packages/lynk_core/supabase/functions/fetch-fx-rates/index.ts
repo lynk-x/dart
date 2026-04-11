@@ -32,15 +32,13 @@ serve(async (req) => {
     }
 
     const rates = data.conversion_rates;
-    const targetCurrencies = ['KES', 'UGX', 'TZS', 'NGN', 'ZAR', 'EUR', 'GBP'];
 
-    const updates = targetCurrencies
-      .filter(curr => rates[curr])
-      .map(curr => ({
-        currency: curr,
-        rate_to_usd: rates[curr],
-        updated_at: new Date().toISOString()
-      }));
+    // Dynamically process all currencies returned by the provider
+    const updates = Object.keys(rates).map(curr => ({
+      currency: curr,
+      rate_to_usd: rates[curr],
+      updated_at: new Date().toISOString()
+    }));
 
     const { error } = await supabaseClient
       .from('fx_rates')

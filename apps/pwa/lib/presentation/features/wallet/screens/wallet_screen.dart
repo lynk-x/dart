@@ -67,6 +67,11 @@ class _WalletPageState extends State<WalletPage> {
         ),
         actions: [
           IconButton(
+            icon: const Icon(Icons.arrow_upward, color: Colors.white),
+            tooltip: 'Withdraw funds',
+            onPressed: _showWithdrawDialog,
+          ),
+          IconButton(
             icon: const Icon(Icons.add_card, color: Colors.white),
             tooltip: 'Top up wallet',
             onPressed: _showTopUpDialog,
@@ -209,6 +214,199 @@ class _WalletPageState extends State<WalletPage> {
         },
       ),
     );
+  }
+
+  // ── Withdraw Dialog ────────────────────────────────────────────────────────
+
+  void _showWithdrawDialog() {
+    final cubit = context.read<WalletCubit>();
+    cubit.loadPayoutMethods();
+
+    final amountController = TextEditingController();
+    String selectedCurrency = 'KES';
+    String? selectedMethodId;
+
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setModalState) => BlocBuilder<WalletCubit, WalletState>(
+          builder: (context, state) {
+            return Container(
+              padding: EdgeInsets.fromLTRB(
+                16, 24, 16,
+                MediaQuery.of(ctx).viewInsets.bottom + 24,
+              ),
+              decoration: BoxDecoration(
+                color: AppColors.tertiary,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Withdraw Funds',
+                    style: AppTypography.inter(
+                      fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Funds will be sent to your selected payout method.',
+                    style: AppTypography.inter(fontSize: 13, color: Colors.white54),
+                  ),
+                  const SizedBox(height: 20),
+
+                  // Amount
+                  TextField(
+                    controller: amountController,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    style: const TextStyle(color: Colors.white),
+                    decoration: InputDecoration(
+                      labelText: 'Amount',
+                      labelStyle: const TextStyle(color: Colors.white54),
+                      filled: true,
+                      fillColor: Colors.white10,
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      suffixText: selectedCurrency,
+                      suffixStyle: TextStyle(color: AppColors.primary),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Currency
+                  DropdownButtonFormField<String>(
+                    initialValue: selectedCurrency,
+                    dropdownColor: AppColors.tertiary,
+                    style: const TextStyle(color: Colors.white),
+                    decoration: InputDecoration(
+                      labelText: 'Currency',
+                      labelStyle: const TextStyle(color: Colors.white54),
+                      filled: true,
+                      fillColor: Colors.white10,
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    items: const ['KES', 'NGN', 'USD', 'GBP'].map((c) =>
+                      DropdownMenuItem(value: c, child: Text(c))
+                    ).toList(),
+                    onChanged: (val) {
+                      if (val != null) setModalState(() => selectedCurrency = val);
+                    },
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Payout method
+                  if (state.payoutMethods.isEmpty)
+                    Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: Colors.white10,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.info_outline, color: Colors.white38, size: 18),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              'No payout methods configured. Add one in your organizer dashboard.',
+                              style: AppTypography.inter(fontSize: 13, color: Colors.white54),
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  else
+                    DropdownButtonFormField<String>(
+                      initialValue: selectedMethodId,
+                      dropdownColor: AppColors.tertiary,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: InputDecoration(
+                        labelText: 'Payout Method',
+                        labelStyle: const TextStyle(color: Colors.white54),
+                        filled: true,
+                        fillColor: Colors.white10,
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      items: state.payoutMethods.map((m) {
+                        final info = m['info'] as Map<String, dynamic>? ?? {};
+                        final label = info['label'] as String? ??
+                            m['provider_name'] as String? ??
+                            'Payment Method';
+                        return DropdownMenuItem(
+                          value: m['id'] as String,
+                          child: Text(label),
+                        );
+                      }).toList(),
+                      onChanged: (val) {
+                        setModalState(() => selectedMethodId = val);
+                      },
+                    ),
+
+                  const SizedBox(height: 8),
+
+                  // Error message
+                  if (state.withdrawStatus == WithdrawStatus.error &&
+                      state.withdrawError != null)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Text(
+                        state.withdrawError!,
+                        style: const TextStyle(color: Colors.red, fontSize: 13),
+                      ),
+                    ),
+
+                  // Success message
+                  if (state.withdrawStatus == WithdrawStatus.success)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.check_circle, color: Color(0xFF00FF00), size: 18),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Withdrawal request submitted!',
+                            style: TextStyle(color: const Color(0xFF00FF00), fontSize: 13),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                  const SizedBox(height: 16),
+
+                  PrimaryButton(
+                    text: state.withdrawStatus == WithdrawStatus.success
+                        ? 'Done'
+                        : 'Request Withdrawal',
+                    isLoading: state.withdrawStatus == WithdrawStatus.submitting,
+                    onPressed: state.withdrawStatus == WithdrawStatus.submitting
+                        ? null
+                        : state.withdrawStatus == WithdrawStatus.success
+                            ? () {
+                                cubit.resetWithdraw();
+                                Navigator.pop(ctx);
+                              }
+                            : () {
+                                final amount =
+                                    double.tryParse(amountController.text.trim());
+                                if (amount == null || amount <= 0) return;
+                                if (selectedMethodId == null) return;
+                                cubit.requestWithdrawal(
+                                  amount: amount,
+                                  currency: selectedCurrency,
+                                  payoutMethodId: selectedMethodId!,
+                                );
+                              },
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+      ),
+    ).whenComplete(() => cubit.resetWithdraw());
   }
 
   // ── Top-up Dialog ──────────────────────────────────────────────────────────

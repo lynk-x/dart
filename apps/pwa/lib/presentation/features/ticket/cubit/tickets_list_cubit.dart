@@ -40,9 +40,9 @@ class TicketsListCubit extends Cubit<TicketsListState> {
 
       // 1. Get profile for holder name
       final profileResponse = await Supabase.instance.client
-          .from('user_profiles')
+          .from('user_profile')
           .select('full_name')
-          .eq('user_id', user.id)
+          .eq('id', user.id)
           .single();
       
       final holderName = profileResponse['full_name'] as String? ?? 'Me';
@@ -52,10 +52,10 @@ class TicketsListCubit extends Cubit<TicketsListState> {
             *,
             events (
               title,
-              location_name,
+              location,
               starts_at,
               ends_at,
-              thumbnail_url
+              media
             ),
             ticket_tiers (
               display_name

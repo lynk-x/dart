@@ -15,6 +15,24 @@ class AuthPage extends StatefulWidget {
 class _AuthPageState extends State<AuthPage> {
   bool _isLogin = true;
 
+  Future<void> _signInWithProvider(BuildContext context, OAuthProvider provider) async {
+    try {
+      await Supabase.instance.client.auth.signInWithOAuth(
+        provider,
+        redirectTo: 'io.supabase.lynkx://login-callback/',
+      );
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Sign in failed: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -73,14 +91,14 @@ class _AuthPageState extends State<AuthPage> {
                   // Social Buttons
                   SocialButton(
                     text: 'Continue with Google',
-                    icon: Icons.g_mobiledata, // Replace with colored icon if available
-                    onPressed: () {},
+                    icon: Icons.g_mobiledata,
+                    onPressed: () => _signInWithProvider(context, OAuthProvider.google),
                   ),
                   const SizedBox(height: 16),
                   SocialButton(
                     text: 'Continue with Apple',
                     icon: Icons.apple,
-                    onPressed: () {},
+                    onPressed: () => _signInWithProvider(context, OAuthProvider.apple),
                   ),
 
                   if (_isLogin) ...[

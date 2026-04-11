@@ -30,6 +30,8 @@ class ChatMessage {
 
   /// Category tag mapping to message_hashtag (e.g. 'Urgent', 'Activity', 'Q&A', 'Resources', 'Rules').
   final String? category;
+  /// If set, this message has an attached poll/quiz from the questionnaires table.
+  final String? questionnaireId;
   final Map<String, int> reactions;
   final bool isSending;
   final bool hasError;
@@ -53,6 +55,7 @@ class ChatMessage {
     this.linkPreviewUrl,
     this.targetRoute,
     this.category,
+    this.questionnaireId,
     this.reactions = const {},
     this.isSending = false,
     this.hasError = false,
@@ -96,6 +99,7 @@ class ChatMessage {
           ? MessageType.announcement
           : MessageType.chat,
       category: map['hashtag'] as String?,
+      questionnaireId: map['questionnaire_id'] as String?,
       role: map['forum_members']?['role_id'] as String?,
       imageUrl: map['forum_media']?['url'] as String?,
       thumbnailUrl: map['forum_media']?['thumbnail_url'] as String?,

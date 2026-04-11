@@ -33,15 +33,17 @@ class TicketModel {
       {required String holderName}) {
     final event = map['events'] as Map<String, dynamic>;
     final tier = map['ticket_tiers'] as Map<String, dynamic>;
+    final location = event['location'] as Map<String, dynamic>?;
+    final media = event['media'] as Map<String, dynamic>?;
 
     return TicketModel(
       id: map['id'] as String,
       eventId: map['event_id'] as String,
       eventTitle: event['title'] as String,
-      locationName: event['location_name'] ?? 'Online',
+      locationName: location?['venue'] as String? ?? 'Online',
       startsAt: DateTime.parse(event['starts_at'] as String),
       endsAt: DateTime.parse(event['ends_at'] as String),
-      thumbnailUrl: event['thumbnail_url'] as String?,
+      thumbnailUrl: media?['poster'] as String? ?? media?['hero'] as String?,
       tierName: tier['display_name'] as String,
       ticketCode: map['ticket_code'] as String,
       status: map['status'] as String,

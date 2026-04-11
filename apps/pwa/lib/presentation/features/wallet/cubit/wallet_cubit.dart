@@ -194,4 +194,92 @@ class WalletCubit extends Cubit<WalletState> {
     // Re-fetch balance in case the payment succeeded
     _fetchBalances();
   }
+
+  // ── Withdrawal Flow ───────────────────────────────────────────────────────
+
+  /// Fetch available payout methods for the user's account.
+  Future<void> loadPayoutMethods() async {
+    try {
+      // Get user's account id first
+      final userId = _supabase.auth.currentUser?.id;
+      if (userId == null) return;
+
+      final memberData = await _supabase
+          .from('account_members')
+          .select('account_id')
+          .eq('user_id', userId)
+          .limit(1)
+          .maybeSingle();
+
+      if (memberData == null) return;
+
+      final accountId = memberData['account_id'] as String;
+      final methods = await _supabase
+          .from('account_payment_methods')
+          .select('id, provider_name, info')
+          .eq('account_id', accountId)
+          .eq('is_active', true);
+
+      emit(state.copyWith(
+        payoutMethods: List<Map<String, dynamic>>.from(methods),
+      ));
+    } catch (_) {}
+  }
+
+  /// Request a payout/withdrawal from the user's account wallet.
+  Future<void> requestWithdrawal({
+    required double amount,
+    required String currency,
+    required String payoutMethodId,
+  }) async {
+    if (amount <= 0) {
+      emit(state.copyWith(
+        withdrawStatus: WithdrawStatus.error,
+        withdrawError: 'Withdrawal amount must be greater than zero.',
+      ));
+      return;
+    }
+
+    emit(state.copyWith(
+      withdrawStatus: WithdrawStatus.submitting,
+      clearWithdrawError: true,
+    ));
+
+    try {
+      final userId = _supabase.auth.currentUser?.id;
+      if (userId == null) throw Exception('Not authenticated');
+
+      final memberData = await _supabase
+          .from('account_members')
+          .select('account_id')
+          .eq('user_id', userId)
+          .limit(1)
+          .single();
+
+      await _supabase.rpc('request_account_payout', params: {
+        'p_account_id': memberData['account_id'],
+        'p_amount': amount,
+        'p_payout_method_id': payoutMethodId,
+        'p_currency': currency,
+      });
+
+      emit(state.copyWith(withdrawStatus: WithdrawStatus.success));
+
+      // Refresh balances to reflect the pending withdrawal
+      await _fetchBalances();
+    } catch (e) {
+      emit(state.copyWith(
+        withdrawStatus: WithdrawStatus.error,
+        withdrawError: 'Withdrawal failed: ${e.toString()}',
+      ));
+    }
+  }
+
+  /// Reset withdrawal state after dialog closes.
+  void resetWithdraw() {
+    emit(state.copyWith(
+      withdrawStatus: WithdrawStatus.idle,
+      clearWithdrawError: true,
+    ));
+  }
 }

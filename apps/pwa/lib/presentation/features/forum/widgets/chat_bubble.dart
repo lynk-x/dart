@@ -5,6 +5,7 @@ import 'package:lynk_core/core.dart';
 import 'package:intl/intl.dart';
 import 'package:lynk_x/presentation/features/forum/models/forum_model.dart';
 import 'action_bar.dart';
+import 'polls/poll_attachment.dart';
 
 /// A stylized chat bubble used for both Live Chat and Updates.
 class ChatBubble extends StatefulWidget {
@@ -203,6 +204,8 @@ class _ChatBubbleState extends State<ChatBubble> {
             if (widget.message.replyTo != null) _buildReplyPreview(),
             if (widget.message.imageUrl != null) _buildImageContent(),
             _buildMessageContent(textColor),
+            if (widget.message.questionnaireId != null)
+              PollAttachment(questionnaireId: widget.message.questionnaireId!),
           ],
         ),
       ),

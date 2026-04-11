@@ -15,6 +15,8 @@ import 'package:lynk_x/presentation/features/profile/screens/profile_setup_scree
 import 'package:lynk_x/presentation/features/feedback/screens/feedback_screen.dart';
 import 'package:lynk_x/presentation/features/splashscreen/screens/splash_screen.dart';
 import 'package:lynk_x/presentation/features/wallet/screens/wallet_screen.dart';
+import 'package:lynk_x/presentation/features/kyc/screens/kyc_verification_screen.dart';
+import 'package:lynk_x/presentation/features/subscription/screens/subscription_screen.dart';
 
 GoRouter createRouter(
   Stream<AuthState> authStream,
@@ -94,6 +96,14 @@ GoRouter createRouter(
       GoRoute(
         path: '/profile-setup',
         builder: (_, __) => const ProfileSetupScreen(),
+      ),
+      GoRoute(
+        path: '/kyc',
+        builder: (_, __) => const KycVerificationScreen(),
+      ),
+      GoRoute(
+        path: '/subscription',
+        builder: (_, __) => const SubscriptionScreen(),
       ),
     ],
   );

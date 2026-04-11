@@ -29,10 +29,13 @@ serve(async (req) => {
       channel, 
       template_slug, 
       recipient, 
-      template_data, 
-      subject: custom_subject,
-      body: raw_body 
+      info = {} 
     } = record;
+
+    // Extract data from the consolidated info JSONB
+    const template_data = info.data || {};
+    const custom_subject = info.subject;
+    const raw_body = info.body;
 
     let delivery_result;
 
@@ -41,7 +44,7 @@ serve(async (req) => {
       let final_html = '';
       let final_subject = custom_subject || "Notification from Lynk-X";
 
-      // If a template is specified, fetch and populate it
+      // If a template is specified, fetch and populate it from storage
       if (template_slug) {
         const { data: fileData, error: fileError } = await supabase.storage
           .from('system_templates')
@@ -57,12 +60,12 @@ serve(async (req) => {
         if (template_data && typeof template_data === 'object') {
           Object.keys(template_data).forEach((key) => {
             const regex = new RegExp(`{{${key}}}`, "g");
-            final_html = final_html.replace(regex, template_data[key]);
+            final_html = final_html.replace(regex, String(template_data[key]));
           });
         }
       } else {
-        // Fallback to raw body if no template slug provided
-        final_html = raw_body || "Empty notification.";
+        // Fallback to raw body if no template slug provided (mostly for manual/one-off alerts)
+        final_html = raw_body || "Empty notification content.";
       }
 
       // Dispatch to Resend HTTP API
@@ -83,24 +86,28 @@ serve(async (req) => {
       delivery_result = await resendResponse.json();
       
       if (!resendResponse.ok) {
-        throw new Error(`Resend Error: ${JSON.stringify(delivery_result)}`);
+        throw new Error(`Resend API Error: ${JSON.stringify(delivery_result)}`);
       }
     }
 
     // --- CHANNEL: PUSH (via FCM Placeholder) ---
     else if (channel === 'push') {
        // Future implementation for FCM Push tokens
-       delivery_result = { status: "push_logged_pending_fcm_logic" };
+       delivery_result = { id: `push_${Date.now()}`, status: "pending_fcm" };
        console.log(`Push enqueued for device token: ${recipient}`);
     }
 
-    // Update the queue record status to prevent double-sends in case of retries
+    // Update the queue record status and log the provider response to the new 'info' column
     await supabase
       .from('delivery_queue')
       .update({ 
         status: 'sent', 
         processed_at: new Date().toISOString(),
-        metadata: { delivery_id: delivery_result.id || null, provider: channel === 'email' ? 'resend' : 'system' }
+        info: { 
+          ...info, 
+          delivery_id: delivery_result.id || null, 
+          provider: channel === 'email' ? 'resend' : 'system_push' 
+        }
       })
       .eq('id', queue_id);
 

@@ -8,6 +8,7 @@ import 'router.dart';
 import 'package:lynk_x/presentation/features/notifications/cubit/notification_cubit.dart';
 import 'package:lynk_x/presentation/features/wallet/cubit/wallet_cubit.dart';
 import 'package:lynk_x/l10n/app_localizations.dart';
+import 'services/push_notification_service.dart';
 
 class LynkXAppWrapper extends StatefulWidget {
   const LynkXAppWrapper({super.key});
@@ -66,6 +67,20 @@ class _LynkXAppState extends State<LynkXApp> {
       Supabase.instance.client.auth.onAuthStateChange,
       context.read<ProfileCubit>().stream,
     );
+
+    // Wire push notification taps to GoRouter
+    PushNotificationService.instance.onNotificationTap = (route) {
+      _router.go(route);
+    };
+
+    // Re-init push notifications on sign-in, remove on sign-out
+    Supabase.instance.client.auth.onAuthStateChange.listen((data) {
+      if (data.event == AuthChangeEvent.signedIn) {
+        PushNotificationService.instance.init();
+      } else if (data.event == AuthChangeEvent.signedOut) {
+        PushNotificationService.instance.removeToken();
+      }
+    });
   }
 
   @override
