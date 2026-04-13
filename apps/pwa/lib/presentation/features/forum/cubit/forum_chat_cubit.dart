@@ -6,6 +6,8 @@ import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 import 'package:lynk_x/presentation/features/forum/models/forum_model.dart';
 import 'package:lynk_x/presentation/features/forum/services/forum_cache.dart';
+import 'package:lynk_x/core/sync/sync_item.dart';
+import 'package:lynk_x/core/sync/sync_manager.dart';
 import 'forum_chat_state.dart';
 
 class ForumChatCubit extends Cubit<ForumChatState> {
@@ -17,6 +19,7 @@ class ForumChatCubit extends Cubit<ForumChatState> {
 
   Timer? _typingThrottle;
   Timer? _hideTypingTimer;
+  StreamSubscription? _syncSubscription;
 
   ForumChatCubit({
     required this.forumId,
@@ -33,6 +36,19 @@ class ForumChatCubit extends Cubit<ForumChatState> {
     }
     await refresh();
     _setupListeners();
+    _setupSyncListener();
+  }
+
+  void _setupSyncListener() {
+    _syncSubscription = SyncManager.instance.statusStream.listen((statusMap) {
+      for (var entry in statusMap.entries) {
+        if (entry.value) {
+          _completeMessage(entry.key);
+        } else {
+          _failMessage(entry.key);
+        }
+      }
+    });
   }
 
   void _setupListeners() {
@@ -222,8 +238,12 @@ class ForumChatCubit extends Cubit<ForumChatState> {
     ));
 
     if (userId != kGuestUserId) {
-      try {
-        await Supabase.instance.client.from('forum_messages').insert({
+      // Optimistic Sync Push
+      SyncManager.instance.addWork(SyncItem(
+        id: messageId,
+        table: 'forum_messages',
+        action: SyncAction.insert,
+        payload: {
           'id': messageId,
           'forum_id': forumId,
           'author_id': userId,
@@ -231,35 +251,31 @@ class ForumChatCubit extends Cubit<ForumChatState> {
           'message_type': 'chat',
           if (mediaId != null) 'media_id': mediaId,
           if (replyTo != null) 'reply_to_id': replyTo.id,
-        });
+        },
+      ));
 
-        _completeMessage(messageId);
-
-        channel?.sendBroadcastMessage(
-          event: 'new_message',
-          payload: {
-            'id': messageId,
-            'author_id': userId,
-            'content': text,
-            'message_type': 'chat',
-            'created_at': now.toIso8601String(),
-            if (mediaId != null) 'media_id': mediaId,
-            if (imageUrl != null)
-              'forum_media': {
-                'url': imageUrl,
-                'thumbnail_url': thumbnailUrl,
-              },
-            'user_profile': {
-              'full_name': userName,
-              'is_premium': isPremium,
+      // Broadcast immediately (Optimistic Broadcast)
+      channel?.sendBroadcastMessage(
+        event: 'new_message',
+        payload: {
+          'id': messageId,
+          'author_id': userId,
+          'content': text,
+          'message_type': 'chat',
+          'created_at': now.toIso8601String(),
+          if (mediaId != null) 'media_id': mediaId,
+          if (imageUrl != null)
+            'forum_media': {
+              'url': imageUrl,
+              'thumbnail_url': thumbnailUrl,
             },
-            'forum_members': {'role_id': isOrganizer ? 'organizer' : 'member'}
+          'user_profile': {
+            'full_name': userName,
+            'is_premium': isPremium,
           },
-        );
-      } catch (e, stack) {
-      debugPrint('[ForumChatCubit] Error: $e\n$stack');
-        _failMessage(messageId);
-      }
+          'forum_members': {'role_id': isOrganizer ? 'organizer' : 'member'}
+        },
+      );
     }
   }
 
@@ -359,6 +375,7 @@ class ForumChatCubit extends Cubit<ForumChatState> {
   Future<void> close() {
     _typingThrottle?.cancel();
     _hideTypingTimer?.cancel();
+    _syncSubscription?.cancel();
     return super.close();
   }
 }
