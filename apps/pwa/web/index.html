@@ -90,6 +90,17 @@
         }, 500);
       }
     });
+
+    // Fallback: If flutter doesn't signal within 10 seconds, clear the loader anyway
+    setTimeout(function() {
+      var loader = document.getElementById('loading');
+      if (loader) {
+        loader.style.opacity = '0';
+        setTimeout(function() {
+          if (loader.parentNode) loader.remove();
+        }, 500);
+      }
+    }, 10000);
   </script>
 </body>
 </html>

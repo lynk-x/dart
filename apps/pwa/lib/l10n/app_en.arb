@@ -1,14 +1,51 @@
 {
+  "@@locale": "en",
   "profile": "Profile",
+  "@profile": {
+    "description": "Label for the user profile section"
+  },
   "editProfile": "Edit Profile",
+  "@editProfile": {
+    "description": "Button text to edit profile"
+  },
   "comingSoon": "Coming soon",
+  "@comingSoon": {
+    "description": "Placeholder text for unreleased features"
+  },
   "feedback": "Feedback",
+  "@feedback": {
+    "description": "Label for the feedback section"
+  },
   "notifications": "Notifications",
+  "@notifications": {
+    "description": "Label for the notifications section"
+  },
   "logout": "Logout",
+  "@logout": {
+    "description": "Button text for logging out"
+  },
   "cancel": "Cancel",
+  "@cancel": {
+    "description": "Generic cancel button text"
+  },
   "logoutConfirmTitle": "Logout",
+  "@logoutConfirmTitle": {
+    "description": "Title for logout confirmation dialog"
+  },
   "logoutConfirmMessage": "Are you sure you want to logout? You will need to sign in again to access your account.",
+  "@logoutConfirmMessage": {
+    "description": "Message for logout confirmation dialog"
+  },
   "privacyPolicy": "Privacy Policy",
+  "@privacyPolicy": {
+    "description": "Link text for privacy policy"
+  },
   "termsConditions": "Terms & Conditions",
-  "version": "Version"
+  "@termsConditions": {
+    "description": "Link text for terms and conditions"
+  },
+  "version": "Version",
+  "@version": {
+    "description": "Label for the app version number"
+  }
 }

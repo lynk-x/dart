@@ -13,16 +13,35 @@ void main() async {
   const supabaseAnonKey = String.fromEnvironment('SUPABASE_ANON_KEY');
   const sentryDsn = String.fromEnvironment('SENTRY_DSN');
 
-  await Firebase.initializeApp();
-  await Supabase.initialize(url: supabaseUrl, anonKey: supabaseAnonKey);
+  try {
+    await Firebase.initializeApp();
+  } catch (e) {
+    debugPrint('[Main] Firebase initialization skipped/failed: $e');
+  }
+
+  try {
+    if (supabaseUrl.isNotEmpty && supabaseAnonKey.isNotEmpty) {
+      await Supabase.initialize(url: supabaseUrl, anonKey: supabaseAnonKey);
+    } else {
+      debugPrint('[Main] Supabase credentials missing. App may be degraded.');
+    }
+  } catch (e) {
+    debugPrint('[Main] Supabase initialization failed: $e');
+  }
 
   final featureFlags = FeatureFlagCubit();
-  await featureFlags.init();
-
-  // Initialize push notifications if user is already signed in
-  if (Supabase.instance.client.auth.currentUser != null) {
-    await PushNotificationService.instance.init();
+  try {
+    await featureFlags.init();
+  } catch (e) {
+    debugPrint('[Main] FeatureFlag initialization failed: $e');
   }
+
+  // Initialize push notifications if user is already signed in and Supabase is ready
+  try {
+    if (Supabase.instance.client.auth.currentUser != null) {
+      await PushNotificationService.instance.init();
+    }
+  } catch (_) {}
 
   final crashReportingEnabled =
       sentryDsn.isNotEmpty && featureFlags.isEnabled('enable_crash_reporting');
