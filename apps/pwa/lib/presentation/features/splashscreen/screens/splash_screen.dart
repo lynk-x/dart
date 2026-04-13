@@ -17,10 +17,13 @@ class _SplashScreenState extends State<SplashScreen> {
     return BlocConsumer<FeatureFlagCubit, FeatureFlagState>(
       listener: (context, state) {
         if (!state.isLoading) {
-          final isUpdateRequired = state.flags.isNotEmpty &&
-              context.read<FeatureFlagCubit>().isEnabled('force_app_update');
+          final cubit = context.read<FeatureFlagCubit>();
+          final isMaintenance = cubit.isEnabled('maintenance_mode');
+          final isUpdateRequired = state.flags.isNotEmpty && cubit.isEnabled('force_app_update');
 
-          if (isUpdateRequired) {
+          if (isMaintenance) {
+            context.go('/maintenance');
+          } else if (isUpdateRequired) {
             context.go('/update-required');
           } else {
             context.go('/');

@@ -17,6 +17,7 @@ import 'package:lynk_x/presentation/features/splashscreen/screens/splash_screen.
 import 'package:lynk_x/presentation/features/wallet/screens/wallet_screen.dart';
 import 'package:lynk_x/presentation/features/kyc/screens/kyc_verification_screen.dart';
 import 'package:lynk_x/presentation/features/subscription/screens/subscription_screen.dart';
+import 'package:lynk_x/presentation/shared/screens/system_error_screen.dart';
 
 GoRouter createRouter(
   Stream<AuthState> authStream,
@@ -34,7 +35,9 @@ GoRouter createRouter(
         '/auth',
         '/splash',
         '/forgot-password',
-        '/reset-password'
+        '/reset-password',
+        '/maintenance',
+        '/error'
       };
       final isPublic = publicRoutes.any((r) => path.startsWith(r));
 
@@ -104,6 +107,24 @@ GoRouter createRouter(
       GoRoute(
         path: '/subscription',
         builder: (_, __) => const SubscriptionScreen(),
+      ),
+      GoRoute(
+        path: '/maintenance',
+        builder: (_, __) => const SystemErrorScreen(
+          title: 'Under Maintenance',
+          message: 'Lynk-X is currently undergoing scheduled maintenance to improve our systems. We\'ll be back online shortly.',
+          isMaintenance: true,
+        ),
+      ),
+      GoRoute(
+        path: '/error',
+        builder: (_, state) {
+          final extras = state.extra as Map<String, dynamic>?;
+          return SystemErrorScreen(
+            title: extras?['title'] ?? 'Something went wrong',
+            message: extras?['message'] ?? 'We are currently experiencing some technical difficulties.',
+          );
+        },
       ),
     ],
   );
