@@ -105,7 +105,7 @@ GoRouter createRouter(
         builder: (_, __) => const KycVerificationScreen(),
       ),
       GoRoute(
-        path: '/subscription',
+        path: '/upgrade',
         builder: (_, __) => const SubscriptionScreen(),
       ),
       GoRoute(

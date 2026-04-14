@@ -170,7 +170,7 @@ class _ProfileContent extends StatelessWidget {
           const SizedBox(height: 16),
           GestureDetector(
             onTap: profile.subscriptionTier != 'pro'
-                ? () => context.push('/subscription')
+                ? () => context.push('/upgrade')
                 : null,
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),

@@ -34,10 +34,10 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
     try {
       final userId = _supabase.auth.currentUser?.id;
 
-      // Fetch active plans with prices
+      // Fetch active plans with prices and normalized features
       final plansData = await _supabase
           .from('subscription_plans')
-          .select('id, display_name, description, interval, metadata, subscription_prices(amount, currency)')
+          .select('id, display_name, description, interval, metadata, subscription_prices(amount, currency), plan_features(subscription_features(display_name))')
           .eq('is_active', true)
           .eq('product_type', 'attendee_premium')
           .order('created_at');
@@ -58,9 +58,13 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
       final plans = (plansData as List).map((p) {
         final prices = (p['subscription_prices'] as List?) ?? [];
         final firstPrice = prices.isNotEmpty ? prices.first : null;
-        final metadata = p['metadata'] as Map<String, dynamic>? ?? {};
-        final features =
-            (metadata['features'] as List?)?.cast<String>() ?? [];
+        
+        // Fetch features from the join
+        final planFeaturesRaw = (p['plan_features'] as List?) ?? [];
+        final List<String> features = planFeaturesRaw.map((pf) {
+          final sf = pf['subscription_features'] as Map<String, dynamic>?;
+          return sf?['display_name'] as String? ?? '';
+        }).where((f) => f.isNotEmpty).toList();
 
         return _PlanDisplay(
           id: p['id'] as String,
@@ -146,17 +150,19 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
           icon: const Icon(Icons.arrow_back, size: 28, color: Colors.white),
           onPressed: () => context.pop(),
         ),
-        title: const Text(
-          'Upgrade Plan',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        title: Image.asset(
+          'assets/images/lynk-x_combined-logo.png',
+          width: 180,
+          fit: BoxFit.contain,
         ),
+        centerTitle: true,
       ),
       body: _isLoading
           ? const Center(
-              child: CircularProgressIndicator(color: Color(0xFF00FF00)))
+              child: CircularProgressIndicator(color: AppColors.primary))
           : _plans.isEmpty
               ? _buildNoPlan()
-              : _buildPlans(),
+              : _buildUpgradeContent(),
     );
   }
 
@@ -170,256 +176,204 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
             Icon(Icons.workspace_premium,
                 size: 64, color: Colors.white.withValues(alpha: 0.3)),
             const SizedBox(height: 16),
-            Text(
+            const Text(
               'No plans available',
               style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.7),
+                color: Colors.white,
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
               ),
             ),
-            const SizedBox(height: 8),
-            Text(
-              'Check back later for premium subscription options.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.4),
-                fontSize: 14,
-              ),
-            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildPlans() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        children: [
-          // Current status banner
-          if (_currentPlanId != null)
-            Container(
-              width: double.infinity,
-              margin: const EdgeInsets.only(bottom: 24),
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: const Color(0xFF00FF00).withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(
-                    color: const Color(0xFF00FF00).withValues(alpha: 0.3)),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.check_circle,
-                      color: Color(0xFF00FF00), size: 22),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      'You\'re on the ${_plans.firstWhere((p) => p.id == _currentPlanId, orElse: () => _plans.first).name} plan',
-                      style: const TextStyle(
-                        color: Color(0xFF00FF00),
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            )
-          else
-            Container(
-              width: double.infinity,
-              margin: const EdgeInsets.only(bottom: 24),
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.04),
-                borderRadius: BorderRadius.circular(14),
-                border:
-                    Border.all(color: Colors.white.withValues(alpha: 0.08)),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.info_outline,
-                      color: Colors.white.withValues(alpha: 0.4), size: 22),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      'You\'re on the Free plan. Upgrade to unlock premium features.',
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.6),
-                        fontSize: 14,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-          // Plan cards
-          ..._plans.map((plan) => _buildPlanCard(plan)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPlanCard(_PlanDisplay plan) {
+  Widget _buildUpgradeContent() {
+    // We prioritize the attendee_premium plan (usually the only one)
+    final plan = _plans.firstWhere((p) => p.name.contains('Premium'), orElse: () => _plans.first);
     final isCurrent = plan.id == _currentPlanId;
     final isProcessing = _isSubscribing && _selectedPlanId == plan.id;
 
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: isCurrent
-            ? const Color(0xFF00FF00).withValues(alpha: 0.05)
-            : Colors.white.withValues(alpha: 0.04),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: isCurrent
-              ? const Color(0xFF00FF00).withValues(alpha: 0.3)
-              : Colors.white.withValues(alpha: 0.08),
-          width: isCurrent ? 1.5 : 1,
-        ),
-      ),
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Plan name + badge
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  plan.name,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-              if (isCurrent)
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF00FF00).withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Text(
-                    'Current',
-                    style: TextStyle(
-                      color: Color(0xFF00FF00),
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-            ],
+          const SizedBox(height: 20),
+          // Icon Wrapper (Polygon Star)
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: AppColors.secondary.withValues(alpha: 0.1),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.star_rounded,
+              size: 56,
+              color: AppColors.secondary,
+            ),
           ),
-
-          const SizedBox(height: 8),
-
-          // Price
-          RichText(
-            text: TextSpan(
+          
+          const SizedBox(height: 24),
+          
+          // Title
+          const Text(
+            'Lynk-X Premium',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 28,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          
+          const SizedBox(height: 12),
+          
+          // Description
+          Text(
+            'Enhance your event experience. Get access to ad-free forums, exclusive badges, and seamless interactions across all your limits forever.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.6),
+              fontSize: 15,
+              height: 1.5,
+            ),
+          ),
+          
+          const SizedBox(height: 32),
+          
+          // Benefits Container
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.04),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+            ),
+            child: Column(
               children: [
-                TextSpan(
-                  text: '${plan.currency} ${plan.price.toStringAsFixed(0)}',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                TextSpan(
-                  text: ' / ${plan.interval}',
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.4),
-                    fontSize: 15,
-                  ),
-                ),
+                if (plan.features.isEmpty) ...[
+                  _buildBenefitRow('Exclusive VIP Profile Badge'),
+                  const SizedBox(height: 16),
+                  _buildBenefitRow('Zero Ads in Live Chats & Media'),
+                  const SizedBox(height: 16),
+                  _buildBenefitRow('Priority Access to New Features'),
+                ] else
+                  ...plan.features.asMap().entries.map((entry) {
+                    final isLast = entry.key == plan.features.length - 1;
+                    return Column(
+                      children: [
+                        _buildBenefitRow(entry.value),
+                        if (!isLast) const SizedBox(height: 16),
+                      ],
+                    );
+                  }),
               ],
             ),
           ),
-
-          if (plan.description.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            Text(
-              plan.description,
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.5),
-                fontSize: 14,
+          
+          const SizedBox(height: 32),
+          
+          // Price
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
+            children: [
+              Text(
+                '${plan.currency} ${plan.price.toStringAsFixed(2)}',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 36,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
-            ),
-          ],
-
-          // Features
-          if (plan.features.isNotEmpty) ...[
-            const SizedBox(height: 16),
-            ...plan.features.map((f) => Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.check,
-                          color: Color(0xFF00FF00), size: 16),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          f,
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.7),
-                            fontSize: 14,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                )),
-          ],
-
-          const SizedBox(height: 16),
-
-          // Action button
+              Text(
+                ' / ${plan.interval}',
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.4),
+                  fontSize: 16,
+                ),
+              ),
+            ],
+          ),
+          
+          const SizedBox(height: 32),
+          
+          // Subscribe Button
           SizedBox(
             width: double.infinity,
-            height: 46,
+            height: 56,
             child: ElevatedButton(
               onPressed: isCurrent || _isSubscribing
                   ? null
                   : () => _subscribe(plan.id),
               style: ElevatedButton.styleFrom(
-                backgroundColor: isCurrent
-                    ? Colors.white.withValues(alpha: 0.1)
-                    : const Color(0xFF00FF00),
-                disabledBackgroundColor: isCurrent
-                    ? Colors.white.withValues(alpha: 0.05)
-                    : const Color(0xFF00FF00).withValues(alpha: 0.3),
-                foregroundColor: isCurrent ? Colors.white38 : Colors.black,
+                backgroundColor: AppColors.primary,
+                disabledBackgroundColor: AppColors.primary.withValues(alpha: 0.3),
+                foregroundColor: Colors.black,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(16),
                 ),
+                elevation: 0,
               ),
               child: isProcessing
                   ? const SizedBox(
-                      width: 20,
-                      height: 20,
+                      width: 24,
+                      height: 24,
                       child: CircularProgressIndicator(
                           strokeWidth: 2, color: Colors.black),
                     )
                   : Text(
-                      isCurrent ? 'Current Plan' : 'Upgrade',
+                      isCurrent ? 'Current Plan' : 'Upgrade Now',
                       style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                      ),
+                          fontSize: 17, fontWeight: FontWeight.bold),
                     ),
             ),
           ),
+          
+          const SizedBox(height: 20),
+          
+          // Terms
+          Text(
+            'By upgrading, you agree to our Terms of Service. This is a recurring subscription which you can cancel securely at any time.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.3),
+              fontSize: 12,
+              height: 1.4,
+            ),
+          ),
+          
+          const SizedBox(height: 40),
         ],
       ),
+    );
+  }
+
+  Widget _buildBenefitRow(String text) {
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(2),
+          decoration: const BoxDecoration(
+            color: AppColors.primary,
+            shape: BoxShape.circle,
+          ),
+          child: const Icon(Icons.check, size: 14, color: Colors.black),
+        ),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Text(
+            text,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 15,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
