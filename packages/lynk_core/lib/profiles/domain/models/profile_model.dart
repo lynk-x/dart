@@ -32,7 +32,7 @@ class ProfileModel {
       bio: info['bio'] as String?,
       tagline: info['tagline'] as String?,
       subscriptionTier: (map['is_premium'] == true) ? 'pro' : 'free',
-      verificationStatus: 'none',
+      verificationStatus: (map['is_verified'] == true) ? 'verified' : 'none',
     );
   }
 

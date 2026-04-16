@@ -26,10 +26,15 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
 
     setState(() => _isLoading = true);
     try {
-      // Note: In production, change localhost to your actual Lynk-X web domain (e.g. https://lynk-x.com/update-password)
+      // Set PASSWORD_RESET_URL via --dart-define at build time, e.g.:
+      //   flutter build web --dart-define=PASSWORD_RESET_URL=https://lynk-x.com/update-password
+      const resetUrl = String.fromEnvironment(
+        'PASSWORD_RESET_URL',
+        defaultValue: 'http://localhost:3000/update-password',
+      );
       await Supabase.instance.client.auth.resetPasswordForEmail(
         email,
-        redirectTo: 'http://localhost:3000/update-password',
+        redirectTo: resetUrl,
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

@@ -27,7 +27,9 @@ GoRouter createRouter(
     initialLocation: '/splash',
     refreshListenable: GoRouterRefreshStream([authStream, profileStream]),
     redirect: (context, state) {
-      final session = Supabase.instance.client.auth.currentSession;
+      // currentUser re-validates against the auth server; currentSession only
+      // reads the cached local JWT and won't catch server-side revocations.
+      final user = Supabase.instance.client.auth.currentUser;
       final profileState = context.read<ProfileCubit>().state;
       final path = state.uri.toString();
 
@@ -41,11 +43,11 @@ GoRouter createRouter(
       };
       final isPublic = publicRoutes.any((r) => path.startsWith(r));
 
-      if (session == null && !isPublic) return '/auth';
-      if (session != null && path == '/auth') return '/';
+      if (user == null && !isPublic) return '/auth';
+      if (user != null && path == '/auth') return '/';
 
       // ── Onboarding / Profile Setup Redirection ──
-      if (session != null && !isPublic && path != '/profile-setup') {
+      if (user != null && !isPublic && path != '/profile-setup') {
         if (profileState is ProfileLoaded && profileState.profile.isIncomplete) {
           return '/profile-setup';
         }

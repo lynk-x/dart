@@ -24,10 +24,10 @@ class TicketCubit extends Cubit<TicketState> {
             *,
             events (
               title,
-              location_name,
+              location,
               starts_at,
               ends_at,
-              thumbnail_url
+              media
             ),
             ticket_tiers (
               display_name

@@ -79,6 +79,9 @@ class WalletCubit extends Cubit<WalletState> {
       final response = await _supabase
           .from('transactions')
           .select('id, category, reason, amount, currency, status, created_at, metadata')
+          // Explicit user_id filter for defense-in-depth — RLS is not a substitute
+          // for a missing WHERE clause when the column is available.
+          .eq('user_id', _supabase.auth.currentUser!.id)
           .order('created_at', ascending: false)
           .range(from, to);
 

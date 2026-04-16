@@ -33,24 +33,31 @@ class TicketModel {
       {required String holderName}) {
     final event = map['events'] as Map<String, dynamic>;
     final tier = map['ticket_tiers'] as Map<String, dynamic>;
+    // location and media are jsonb columns on public.events
     final location = event['location'] as Map<String, dynamic>?;
     final media = event['media'] as Map<String, dynamic>?;
+    // status enum: active | used | cancelled | expired | transferred
+    final ticketStatus = map['status'] as String? ?? 'active';
 
     return TicketModel(
       id: map['id'] as String,
       eventId: map['event_id'] as String,
       eventTitle: event['title'] as String,
-      locationName: location?['venue'] as String? ?? 'Online',
+      locationName: location?['venue'] as String?
+          ?? location?['name'] as String?
+          ?? 'Online',
       startsAt: DateTime.parse(event['starts_at'] as String),
       endsAt: DateTime.parse(event['ends_at'] as String),
-      thumbnailUrl: media?['poster'] as String? ?? media?['hero'] as String?,
+      thumbnailUrl: media?['thumbnail'] as String?
+          ?? media?['poster'] as String?
+          ?? media?['hero'] as String?,
       tierName: tier['display_name'] as String,
-      ticketCode: map['ticket_code'] as String,
-      status: map['status'] as String,
-      isRedeemed: map['redeemed_at'] != null,
-      redeemedAt: map['redeemed_at'] != null
-          ? DateTime.parse(map['redeemed_at'] as String)
-          : null,
+      // Schema column is 'code', not 'ticket_code'
+      ticketCode: map['code'] as String,
+      status: ticketStatus,
+      // Derived from status — schema has no redeemed_at column
+      isRedeemed: ticketStatus == 'used',
+      redeemedAt: null,
       holderName: holderName,
     );
   }
