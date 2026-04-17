@@ -78,6 +78,7 @@ class _LynkXAppState extends State<LynkXApp> {
     Supabase.instance.client.auth.onAuthStateChange.listen((data) {
       if (data.event == AuthChangeEvent.signedIn) {
         // Load notifications now that currentUser is confirmed non-null.
+        if (!mounted) return;
         context.read<NotificationCubit>().loadNotifications();
         PushNotificationService.instance.init();
       } else if (data.event == AuthChangeEvent.signedOut) {

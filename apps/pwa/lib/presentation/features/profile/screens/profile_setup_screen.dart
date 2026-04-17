@@ -40,11 +40,17 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   bool _obscurePassword = true;
 
   bool _isSubmitting = false;
+  late final bool _needsPasswordSetup;
 
   @override
   void initState() {
     super.initState();
     _userNameController.addListener(_onUsernameChanged);
+    // Email/password users already set their password on the sign-up form.
+    // Only OAuth users (Google, Apple) need to set one here.
+    final provider = sb.Supabase.instance.client.auth.currentUser
+        ?.appMetadata['provider'] as String?;
+    _needsPasswordSetup = provider != null && provider != 'email';
   }
 
   @override
@@ -63,7 +69,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
     
     final name = _userNameController.text.trim();
     if (name.length < 3) {
-      if (mounted) setState(() => _isUsernameAvailable = null);
+      if (mounted) { setState(() => _isUsernameAvailable = null); }
       return;
     }
 
@@ -82,7 +88,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
           });
         }
       } catch (e) {
-        if (mounted) setState(() => _isCheckingUsername = false);
+        if (mounted) { setState(() => _isCheckingUsername = false); }
       }
     });
   }
@@ -94,34 +100,58 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
     if (pickedFile != null) setState(() => _imageFile = File(pickedFile.path));
   }
 
-  void _goToSecurity() {
+  void _goToNextFromIdentity() {
     if (!_formKeyIdentity.currentState!.validate()) return;
-    setState(() => _currentStep = SetupStep.security);
+    if (_needsPasswordSetup) {
+      setState(() => _currentStep = SetupStep.security);
+    } else {
+      _saveIdentityAndGoToNotifications();
+    }
   }
 
-  void _goToNotifications() async {
-    if (!_formKeySecurity.currentState!.validate()) return;
-    
+  Future<void> _saveIdentityAndGoToNotifications() async {
     setState(() => _isSubmitting = true);
     try {
       final cubit = context.read<ProfileCubit>();
-      
-      // 1. Save Identity
       if (_imageFile != null) await cubit.uploadAvatar(_imageFile!);
       await cubit.updateProfile(
         fullName: _fullNameController.text.trim(),
         userName: _userNameController.text.trim(),
       );
+      if (mounted) {
+        setState(() {
+          _isSubmitting = false;
+          _currentStep = SetupStep.notifications;
+        });
+      }
+    } catch (e) {
+      setState(() => _isSubmitting = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
+    }
+  }
 
-      // 2. Set Password (for Ghost accounts)
+  Future<void> _goToNotifications() async {
+    if (!_formKeySecurity.currentState!.validate()) return;
+
+    setState(() => _isSubmitting = true);
+    try {
+      final cubit = context.read<ProfileCubit>();
+      if (_imageFile != null) await cubit.uploadAvatar(_imageFile!);
+      await cubit.updateProfile(
+        fullName: _fullNameController.text.trim(),
+        userName: _userNameController.text.trim(),
+      );
       await sb.Supabase.instance.client.auth.updateUser(
         sb.UserAttributes(password: _passwordController.text.trim()),
       );
-
-      setState(() {
-        _isSubmitting = false;
-        _currentStep = SetupStep.notifications;
-      });
+      if (mounted) {
+        setState(() {
+          _isSubmitting = false;
+          _currentStep = SetupStep.notifications;
+        });
+      }
     } catch (e) {
       setState(() => _isSubmitting = false);
       if (mounted) {
@@ -141,13 +171,64 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
     return Scaffold(
       backgroundColor: Colors.black,
       body: SafeArea(
-        child: AnimatedSwitcher(
-          duration: const Duration(milliseconds: 500),
-          transitionBuilder: (Widget child, Animation<double> animation) {
-            return FadeTransition(opacity: animation, child: child);
-          },
-          child: _buildCurrentStepView(),
+        child: Column(
+          children: [
+            _buildStepIndicator(),
+            Expanded(
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 500),
+                transitionBuilder: (Widget child, Animation<double> animation) {
+                  return FadeTransition(opacity: animation, child: child);
+                },
+                child: _buildCurrentStepView(),
+              ),
+            ),
+          ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildStepIndicator() {
+    final labels = _needsPasswordSetup
+        ? ['Profile', 'Security', 'Notifications']
+        : ['Profile', 'Notifications'];
+    final currentIndex = _needsPasswordSetup
+        ? SetupStep.values.indexOf(_currentStep)
+        : (_currentStep == SetupStep.notifications ? 1 : 0);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
+      child: Row(
+        children: List.generate(labels.length * 2 - 1, (i) {
+          if (i.isOdd) return const SizedBox(width: 8);
+          final stepIndex = i ~/ 2;
+          final isActive = stepIndex == currentIndex;
+          final isComplete = stepIndex < currentIndex;
+          return Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 300),
+                  height: 3,
+                  decoration: BoxDecoration(
+                    color: (isActive || isComplete) ? AppColors.primary : Colors.white12,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  labels[stepIndex],
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: isActive ? Colors.white70 : Colors.white24,
+                    fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
+                  ),
+                ),
+              ],
+            ),
+          );
+        }),
       ),
     );
   }
@@ -197,10 +278,14 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
               validator: (v) => v == null || v.isEmpty ? 'Required' : (_isUsernameAvailable == false ? 'Username already taken' : null),
             ).animate().slideX(begin: -0.1).fadeIn(delay: 200.ms),
             const SizedBox(height: 60),
-            PrimaryButton(
-              text: 'Next: Security', 
-              onPressed: (_isCheckingUsername || _isUsernameAvailable == false) ? null : _goToSecurity
-            ),
+            _isSubmitting
+                ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
+                : PrimaryButton(
+                    text: _needsPasswordSetup ? 'Next: Security' : 'Continue',
+                    onPressed: (_isCheckingUsername || _isUsernameAvailable == false)
+                        ? null
+                        : _goToNextFromIdentity,
+                  ),
           ],
         ),
       ),
@@ -264,21 +349,28 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
           const Icon(Icons.notifications_active_outlined, size: 80, color: AppColors.primary).animate().scale(duration: 600.ms, curve: Curves.easeOutBack),
           const SizedBox(height: 40),
           const Text(
-            'Keep Up with the Community',
+            'Stay in the loop',
             textAlign: TextAlign.center,
             style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.white),
           ).animate().fadeIn(delay: 200.ms),
           const SizedBox(height: 16),
           const Text(
-            'Notifications are essential to get live event updates, forum mentions, and ticket alerts. We promise not to spam.',
+            'Get live event updates, forum mentions, and ticket alerts the moment they happen.',
             textAlign: TextAlign.center,
             style: TextStyle(fontSize: 16, color: Colors.white54, height: 1.5),
           ).animate().fadeIn(delay: 400.ms),
           const SizedBox(height: 60),
           PrimaryButton(text: 'Enable Notifications', onPressed: _finishSetup),
+          const SizedBox(height: 12),
           TextButton(
             onPressed: _finishSetup,
-            child: const Text('I\'ll do this later', style: TextStyle(color: Colors.white24)),
+            child: const Text('Skip for now', style: TextStyle(color: Colors.white38)),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'You can turn these on later in your device settings.',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 11, color: Colors.white24),
           ),
         ],
       ),

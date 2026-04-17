@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -230,76 +231,11 @@ class TicketView extends StatelessWidget {
 
   /// Shows a dialog to transfer the ticket to another user.
   void _showTransferDialog(BuildContext context, TicketModel ticket) {
-    final controller = TextEditingController();
     showDialog<void>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.tertiary,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Transfer Ticket', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text(
-              'Enter the username or email of the recipient.',
-              style: TextStyle(color: Colors.white60),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: controller,
-              style: const TextStyle(color: Colors.white),
-              decoration: InputDecoration(
-                hintText: 'username or email',
-                hintStyle: const TextStyle(color: Colors.white30),
-                filled: true,
-                fillColor: Colors.white10,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel', style: TextStyle(color: Colors.white60)),
-          ),
-          TextButton(
-            onPressed: () async {
-              final recipient = controller.text.trim();
-              if (recipient.isEmpty) return;
-
-              Navigator.pop(ctx);
-              
-              final messenger = ScaffoldMessenger.of(context);
-              try {
-                await Supabase.instance.client.rpc('transfer_ticket', params: {
-                  'p_ticket_id': ticket.id,
-                  'p_recipient_username': recipient,
-                });
-                
-                messenger.showSnackBar(
-                  const SnackBar(
-                    content: Text('Ticket transferred successfully!'),
-                    backgroundColor: AppColors.primary,
-                  ),
-                );
-                
-                // Refresh the list if needed or pop
-                if (context.mounted) {
-                  context.read<TicketCubit>().refresh();
-                }
-              } catch (e) {
-                messenger.showSnackBar(
-                  SnackBar(
-                    content: Text('Transfer failed: ${e.toString()}'),
-                    backgroundColor: Colors.red,
-                  ),
-                );
-              }
-            },
-            child: const Text('Transfer', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold)),
-          ),
-        ],
+      builder: (_) => _TransferTicketDialog(
+        ticket: ticket,
+        parentContext: context,
       ),
     );
   }
@@ -561,6 +497,210 @@ class TicketView extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _TransferTicketDialog extends StatefulWidget {
+  final TicketModel ticket;
+  final BuildContext parentContext;
+
+  const _TransferTicketDialog({
+    required this.ticket,
+    required this.parentContext,
+  });
+
+  @override
+  State<_TransferTicketDialog> createState() => _TransferTicketDialogState();
+}
+
+class _TransferTicketDialogState extends State<_TransferTicketDialog> {
+  final _controller = TextEditingController();
+  Timer? _debounceTimer;
+  bool _isChecking = false;
+  bool? _recipientFound;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller.addListener(_onInputChanged);
+  }
+
+  @override
+  void dispose() {
+    _controller.removeListener(_onInputChanged);
+    _debounceTimer?.cancel();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _onInputChanged() {
+    final value = _controller.text.trim();
+
+    if (value.isEmpty || value.length < 3) {
+      _debounceTimer?.cancel();
+      if (mounted) setState(() { _recipientFound = null; _isChecking = false; });
+      return;
+    }
+
+    // Email addresses: skip lookup, let the RPC validate
+    if (value.contains('@')) {
+      _debounceTimer?.cancel();
+      if (mounted) setState(() { _recipientFound = null; _isChecking = false; });
+      return;
+    }
+
+    if (_debounceTimer?.isActive ?? false) _debounceTimer?.cancel();
+    setState(() => _isChecking = true);
+
+    _debounceTimer = Timer(const Duration(milliseconds: 500), () async {
+      if (!mounted) return;
+      try {
+        final data = await Supabase.instance.client
+            .from('user_profile')
+            .select('user_name')
+            .eq('user_name', value)
+            .maybeSingle();
+        if (mounted) {
+          setState(() {
+            _recipientFound = data != null;
+            _isChecking = false;
+          });
+        }
+      } catch (_) {
+        if (mounted) setState(() => _isChecking = false);
+      }
+    });
+  }
+
+  bool get _canTransfer {
+    final value = _controller.text.trim();
+    if (value.isEmpty || _isChecking) return false;
+    if (value.contains('@')) return true; // email — let RPC decide
+    return _recipientFound == true;
+  }
+
+  Future<void> _doTransfer() async {
+    final recipient = _controller.text.trim();
+    // Capture refs before closing the dialog
+    final messenger = ScaffoldMessenger.of(widget.parentContext);
+    final cubit = widget.parentContext.read<TicketCubit>();
+    Navigator.pop(context);
+
+    try {
+      await Supabase.instance.client.rpc('transfer_ticket', params: {
+        'p_ticket_id': widget.ticket.id,
+        'p_recipient_username': recipient,
+      });
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('Ticket transferred successfully!'),
+          backgroundColor: AppColors.primary,
+        ),
+      );
+      cubit.refresh();
+    } catch (e) {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('Transfer failed: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Widget? _suffixIcon() {
+    if (_isChecking) {
+      return const SizedBox(
+        width: 20,
+        height: 20,
+        child: Padding(
+          padding: EdgeInsets.all(12),
+          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white24),
+        ),
+      );
+    }
+    if (_controller.text.contains('@')) return null;
+    if (_recipientFound == true) return const Icon(Icons.check_circle, color: AppColors.primary, size: 20);
+    if (_recipientFound == false) return const Icon(Icons.error, color: Colors.redAccent, size: 20);
+    return null;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final value = _controller.text.trim();
+    return AlertDialog(
+      backgroundColor: AppColors.tertiary,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      title: const Text(
+        'Transfer Ticket',
+        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+      ),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Enter the username or email of the recipient.',
+            style: TextStyle(color: Colors.white60),
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _controller,
+            autofocus: true,
+            style: const TextStyle(color: Colors.white),
+            decoration: InputDecoration(
+              hintText: 'username or email',
+              hintStyle: const TextStyle(color: Colors.white30),
+              filled: true,
+              fillColor: Colors.white10,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide.none,
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: AppColors.primary, width: 1),
+              ),
+              suffixIcon: _suffixIcon(),
+            ),
+          ),
+          if (value.length >= 3 && !value.contains('@') && !_isChecking) ...[
+            const SizedBox(height: 8),
+            if (_recipientFound == false)
+              const Text(
+                'No user found with that username.',
+                style: TextStyle(color: Colors.redAccent, fontSize: 12),
+              )
+            else if (_recipientFound == true)
+              Text(
+                'Recipient found.',
+                style: TextStyle(
+                  color: AppColors.primary.withValues(alpha: 0.8),
+                  fontSize: 12,
+                ),
+              ),
+          ],
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel', style: TextStyle(color: Colors.white60)),
+        ),
+        TextButton(
+          onPressed: _canTransfer ? _doTransfer : null,
+          child: Text(
+            'Transfer',
+            style: TextStyle(
+              color: _canTransfer
+                  ? AppColors.primary
+                  : AppColors.primary.withValues(alpha: 0.3),
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

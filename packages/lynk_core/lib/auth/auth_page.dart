@@ -275,9 +275,7 @@ class _SignUpFormState extends State<_SignUpForm> {
         password: password,
       );
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Verification email sent!')),
-        );
+        context.go('/verify-email?email=${Uri.encodeComponent(email)}');
       }
     } catch (e) {
       if (mounted) {

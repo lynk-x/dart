@@ -38,6 +38,7 @@ GoRouter createRouter(
         '/splash',
         '/forgot-password',
         '/reset-password',
+        '/verify-email',
         '/maintenance',
         '/error'
       };
@@ -57,6 +58,13 @@ GoRouter createRouter(
     },
     routes: [
       GoRoute(path: '/auth', builder: (_, __) => const AuthPage()),
+      GoRoute(
+        path: '/verify-email',
+        builder: (_, state) {
+          final email = state.uri.queryParameters['email'] ?? '';
+          return VerifyEmailPage(email: email);
+        },
+      ),
       GoRoute(
         path: '/forgot-password',
         builder: (_, __) => const ForgotPasswordPage(),

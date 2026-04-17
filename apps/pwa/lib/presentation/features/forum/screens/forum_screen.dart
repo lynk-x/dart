@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -110,13 +111,21 @@ class _ForumViewState extends State<ForumView> {
   final ScrollController _updatesScrollController = ScrollController();
   final ScrollController _chatScrollController = ScrollController();
   late final PageController _pageController;
-  bool _showWelcome = true;
+  bool _showWelcome = false;
 
   @override
   void initState() {
     super.initState();
     final initialTab = context.read<ForumCubit>().state.currentTabIndex;
     _pageController = PageController(initialPage: initialTab);
+    _loadBannerState();
+  }
+
+  Future<void> _loadBannerState() async {
+    final forumId = context.read<ForumCubit>().forumId;
+    final prefs = await SharedPreferences.getInstance();
+    final dismissed = prefs.getBool('forum_banner_dismissed_$forumId') ?? false;
+    if (mounted) setState(() => _showWelcome = !dismissed);
   }
 
   Widget _buildWelcomeBanner() {
@@ -158,7 +167,12 @@ class _ForumViewState extends State<ForumView> {
             ),
             IconButton(
               icon: const Icon(Icons.close, color: Colors.white24, size: 18),
-              onPressed: () => setState(() => _showWelcome = false),
+              onPressed: () async {
+                setState(() => _showWelcome = false);
+                final forumId = context.read<ForumCubit>().forumId;
+                final prefs = await SharedPreferences.getInstance();
+                await prefs.setBool('forum_banner_dismissed_$forumId', true);
+              },
             ),
           ],
         ),

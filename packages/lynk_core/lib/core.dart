@@ -9,6 +9,7 @@ export 'src/theme/app_theme.dart';
 export 'auth/auth_page.dart';
 export 'auth/forgot_password_page.dart';
 export 'auth/reset_password_page.dart';
+export 'auth/verify_email_page.dart';
 export 'src/widgets/primary_button.dart';
 export 'src/widgets/flame_badge.dart';
 export 'src/models/event_model.dart';

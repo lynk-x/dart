@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:lynk_core/core.dart';
 
 /// Subscription upgrade screen.
@@ -104,12 +105,14 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
 
       final checkoutUrl = result?['checkout_url'] as String?;
       if (checkoutUrl != null && checkoutUrl.isNotEmpty && mounted) {
-        // Payment handled externally — show confirmation
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Subscription initiated. Complete payment to activate.'),
-          ),
-        );
+        final uri = Uri.parse(checkoutUrl);
+        if (await canLaunchUrl(uri)) {
+          await launchUrl(uri, mode: LaunchMode.inAppBrowserView);
+        } else if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Could not open payment page.')),
+          );
+        }
       } else if (mounted) {
         // Direct activation (e.g. free upgrade, wallet payment)
         ScaffoldMessenger.of(context).showSnackBar(
@@ -253,11 +256,12 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
             child: Column(
               children: [
                 if (plan.features.isEmpty) ...[
-                  _buildBenefitRow('Exclusive VIP Profile Badge'),
-                  const SizedBox(height: 16),
-                  _buildBenefitRow('Zero Ads in Live Chats & Media'),
-                  const SizedBox(height: 16),
-                  _buildBenefitRow('Priority Access to New Features'),
+                  Center(
+                    child: Text(
+                      'Feature details not available.',
+                      style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 14),
+                    ),
+                  ),
                 ] else
                   ...plan.features.asMap().entries.map((entry) {
                     final isLast = entry.key == plan.features.length - 1;
@@ -307,7 +311,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
             child: ElevatedButton(
               onPressed: isCurrent || _isSubscribing
                   ? null
-                  : () => _subscribe(plan.id),
+                  : () => _showSubscribeConfirmation(plan),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primary,
                 disabledBackgroundColor: AppColors.primary.withValues(alpha: 0.3),
@@ -348,6 +352,82 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
           const SizedBox(height: 40),
         ],
       ),
+    );
+  }
+
+  void _showSubscribeConfirmation(_PlanDisplay plan) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF111111),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.fromLTRB(24, 20, 24, 40),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.white24,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            const Text(
+              'Confirm Upgrade',
+              style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 20),
+            _buildConfirmRow('Plan', plan.name),
+            const SizedBox(height: 10),
+            _buildConfirmRow(
+              'Amount',
+              '${plan.currency} ${plan.price.toStringAsFixed(2)} / ${plan.interval}',
+            ),
+            const SizedBox(height: 10),
+            _buildConfirmRow('Billing', 'Recurring — cancel anytime'),
+            const SizedBox(height: 28),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(ctx);
+                _subscribe(plan.id);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.black,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                minimumSize: const Size.fromHeight(52),
+                elevation: 0,
+              ),
+              child: const Text(
+                'Confirm & Pay',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel', style: TextStyle(color: Colors.white38)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildConfirmRow(String label, String value) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(label, style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 14)),
+        Text(value, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
+      ],
     );
   }
 

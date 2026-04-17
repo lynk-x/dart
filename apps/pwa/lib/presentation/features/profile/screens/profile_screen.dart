@@ -278,17 +278,49 @@ class _ProfileContent extends StatelessWidget {
             icon: Icons.logout,
             label: 'Sign Out',
             isDestructive: true,
-            onTap: () async {
-              await PushNotificationService.instance.removeToken();
-              await Supabase.instance.client.auth.signOut();
-              if (context.mounted) context.go('/auth');
-            },
+            onTap: () => _confirmSignOut(context),
           ),
 
           const SizedBox(height: 40),
         ],
       ),
     );
+  }
+
+  Future<void> _confirmSignOut(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.primaryBackground,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text(
+          'Sign Out?',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
+        content: const Text(
+          'You will need to sign in again to access your tickets and events.',
+          style: TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel', style: TextStyle(color: Colors.white60)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text(
+              'Sign Out',
+              style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true && context.mounted) {
+      await PushNotificationService.instance.removeToken();
+      await Supabase.instance.client.auth.signOut();
+      if (context.mounted) context.go('/auth');
+    }
   }
 
   String _initials(String name) {

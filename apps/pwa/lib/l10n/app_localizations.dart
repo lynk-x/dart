@@ -100,73 +100,73 @@ abstract class AppLocalizations {
     Locale('sw')
   ];
 
-  /// No description provided for @profile.
+  /// Label for the user profile section
   ///
   /// In en, this message translates to:
   /// **'Profile'**
   String get profile;
 
-  /// No description provided for @editProfile.
+  /// Button text to edit profile
   ///
   /// In en, this message translates to:
   /// **'Edit Profile'**
   String get editProfile;
 
-  /// No description provided for @comingSoon.
+  /// Placeholder text for unreleased features
   ///
   /// In en, this message translates to:
   /// **'Coming soon'**
   String get comingSoon;
 
-  /// No description provided for @feedback.
+  /// Label for the feedback section
   ///
   /// In en, this message translates to:
   /// **'Feedback'**
   String get feedback;
 
-  /// No description provided for @notifications.
+  /// Label for the notifications section
   ///
   /// In en, this message translates to:
   /// **'Notifications'**
   String get notifications;
 
-  /// No description provided for @logout.
+  /// Button text for logging out
   ///
   /// In en, this message translates to:
   /// **'Logout'**
   String get logout;
 
-  /// No description provided for @cancel.
+  /// Generic cancel button text
   ///
   /// In en, this message translates to:
   /// **'Cancel'**
   String get cancel;
 
-  /// No description provided for @logoutConfirmTitle.
+  /// Title for logout confirmation dialog
   ///
   /// In en, this message translates to:
   /// **'Logout'**
   String get logoutConfirmTitle;
 
-  /// No description provided for @logoutConfirmMessage.
+  /// Message for logout confirmation dialog
   ///
   /// In en, this message translates to:
   /// **'Are you sure you want to logout? You will need to sign in again to access your account.'**
   String get logoutConfirmMessage;
 
-  /// No description provided for @privacyPolicy.
+  /// Link text for privacy policy
   ///
   /// In en, this message translates to:
   /// **'Privacy Policy'**
   String get privacyPolicy;
 
-  /// No description provided for @termsConditions.
+  /// Link text for terms and conditions
   ///
   /// In en, this message translates to:
   /// **'Terms & Conditions'**
   String get termsConditions;
 
-  /// No description provided for @version.
+  /// Label for the app version number
   ///
   /// In en, this message translates to:
   /// **'Version'**

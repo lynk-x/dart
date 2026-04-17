@@ -87,8 +87,7 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
             ),
             const SizedBox(height: 24),
             PrimaryButton(
-              text:
-                  'Send Link', // Keeping visual label, though typically "Reset Password"
+              text: 'Reset Password',
               onPressed: _updatePassword,
               isLoading: _isLoading,
             ),

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart' hide Badge;
 import 'package:badges/badges.dart' as badges;
-
-
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -45,6 +44,7 @@ class HomeView extends StatefulWidget {
 class _HomeViewState extends State<HomeView>
     with AutomaticKeepAliveClientMixin {
   final ScrollController _scrollController = ScrollController();
+  bool _showWelcomeBanner = false;
 
   @override
   bool get wantKeepAlive => true;
@@ -52,7 +52,6 @@ class _HomeViewState extends State<HomeView>
   @override
   void initState() {
     super.initState();
-    // Trigger pagination when the user scrolls near the bottom.
     _scrollController.addListener(() {
       final cubit = context.read<HomeCubit>();
       if (_scrollController.position.pixels >=
@@ -62,6 +61,19 @@ class _HomeViewState extends State<HomeView>
         cubit.loadMore();
       }
     });
+    _loadWelcomeBanner();
+  }
+
+  Future<void> _loadWelcomeBanner() async {
+    final prefs = await SharedPreferences.getInstance();
+    final dismissed = prefs.getBool('home_welcome_dismissed') ?? false;
+    if (mounted && !dismissed) setState(() => _showWelcomeBanner = true);
+  }
+
+  Future<void> _dismissWelcomeBanner() async {
+    setState(() => _showWelcomeBanner = false);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('home_welcome_dismissed', true);
   }
 
   @override
@@ -114,11 +126,16 @@ class _HomeViewState extends State<HomeView>
           }
 
           if (state.events.isEmpty && !state.isLoading) {
-            return const EmptyState(message: 'No events found');
+            return EmptyState(
+              message: "You haven't joined any events yet.",
+              actionLabel: 'Find Events',
+              onAction: _launchWebApp,
+            );
           }
 
           return Column(
             children: [
+              if (_showWelcomeBanner) _buildWelcomeBanner(),
               Expanded(
                 child: RefreshIndicator(
                   onRefresh: context.read<HomeCubit>().refresh,
@@ -162,6 +179,66 @@ class _HomeViewState extends State<HomeView>
             ],
           );
         },
+      ),
+    );
+  }
+
+  Widget _buildWelcomeBanner() {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            AppColors.primary.withValues(alpha: 0.15),
+            Colors.transparent,
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.25)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const CircleAvatar(
+            radius: 18,
+            backgroundColor: AppColors.primary,
+            child: Icon(Icons.waving_hand, color: Colors.black, size: 18),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Welcome to Lynk-X!',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Your event feed is live. Join a forum to chat with attendees, or tap an event to explore.',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.6),
+                    fontSize: 12,
+                    height: 1.5,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            icon: Icon(Icons.close, color: Colors.white.withValues(alpha: 0.3), size: 16),
+            onPressed: _dismissWelcomeBanner,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+          ),
+        ],
       ),
     );
   }
