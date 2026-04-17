@@ -259,10 +259,14 @@ class _EditProfilePageState extends State<EditProfilePage> {
                 const Text('Cancel', style: TextStyle(color: Colors.white60)),
           ),
           TextButton(
-            onPressed: () {
+            onPressed: () async {
               Navigator.pop(dialogContext);
-              context.read<ProfileCubit>().deleteAccount();
-              context.go('/auth');
+              try {
+                await context.read<ProfileCubit>().deleteAccount();
+                // Auth state change (signedOut) triggers router redirect automatically
+              } catch (_) {
+                // Error is emitted to ProfileCubit state and shown via BlocListener
+              }
             },
             child: const Text(
               'Delete Forever',

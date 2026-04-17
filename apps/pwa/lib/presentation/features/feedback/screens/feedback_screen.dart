@@ -18,6 +18,7 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
   final TextEditingController _feedbackController = TextEditingController();
   String _selectedCategory = 'Feature Request';
   bool _isSubmitting = false;
+  bool _includeDeviceInfo = false;
 
   final List<Map<String, dynamic>> _categories = [
     {
@@ -66,8 +67,10 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
         'metadata': {
           'category': _selectedCategoryId,
           'app_version': packageInfo.version,
-          'platform': Platform.operatingSystem,
-          'os_version': Platform.operatingSystemVersion,
+          if (_includeDeviceInfo) ...{
+            'platform': Platform.operatingSystem,
+            'os_version': Platform.operatingSystemVersion,
+          },
         },
       });
 
@@ -230,7 +233,30 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
               ),
             ),
 
-            const SizedBox(height: 48),
+            const SizedBox(height: 16),
+
+            // Diagnostic info opt-in
+            GestureDetector(
+              onTap: () => setState(() => _includeDeviceInfo = !_includeDeviceInfo),
+              child: Row(
+                children: [
+                  Checkbox(
+                    value: _includeDeviceInfo,
+                    onChanged: (v) => setState(() => _includeDeviceInfo = v ?? false),
+                    activeColor: AppColors.primary,
+                    side: const BorderSide(color: Colors.white30),
+                  ),
+                  const Expanded(
+                    child: Text(
+                      'Include device info (OS & version) to help diagnose bugs',
+                      style: TextStyle(color: Colors.white60, fontSize: 13),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 24),
 
             // Submit Button
             PrimaryButton(

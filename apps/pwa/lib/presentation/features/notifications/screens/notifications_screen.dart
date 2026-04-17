@@ -142,13 +142,17 @@ class _NotificationsPageState extends State<NotificationsPage> {
                   child: const Icon(Icons.delete, color: Colors.white),
                 ),
                 onDismissed: (direction) {
-                  context
-                      .read<NotificationCubit>()
-                      .deleteNotification(notification.id);
+                  final cubit = context.read<NotificationCubit>();
+                  cubit.deleteNotification(notification.id);
 
+                  ScaffoldMessenger.of(context).clearSnackBars();
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text('${notification.title} dismissed'),
+                      action: SnackBarAction(
+                        label: 'Undo',
+                        onPressed: () => cubit.loadNotifications(),
+                      ),
                     ),
                   );
                 },

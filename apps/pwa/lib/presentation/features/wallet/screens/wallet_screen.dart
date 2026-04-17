@@ -499,7 +499,15 @@ class _WalletPageState extends State<WalletPage> {
   }
 
   Future<void> _openPaymentUrl(String url) async {
-    final uri = Uri.parse(url);
+    final uri = Uri.tryParse(url);
+    if (uri == null || uri.scheme != 'https') {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Invalid payment URL received. Please contact support.')),
+        );
+      }
+      return;
+    }
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri, mode: LaunchMode.inAppBrowserView);
     } else {
@@ -646,9 +654,9 @@ class _TransactionTile extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                   ),
                   Text(
-                    '${tx.createdAt.day.toString().padLeft(2,'0')}/'
-                    '${tx.createdAt.month.toString().padLeft(2,'0')}/'
-                    '${tx.createdAt.year}',
+                    '${tx.createdAt.toLocal().day.toString().padLeft(2,'0')}/'
+                    '${tx.createdAt.toLocal().month.toString().padLeft(2,'0')}/'
+                    '${tx.createdAt.toLocal().year}',
                     style: AppTypography.inter(fontSize: 10, color: Colors.white38),
                   ),
                 ],

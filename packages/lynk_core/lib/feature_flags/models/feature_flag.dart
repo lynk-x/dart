@@ -8,6 +8,10 @@ class FeatureFlag extends Equatable {
   final Map<String, dynamic> exclusionRules;
   final int rolloutPercent;
 
+  /// ISO 3166-1 alpha-2 country codes that may see this flag.
+  /// Empty list means the flag is available in all regions.
+  final List<String> allowedRegions;
+
   const FeatureFlag({
     required this.key,
     required this.isEnabled,
@@ -15,6 +19,7 @@ class FeatureFlag extends Equatable {
     required this.platforms,
     required this.exclusionRules,
     required this.rolloutPercent,
+    this.allowedRegions = const [],
   });
 
   factory FeatureFlag.fromMap(Map<String, dynamic> map) {
@@ -25,6 +30,7 @@ class FeatureFlag extends Equatable {
       platforms: List<String>.from(map['platforms'] ?? []),
       exclusionRules: map['exclusion_rules'] as Map<String, dynamic>? ?? {},
       rolloutPercent: map['rollout_percent'] as int? ?? 100,
+      allowedRegions: List<String>.from(map['allowed_regions'] ?? []),
     );
   }
 
@@ -36,5 +42,6 @@ class FeatureFlag extends Equatable {
         platforms,
         exclusionRules,
         rolloutPercent,
+        allowedRegions,
       ];
 }

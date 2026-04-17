@@ -8,15 +8,19 @@ class NotificationCubit extends Cubit<NotificationState> {
   NotificationCubit() : super(const NotificationInitial());
 
   RealtimeChannel? _channel;
-  String get userId => Supabase.instance.client.auth.currentUser!.id;
+
+  /// Returns the current user's ID, or null if auth has not resolved yet.
+  String? get _userId => Supabase.instance.client.auth.currentUser?.id;
 
   Future<void> loadNotifications() async {
+    final uid = _userId;
+    if (uid == null) return; // Auth not ready — called too early
     emit(const NotificationLoading());
     try {
       final data = await Supabase.instance.client
           .from('notifications')
           .select()
-          .eq('user_id', userId)
+          .eq('user_id', uid)
           .order('created_at', ascending: false);
 
       final notifications = (data as List)
@@ -31,18 +35,19 @@ class NotificationCubit extends Cubit<NotificationState> {
   }
 
   void _subscribeToNotifications() {
+    final uid = _userId;
+    if (uid == null) return;
     _channel?.unsubscribe();
     _channel = Supabase.instance.client
-        .channel('public:notifications:user=$userId')
+        .channel('public:notifications:user=$uid')
         .onPostgresChanges(
           event: PostgresChangeEvent.all,
           schema: 'public',
           table: 'notifications',
-          // Use filter to only get changes for the current user
           filter: PostgresChangeFilter(
             type: PostgresChangeFilterType.eq,
             column: 'user_id',
-            value: userId,
+            value: uid,
           ),
           callback: (payload) {
             _handleRealtimeUpdate(payload);
@@ -74,12 +79,21 @@ class NotificationCubit extends Cubit<NotificationState> {
   }
 
   Future<void> markAsRead(String notificationId) async {
+    // Optimistic update — real-time listener confirms; this prevents stale badge
+    final currentState = state;
+    if (currentState is NotificationLoaded) {
+      final updated = currentState.notifications
+          .map((n) => n.id == notificationId ? n.copyWith(isRead: true) : n)
+          .toList();
+      emit(currentState.copyWith(notifications: updated));
+    }
     try {
       await Supabase.instance.client
           .from('notifications')
           .update({'is_read': true}).eq('id', notificationId);
-      // Real-time listener will handle the UI update
-    } catch (_) {}
+    } catch (_) {
+      // Best-effort — next load will reconcile
+    }
   }
 
   Future<void> markAllAsRead() async {
@@ -88,10 +102,12 @@ class NotificationCubit extends Cubit<NotificationState> {
 
     emit(currentState.copyWith(isMarkingAllRead: true));
     try {
+      final uid = _userId;
+      if (uid == null) return;
       await Supabase.instance.client
           .from('notifications')
           .update({'is_read': true})
-          .eq('user_id', userId)
+          .eq('user_id', uid)
           .eq('is_read', false);
 
       final updatedList = currentState.notifications
@@ -110,7 +126,10 @@ class NotificationCubit extends Cubit<NotificationState> {
           .delete()
           .eq('id', notificationId);
       // Real-time listener will handle the UI update
-    } catch (_) {}
+    } catch (_) {
+      // DB delete failed — reload to restore the dismissed item in the UI
+      loadNotifications();
+    }
   }
 
   @override

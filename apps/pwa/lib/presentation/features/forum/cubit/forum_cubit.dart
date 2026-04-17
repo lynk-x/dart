@@ -267,8 +267,9 @@ class ForumCubit extends Cubit<ForumState> {
 
   // ── Moderation ─────────────────────────────────────────────────────────────
 
-  Future<void> muteUser(String targetUserId, {String? reason}) async {
-    if (!state.isModerator) return;
+  /// Returns `true` on success, `false` if permission denied or RPC failed.
+  Future<bool> muteUser(String targetUserId, {String? reason}) async {
+    if (!state.isModerator) return false;
     try {
       await Supabase.instance.client.rpc('moderate_user_safe', params: {
         'p_target_user_id': targetUserId,
@@ -276,21 +277,26 @@ class ForumCubit extends Cubit<ForumState> {
         'p_forum_id': forumId,
         'p_reason': reason ?? 'Violated forum rules',
       });
+      return true;
     } catch (e, stack) {
-      debugPrint('[ForumCubit] Error: $e\n$stack');
+      debugPrint('[ForumCubit] muteUser error: $e\n$stack');
+      return false;
     }
   }
 
-  Future<void> banUser(String targetUserId, {String? reason}) async {
-    if (!state.isOrganizer) return;
+  /// Returns `true` on success, `false` if permission denied or RPC failed.
+  Future<bool> banUser(String targetUserId, {String? reason}) async {
+    if (!state.isOrganizer) return false;
     try {
       await Supabase.instance.client.rpc('moderate_user_safe', params: {
         'p_target_user_id': targetUserId,
         'p_action': 'ban',
         'p_reason': reason ?? 'Banned by organizer',
       });
+      return true;
     } catch (e, stack) {
-      debugPrint('[ForumCubit] Error: $e\n$stack');
+      debugPrint('[ForumCubit] banUser error: $e\n$stack');
+      return false;
     }
   }
 

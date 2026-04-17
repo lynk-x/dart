@@ -90,7 +90,18 @@ GoRouter createRouter(
         path: '/tickets',
         builder: (_, __) => const TicketsListScreen(),
       ),
-      GoRoute(path: '/wallet', builder: (_, __) => const WalletPage()),
+      GoRoute(
+        path: '/wallet',
+        builder: (context, __) {
+          if (!context.read<FeatureFlagCubit>().isEnabled('enable_wallet')) {
+            return const SystemErrorScreen(
+              title: 'Feature Unavailable',
+              message: 'The wallet is not available in your region yet.',
+            );
+          }
+          return const WalletPage();
+        },
+      ),
       GoRoute(
           path: '/edit-profile', builder: (_, __) => const EditProfilePage()),
       GoRoute(path: '/feedback', builder: (_, __) => const FeedbackScreen()),
@@ -104,11 +115,27 @@ GoRouter createRouter(
       ),
       GoRoute(
         path: '/kyc',
-        builder: (_, __) => const KycVerificationScreen(),
+        builder: (context, __) {
+          if (!context.read<FeatureFlagCubit>().isEnabled('enable_kyc')) {
+            return const SystemErrorScreen(
+              title: 'Feature Unavailable',
+              message: 'Identity verification is not available in your region yet.',
+            );
+          }
+          return const KycVerificationScreen();
+        },
       ),
       GoRoute(
         path: '/upgrade',
-        builder: (_, __) => const SubscriptionScreen(),
+        builder: (context, __) {
+          if (!context.read<FeatureFlagCubit>().isEnabled('enable_premium_subscriptions')) {
+            return const SystemErrorScreen(
+              title: 'Feature Unavailable',
+              message: 'Premium subscriptions are not available yet.',
+            );
+          }
+          return const SubscriptionScreen();
+        },
       ),
       GoRoute(
         path: '/maintenance',

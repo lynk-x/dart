@@ -44,11 +44,17 @@ class ForumPage extends StatelessWidget {
           return MultiBlocProvider(
             providers: [
               BlocProvider(
-                create: (context) => ForumAdsCubit(
-                  forumId: mainCubit.forumId,
-                  userId: mainCubit.userId,
-                  isPremium: !state.showAds,
-                )..init(),
+                create: (context) {
+                  final ads = ForumAdsCubit(
+                    forumId: mainCubit.forumId,
+                    userId: mainCubit.userId,
+                    isPremium: !state.showAds,
+                  );
+                  if (context.read<FeatureFlagCubit>().isEnabled('enable_forum_ads')) {
+                    ads.init();
+                  }
+                  return ads;
+                },
               ),
               BlocProvider(
                 create: (context) {
@@ -215,20 +221,6 @@ class _ForumViewState extends State<ForumView> {
                     },
                   ),
                 ],
-                _buildActionItem(
-                    Icons.notifications_active, 'Reminder', AppColors.secondary,
-                    onTap: () {
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Reminder set!')),
-                  );
-                }),
-                _buildActionItem(
-                    Icons.workspace_premium, 'Badge', AppColors.primary,
-                    isPremium: true),
-                _buildActionItem(
-                    Icons.face_retouching_natural, 'Filters', Colors.pinkAccent,
-                    isPremium: true),
               ],
             ),
             const SizedBox(height: 16),
@@ -314,7 +306,10 @@ class _ForumViewState extends State<ForumView> {
     MediaViewer.show(
       context,
       imageUrl: imageUrl,
-      interstitialAd: state.isPremium ? null : adsState.interstitialAd,
+      interstitialAd: (state.isPremium ||
+              !context.read<FeatureFlagCubit>().isEnabled('enable_forum_ads'))
+          ? null
+          : adsState.interstitialAd,
       onMention: () {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Image referenced in chat!')),
@@ -329,7 +324,10 @@ class _ForumViewState extends State<ForumView> {
     MediaViewer.show(
       context,
       mediaItem: mediaItem,
-      interstitialAd: state.isPremium ? null : adsState.interstitialAd,
+      interstitialAd: (state.isPremium ||
+              !context.read<FeatureFlagCubit>().isEnabled('enable_forum_ads'))
+          ? null
+          : adsState.interstitialAd,
       onApprove: (state.isOrganizer && !mediaItem.isApproved)
           ? () => mediaCubit.approveMedia(mediaItem.id)
           : null,
@@ -363,6 +361,7 @@ class _ForumViewState extends State<ForumView> {
         BlocListener<ForumCubit, ForumState>(
           listenWhen: (p, c) => p.waveTrigger != c.waveTrigger,
           listener: (context, state) {
+            if (!context.read<FeatureFlagCubit>().isEnabled('enable_social_actions')) return;
             // Guard against blocked users
             if (state.waveFromName != null && state.waveFromUserId != null) {
               final isBlocked = context.read<BlockCubit>().isBlocked(state.waveFromUserId!);
@@ -428,6 +427,7 @@ class _ForumViewState extends State<ForumView> {
                   builder: (context, adsState) {
                     if (cubit.state.isPremium ||
                         !showBannerAd ||
+                        !context.read<FeatureFlagCubit>().isEnabled('enable_forum_ads') ||
                         adsState.ads.isEmpty) {
                       return const SizedBox.shrink();
                     }
@@ -606,8 +606,26 @@ class _ForumViewState extends State<ForumView> {
                               isPremium: state.isPremium,
                             ),
                         onPin: (msg) => mainCubit.pinMessage(msg),
-                        onMute: (msg) => mainCubit.muteUser(msg.userId),
-                        onBan: (msg) => mainCubit.banUser(msg.userId),
+                        onMute: (msg) async {
+                          final ok = await mainCubit.muteUser(msg.userId);
+                          if (!ok && context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Action failed or insufficient permissions'),
+                              ),
+                            );
+                          }
+                        },
+                        onBan: (msg) async {
+                          final ok = await mainCubit.banUser(msg.userId);
+                          if (!ok && context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Action failed or insufficient permissions'),
+                              ),
+                            );
+                          }
+                        },
                         onReport: _showReportDialog,
                         selectedCategory: updatesState.selectedCategory,
                         onSelectionChanged: updatesCubit.setCategory,
@@ -631,8 +649,26 @@ class _ForumViewState extends State<ForumView> {
                     emojiTrigger: state.emojiTrigger,
                     onActionTap: _showActionSheet,
                     onPin: (msg) => mainCubit.pinMessage(msg),
-                    onMute: (msg) => mainCubit.muteUser(msg.userId),
-                    onBan: (msg) => mainCubit.banUser(msg.userId),
+                    onMute: (msg) async {
+                      final ok = await mainCubit.muteUser(msg.userId);
+                      if (!ok && context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Action failed or insufficient permissions'),
+                          ),
+                        );
+                      }
+                    },
+                    onBan: (msg) async {
+                      final ok = await mainCubit.banUser(msg.userId);
+                      if (!ok && context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Action failed or insufficient permissions'),
+                          ),
+                        );
+                      }
+                    },
                     isOrganizer: state.isOrganizer,
                     isMuted: state.isMuted || state.isReadOnly,
                     members: state.members,

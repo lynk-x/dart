@@ -189,7 +189,12 @@ class _LoginFormState extends State<_LoginForm> {
   bool _isLoading = false;
 
   Future<void> _signIn() async {
-    if (_emailController.text.isEmpty || _passwordController.text.isEmpty) return;
+    if (_emailController.text.isEmpty || _passwordController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter your email and password')),
+      );
+      return;
+    }
     setState(() => _isLoading = true);
     try {
       await Supabase.instance.client.auth.signInWithPassword(

@@ -22,6 +22,9 @@ class WalletCubit extends Cubit<WalletState> {
   // Realtime subscription for live balance updates
   RealtimeChannel? _balanceChannel;
 
+  // Auth state subscription — re-subscribes balance channel on session recovery
+  StreamSubscription<AuthState>? _authSubscription;
+
   // Pagination
   static const int _pageSize = 20;
   int _currentPage = 0;
@@ -33,10 +36,18 @@ class WalletCubit extends Cubit<WalletState> {
     emit(state.copyWith(isLoading: true, clearError: true));
     await Future.wait([_fetchBalances(), _fetchTransactions(reset: true)]);
     _subscribeToBalanceUpdates();
+    _authSubscription = _supabase.auth.onAuthStateChange.listen((event) {
+      if (event.event == AuthChangeEvent.tokenRefreshed ||
+          event.event == AuthChangeEvent.signedIn) {
+        _balanceChannel?.unsubscribe();
+        _subscribeToBalanceUpdates();
+      }
+    });
   }
 
   @override
   Future<void> close() {
+    _authSubscription?.cancel();
     _balanceChannel?.unsubscribe();
     return super.close();
   }
@@ -81,7 +92,7 @@ class WalletCubit extends Cubit<WalletState> {
           .select('id, category, reason, amount, currency, status, created_at, metadata')
           // Explicit user_id filter for defense-in-depth — RLS is not a substitute
           // for a missing WHERE clause when the column is available.
-          .eq('user_id', _supabase.auth.currentUser!.id)
+          .eq('user_id', _supabase.auth.currentUser?.id ?? '')
           .order('created_at', ascending: false)
           .range(from, to);
 

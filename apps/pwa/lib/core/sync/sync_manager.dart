@@ -115,7 +115,8 @@ class SyncManager {
       } catch (e) {
         debugPrint('[SyncManager] Sync failed for ${item.id}: $e');
 
-        if (++item.retryCount >= 5) {
+        _queue[0] = item.copyWith(retryCount: item.retryCount + 1);
+        if (_queue[0].retryCount >= 5) {
           _queue.removeAt(0);
           _statusController.add({item.id: false});
           debugPrint('[SyncManager] Discarded ${item.id} after max retries');

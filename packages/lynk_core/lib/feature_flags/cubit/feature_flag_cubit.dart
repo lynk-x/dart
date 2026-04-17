@@ -13,7 +13,25 @@ class FeatureFlagCubit extends Cubit<FeatureFlagState> {
   Future<void> init() async {
     final packageInfo = await PackageInfo.fromPlatform();
     emit(state.copyWith(appVersion: packageInfo.version));
-    await fetchFlags();
+    await Future.wait([fetchFlags(), _fetchUserCountry()]);
+  }
+
+  Future<void> _fetchUserCountry() async {
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    if (userId == null) return;
+    try {
+      final data = await Supabase.instance.client
+          .from('user_profile')
+          .select('country')
+          .eq('id', userId)
+          .maybeSingle();
+      final country = data?['country'] as String?;
+      if (country != null && !isClosed) {
+        emit(state.copyWith(userCountry: country.toUpperCase()));
+      }
+    } catch (_) {
+      // Non-fatal: regional checks will pass when country is unknown
+    }
   }
 
   Future<void> fetchFlags() async {
@@ -83,7 +101,14 @@ class FeatureFlagCubit extends Cubit<FeatureFlagState> {
       }
     }
 
-    // 3. Rollout Check (Deterministic based on User ID)
+    // 3. Region Check
+    if (flag.allowedRegions.isNotEmpty) {
+      final country = state.userCountry;
+      // If user's country is unknown, deny by default for region-restricted flags.
+      if (country == null || !flag.allowedRegions.contains(country)) return false;
+    }
+
+    // 4. Rollout Check (Deterministic based on User ID)
     if (flag.rolloutPercent < 100) {
       if (user == null) return false;
       final bucket = _getUserBucket(user.id);

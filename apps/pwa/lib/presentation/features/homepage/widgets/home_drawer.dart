@@ -253,62 +253,63 @@ class _HomeDrawerState extends State<HomeDrawer> {
             child: Column(
               children: [
                 // ── Upgrade CTA Card ──
-                Container(
-                  margin:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: AppColors.secondary,
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Material(
-                    color: Colors.transparent,
-                    child: InkWell(
+                if (context.read<FeatureFlagCubit>().isEnabled('enable_premium_subscriptions'))
+                  Container(
+                    margin:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: AppColors.secondary,
                       borderRadius: BorderRadius.circular(16),
-                      onTap: () {
-                        context.pop();
-                        // Direct the user to the new standalone Web App upgrade page!
-                        // In production, change localhost to lynk-x.com
-                        launchUrl(Uri.parse('http://localhost:3000/upgrade'),
-                            mode: LaunchMode.externalApplication);
-                      },
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.workspace_premium,
-                                color: Colors.black, size: 32),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Go Premium',
-                                    style: AppTypography.interTight(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.black,
+                    ),
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(16),
+                        onTap: () {
+                          context.pop();
+                          // Direct the user to the new standalone Web App upgrade page!
+                          // In production, change localhost to lynk-x.com
+                          launchUrl(Uri.parse('http://localhost:3000/upgrade'),
+                              mode: LaunchMode.externalApplication);
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.workspace_premium,
+                                  color: Colors.black, size: 32),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Go Premium',
+                                      style: AppTypography.interTight(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.black,
+                                      ),
                                     ),
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    'Ad-free experience & more',
-                                    style: AppTypography.inter(
-                                      fontSize: 12,
-                                      color: Colors.black87,
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      'Ad-free experience & more',
+                                      style: AppTypography.inter(
+                                        fontSize: 12,
+                                        color: Colors.black87,
+                                      ),
                                     ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
-                            ),
-                            const Icon(Icons.arrow_forward_ios,
-                                color: Colors.black54, size: 16),
-                          ],
+                              const Icon(Icons.arrow_forward_ios,
+                                  color: Colors.black54, size: 16),
+                            ],
+                          ),
                         ),
                       ),
                     ),
                   ),
-                ),
                 const SizedBox(height: 8),
 
                 ListTile(

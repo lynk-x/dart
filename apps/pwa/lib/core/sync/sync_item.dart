@@ -52,6 +52,17 @@ class SyncItem {
     this.serverUpdatedAtBaseline,
   }) : createdAt = createdAt ?? DateTime.now();
 
+  SyncItem copyWith({int? retryCount}) => SyncItem(
+        id: id,
+        table: table,
+        action: action,
+        payload: payload,
+        createdAt: createdAt,
+        retryCount: retryCount ?? this.retryCount,
+        conflictPolicy: conflictPolicy,
+        serverUpdatedAtBaseline: serverUpdatedAtBaseline,
+      );
+
   Map<String, dynamic> toMap() {
     return {
       'id': id,

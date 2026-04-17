@@ -7,6 +7,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 import 'package:lynk_core/core.dart';
+import 'package:lynk_x/services/push_notification_service.dart';
 
 enum SetupStep { identity, security, notifications }
 
@@ -129,9 +130,10 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
     }
   }
 
-  void _finishSetup() {
-    // Here as of now we just redirect home, but theoretically user could prompt native notifications here.
-    context.go('/');
+  Future<void> _finishSetup() async {
+    // Request push notification permission now that the user has opted in
+    await PushNotificationService.instance.init();
+    if (mounted) context.go('/');
   }
 
   @override

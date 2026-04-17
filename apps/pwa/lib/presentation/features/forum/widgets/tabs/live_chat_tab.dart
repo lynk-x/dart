@@ -71,7 +71,8 @@ class _LiveChatTabState extends State<LiveChatTab>
           text: 'Active/Live Chat',
         ),
         const SizedBox(height: 12),
-        if (_reactingToMessage != null)
+        if (_reactingToMessage != null &&
+            context.read<FeatureFlagCubit>().isEnabled('enable_forum_reactions'))
           ReactionBar(
             onEmojiTap: (emoji) {
               if (widget.onReact != null) {
@@ -145,12 +146,13 @@ class _LiveChatTabState extends State<LiveChatTab>
                       curve: Curves.easeOut,
                     );
                   }),
-                IgnorePointer(
-                  child: ReactionBackground(
-                    emoji: widget.selectedEmoji,
-                    trigger: widget.emojiTrigger,
+                if (context.read<FeatureFlagCubit>().isEnabled('enable_forum_reactions'))
+                  IgnorePointer(
+                    child: ReactionBackground(
+                      emoji: widget.selectedEmoji,
+                      trigger: widget.emojiTrigger,
+                    ),
                   ),
-                ),
               ],
             ),
           ),

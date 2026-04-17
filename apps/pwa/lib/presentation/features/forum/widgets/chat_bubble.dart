@@ -204,7 +204,8 @@ class _ChatBubbleState extends State<ChatBubble> {
             if (widget.message.replyTo != null) _buildReplyPreview(),
             if (widget.message.imageUrl != null) _buildImageContent(),
             _buildMessageContent(textColor),
-            if (widget.message.questionnaireId != null)
+            if (widget.message.questionnaireId != null &&
+                context.read<FeatureFlagCubit>().isEnabled('enable_forum_polls'))
               PollAttachment(questionnaireId: widget.message.questionnaireId!),
           ],
         ),
