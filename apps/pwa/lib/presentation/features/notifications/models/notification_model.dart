@@ -10,6 +10,7 @@ enum NotificationType {
   eventUpdate,
   moneyIn,
   moneyOut,
+  ticketResaleOffer,
 }
 
 class NotificationModel {
@@ -67,6 +68,8 @@ class NotificationModel {
         return NotificationType.moneyIn;
       case 'money_out':
         return NotificationType.moneyOut;
+      case 'ticket_resale_offer':
+        return NotificationType.ticketResaleOffer;
       case 'system':
       default:
         return NotificationType.system;
@@ -117,6 +120,8 @@ class NotificationModel {
         return Icons.account_balance_wallet;
       case NotificationType.moneyOut:
         return Icons.payment;
+      case NotificationType.ticketResaleOffer:
+        return Icons.sell;
     }
   }
 
@@ -140,6 +145,8 @@ class NotificationModel {
         return Colors.teal;
       case NotificationType.moneyOut:
         return Colors.red;
+      case NotificationType.ticketResaleOffer:
+        return Colors.orange;
     }
   }
 }

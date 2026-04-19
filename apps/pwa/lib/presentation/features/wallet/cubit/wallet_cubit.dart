@@ -149,21 +149,20 @@ class WalletCubit extends Cubit<WalletState> {
 
   // ── Top-up Flow ────────────────────────────────────────────────────────────
 
-  /// Initiate a wallet top-up via the platform payment gateway.
+  /// Initiate an M-Pesa STK push top-up.
   ///
-  /// [amount]   - The amount in the user's local currency.
-  /// [currency] - ISO 4217 currency code (e.g., 'KES', 'NGN', 'USD').
-  ///
-  /// On success, emits [TopUpStatus.success] and a [topUpPaymentUrl] that
-  /// the calling screen should open in a WebView / in-app browser.
-  Future<void> initiateTopUp({
+  /// Calls the `initiate-mpesa-topup` Edge Function, which sends an STK push
+  /// to [phone]. The wallet balance update arrives asynchronously via the
+  /// M-Pesa webhook → the Realtime subscription detects the increase.
+  Future<void> initiateTopUpMpesa({
     required double amount,
     required String currency,
+    required String phone,
   }) async {
     if (amount <= 0) {
       emit(state.copyWith(
         topUpStatus: TopUpStatus.error,
-        topUpError:  'Top-up amount must be greater than zero.',
+        topUpError:  'Amount must be greater than zero.',
       ));
       return;
     }
@@ -171,13 +170,43 @@ class WalletCubit extends Cubit<WalletState> {
     emit(state.copyWith(topUpStatus: TopUpStatus.submitting, clearTopUpError: true));
 
     try {
-      final response = await _supabase.rpc('initiate_wallet_topup', params: {
-        'p_amount':   amount,
-        'p_currency': currency,
-      });
+      await _supabase.functions.invoke(
+        'initiate-mpesa-topup',
+        body: {'amount': amount, 'currency': currency, 'phone': phone},
+      );
+      // Transition to waiting — Realtime will detect the balance change.
+      emit(state.copyWith(topUpStatus: TopUpStatus.waitingMpesa));
+    } catch (e) {
+      emit(state.copyWith(
+        topUpStatus: TopUpStatus.error,
+        topUpError:  'M-Pesa request failed: ${e.toString()}',
+      ));
+    }
+  }
 
-      final paymentUrl = response['payment_url'] as String?;
+  /// Initiate a card top-up via an external gateway (Stripe / Flutterwave).
+  /// Returns a redirect URL that the calling screen opens in a browser.
+  Future<void> initiateTopUpCard({
+    required double amount,
+    required String currency,
+  }) async {
+    if (amount <= 0) {
+      emit(state.copyWith(
+        topUpStatus: TopUpStatus.error,
+        topUpError:  'Amount must be greater than zero.',
+      ));
+      return;
+    }
 
+    emit(state.copyWith(topUpStatus: TopUpStatus.submitting, clearTopUpError: true));
+
+    try {
+      final response = await _supabase.functions.invoke(
+        'initiate-card-topup',
+        body: {'amount': amount, 'currency': currency},
+      );
+
+      final paymentUrl = (response.data as Map<String, dynamic>?)?['payment_url'] as String?;
       if (paymentUrl == null || paymentUrl.isEmpty) {
         emit(state.copyWith(
           topUpStatus: TopUpStatus.error,
@@ -186,10 +215,7 @@ class WalletCubit extends Cubit<WalletState> {
         return;
       }
 
-      emit(state.copyWith(
-        topUpStatus:     TopUpStatus.success,
-        topUpPaymentUrl: paymentUrl,
-      ));
+      emit(state.copyWith(topUpStatus: TopUpStatus.success, topUpPaymentUrl: paymentUrl));
     } catch (e) {
       emit(state.copyWith(
         topUpStatus: TopUpStatus.error,
@@ -198,49 +224,93 @@ class WalletCubit extends Cubit<WalletState> {
     }
   }
 
-  /// Reset top-up state (called after the WebView closes, successful or not).
+  /// Reset top-up state — called when the sheet closes or the user cancels.
   void resetTopUp() {
     emit(state.copyWith(
-      topUpStatus:    TopUpStatus.idle,
+      topUpStatus:     TopUpStatus.idle,
       clearTopUpError: true,
       clearPaymentUrl: true,
     ));
-    // Re-fetch balance in case the payment succeeded
     _fetchBalances();
   }
 
   // ── Withdrawal Flow ───────────────────────────────────────────────────────
 
-  /// Fetch available payout methods for the user's account.
+  /// Fetch payout methods, KYC tier, and account_id for the current user.
   Future<void> loadPayoutMethods() async {
     try {
-      // Get user's account id first
       final userId = _supabase.auth.currentUser?.id;
       if (userId == null) return;
 
+      // Resolve personal account (oldest owner membership = personal account)
       final memberData = await _supabase
           .from('account_members')
           .select('account_id')
           .eq('user_id', userId)
+          .eq('role_slug', 'owner')
+          .order('created_at', ascending: true)
           .limit(1)
           .maybeSingle();
 
       if (memberData == null) return;
 
       final accountId = memberData['account_id'] as String;
-      final methods = await _supabase
+
+      // Fetch methods + provider metadata in one query via FK traversal
+      final methodRows = await _supabase
           .from('account_payment_methods')
-          .select('id, provider_name, info')
+          .select('id, provider_identity, metadata, platform_payment_providers(provider_name, display_name)')
+          .eq('account_id', accountId);
+
+      // Fetch latest KYC verification for this account
+      final kycRow = await _supabase
+          .from('identity_verifications')
+          .select('kyc_tier, status')
           .eq('account_id', accountId)
-          .eq('is_active', true);
+          .order('created_at', ascending: false)
+          .limit(1)
+          .maybeSingle();
+
+      final kycTier = (kycRow != null && kycRow['status'] == 'approved')
+          ? kycRow['kyc_tier'] as String?
+          : null;
 
       emit(state.copyWith(
-        payoutMethods: List<Map<String, dynamic>>.from(methods),
+        payoutMethods: List<Map<String, dynamic>>.from(methodRows),
+        kycTier:       kycTier,
+        accountId:     accountId,
       ));
     } catch (_) {}
   }
 
-  /// Request a payout/withdrawal from the user's account wallet.
+  /// Register a new payout method (e.g. M-Pesa phone) via RPC.
+  Future<void> addPayoutMethod({
+    required String providerName,
+    required String identity,
+    required String label,
+  }) async {
+    emit(state.copyWith(
+      withdrawStatus: WithdrawStatus.addingMethod,
+      clearWithdrawError: true,
+    ));
+    try {
+      await _supabase.rpc('add_payout_method', params: {
+        'p_provider_name': providerName,
+        'p_identity':      identity,
+        'p_label':         label,
+      });
+      emit(state.copyWith(withdrawStatus: WithdrawStatus.idle));
+      await loadPayoutMethods(); // Refresh list so new method appears
+    } catch (e) {
+      emit(state.copyWith(
+        withdrawStatus: WithdrawStatus.error,
+        withdrawError:  'Could not add payout method: ${e.toString()}',
+      ));
+    }
+  }
+
+  /// Request a withdrawal to a registered payout method.
+  /// Uses request_attendee_withdrawal RPC (no business_profile requirement).
   Future<void> requestWithdrawal({
     required double amount,
     required String currency,
@@ -249,7 +319,7 @@ class WalletCubit extends Cubit<WalletState> {
     if (amount <= 0) {
       emit(state.copyWith(
         withdrawStatus: WithdrawStatus.error,
-        withdrawError: 'Withdrawal amount must be greater than zero.',
+        withdrawError:  'Withdrawal amount must be greater than zero.',
       ));
       return;
     }
@@ -260,31 +330,18 @@ class WalletCubit extends Cubit<WalletState> {
     ));
 
     try {
-      final userId = _supabase.auth.currentUser?.id;
-      if (userId == null) throw Exception('Not authenticated');
-
-      final memberData = await _supabase
-          .from('account_members')
-          .select('account_id')
-          .eq('user_id', userId)
-          .limit(1)
-          .single();
-
-      await _supabase.rpc('request_account_payout', params: {
-        'p_account_id': memberData['account_id'],
-        'p_amount': amount,
-        'p_payout_method_id': payoutMethodId,
-        'p_currency': currency,
+      await _supabase.rpc('request_attendee_withdrawal', params: {
+        'p_amount':            amount,
+        'p_currency':          currency,
+        'p_payout_method_id':  payoutMethodId,
       });
 
       emit(state.copyWith(withdrawStatus: WithdrawStatus.success));
-
-      // Refresh balances to reflect the pending withdrawal
-      await _fetchBalances();
+      await _fetchBalances(); // Reflect the escrow hold immediately
     } catch (e) {
       emit(state.copyWith(
         withdrawStatus: WithdrawStatus.error,
-        withdrawError: 'Withdrawal failed: ${e.toString()}',
+        withdrawError:  'Withdrawal failed: ${e.toString()}',
       ));
     }
   }
@@ -292,7 +349,7 @@ class WalletCubit extends Cubit<WalletState> {
   /// Reset withdrawal state after dialog closes.
   void resetWithdraw() {
     emit(state.copyWith(
-      withdrawStatus: WithdrawStatus.idle,
+      withdrawStatus:     WithdrawStatus.idle,
       clearWithdrawError: true,
     ));
   }

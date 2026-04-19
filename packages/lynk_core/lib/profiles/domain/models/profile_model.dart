@@ -49,6 +49,7 @@ class ProfileModel {
   }
 
   bool get isIncomplete => fullName == null || fullName!.isEmpty;
+  bool get isPremium => subscriptionTier == 'pro';
 
   ProfileModel copyWith({
     String? fullName,

@@ -12,6 +12,8 @@ class TicketModel {
   final bool isRedeemed;
   final DateTime? redeemedAt;
   final String holderName;
+  final double? purchasedPrice;
+  final String? purchasedCurrency;
 
   TicketModel({
     required this.id,
@@ -27,6 +29,8 @@ class TicketModel {
     required this.isRedeemed,
     this.redeemedAt,
     required this.holderName,
+    this.purchasedPrice,
+    this.purchasedCurrency,
   });
 
   factory TicketModel.fromMap(Map<String, dynamic> map,
@@ -53,12 +57,13 @@ class TicketModel {
           ?? media?['hero'] as String?,
       tierName: tier['display_name'] as String,
       // Schema column is 'code', not 'ticket_code'
-      ticketCode: map['code'] as String,
+      ticketCode: map['ticket_code'] as String,
       status: ticketStatus,
-      // Derived from status — schema has no redeemed_at column
       isRedeemed: ticketStatus == 'used',
       redeemedAt: null,
       holderName: holderName,
+      purchasedPrice: (map['purchased_price'] as num?)?.toDouble(),
+      purchasedCurrency: map['purchased_currency'] as String?,
     );
   }
 }

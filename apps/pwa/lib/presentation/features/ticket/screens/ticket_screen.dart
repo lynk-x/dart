@@ -52,10 +52,9 @@ class TicketView extends StatelessWidget {
             icon: const Icon(Icons.more_vert, size: 28, color: Colors.white),
             tooltip: 'Ticket options',
             onPressed: () {
-              // Access the ticket from the current cubit state
               final state = context.read<TicketCubit>().state;
               if (state.ticket != null) {
-                _showTicketOptions(context, state.ticket!);
+                _showTicketOptions(context, state);
               }
             },
           ),
@@ -134,6 +133,13 @@ class TicketView extends StatelessWidget {
                         .fadeIn(),
                     maxWidth: Breakpoints.maxCardWidth,
                   ),
+                  if (state.pendingListing != null) ...[
+                    const SizedBox(height: 16),
+                    Breakpoints.constrain(
+                      _buildPendingOfferBanner(context, state.pendingListing!),
+                      maxWidth: Breakpoints.maxCardWidth,
+                    ),
+                  ],
                   const SizedBox(height: 24),
                   Text(
                     'Show this ticket at the entrance',
@@ -153,7 +159,11 @@ class TicketView extends StatelessWidget {
   }
 
   /// Shows a contextual bottom sheet with available ticket actions.
-  void _showTicketOptions(BuildContext context, TicketModel ticket) {
+  void _showTicketOptions(BuildContext context, TicketState ticketState) {
+    final ticket = ticketState.ticket!;
+    final pendingListing = ticketState.pendingListing;
+    final isValid = ticket.status.toLowerCase() == 'valid';
+
     showModalBottomSheet<void>(
       context: context,
       backgroundColor: Colors.transparent,
@@ -166,7 +176,6 @@ class TicketView extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Handle bar
             Container(
               width: 40, height: 4,
               margin: const EdgeInsets.only(bottom: 20),
@@ -194,20 +203,50 @@ class TicketView extends StatelessWidget {
                 ));
               },
             ),
-            const Divider(color: Colors.white12, height: 1),
-            // Transfer Ticket
-            ListTile(
-              leading: const Icon(Icons.swap_horiz, color: Colors.white70),
-              title: const Text('Transfer Ticket', style: TextStyle(color: Colors.white)),
-              subtitle: const Text(
-                'Send this ticket to another user',
-                style: TextStyle(color: Colors.white54, fontSize: 12),
+            if (isValid) ...[
+              const Divider(color: Colors.white12, height: 1),
+              // Gift Ticket
+              ListTile(
+                leading: const Icon(Icons.card_giftcard, color: Colors.white70),
+                title: const Text('Gift Ticket', style: TextStyle(color: Colors.white)),
+                subtitle: const Text(
+                  'Transfer this ticket for free',
+                  style: TextStyle(color: Colors.white54, fontSize: 12),
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  _showTransferDialog(context, ticket);
+                },
               ),
-              onTap: () {
-                Navigator.pop(context);
-                _showTransferDialog(context, ticket);
-              },
-            ),
+              const Divider(color: Colors.white12, height: 1),
+              // Resell or Cancel Offer
+              if (pendingListing != null)
+                ListTile(
+                  leading: const Icon(Icons.cancel_outlined, color: Colors.orange),
+                  title: const Text('Cancel Resale Offer', style: TextStyle(color: Colors.orange)),
+                  subtitle: Text(
+                    'Pending offer: ${pendingListing['currency']} ${(pendingListing['asking_price'] as num).toStringAsFixed(2)}',
+                    style: const TextStyle(color: Colors.white54, fontSize: 12),
+                  ),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _cancelResaleListing(context, pendingListing['id'] as String);
+                  },
+                )
+              else
+                ListTile(
+                  leading: const Icon(Icons.sell_outlined, color: Colors.white70),
+                  title: const Text('Resell Ticket', style: TextStyle(color: Colors.white)),
+                  subtitle: const Text(
+                    'Sell to a specific person via wallet',
+                    style: TextStyle(color: Colors.white54, fontSize: 12),
+                  ),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _showResellSheet(context, ticket);
+                  },
+                ),
+            ],
             const Divider(color: Colors.white12, height: 1),
             // Report an Issue
             ListTile(
@@ -219,13 +258,36 @@ class TicketView extends StatelessWidget {
               ),
               onTap: () {
                 Navigator.pop(context);
-                // Navigate to feedback with the ticket reference pre-noted
                 context.push('/feedback');
               },
             ),
           ],
         ),
       ),
+    );
+  }
+
+  void _cancelResaleListing(BuildContext context, String listingId) async {
+    final cubit = context.read<TicketCubit>();
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await cubit.cancelResaleListing(listingId);
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Resale offer cancelled.'), backgroundColor: AppColors.primary),
+      );
+    } catch (e) {
+      messenger.showSnackBar(
+        SnackBar(content: Text('Failed to cancel: $e'), backgroundColor: Colors.red),
+      );
+    }
+  }
+
+  void _showResellSheet(BuildContext context, TicketModel ticket) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _ResellTicketSheet(ticket: ticket, parentContext: context),
     );
   }
 
@@ -236,6 +298,48 @@ class TicketView extends StatelessWidget {
       builder: (_) => _TransferTicketDialog(
         ticket: ticket,
         parentContext: context,
+      ),
+    );
+  }
+
+  Widget _buildPendingOfferBanner(BuildContext context, Map<String, dynamic> listing) {
+    final currency = listing['currency'] as String? ?? '';
+    final price = (listing['asking_price'] as num).toStringAsFixed(2);
+    final expiresAt = DateTime.tryParse(listing['expires_at'] as String? ?? '');
+    final expiresText = expiresAt != null
+        ? 'Expires ${DateFormat('dd/MM HH:mm').format(expiresAt.toLocal())}'
+        : '';
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.orange.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.orange.withValues(alpha: 0.35)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.pending_outlined, color: Colors.orange, size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Resale Offer Pending — $currency $price',
+                  style: const TextStyle(color: Colors.orange, fontSize: 13, fontWeight: FontWeight.w600),
+                ),
+                if (expiresText.isNotEmpty)
+                  Text(expiresText, style: const TextStyle(color: Colors.white38, fontSize: 11)),
+              ],
+            ),
+          ),
+          TextButton(
+            onPressed: () => _cancelResaleListing(context, listing['id'] as String),
+            style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 8)),
+            child: const Text('Cancel', style: TextStyle(color: Colors.orange, fontSize: 12)),
+          ),
+        ],
       ),
     );
   }
@@ -701,6 +805,208 @@ class _TransferTicketDialogState extends State<_TransferTicketDialog> {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _ResellTicketSheet extends StatefulWidget {
+  final TicketModel ticket;
+  final BuildContext parentContext;
+
+  const _ResellTicketSheet({required this.ticket, required this.parentContext});
+
+  @override
+  State<_ResellTicketSheet> createState() => _ResellTicketSheetState();
+}
+
+class _ResellTicketSheetState extends State<_ResellTicketSheet> {
+  final _usernameController = TextEditingController();
+  final _priceController = TextEditingController();
+  Timer? _debounceTimer;
+  bool _isChecking = false;
+  bool? _recipientFound;
+  bool _isSubmitting = false;
+
+  double? get _maxPrice => widget.ticket.purchasedPrice;
+  String get _currency => widget.ticket.purchasedCurrency ?? '';
+
+  @override
+  void initState() {
+    super.initState();
+    _usernameController.addListener(_onUsernameChanged);
+    // Pre-fill price with max allowed
+    if (_maxPrice != null) {
+      _priceController.text = _maxPrice!.toStringAsFixed(2);
+    }
+  }
+
+  @override
+  void dispose() {
+    _usernameController.removeListener(_onUsernameChanged);
+    _debounceTimer?.cancel();
+    _usernameController.dispose();
+    _priceController.dispose();
+    super.dispose();
+  }
+
+  void _onUsernameChanged() {
+    final value = _usernameController.text.trim();
+    if (value.length < 3) {
+      _debounceTimer?.cancel();
+      if (mounted) setState(() { _recipientFound = null; _isChecking = false; });
+      return;
+    }
+    if (_debounceTimer?.isActive ?? false) _debounceTimer?.cancel();
+    setState(() => _isChecking = true);
+    _debounceTimer = Timer(const Duration(milliseconds: 500), () async {
+      if (!mounted) return;
+      try {
+        final data = await Supabase.instance.client
+            .from('user_profile')
+            .select('user_name')
+            .eq('user_name', value)
+            .maybeSingle();
+        if (mounted) setState(() { _recipientFound = data != null; _isChecking = false; });
+      } catch (_) {
+        if (mounted) setState(() => _isChecking = false);
+      }
+    });
+  }
+
+  bool get _canSubmit {
+    if (_isChecking || _isSubmitting) return false;
+    if (_recipientFound != true) return false;
+    final price = double.tryParse(_priceController.text.trim());
+    if (price == null || price <= 0) return false;
+    if (_maxPrice != null && price > _maxPrice!) return false;
+    return true;
+  }
+
+  Future<void> _submit() async {
+    final price = double.tryParse(_priceController.text.trim());
+    if (price == null) return;
+
+    final messenger = ScaffoldMessenger.of(widget.parentContext);
+    final cubit = widget.parentContext.read<TicketCubit>();
+    setState(() => _isSubmitting = true);
+
+    try {
+      await cubit.createResaleListing(
+        recipientUsername: _usernameController.text.trim(),
+        askingPrice: price,
+      );
+      if (mounted) Navigator.pop(context);
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('Resale offer sent! Buyer has 48 hours to accept.'),
+          backgroundColor: AppColors.primary,
+        ),
+      );
+    } catch (e) {
+      if (mounted) setState(() => _isSubmitting = false);
+      messenger.showSnackBar(
+        SnackBar(content: Text('Failed: $e'), backgroundColor: Colors.red),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    return Container(
+      padding: EdgeInsets.fromLTRB(20, 24, 20, 24 + bottomInset),
+      decoration: const BoxDecoration(
+        color: AppColors.tertiary,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Center(
+            child: Container(
+              width: 40, height: 4,
+              margin: const EdgeInsets.only(bottom: 20),
+              decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(2)),
+            ),
+          ),
+          const Text(
+            'Resell Ticket',
+            style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 4),
+          if (_maxPrice != null)
+            Text(
+              'Max price: $_currency ${_maxPrice!.toStringAsFixed(2)} (original purchase price)',
+              style: const TextStyle(color: Colors.white54, fontSize: 12),
+            ),
+          const SizedBox(height: 20),
+          // Recipient
+          const Text('Recipient Username', style: TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _usernameController,
+            style: const TextStyle(color: Colors.white),
+            decoration: InputDecoration(
+              hintText: 'username',
+              hintStyle: const TextStyle(color: Colors.white30),
+              filled: true,
+              fillColor: Colors.white.withValues(alpha: 0.06),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.primary, width: 1)),
+              suffixIcon: _isChecking
+                  ? const SizedBox(width: 20, height: 20, child: Padding(padding: EdgeInsets.all(12), child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white24)))
+                  : (_recipientFound == true
+                      ? const Icon(Icons.check_circle, color: AppColors.primary, size: 20)
+                      : (_recipientFound == false ? const Icon(Icons.error, color: Colors.redAccent, size: 20) : null)),
+            ),
+          ),
+          if (_recipientFound == false) ...[
+            const SizedBox(height: 6),
+            const Text('No user found with that username.', style: TextStyle(color: Colors.redAccent, fontSize: 12)),
+          ] else if (_recipientFound == true) ...[
+            const SizedBox(height: 6),
+            Text('Recipient found.', style: TextStyle(color: AppColors.primary.withValues(alpha: 0.8), fontSize: 12)),
+          ],
+          const SizedBox(height: 16),
+          // Price
+          const Text('Asking Price', style: TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _priceController,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            style: const TextStyle(color: Colors.white),
+            onChanged: (_) => setState(() {}),
+            decoration: InputDecoration(
+              hintText: '0.00',
+              hintStyle: const TextStyle(color: Colors.white30),
+              prefixText: _currency.isNotEmpty ? '$_currency ' : null,
+              prefixStyle: const TextStyle(color: Colors.white54),
+              filled: true,
+              fillColor: Colors.white.withValues(alpha: 0.06),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.primary, width: 1)),
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Payment is wallet-to-wallet. No platform fee.',
+            style: TextStyle(color: Colors.white38, fontSize: 11),
+          ),
+          const SizedBox(height: 24),
+          _isSubmitting
+              ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
+              : PrimaryButton(
+                  text: 'Send Resale Offer',
+                  onPressed: _canSubmit ? _submit : null,
+                ),
+          const SizedBox(height: 8),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel', style: TextStyle(color: Colors.white38)),
+          ),
+        ],
+      ),
     );
   }
 }

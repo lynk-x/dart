@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:lynk_core/core.dart';
 import 'package:lynk_x/presentation/features/notifications/widgets/notification_card.dart';
 import 'package:lynk_x/presentation/features/notifications/models/notification_model.dart';
@@ -48,12 +49,87 @@ class _NotificationsPageState extends State<NotificationsPage> {
         break;
       case NotificationType.moneyIn:
       case NotificationType.moneyOut:
-        // Navigate to wallet so user can see the updated balance / transaction
         context.push('/wallet');
         break;
-      default:
-        // No specific action
+      case NotificationType.ticketResaleOffer:
+        final listingId = data['listing_id'] as String?;
+        if (listingId != null) {
+          _showResaleOfferDialog(notification, listingId, data);
+        }
         break;
+      default:
+        break;
+    }
+  }
+
+  void _showResaleOfferDialog(
+    NotificationModel notification,
+    String listingId,
+    Map<String, dynamic> data,
+  ) {
+    final currency = data['currency'] as String? ?? '';
+    final price = (data['asking_price'] as num?)?.toStringAsFixed(2) ?? '—';
+
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.tertiary,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Resale Offer', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(notification.body ?? notification.title, style: const TextStyle(color: Colors.white70)),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                const Icon(Icons.account_balance_wallet, color: AppColors.primary, size: 18),
+                const SizedBox(width: 8),
+                Text('$currency $price', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
+              ],
+            ),
+            const SizedBox(height: 8),
+            const Text('Payment will be deducted from your wallet.', style: TextStyle(color: Colors.white38, fontSize: 12)),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              await _respondToOffer(listingId, accept: false);
+            },
+            child: const Text('Decline', style: TextStyle(color: Colors.white54)),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              await _respondToOffer(listingId, accept: true);
+            },
+            child: const Text('Accept & Pay', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _respondToOffer(String listingId, {required bool accept}) async {
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await Supabase.instance.client.rpc(
+        accept ? 'accept_ticket_listing' : 'decline_ticket_listing',
+        params: {'p_listing_id': listingId},
+      );
+      messenger.showSnackBar(SnackBar(
+        content: Text(accept ? 'Ticket purchased! Check your tickets.' : 'Offer declined.'),
+        backgroundColor: accept ? AppColors.primary : Colors.grey[700],
+      ));
+      if (accept && mounted) context.push('/tickets');
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(
+        content: Text('Failed: $e'),
+        backgroundColor: Colors.red,
+      ));
     }
   }
 

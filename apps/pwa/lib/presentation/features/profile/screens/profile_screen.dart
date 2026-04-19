@@ -166,42 +166,45 @@ class _ProfileContent extends StatelessWidget {
             ),
           ],
 
-          // Tier badge — tappable to upgrade when on free tier
+          // Tier badge
           const SizedBox(height: 16),
           GestureDetector(
-            onTap: profile.subscriptionTier != 'pro'
-                ? () => context.push('/upgrade')
-                : null,
+            onTap: () => context.push('/upgrade'),
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
               decoration: BoxDecoration(
-                color: profile.subscriptionTier == 'pro'
-                    ? const Color(0xFF00FF00).withValues(alpha: 0.15)
+                color: profile.isPremium
+                    ? AppColors.secondary.withValues(alpha: 0.12)
                     : Colors.white.withValues(alpha: 0.05),
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(
-                  color: profile.subscriptionTier == 'pro'
-                      ? const Color(0xFF00FF00).withValues(alpha: 0.3)
+                  color: profile.isPremium
+                      ? AppColors.secondary.withValues(alpha: 0.35)
                       : Colors.white.withValues(alpha: 0.1),
                 ),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  if (profile.isPremium) ...[
+                    Icon(Icons.star_rounded,
+                        size: 14, color: AppColors.secondary),
+                    const SizedBox(width: 5),
+                  ],
                   Text(
-                    profile.subscriptionTier == 'pro' ? 'Premium Member' : 'Free Tier',
+                    profile.isPremium ? 'Premium Member' : 'Free Tier',
                     style: TextStyle(
-                      color: profile.subscriptionTier == 'pro'
-                          ? const Color(0xFF00FF00)
-                          : Colors.white.withValues(alpha: 0.6),
+                      color: profile.isPremium
+                          ? AppColors.secondary
+                          : Colors.white.withValues(alpha: 0.55),
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-                  if (profile.subscriptionTier != 'pro') ...[
-                    const SizedBox(width: 6),
-                    Icon(Icons.arrow_upward, size: 14,
-                        color: Colors.white.withValues(alpha: 0.4)),
+                  if (!profile.isPremium) ...[
+                    const SizedBox(width: 5),
+                    Icon(Icons.arrow_upward,
+                        size: 13, color: Colors.white.withValues(alpha: 0.35)),
                   ],
                 ],
               ),
@@ -269,6 +272,20 @@ class _ProfileContent extends StatelessWidget {
             subtitle: 'Opens web dashboard',
             onTap: () => context.push('/kyc'),
           ),
+          if (profile.isPremium)
+            _ActionTile(
+              icon: Icons.star_rounded,
+              label: 'Manage Subscription',
+              subtitle: 'Premium — cancel or view details',
+              onTap: () => context.push('/upgrade'),
+            )
+          else
+            _ActionTile(
+              icon: Icons.star_outline_rounded,
+              label: 'Upgrade to Premium',
+              subtitle: 'Ad-free, VIP badge & more',
+              onTap: () => context.push('/upgrade'),
+            ),
           _ActionTile(
             icon: Icons.feedback_outlined,
             label: 'Send Feedback',

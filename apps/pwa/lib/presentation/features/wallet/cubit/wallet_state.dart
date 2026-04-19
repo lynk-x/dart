@@ -2,10 +2,10 @@ import 'package:equatable/equatable.dart';
 import 'package:lynk_x/presentation/features/wallet/models/wallet_model.dart';
 
 /// Status of a wallet top-up submission.
-enum TopUpStatus { idle, submitting, success, error }
+enum TopUpStatus { idle, submitting, waitingMpesa, success, error }
 
 /// Status of a wallet withdrawal submission.
-enum WithdrawStatus { idle, submitting, success, error }
+enum WithdrawStatus { idle, submitting, addingMethod, success, error }
 
 /// Immutable state for [WalletCubit].
 class WalletState extends Equatable {
@@ -35,19 +35,28 @@ class WalletState extends Equatable {
   final String? withdrawError;
   final List<Map<String, dynamic>> payoutMethods;
 
+  // KYC tier for the current user's account ('tier_1_basic', 'tier_2_verified',
+  // 'tier_3_advanced', or null when not yet verified).
+  final String? kycTier;
+
+  // Resolved account_id — cached to avoid repeated lookups.
+  final String? accountId;
+
   const WalletState({
-    this.balances        = const [],
-    this.transactions    = const [],
-    this.hasMore         = true,
-    this.isLoading       = false,
-    this.isLoadingMore   = false,
+    this.balances       = const [],
+    this.transactions   = const [],
+    this.hasMore        = true,
+    this.isLoading      = false,
+    this.isLoadingMore  = false,
     this.error,
-    this.topUpStatus     = TopUpStatus.idle,
+    this.topUpStatus    = TopUpStatus.idle,
     this.topUpError,
     this.topUpPaymentUrl,
-    this.withdrawStatus  = WithdrawStatus.idle,
+    this.withdrawStatus = WithdrawStatus.idle,
     this.withdrawError,
-    this.payoutMethods   = const [],
+    this.payoutMethods  = const [],
+    this.kycTier,
+    this.accountId,
   });
 
   WalletState copyWith({
@@ -67,20 +76,25 @@ class WalletState extends Equatable {
     String? withdrawError,
     bool clearWithdrawError = false,
     List<Map<String, dynamic>>? payoutMethods,
+    String? kycTier,
+    bool clearKycTier = false,
+    String? accountId,
   }) {
     return WalletState(
-      balances:        balances        ?? this.balances,
-      transactions:    transactions    ?? this.transactions,
-      hasMore:         hasMore         ?? this.hasMore,
-      isLoading:       isLoading       ?? this.isLoading,
-      isLoadingMore:   isLoadingMore   ?? this.isLoadingMore,
-      error:           clearError      ? null : error      ?? this.error,
-      topUpStatus:     topUpStatus     ?? this.topUpStatus,
+      balances:        balances       ?? this.balances,
+      transactions:    transactions   ?? this.transactions,
+      hasMore:         hasMore        ?? this.hasMore,
+      isLoading:       isLoading      ?? this.isLoading,
+      isLoadingMore:   isLoadingMore  ?? this.isLoadingMore,
+      error:           clearError     ? null : error      ?? this.error,
+      topUpStatus:     topUpStatus    ?? this.topUpStatus,
       topUpError:      clearTopUpError ? null : topUpError ?? this.topUpError,
       topUpPaymentUrl: clearPaymentUrl ? null : topUpPaymentUrl ?? this.topUpPaymentUrl,
-      withdrawStatus:  withdrawStatus  ?? this.withdrawStatus,
+      withdrawStatus:  withdrawStatus ?? this.withdrawStatus,
       withdrawError:   clearWithdrawError ? null : withdrawError ?? this.withdrawError,
-      payoutMethods:   payoutMethods   ?? this.payoutMethods,
+      payoutMethods:   payoutMethods  ?? this.payoutMethods,
+      kycTier:         clearKycTier   ? null : kycTier    ?? this.kycTier,
+      accountId:       accountId      ?? this.accountId,
     );
   }
 
@@ -90,5 +104,6 @@ class WalletState extends Equatable {
     isLoading, isLoadingMore, error,
     topUpStatus, topUpError, topUpPaymentUrl,
     withdrawStatus, withdrawError, payoutMethods,
+    kycTier, accountId,
   ];
 }
