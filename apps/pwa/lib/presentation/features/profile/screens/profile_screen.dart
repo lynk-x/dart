@@ -56,11 +56,11 @@ class ProfilePage extends StatelessWidget {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.error_outline, size: 48, color: Colors.white.withValues(alpha: 0.4)),
+                    Icon(Icons.error_outline, size: 48, color: Colors.white.withOpacity(0.4)),
                     const SizedBox(height: 16),
                     Text(
                       'Failed to load profile',
-                      style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 16),
+                      style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 16),
                     ),
                     const SizedBox(height: 16),
                     TextButton(
@@ -101,7 +101,7 @@ class _ProfileContent extends StatelessWidget {
               children: [
                 CircleAvatar(
                   radius: 56,
-                  backgroundColor: Colors.white.withValues(alpha: 0.1),
+                  backgroundColor: Colors.white.withOpacity(0.1),
                   backgroundImage: profile.avatarUrl != null
                       ? CachedNetworkImageProvider(profile.avatarUrl!)
                       : null,
@@ -147,7 +147,7 @@ class _ProfileContent extends StatelessWidget {
           Text(
             '@${profile.userName}',
             style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.5),
+              color: Colors.white.withOpacity(0.5),
               fontSize: 15,
             ),
           ),
@@ -159,7 +159,7 @@ class _ProfileContent extends StatelessWidget {
               profile.tagline!,
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.7),
+                color: Colors.white.withOpacity(0.7),
                 fontSize: 14,
                 fontStyle: FontStyle.italic,
               ),
@@ -174,13 +174,13 @@ class _ProfileContent extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
               decoration: BoxDecoration(
                 color: profile.isPremium
-                    ? AppColors.secondary.withValues(alpha: 0.12)
-                    : Colors.white.withValues(alpha: 0.05),
+                    ? AppColors.secondary.withOpacity(0.12)
+                    : Colors.white.withOpacity(0.05),
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(
                   color: profile.isPremium
-                      ? AppColors.secondary.withValues(alpha: 0.35)
-                      : Colors.white.withValues(alpha: 0.1),
+                      ? AppColors.secondary.withOpacity(0.35)
+                      : Colors.white.withOpacity(0.1),
                 ),
               ),
               child: Row(
@@ -196,7 +196,7 @@ class _ProfileContent extends StatelessWidget {
                     style: TextStyle(
                       color: profile.isPremium
                           ? AppColors.secondary
-                          : Colors.white.withValues(alpha: 0.55),
+                          : Colors.white.withOpacity(0.55),
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
                     ),
@@ -204,7 +204,7 @@ class _ProfileContent extends StatelessWidget {
                   if (!profile.isPremium) ...[
                     const SizedBox(width: 5),
                     Icon(Icons.arrow_upward,
-                        size: 13, color: Colors.white.withValues(alpha: 0.35)),
+                        size: 13, color: Colors.white.withOpacity(0.35)),
                   ],
                 ],
               ),
@@ -218,9 +218,9 @@ class _ProfileContent extends StatelessWidget {
               width: double.infinity,
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.04),
+                color: Colors.white.withOpacity(0.04),
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+                border: Border.all(color: Colors.white.withOpacity(0.06)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -228,7 +228,7 @@ class _ProfileContent extends StatelessWidget {
                   Text(
                     'About',
                     style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.4),
+                      color: Colors.white.withOpacity(0.4),
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
                       letterSpacing: 1,
@@ -238,7 +238,7 @@ class _ProfileContent extends StatelessWidget {
                   Text(
                     profile.bio!,
                     style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.8),
+                      color: Colors.white.withOpacity(0.8),
                       fontSize: 15,
                       height: 1.6,
                     ),
@@ -375,7 +375,7 @@ class _ActionTile extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 14),
           child: Row(
             children: [
-              Icon(icon, color: color.withValues(alpha: 0.7), size: 22),
+              Icon(icon, color: color.withOpacity(0.7), size: 22),
               const SizedBox(width: 16),
               Expanded(
                 child: Column(
@@ -384,7 +384,7 @@ class _ActionTile extends StatelessWidget {
                     Text(
                       label,
                       style: TextStyle(
-                        color: color.withValues(alpha: 0.9),
+                        color: color.withOpacity(0.9),
                         fontSize: 16,
                         fontWeight: FontWeight.w500,
                       ),
@@ -395,7 +395,7 @@ class _ActionTile extends StatelessWidget {
                         child: Text(
                           subtitle!,
                           style: TextStyle(
-                            color: color.withValues(alpha: 0.4),
+                            color: color.withOpacity(0.4),
                             fontSize: 12,
                           ),
                         ),
@@ -403,7 +403,7 @@ class _ActionTile extends StatelessWidget {
                   ],
                 ),
               ),
-              Icon(Icons.chevron_right, color: color.withValues(alpha: 0.3), size: 20),
+              Icon(Icons.chevron_right, color: color.withOpacity(0.3), size: 20),
             ],
           ),
         ),

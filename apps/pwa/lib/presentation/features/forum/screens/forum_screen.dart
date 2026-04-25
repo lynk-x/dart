@@ -136,12 +136,12 @@ class _ForumViewState extends State<ForumView> {
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           gradient: LinearGradient(
-            colors: [const Color(0xFF20F928).withValues(alpha: 0.15), Colors.transparent],
+            colors: [const Color(0xFF20F928).withOpacity(0.15), Colors.transparent],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
           borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: const Color(0xFF20F928).withValues(alpha: 0.3)),
+          border: Border.all(color: const Color(0xFF20F928).withOpacity(0.3)),
         ),
         child: Row(
           children: [
@@ -197,7 +197,7 @@ class _ForumViewState extends State<ForumView> {
       builder: (context) => Container(
         padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
         decoration: BoxDecoration(
-          color: AppColors.tertiary.withValues(alpha: 0.98),
+          color: AppColors.tertiary.withOpacity(0.98),
           borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
           border: const Border(top: BorderSide(color: Colors.white10)),
         ),
@@ -275,7 +275,7 @@ class _ForumViewState extends State<ForumView> {
                 decoration: BoxDecoration(
                   color: isLocked
                       ? Colors.white10
-                      : iconColor.withValues(alpha: 0.15),
+                      : iconColor.withOpacity(0.15),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(

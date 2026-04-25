@@ -441,12 +441,12 @@ class _TopUpSheetState extends State<_TopUpSheet> {
                   padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
                   decoration: BoxDecoration(
                     color: selected
-                        ? AppColors.primary.withValues(alpha: 0.15)
-                        : Colors.white.withValues(alpha: 0.05),
+                        ? AppColors.primary.withOpacity(0.15)
+                        : Colors.white.withOpacity(0.05),
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(
                       color: selected
-                          ? AppColors.primary.withValues(alpha: 0.5)
+                          ? AppColors.primary.withOpacity(0.5)
                           : Colors.white12,
                     ),
                   ),
@@ -476,12 +476,12 @@ class _TopUpSheetState extends State<_TopUpSheet> {
                     padding: const EdgeInsets.symmetric(vertical: 10),
                     decoration: BoxDecoration(
                       color: selected
-                          ? AppColors.primary.withValues(alpha: 0.15)
-                          : Colors.white.withValues(alpha: 0.05),
+                          ? AppColors.primary.withOpacity(0.15)
+                          : Colors.white.withOpacity(0.05),
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(
                         color: selected
-                            ? AppColors.primary.withValues(alpha: 0.5)
+                            ? AppColors.primary.withOpacity(0.5)
                             : Colors.white12,
                       ),
                     ),
@@ -511,11 +511,11 @@ class _TopUpSheetState extends State<_TopUpSheet> {
           onChanged: (_) => setState(() => _quickPick = null),
           decoration: InputDecoration(
             hintText: 'Or enter amount',
-            hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.3)),
+            hintStyle: TextStyle(color: Colors.white.withOpacity(0.3)),
             suffixText: _currency,
             suffixStyle: TextStyle(color: AppColors.primary),
             filled: true,
-            fillColor: Colors.white.withValues(alpha: 0.05),
+            fillColor: Colors.white.withOpacity(0.05),
             border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
                 borderSide: BorderSide.none),
@@ -535,11 +535,11 @@ class _TopUpSheetState extends State<_TopUpSheet> {
             decoration: InputDecoration(
               hintText: '07XXXXXXXX',
               hintStyle:
-                  TextStyle(color: Colors.white.withValues(alpha: 0.3)),
+                  TextStyle(color: Colors.white.withOpacity(0.3)),
               prefixText: '+254  ',
               prefixStyle: const TextStyle(color: Colors.white60),
               filled: true,
-              fillColor: Colors.white.withValues(alpha: 0.05),
+              fillColor: Colors.white.withOpacity(0.05),
               border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                   borderSide: BorderSide.none),
@@ -705,12 +705,12 @@ class _PayoutSheetState extends State<_PayoutSheet> {
                               horizontal: 18, vertical: 8),
                           decoration: BoxDecoration(
                             color: selected
-                                ? AppColors.primary.withValues(alpha: 0.15)
-                                : Colors.white.withValues(alpha: 0.05),
+                                ? AppColors.primary.withOpacity(0.15)
+                                : Colors.white.withOpacity(0.05),
                             borderRadius: BorderRadius.circular(20),
                             border: Border.all(
                               color: selected
-                                  ? AppColors.primary.withValues(alpha: 0.5)
+                                  ? AppColors.primary.withOpacity(0.5)
                                   : Colors.white12,
                             ),
                           ),
@@ -756,7 +756,7 @@ class _PayoutSheetState extends State<_PayoutSheet> {
                     prefixStyle: TextStyle(
                         color: AppColors.primary, fontWeight: FontWeight.w600),
                     filled: true,
-                    fillColor: Colors.white.withValues(alpha: 0.05),
+                    fillColor: Colors.white.withOpacity(0.05),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                       borderSide: BorderSide.none,
@@ -842,10 +842,10 @@ class _PayoutSheetState extends State<_PayoutSheet> {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: Colors.red.withValues(alpha: 0.1),
+                      color: Colors.red.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(
-                          color: Colors.red.withValues(alpha: 0.3)),
+                          color: Colors.red.withOpacity(0.3)),
                     ),
                     child: Text(
                       state.withdrawError!,
@@ -876,7 +876,7 @@ class _PayoutSheetState extends State<_PayoutSheet> {
                       backgroundColor: AppColors.primary,
                       foregroundColor: Colors.black,
                       disabledBackgroundColor:
-                          AppColors.primary.withValues(alpha: 0.3),
+                          AppColors.primary.withOpacity(0.3),
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(14)),
@@ -915,9 +915,9 @@ class _KycGateBanner extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.amber.withValues(alpha: 0.1),
+        color: Colors.amber.withOpacity(0.1),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.amber.withValues(alpha: 0.35)),
+        border: Border.all(color: Colors.amber.withOpacity(0.35)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -973,22 +973,22 @@ class _EmptyMethodCard extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.04),
+          color: Colors.white.withOpacity(0.04),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: AppColors.primary.withValues(alpha: 0.3),
+            color: AppColors.primary.withOpacity(0.3),
             style: BorderStyle.solid,
           ),
         ),
         child: Row(
           children: [
             Icon(Icons.add_circle_outline,
-                color: AppColors.primary.withValues(alpha: 0.7), size: 20),
+                color: AppColors.primary.withOpacity(0.7), size: 20),
             const SizedBox(width: 10),
             Text(
               'Add M-Pesa number',
               style: TextStyle(
-                color: AppColors.primary.withValues(alpha: 0.8),
+                color: AppColors.primary.withOpacity(0.8),
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
               ),
@@ -1026,12 +1026,12 @@ class _MethodTile extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
           color: isSelected
-              ? AppColors.primary.withValues(alpha: 0.1)
-              : Colors.white.withValues(alpha: 0.04),
+              ? AppColors.primary.withOpacity(0.1)
+              : Colors.white.withOpacity(0.04),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: isSelected
-                ? AppColors.primary.withValues(alpha: 0.5)
+                ? AppColors.primary.withOpacity(0.5)
                 : Colors.white12,
           ),
         ),
@@ -1093,7 +1093,7 @@ class _AddMpesaForm extends StatelessWidget {
       margin: const EdgeInsets.only(top: 8, bottom: 4),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.04),
+        color: Colors.white.withOpacity(0.04),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.white12),
       ),
@@ -1119,7 +1119,7 @@ class _AddMpesaForm extends StatelessWidget {
               prefixText: '+254  ',
               prefixStyle: const TextStyle(color: Colors.white60),
               filled: true,
-              fillColor: Colors.white.withValues(alpha: 0.05),
+              fillColor: Colors.white.withOpacity(0.05),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
                 borderSide: BorderSide.none,
@@ -1211,14 +1211,14 @@ class _BalanceCard extends StatelessWidget {
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            AppColors.primary.withValues(alpha: 0.2),
-            Colors.white.withValues(alpha: 0.05),
+            AppColors.primary.withOpacity(0.2),
+            Colors.white.withOpacity(0.05),
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+        border: Border.all(color: AppColors.primary.withOpacity(0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1262,7 +1262,7 @@ class _TransactionTile extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.04),
+          color: Colors.white.withOpacity(0.04),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: Colors.white10),
         ),
@@ -1272,7 +1272,7 @@ class _TransactionTile extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.12),
+                color: color.withOpacity(0.12),
                 shape: BoxShape.circle,
               ),
               child: Icon(

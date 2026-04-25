@@ -67,7 +67,7 @@ class _VerifyEmailPageState extends State<VerifyEmailPage> {
                 child: Container(
                   padding: const EdgeInsets.all(28),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF00FF00).withValues(alpha: 0.1),
+                    color: const Color(0xFF00FF00).withOpacity(0.1),
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(
@@ -96,7 +96,7 @@ class _VerifyEmailPageState extends State<VerifyEmailPage> {
                 'We sent a verification link to:',
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.55),
+                  color: Colors.white.withOpacity(0.55),
                   fontSize: 15,
                 ),
               ),
@@ -117,7 +117,7 @@ class _VerifyEmailPageState extends State<VerifyEmailPage> {
                 'Click the link in the email to activate your account. This page will advance automatically once verified.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.4),
+                  color: Colors.white.withOpacity(0.4),
                   fontSize: 13,
                   height: 1.6,
                 ),

@@ -177,7 +177,7 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
                   child: Container(
                     decoration: BoxDecoration(
                       color: isSelected
-                          ? AppColors.primary.withValues(alpha: 0.1)
+                          ? AppColors.primary.withOpacity(0.1)
                           : AppColors.surface,
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(

@@ -116,7 +116,7 @@ class _MessageInputState extends State<MessageInput> {
                       hintText: 'Type a message...',
                       hintStyle: AppTypography.inter(
                           color:
-                              AppColors.secondaryText.withValues(alpha: 0.5)),
+                              AppColors.secondaryText.withOpacity(0.5)),
                       border: InputBorder.none,
                       isDense: true,
                     ),
@@ -142,7 +142,7 @@ class _MessageInputState extends State<MessageInput> {
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.1),
+        color: Colors.white.withOpacity(0.1),
         border:
             const Border(left: BorderSide(color: AppColors.primary, width: 3)),
       ),
@@ -165,7 +165,7 @@ class _MessageInputState extends State<MessageInput> {
                   overflow: TextOverflow.ellipsis,
                   style: AppTypography.inter(
                       fontSize: 11,
-                      color: AppColors.primaryText.withValues(alpha: 0.7)),
+                      color: AppColors.primaryText.withOpacity(0.7)),
                 ),
               ],
             ),
@@ -184,7 +184,7 @@ class _MessageInputState extends State<MessageInput> {
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.1),
+        color: Colors.white.withOpacity(0.1),
         border:
             const Border(left: BorderSide(color: AppColors.primary, width: 3)),
       ),
@@ -218,7 +218,7 @@ class _MessageInputState extends State<MessageInput> {
                   widget.mentionedMedia!.mediaType.toUpperCase(),
                   style: AppTypography.inter(
                       fontSize: 11,
-                      color: AppColors.primaryText.withValues(alpha: 0.7)),
+                      color: AppColors.primaryText.withOpacity(0.7)),
                 ),
               ],
             ),

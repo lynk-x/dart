@@ -129,7 +129,7 @@ class _ChatBubbleState extends State<ChatBubble> {
           BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.05),
+        color: Colors.white.withOpacity(0.05),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: Colors.white10),
       ),
@@ -175,8 +175,8 @@ class _ChatBubbleState extends State<ChatBubble> {
 
   Widget _buildBubble() {
     final bgColor = widget.message.isMe
-        ? AppColors.primary.withValues(alpha: 0.15)
-        : Colors.white.withValues(alpha: 0.05);
+        ? AppColors.primary.withOpacity(0.15)
+        : Colors.white.withOpacity(0.05);
     final textColor = widget.message.isMe ? AppColors.primary : Colors.white;
 
     return GestureDetector(
@@ -195,7 +195,7 @@ class _ChatBubbleState extends State<ChatBubble> {
           ),
           border: Border.all(
               color: widget.message.isMe
-                  ? AppColors.primary.withValues(alpha: 0.3)
+                  ? AppColors.primary.withOpacity(0.3)
                   : Colors.white10),
         ),
         child: Column(

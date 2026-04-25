@@ -125,9 +125,9 @@ class _PollCardState extends State<PollCard> {
       margin: const EdgeInsets.symmetric(vertical: 8),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.04),
+        color: Colors.white.withOpacity(0.04),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+        border: Border.all(color: Colors.white.withOpacity(0.08)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -185,7 +185,7 @@ class _PollCardState extends State<PollCard> {
               child: Text(
                 '$_totalVotes vote${_totalVotes == 1 ? '' : 's'}',
                 style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.4),
+                  color: Colors.white.withOpacity(0.4),
                   fontSize: 12,
                 ),
               ),
@@ -209,13 +209,13 @@ class _PollCardState extends State<PollCard> {
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(10),
               border: Border.all(
-                color: Colors.white.withValues(alpha: 0.15),
+                color: Colors.white.withOpacity(0.15),
               ),
             ),
             child: Text(
               option,
               style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.8),
+                color: Colors.white.withOpacity(0.8),
                 fontSize: 14,
               ),
             ),
@@ -234,8 +234,8 @@ class _PollCardState extends State<PollCard> {
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
             color: isSelected
-                ? const Color(0xFF00FF00).withValues(alpha: 0.4)
-                : Colors.white.withValues(alpha: 0.08),
+                ? const Color(0xFF00FF00).withOpacity(0.4)
+                : Colors.white.withOpacity(0.08),
           ),
         ),
         child: ClipRRect(
@@ -248,8 +248,8 @@ class _PollCardState extends State<PollCard> {
                 child: Container(
                   height: 42,
                   color: isSelected
-                      ? const Color(0xFF00FF00).withValues(alpha: 0.15)
-                      : Colors.white.withValues(alpha: 0.05),
+                      ? const Color(0xFF00FF00).withOpacity(0.15)
+                      : Colors.white.withOpacity(0.05),
                 ),
               ),
               // Content
@@ -268,7 +268,7 @@ class _PollCardState extends State<PollCard> {
                       child: Text(
                         option,
                         style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.8),
+                          color: Colors.white.withOpacity(0.8),
                           fontSize: 14,
                           fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
                         ),
@@ -277,7 +277,7 @@ class _PollCardState extends State<PollCard> {
                     Text(
                       '${(pct * 100).round()}%',
                       style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.5),
+                        color: Colors.white.withOpacity(0.5),
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
                       ),

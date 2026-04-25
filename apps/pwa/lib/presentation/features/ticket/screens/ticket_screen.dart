@@ -145,7 +145,7 @@ class TicketView extends StatelessWidget {
                     'Show this ticket at the entrance',
                     style: AppTypography.inter(
                       fontSize: 14,
-                      color: AppColors.secondaryText.withValues(alpha: 0.5),
+                      color: AppColors.secondaryText.withOpacity(0.5),
                     ),
                     ),
                   ],
@@ -313,9 +313,9 @@ class TicketView extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.orange.withValues(alpha: 0.1),
+        color: Colors.orange.withOpacity(0.1),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.orange.withValues(alpha: 0.35)),
+        border: Border.all(color: Colors.orange.withOpacity(0.35)),
       ),
       child: Row(
         children: [
@@ -359,7 +359,7 @@ class TicketView extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: AppColors.primary.withValues(alpha: 0.3),
+            color: AppColors.primary.withOpacity(0.3),
             blurRadius: 20,
             offset: const Offset(0, 10),
           ),
@@ -393,7 +393,7 @@ class TicketView extends StatelessWidget {
                             Icons.location_on,
                             size: 16,
                             color:
-                                AppColors.secondaryText.withValues(alpha: 0.7),
+                                AppColors.secondaryText.withOpacity(0.7),
                           ),
                           const SizedBox(width: 4),
                           Expanded(
@@ -404,7 +404,7 @@ class TicketView extends StatelessWidget {
                               style: AppTypography.inter(
                                 fontSize: 14,
                                 color: AppColors.secondaryText
-                                    .withValues(alpha: 0.7),
+                                    .withOpacity(0.7),
                               ),
                             ),
                           ),
@@ -417,7 +417,7 @@ class TicketView extends StatelessWidget {
                             Icons.calendar_month,
                             size: 16,
                             color:
-                                AppColors.secondaryText.withValues(alpha: 0.7),
+                                AppColors.secondaryText.withOpacity(0.7),
                           ),
                           const SizedBox(width: 4),
                           Text(
@@ -425,7 +425,7 @@ class TicketView extends StatelessWidget {
                             style: AppTypography.inter(
                               fontSize: 14,
                               color: AppColors.secondaryText
-                                  .withValues(alpha: 0.7),
+                                  .withOpacity(0.7),
                               fontWeight: FontWeight.w500,
                             ),
                           ),
@@ -464,7 +464,7 @@ class TicketView extends StatelessWidget {
             child: CustomPaint(
               size: const Size(double.infinity, 1),
               painter: DashedLinePainter(
-                color: AppColors.secondaryText.withValues(alpha: 0.3),
+                color: AppColors.secondaryText.withOpacity(0.3),
               ),
             ),
           ),
@@ -483,7 +483,7 @@ class TicketView extends StatelessWidget {
                         style: AppTypography.inter(
                           fontSize: 10,
                           fontWeight: FontWeight.bold,
-                          color: AppColors.secondaryText.withValues(alpha: 0.5),
+                          color: AppColors.secondaryText.withOpacity(0.5),
                         ),
                       ),
                       const SizedBox(height: 4),
@@ -506,7 +506,7 @@ class TicketView extends StatelessWidget {
                       style: AppTypography.inter(
                         fontSize: 10,
                         fontWeight: FontWeight.bold,
-                        color: AppColors.secondaryText.withValues(alpha: 0.5),
+                        color: AppColors.secondaryText.withOpacity(0.5),
                       ),
                     ),
                     const SizedBox(height: 4),
@@ -514,7 +514,7 @@ class TicketView extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 12, vertical: 4),
                       decoration: BoxDecoration(
-                        color: AppColors.secondaryText.withValues(alpha: 0.1),
+                        color: AppColors.secondaryText.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(20),
                         border: Border.all(color: statusColor),
                       ),
@@ -549,7 +549,7 @@ class TicketView extends StatelessWidget {
                         style: AppTypography.inter(
                           fontSize: 10,
                           fontWeight: FontWeight.bold,
-                          color: AppColors.secondaryText.withValues(alpha: 0.5),
+                          color: AppColors.secondaryText.withOpacity(0.5),
                         ),
                       ),
                       const SizedBox(height: 4),
@@ -780,7 +780,7 @@ class _TransferTicketDialogState extends State<_TransferTicketDialog> {
               Text(
                 'Recipient found.',
                 style: TextStyle(
-                  color: AppColors.primary.withValues(alpha: 0.8),
+                  color: AppColors.primary.withOpacity(0.8),
                   fontSize: 12,
                 ),
               ),
@@ -799,7 +799,7 @@ class _TransferTicketDialogState extends State<_TransferTicketDialog> {
             style: TextStyle(
               color: _canTransfer
                   ? AppColors.primary
-                  : AppColors.primary.withValues(alpha: 0.3),
+                  : AppColors.primary.withOpacity(0.3),
               fontWeight: FontWeight.bold,
             ),
           ),
@@ -951,7 +951,7 @@ class _ResellTicketSheetState extends State<_ResellTicketSheet> {
               hintText: 'username',
               hintStyle: const TextStyle(color: Colors.white30),
               filled: true,
-              fillColor: Colors.white.withValues(alpha: 0.06),
+              fillColor: Colors.white.withOpacity(0.06),
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
               focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.primary, width: 1)),
               suffixIcon: _isChecking
@@ -966,7 +966,7 @@ class _ResellTicketSheetState extends State<_ResellTicketSheet> {
             const Text('No user found with that username.', style: TextStyle(color: Colors.redAccent, fontSize: 12)),
           ] else if (_recipientFound == true) ...[
             const SizedBox(height: 6),
-            Text('Recipient found.', style: TextStyle(color: AppColors.primary.withValues(alpha: 0.8), fontSize: 12)),
+            Text('Recipient found.', style: TextStyle(color: AppColors.primary.withOpacity(0.8), fontSize: 12)),
           ],
           const SizedBox(height: 16),
           // Price
@@ -983,7 +983,7 @@ class _ResellTicketSheetState extends State<_ResellTicketSheet> {
               prefixText: _currency.isNotEmpty ? '$_currency ' : null,
               prefixStyle: const TextStyle(color: Colors.white54),
               filled: true,
-              fillColor: Colors.white.withValues(alpha: 0.06),
+              fillColor: Colors.white.withOpacity(0.06),
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
               focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.primary, width: 1)),
             ),

@@ -14,6 +14,7 @@ class AuthPage extends StatefulWidget {
 
 class _AuthPageState extends State<AuthPage> {
   bool _isLogin = true;
+  bool _useEmail = false;
 
   Future<void> _signInWithProvider(BuildContext context, OAuthProvider provider) async {
     try {
@@ -74,15 +75,40 @@ class _AuthPageState extends State<AuthPage> {
                         : "Let's get started by filling out the form below.",
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.8),
+                      color: Colors.white.withOpacity(0.8),
                       fontSize: 16,
                       height: 1.5,
                     ),
                   ),
                   const SizedBox(height: 48),
 
+                  // Toggle
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      onPressed: () => setState(() => _useEmail = !_useEmail),
+                      style: TextButton.styleFrom(
+                        padding: EdgeInsets.zero,
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      child: Text(
+                        _useEmail ? 'Use Phone Number instead' : 'Use Email instead',
+                        style: const TextStyle(
+                          color: Color(0xFF00FF00),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+
                   // Form
-                  if (_isLogin) const _LoginForm() else const _SignUpForm(),
+                  if (_isLogin)
+                    _LoginForm(useEmail: _useEmail)
+                  else
+                    _SignUpForm(useEmail: _useEmail),
 
                   const SizedBox(height: 32),
                   const _OrDivider(),
@@ -167,7 +193,7 @@ class _FooterLink extends StatelessWidget {
         text,
         style: TextStyle(
           color: (isActive ? const Color(0xFF00FF00) : Colors.white)
-              .withValues(alpha: isActive ? 1.0 : 0.5),
+              .withOpacity(isActive ? 1.0 : 0.5),
           fontSize: 16,
           fontWeight: FontWeight.w600,
         ),
@@ -177,30 +203,41 @@ class _FooterLink extends StatelessWidget {
 }
 
 class _LoginForm extends StatefulWidget {
-  const _LoginForm();
+  final bool useEmail;
+  const _LoginForm({required this.useEmail});
 
   @override
   State<_LoginForm> createState() => _LoginFormState();
 }
 
 class _LoginFormState extends State<_LoginForm> {
-  final _emailController = TextEditingController();
+  final _identifierController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isLoading = false;
 
   Future<void> _signIn() async {
-    if (_emailController.text.isEmpty || _passwordController.text.isEmpty) {
+    final identifier = _identifierController.text.trim();
+    final password = _passwordController.text.trim();
+
+    if (identifier.isEmpty || password.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter your email and password')),
+        SnackBar(content: Text('Please enter your ${widget.useEmail ? "email" : "phone number"} and password')),
       );
       return;
     }
     setState(() => _isLoading = true);
     try {
-      await Supabase.instance.client.auth.signInWithPassword(
-        email: _emailController.text.trim(),
-        password: _passwordController.text.trim(),
-      );
+      if (widget.useEmail) {
+        await Supabase.instance.client.auth.signInWithPassword(
+          email: identifier,
+          password: password,
+        );
+      } else {
+        await Supabase.instance.client.auth.signInWithPassword(
+          phone: identifier,
+          password: password,
+        );
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -221,9 +258,14 @@ class _LoginFormState extends State<_LoginForm> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         CustomTextField(
-          hintText: 'Email',
-          controller: _emailController,
-          keyboardType: TextInputType.emailAddress,
+          hintText: widget.useEmail ? 'Email Address' : 'Phone Number (e.g. +254...)',
+          controller: _identifierController,
+          keyboardType: widget.useEmail ? TextInputType.emailAddress : TextInputType.phone,
+          suffixIcon: Icon(
+            widget.useEmail ? Icons.email_outlined : Icons.phone_android_outlined,
+            color: Colors.grey[600],
+            size: 20,
+          ),
         ),
         const SizedBox(height: 16),
         CustomTextField(
@@ -243,20 +285,21 @@ class _LoginFormState extends State<_LoginForm> {
 }
 
 class _SignUpForm extends StatefulWidget {
-  const _SignUpForm();
+  final bool useEmail;
+  const _SignUpForm({required this.useEmail});
 
   @override
   State<_SignUpForm> createState() => _SignUpFormState();
 }
 
 class _SignUpFormState extends State<_SignUpForm> {
-  final _emailController = TextEditingController();
+  final _identifierController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmController = TextEditingController();
   bool _isLoading = false;
 
   Future<void> _signUp() async {
-    final email = _emailController.text.trim();
+    final identifier = _identifierController.text.trim();
     final password = _passwordController.text.trim();
     if (password != _confirmController.text.trim()) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -270,12 +313,21 @@ class _SignUpFormState extends State<_SignUpForm> {
 
     setState(() => _isLoading = true);
     try {
-      await Supabase.instance.client.auth.signUp(
-        email: email,
-        password: password,
-      );
-      if (mounted) {
-        context.go('/verify-email?email=${Uri.encodeComponent(email)}');
+      if (widget.useEmail) {
+        await Supabase.instance.client.auth.signUp(
+          email: identifier,
+          password: password,
+        );
+        if (mounted) {
+          context.go('/verify-email?email=${Uri.encodeComponent(identifier)}');
+        }
+      } else {
+        await Supabase.instance.client.auth.signUp(
+          phone: identifier,
+          password: password,
+        );
+        // For phone sign up, we might need a different verification screen or OTP
+        // For now, assuming standard flow
       }
     } catch (e) {
       if (mounted) {
@@ -297,9 +349,14 @@ class _SignUpFormState extends State<_SignUpForm> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         CustomTextField(
-          hintText: 'Email',
-          controller: _emailController,
-          keyboardType: TextInputType.emailAddress,
+          hintText: widget.useEmail ? 'Email Address' : 'Phone Number (e.g. +254...)',
+          controller: _identifierController,
+          keyboardType: widget.useEmail ? TextInputType.emailAddress : TextInputType.phone,
+          suffixIcon: Icon(
+            widget.useEmail ? Icons.email_outlined : Icons.phone_android_outlined,
+            color: Colors.grey[600],
+            size: 20,
+          ),
         ),
         const SizedBox(height: 16),
         CustomTextField(
