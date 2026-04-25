@@ -374,7 +374,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(Icons.workspace_premium,
-              size: 64, color: Colors.white.withOpacity(0.3)),
+              size: 64, color: Colors.white.withValues(alpha: 0.3)),
           const SizedBox(height: 16),
           const Text('No plans available',
               style: TextStyle(
@@ -399,7 +399,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  color: AppColors.secondary.withOpacity(0.1),
+                  color: AppColors.secondary.withValues(alpha: 0.1),
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(Icons.star_rounded,
@@ -419,7 +419,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                 'Enhance your event experience. Ad-free forums, exclusive badge, and early access to every new feature.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                    color: Colors.white.withOpacity(0.55),
+                    color: Colors.white.withValues(alpha: 0.55),
                     fontSize: 15,
                     height: 1.5),
               ),
@@ -435,10 +435,10 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.04),
+                  color: Colors.white.withValues(alpha: 0.04),
                   borderRadius: BorderRadius.circular(20),
                   border:
-                      Border.all(color: Colors.white.withOpacity(0.08)),
+                      Border.all(color: Colors.white.withValues(alpha: 0.08)),
                 ),
                 child: Column(
                   children: plan.features.asMap().entries.map((e) {
@@ -461,7 +461,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                 Text(
                   'Renews ${_fmt(_activeEndsAt!)}',
                   style: TextStyle(
-                      color: Colors.white.withOpacity(0.4),
+                      color: Colors.white.withValues(alpha: 0.4),
                       fontSize: 13),
                 ),
               ],
@@ -471,7 +471,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                 'Cancel anytime before renewal. No refunds on current period.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                    color: Colors.white.withOpacity(0.25),
+                    color: Colors.white.withValues(alpha: 0.25),
                     fontSize: 12,
                     height: 1.4),
               ),
@@ -497,7 +497,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
   Widget _buildIntervalToggle() {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.06),
+        color: Colors.white.withValues(alpha: 0.06),
         borderRadius: BorderRadius.circular(14),
       ),
       padding: const EdgeInsets.all(4),
@@ -533,7 +533,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
         Text(
           plan.interval == 'year' ? ' / year' : ' / month',
           style: TextStyle(
-              color: Colors.white.withOpacity(0.4), fontSize: 16),
+              color: Colors.white.withValues(alpha: 0.4), fontSize: 16),
         ),
       ],
     );
@@ -545,7 +545,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
       decoration: BoxDecoration(
         color: AppColors.primaryBackground,
         border: Border(
-            top: BorderSide(color: Colors.white.withOpacity(0.06))),
+            top: BorderSide(color: Colors.white.withValues(alpha: 0.06))),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -562,7 +562,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primary,
                 disabledBackgroundColor:
-                    AppColors.primary.withOpacity(0.3),
+                    AppColors.primary.withValues(alpha: 0.3),
                 foregroundColor: Colors.black,
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16)),
@@ -589,7 +589,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
               child: Text(
                 'Cancel Subscription',
                 style: TextStyle(
-                    color: Colors.redAccent.withOpacity(0.7),
+                    color: Colors.redAccent.withValues(alpha: 0.7),
                     fontSize: 13),
               ),
             ),
@@ -601,7 +601,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
 
   Widget _buildMpesaWaiting() {
     return Container(
-      color: AppColors.primaryBackground.withOpacity(0.92),
+      color: AppColors.primaryBackground.withValues(alpha: 0.92),
       child: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -620,7 +620,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
               'Check your phone and enter your M-Pesa PIN.',
               textAlign: TextAlign.center,
               style: TextStyle(
-                  color: Colors.white.withOpacity(0.5), fontSize: 14),
+                  color: Colors.white.withValues(alpha: 0.5), fontSize: 14),
             ),
             const SizedBox(height: 28),
             TextButton(
@@ -704,7 +704,7 @@ class _PaymentSheetState extends State<_PaymentSheet> {
           Text(
             '${widget.plan.currency} ${widget.plan.price.toStringAsFixed(0)} · ${widget.plan.name}',
             style:
-                TextStyle(color: Colors.white.withOpacity(0.45), fontSize: 13),
+                TextStyle(color: Colors.white.withValues(alpha: 0.45), fontSize: 13),
           ),
           const SizedBox(height: 24),
 
@@ -752,11 +752,11 @@ class _PaymentSheetState extends State<_PaymentSheet> {
                     decoration: InputDecoration(
                       hintText: '07XXXXXXXX',
                       hintStyle: TextStyle(
-                          color: Colors.white.withOpacity(0.3)),
+                          color: Colors.white.withValues(alpha: 0.3)),
                       prefixText: '+254 ',
                       prefixStyle: const TextStyle(color: Colors.white70),
                       filled: true,
-                      fillColor: Colors.white.withOpacity(0.06),
+                      fillColor: Colors.white.withValues(alpha: 0.06),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                         borderSide: BorderSide.none,
@@ -846,8 +846,8 @@ class _ToggleOption extends StatelessWidget {
                   badge!,
                   style: TextStyle(
                     color: selected
-                        ? Colors.black.withOpacity(0.6)
-                        : AppColors.primary.withOpacity(0.8),
+                        ? Colors.black.withValues(alpha: 0.6)
+                        : AppColors.primary.withValues(alpha: 0.8),
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
                   ),
@@ -914,9 +914,9 @@ class _PaymentOption extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.05),
+            color: Colors.white.withValues(alpha: 0.05),
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: Colors.white.withOpacity(0.1)),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
           ),
           child: Row(
             children: [
@@ -934,14 +934,14 @@ class _PaymentOption extends StatelessWidget {
                     const SizedBox(height: 2),
                     Text(subtitle,
                         style: TextStyle(
-                            color: Colors.white.withOpacity(0.45),
+                            color: Colors.white.withValues(alpha: 0.45),
                             fontSize: 12)),
                   ],
                 ),
               ),
               trailing ??
                   Icon(Icons.chevron_right,
-                      color: Colors.white.withOpacity(0.3), size: 20),
+                      color: Colors.white.withValues(alpha: 0.3), size: 20),
             ],
           ),
         ),

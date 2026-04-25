@@ -38,7 +38,9 @@ void main() async {
 
   // Initialize push notifications if user is already signed in and Supabase is ready
   try {
-    if (Supabase.instance.client.auth.currentUser != null) {
+    // Check if Supabase is initialized before accessing instance
+    final hasSupabase = supabaseUrl.isNotEmpty && supabaseAnonKey.isNotEmpty;
+    if (hasSupabase && Supabase.instance.client.auth.currentUser != null) {
       await PushNotificationService.instance.init();
     }
   } catch (_) {}
@@ -47,17 +49,22 @@ void main() async {
       sentryDsn.isNotEmpty && featureFlags.isEnabled('enable_crash_reporting');
 
   if (crashReportingEnabled) {
-    await SentryFlutter.init(
-      (options) {
-        options.dsn = sentryDsn;
-        options.environment =
-            const bool.fromEnvironment('dart.vm.product') ? 'production' : 'debug';
-        options.tracesSampleRate = 0.1;
-        options.attachScreenshot = true;
-        options.screenshotQuality = SentryScreenshotQuality.low;
-      },
-      appRunner: () => runApp(const LynkXAppWrapper()),
-    );
+    try {
+      await SentryFlutter.init(
+        (options) {
+          options.dsn = sentryDsn;
+          options.environment =
+              const bool.fromEnvironment('dart.vm.product') ? 'production' : 'debug';
+          options.tracesSampleRate = 0.1;
+          options.attachScreenshot = true;
+          options.screenshotQuality = SentryScreenshotQuality.low;
+        },
+        appRunner: () => runApp(const LynkXAppWrapper()),
+      );
+    } catch (e) {
+      debugPrint('[Main] Sentry initialization failed: $e');
+      runApp(const LynkXAppWrapper());
+    }
   } else {
     runApp(const LynkXAppWrapper());
   }

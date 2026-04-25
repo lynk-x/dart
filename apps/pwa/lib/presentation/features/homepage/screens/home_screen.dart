@@ -190,14 +190,14 @@ class _HomeViewState extends State<HomeView>
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            AppColors.primary.withOpacity(0.15),
+            AppColors.primary.withValues(alpha: 0.15),
             Colors.transparent,
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.primary.withOpacity(0.25)),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.25)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -224,7 +224,7 @@ class _HomeViewState extends State<HomeView>
                 Text(
                   'Your event feed is live. Join a forum to chat with attendees, or tap an event to explore.',
                   style: TextStyle(
-                    color: Colors.white.withOpacity(0.6),
+                    color: Colors.white.withValues(alpha: 0.6),
                     fontSize: 12,
                     height: 1.5,
                   ),
@@ -233,7 +233,7 @@ class _HomeViewState extends State<HomeView>
             ),
           ),
           IconButton(
-            icon: Icon(Icons.close, color: Colors.white.withOpacity(0.3), size: 16),
+            icon: Icon(Icons.close, color: Colors.white.withValues(alpha: 0.3), size: 16),
             onPressed: _dismissWelcomeBanner,
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),

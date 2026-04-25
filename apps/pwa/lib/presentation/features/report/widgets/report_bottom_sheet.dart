@@ -180,7 +180,7 @@ class _ReportSheetState extends State<_ReportSheet> {
                   width: 40,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.3),
+                    color: Colors.white.withValues(alpha: 0.3),
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -232,7 +232,7 @@ class _ReportSheetState extends State<_ReportSheet> {
                               Text(
                                 'Why are you reporting this $_targetLabel?',
                                 style: TextStyle(
-                                  color: Colors.white.withOpacity(0.7),
+                                  color: Colors.white.withValues(alpha: 0.7),
                                   fontSize: 15,
                                 ),
                               ),
@@ -256,17 +256,17 @@ class _ReportSheetState extends State<_ReportSheet> {
                                         decoration: BoxDecoration(
                                           color: isSelected
                                               ? const Color(0xFF00FF00)
-                                                  .withOpacity(0.1)
+                                                  .withValues(alpha: 0.1)
                                               : Colors.white
-                                                  .withOpacity(0.04),
+                                                  .withValues(alpha: 0.04),
                                           borderRadius:
                                               BorderRadius.circular(12),
                                           border: Border.all(
                                             color: isSelected
                                                 ? const Color(0xFF00FF00)
-                                                    .withOpacity(0.4)
+                                                    .withValues(alpha: 0.4)
                                                 : Colors.white
-                                                    .withOpacity(0.08),
+                                                    .withValues(alpha: 0.08),
                                           ),
                                         ),
                                         child: Row(
@@ -296,7 +296,7 @@ class _ReportSheetState extends State<_ReportSheet> {
                                                       color: isSelected
                                                           ? Colors.white
                                                           : Colors.white
-                                                              .withOpacity(0.8),
+                                                              .withValues(alpha: 0.8),
                                                       fontSize: 15,
                                                       fontWeight:
                                                           FontWeight.w500,
@@ -319,7 +319,7 @@ class _ReportSheetState extends State<_ReportSheet> {
                                                         style: TextStyle(
                                                           color: Colors
                                                               .white
-                                                              .withOpacity(0.4),
+                                                              .withValues(alpha: 0.4),
                                                           fontSize: 13,
                                                         ),
                                                       ),
@@ -341,7 +341,7 @@ class _ReportSheetState extends State<_ReportSheet> {
                               Text(
                                 'Additional details (optional)',
                                 style: TextStyle(
-                                  color: Colors.white.withOpacity(0.5),
+                                  color: Colors.white.withValues(alpha: 0.5),
                                   fontSize: 13,
                                   fontWeight: FontWeight.w600,
                                 ),
@@ -358,21 +358,21 @@ class _ReportSheetState extends State<_ReportSheet> {
                                       'Describe the issue in more detail...',
                                   hintStyle: TextStyle(
                                       color:
-                                          Colors.white.withOpacity(0.3)),
+                                          Colors.white.withValues(alpha: 0.3)),
                                   filled: true,
                                   fillColor:
-                                      Colors.white.withOpacity(0.04),
+                                      Colors.white.withValues(alpha: 0.04),
                                   border: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(12),
                                     borderSide: BorderSide(
                                         color: Colors.white
-                                            .withOpacity(0.08)),
+                                            .withValues(alpha: 0.08)),
                                   ),
                                   enabledBorder: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(12),
                                     borderSide: BorderSide(
                                         color: Colors.white
-                                            .withOpacity(0.08)),
+                                            .withValues(alpha: 0.08)),
                                   ),
                                   focusedBorder: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(12),
@@ -381,7 +381,7 @@ class _ReportSheetState extends State<_ReportSheet> {
                                   ),
                                   counterStyle: TextStyle(
                                       color:
-                                          Colors.white.withOpacity(0.3)),
+                                          Colors.white.withValues(alpha: 0.3)),
                                 ),
                               ),
 
@@ -399,7 +399,7 @@ class _ReportSheetState extends State<_ReportSheet> {
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: Colors.redAccent,
                                     disabledBackgroundColor:
-                                        Colors.redAccent.withOpacity(0.3),
+                                        Colors.redAccent.withValues(alpha: 0.3),
                                     shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(12),
                                     ),
@@ -430,7 +430,7 @@ class _ReportSheetState extends State<_ReportSheet> {
                                 'False reports may result in account restrictions.',
                                 textAlign: TextAlign.center,
                                 style: TextStyle(
-                                  color: Colors.white.withOpacity(0.3),
+                                  color: Colors.white.withValues(alpha: 0.3),
                                   fontSize: 12,
                                 ),
                               ),

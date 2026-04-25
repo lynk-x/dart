@@ -24,7 +24,7 @@ class TypingIndicator extends StatelessWidget {
             'someone is typing...',
             style: AppTypography.inter(
               fontSize: 10,
-              color: AppColors.primaryText.withOpacity(0.5),
+              color: AppColors.primaryText.withValues(alpha: 0.5),
             ),
           ),
         ],

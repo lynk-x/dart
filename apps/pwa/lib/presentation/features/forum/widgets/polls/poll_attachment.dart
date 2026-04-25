@@ -89,7 +89,7 @@ class _PollAttachmentState extends State<PollAttachment> {
             child: Text(
               _title!,
               style: TextStyle(
-                color: Colors.white.withOpacity(0.6),
+                color: Colors.white.withValues(alpha: 0.6),
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
               ),

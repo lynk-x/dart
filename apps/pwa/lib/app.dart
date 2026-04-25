@@ -63,9 +63,18 @@ class _LynkXAppState extends State<LynkXApp> {
   @override
   void initState() {
     super.initState();
-    // Initialize the router with combined refresh streams
+    // Initialize the router with combined refresh streams. 
+    // We protect against Supabase.instance access if not initialized.
+    Stream<AuthState> authStream;
+    try {
+      authStream = Supabase.instance.client.auth.onAuthStateChange;
+    } catch (e) {
+      debugPrint('[LynkXApp] Supabase Auth stream unavailable: $e');
+      authStream = const Stream.empty();
+    }
+
     _router = createRouter(
-      Supabase.instance.client.auth.onAuthStateChange,
+      authStream,
       context.read<ProfileCubit>().stream,
     );
 
@@ -75,20 +84,22 @@ class _LynkXAppState extends State<LynkXApp> {
     };
 
     // Auth state listener — handles sign-in, sign-out, and password recovery.
-    Supabase.instance.client.auth.onAuthStateChange.listen((data) {
-      if (data.event == AuthChangeEvent.signedIn) {
-        // Load notifications now that currentUser is confirmed non-null.
-        if (!mounted) return;
-        context.read<NotificationCubit>().loadNotifications();
-        PushNotificationService.instance.init();
-      } else if (data.event == AuthChangeEvent.signedOut) {
-        PushNotificationService.instance.removeToken();
-      } else if (data.event == AuthChangeEvent.passwordRecovery) {
-        // User arrived via a password-reset email link. Route them to the
-        // reset form before the temporary recovery session expires.
-        _router.go('/reset-password');
-      }
-    });
+    try {
+      Supabase.instance.client.auth.onAuthStateChange.listen((data) {
+        if (data.event == AuthChangeEvent.signedIn) {
+          // Load notifications now that currentUser is confirmed non-null.
+          if (!mounted) return;
+          context.read<NotificationCubit>().loadNotifications();
+          PushNotificationService.instance.init();
+        } else if (data.event == AuthChangeEvent.signedOut) {
+          PushNotificationService.instance.removeToken();
+        } else if (data.event == AuthChangeEvent.passwordRecovery) {
+          _router.go('/reset-password');
+        }
+      });
+    } catch (e) {
+      debugPrint('[LynkXApp] Supabase Auth listener failed: $e');
+    }
   }
 
   @override

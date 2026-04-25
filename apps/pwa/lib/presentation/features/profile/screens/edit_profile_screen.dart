@@ -176,7 +176,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                             shape: BoxShape.circle,
                             border:
                                 Border.all(color: AppColors.tertiary, width: 2),
-                            color: AppColors.tertiary.withOpacity(0.3),
+                            color: AppColors.tertiary.withValues(alpha: 0.3),
                             image: profile.avatarUrl != null
                                 ? DecorationImage(
                                     image: NetworkImage(profile.avatarUrl!),
@@ -331,7 +331,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                   hintText: 'DELETE',
                   hintStyle: const TextStyle(color: Colors.white12),
                   filled: true,
-                  fillColor: Colors.white.withOpacity(0.06),
+                  fillColor: Colors.white.withValues(alpha: 0.06),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
                     borderSide: BorderSide.none,
@@ -364,7 +364,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                 style: TextStyle(
                   color: confirmController.text == 'DELETE'
                       ? Colors.redAccent
-                      : Colors.redAccent.withOpacity(0.3),
+                      : Colors.redAccent.withValues(alpha: 0.3),
                   fontWeight: FontWeight.bold,
                 ),
               ),

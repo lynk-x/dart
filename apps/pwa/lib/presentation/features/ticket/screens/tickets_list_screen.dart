@@ -159,7 +159,7 @@ class _TicketListItem extends StatelessWidget {
                   Text(
                     '${dateFormat.format(ticket.startsAt)} • ${timeFormat.format(ticket.startsAt)}',
                     style: TextStyle(
-                      color: AppColors.primary.withOpacity(0.8),
+                      color: AppColors.primary.withValues(alpha: 0.8),
                       fontSize: 13,
                       fontWeight: FontWeight.w500,
                     ),

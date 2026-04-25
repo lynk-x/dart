@@ -39,10 +39,10 @@ class NotificationCard extends StatelessWidget {
                   width: 48,
                   height: 48,
                   decoration: BoxDecoration(
-                    color: model.color.withOpacity(0.1),
+                    color: model.color.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                      color: model.color.withOpacity(0.2),
+                      color: model.color.withValues(alpha: 0.2),
                       width: 1,
                     ),
                   ),

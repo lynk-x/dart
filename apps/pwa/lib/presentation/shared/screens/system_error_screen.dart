@@ -33,7 +33,7 @@ class SystemErrorScreen extends StatelessWidget {
                 width: 120,
                 height: 120,
                 decoration: BoxDecoration(
-                  color: AppColors.primary.withOpacity(0.1),
+                  color: AppColors.primary.withValues(alpha: 0.1),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
@@ -62,7 +62,7 @@ class SystemErrorScreen extends StatelessWidget {
                 message,
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  color: Colors.white.withOpacity(0.6),
+                  color: Colors.white.withValues(alpha: 0.6),
                   fontSize: 16,
                   height: 1.5,
                 ),
@@ -112,7 +112,7 @@ class SystemErrorScreen extends StatelessWidget {
                       Text(
                         'SYSTEM UPGRADING',
                         style: TextStyle(
-                          color: AppColors.primary.withOpacity(0.8),
+                          color: AppColors.primary.withValues(alpha: 0.8),
                           fontSize: 12,
                           fontWeight: FontWeight.bold,
                           letterSpacing: 1,

@@ -75,7 +75,7 @@ class _AuthPageState extends State<AuthPage> {
                         : "Let's get started by filling out the form below.",
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                      color: Colors.white.withOpacity(0.8),
+                      color: Colors.white.withValues(alpha: 0.8),
                       fontSize: 16,
                       height: 1.5,
                     ),
@@ -193,7 +193,7 @@ class _FooterLink extends StatelessWidget {
         text,
         style: TextStyle(
           color: (isActive ? const Color(0xFF00FF00) : Colors.white)
-              .withOpacity(isActive ? 1.0 : 0.5),
+              .withValues(alpha: isActive ? 1.0 : 0.5),
           fontSize: 16,
           fontWeight: FontWeight.w600,
         ),

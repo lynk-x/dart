@@ -11,15 +11,27 @@ class FeatureFlagCubit extends Cubit<FeatureFlagState> {
   FeatureFlagCubit() : super(const FeatureFlagState());
 
   Future<void> init() async {
-    final packageInfo = await PackageInfo.fromPlatform();
-    emit(state.copyWith(appVersion: packageInfo.version));
-    await Future.wait([fetchFlags(), _fetchUserCountry()]);
+    try {
+      final packageInfo = await PackageInfo.fromPlatform();
+      if (!isClosed) emit(state.copyWith(appVersion: packageInfo.version));
+    } catch (e) {
+      debugPrint('[FeatureFlagCubit] PackageInfo failed: $e');
+    }
+    
+    // Use try-catch to prevent Supabase initialization errors from hanging the cubit
+    try {
+      await Future.wait([fetchFlags(), _fetchUserCountry()]);
+    } catch (e) {
+      debugPrint('[FeatureFlagCubit] Parallel init failed: $e');
+      if (!isClosed) emit(state.copyWith(isLoading: false));
+    }
   }
 
   Future<void> _fetchUserCountry() async {
-    final userId = Supabase.instance.client.auth.currentUser?.id;
-    if (userId == null) return;
     try {
+      final userId = Supabase.instance.client.auth.currentUser?.id;
+      if (userId == null) return;
+
       final data = await Supabase.instance.client
           .from('user_profile')
           .select('country')
@@ -29,8 +41,8 @@ class FeatureFlagCubit extends Cubit<FeatureFlagState> {
       if (country != null && !isClosed) {
         emit(state.copyWith(userCountry: country.toUpperCase()));
       }
-    } catch (_) {
-      // Non-fatal: regional checks will pass when country is unknown
+    } catch (e) {
+      debugPrint('[FeatureFlagCubit] _fetchUserCountry failed: $e');
     }
   }
 

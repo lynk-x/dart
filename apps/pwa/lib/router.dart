@@ -2,6 +2,7 @@ import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:lynk_core/core.dart';
+import 'package:flutter/foundation.dart';
 
 import 'router_refresh_stream.dart';
 import 'package:lynk_x/presentation/features/homepage/screens/home_screen.dart';
@@ -27,31 +28,48 @@ GoRouter createRouter(
     initialLocation: '/splash',
     refreshListenable: GoRouterRefreshStream([authStream, profileStream]),
     redirect: (context, state) {
-      // currentUser re-validates against the auth server; currentSession only
-      // reads the cached local JWT and won't catch server-side revocations.
-      final user = Supabase.instance.client.auth.currentUser;
-      final profileState = context.read<ProfileCubit>().state;
-      final path = state.uri.toString();
-
-      const publicRoutes = {
-        '/auth',
-        '/splash',
-        '/forgot-password',
-        '/reset-password',
-        '/verify-email',
-        '/maintenance',
-        '/error'
-      };
-      final isPublic = publicRoutes.any((r) => path.startsWith(r));
-
-      if (user == null && !isPublic) return '/auth';
-      if (user != null && path == '/auth') return '/';
-
-      // ── Onboarding / Profile Setup Redirection ──
-      if (user != null && !isPublic && path != '/profile-setup') {
-        if (profileState is ProfileLoaded && profileState.profile.isIncomplete) {
-          return '/profile-setup';
+      try {
+        // Safe check for Supabase initialization
+        User? user;
+        try {
+          user = Supabase.instance.client.auth.currentUser;
+        } catch (_) {
+          // Supabase not initialized or auth failed
         }
+
+        final path = state.uri.toString();
+
+        // Safe check for ProfileCubit
+        ProfileState? profileState;
+        try {
+          profileState = context.read<ProfileCubit>().state;
+        } catch (_) {
+          // ProfileCubit not found in context
+        }
+
+        const publicRoutes = {
+          '/auth',
+          '/splash',
+          '/forgot-password',
+          '/reset-password',
+          '/verify-email',
+          '/maintenance',
+          '/error'
+        };
+        final isPublic = publicRoutes.any((r) => path.startsWith(r));
+
+        if (user == null && !isPublic) return '/auth';
+        if (user != null && path == '/auth') return '/';
+
+        // ── Onboarding / Profile Setup Redirection ──
+        if (user != null && !isPublic && path != '/profile-setup') {
+          if (profileState is ProfileLoaded &&
+              profileState.profile.isIncomplete) {
+            return '/profile-setup';
+          }
+        }
+      } catch (e) {
+        debugPrint('[Router] Redirect error: $e');
       }
 
       return null;

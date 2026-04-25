@@ -46,7 +46,7 @@ class KycVerificationScreen extends StatelessWidget {
                 height: 100,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: const Color(0xFF00FF00).withOpacity(0.1),
+                  color: const Color(0xFF00FF00).withValues(alpha: 0.1),
                 ),
                 child: const Icon(
                   Icons.verified_user_outlined,
@@ -69,7 +69,7 @@ class KycVerificationScreen extends StatelessWidget {
                 'You can upload documents, track verification status, and manage your account there.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  color: Colors.white.withOpacity(0.6),
+                  color: Colors.white.withValues(alpha: 0.6),
                   fontSize: 15,
                   height: 1.5,
                 ),

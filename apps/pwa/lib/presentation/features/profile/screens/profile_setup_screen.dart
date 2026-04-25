@@ -399,7 +399,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
               width: 120, height: 120,
               decoration: BoxDecoration(
                 shape: BoxShape.circle, color: Colors.white10,
-                border: Border.all(color: AppColors.primary.withOpacity(0.3), width: 1.5),
+                border: Border.all(color: AppColors.primary.withValues(alpha: 0.3), width: 1.5),
                 image: _imageFile != null ? DecorationImage(image: FileImage(_imageFile!), fit: BoxFit.cover) : null,
               ),
               child: _imageFile == null ? const Icon(Icons.person, size: 60, color: Colors.white24) : null,
@@ -429,7 +429,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
           style: const TextStyle(color: Colors.white),
           decoration: InputDecoration(
             hintText: hint, hintStyle: const TextStyle(color: Colors.white10),
-            filled: true, fillColor: Colors.white.withOpacity(0.04),
+            filled: true, fillColor: Colors.white.withValues(alpha: 0.04),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
             focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: AppColors.primary, width: 1)),
             suffixIcon: suffixIcon,
