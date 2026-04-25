@@ -132,6 +132,12 @@ class NotificationCubit extends Cubit<NotificationState> {
     }
   }
 
+  void reset() {
+    _channel?.unsubscribe();
+    _channel = null;
+    emit(const NotificationInitial());
+  }
+
   @override
   Future<void> close() {
     _channel?.unsubscribe();

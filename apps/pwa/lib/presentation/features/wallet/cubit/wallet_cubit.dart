@@ -41,6 +41,7 @@ class WalletCubit extends Cubit<WalletState> {
           event.event == AuthChangeEvent.signedIn) {
         _balanceChannel?.unsubscribe();
         _subscribeToBalanceUpdates();
+        _fetchBalances();
       }
     });
   }
@@ -352,5 +353,11 @@ class WalletCubit extends Cubit<WalletState> {
       withdrawStatus:     WithdrawStatus.idle,
       clearWithdrawError: true,
     ));
+  }
+
+  void reset() {
+    _balanceChannel?.unsubscribe();
+    _balanceChannel = null;
+    emit(const WalletState());
   }
 }

@@ -162,15 +162,17 @@ class ForumAdsCubit extends Cubit<ForumAdsState> {
     return super.close();
   }
 
-  void logAdClick(String adId) {
+  Future<void> logAdClick(String adId) async {
     if (userId == kGuestUserId) return;
-    Supabase.instance.client.from('ad_analytics').insert({
-      'campaign_id': adId,
-      'interaction_type': 'click',
-      'user_id': userId,
-    }).catchError((e, stack) {
+    try {
+      await Supabase.instance.client.from('ad_analytics').insert({
+        'campaign_id': adId,
+        'interaction_type': 'click',
+        'user_id': userId,
+      });
+    } catch (e, stack) {
       debugPrint('[ForumAdsCubit] Error logging click: $e\n$stack');
-    });
+    }
   }
 
   void updatePremiumStatus(bool val) {

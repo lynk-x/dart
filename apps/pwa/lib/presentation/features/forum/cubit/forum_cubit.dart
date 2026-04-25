@@ -224,7 +224,7 @@ class ForumCubit extends Cubit<ForumState> {
     }
   }
 
-  void toggleMuteLiveChatsMedia(bool val) async {
+  Future<void> toggleMuteLiveChatsMedia(bool val) async {
     if (userId == kGuestUserId) return;
     emit(state.copyWith(hasMutedLiveChatsMedia: val));
     try {

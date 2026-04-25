@@ -117,4 +117,6 @@ class ProfileCubit extends Cubit<ProfileState> {
       emit(currentState.copyWith(isUpdating: false, error: e.toString()));
     }
   }
+
+  void reset() => emit(const ProfileInitial());
 }

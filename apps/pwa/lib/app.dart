@@ -94,6 +94,10 @@ class _LynkXAppState extends State<LynkXApp> {
           context.read<NotificationCubit>().loadNotifications();
           PushNotificationService.instance.init();
         } else if (data.event == AuthChangeEvent.signedOut) {
+          if (!mounted) return;
+          context.read<ProfileCubit>().reset();
+          context.read<NotificationCubit>().reset();
+          context.read<WalletCubit>().reset();
           PushNotificationService.instance.removeToken();
         } else if (data.event == AuthChangeEvent.passwordRecovery) {
           _router.go('/reset-password');

@@ -115,7 +115,7 @@ class ForumUpdatesCubit extends Cubit<ForumUpdatesState> {
   void onBroadcastMessageReceived(ChatMessage msg) {
     if (msg.userId == userId) return;
     if (state.messages.any((m) => m.id == msg.id)) return;
-    emit(state.copyWith(messages: [msg, ...state.messages]));
+    if (!isClosed) emit(state.copyWith(messages: [msg, ...state.messages]));
   }
 
   Future<void> refresh() async {

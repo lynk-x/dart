@@ -56,7 +56,7 @@ class ForumChatCubit extends Cubit<ForumChatState> {
       event: 'typing',
       callback: (payload) {
         if (payload['user_id'] != userId) {
-          emit(state.copyWith(isTyping: true));
+          if (!isClosed) emit(state.copyWith(isTyping: true));
           _hideTypingTimer?.cancel();
           _hideTypingTimer = Timer(const Duration(seconds: 3), () {
             if (!isClosed) emit(state.copyWith(isTyping: false));
@@ -146,7 +146,7 @@ class ForumChatCubit extends Cubit<ForumChatState> {
   void onBroadcastMessageReceived(ChatMessage msg) {
     if (msg.userId == userId) return;
     if (state.messages.any((m) => m.id == msg.id)) return;
-    emit(state.copyWith(messages: [msg, ...state.messages]));
+    if (!isClosed) emit(state.copyWith(messages: [msg, ...state.messages]));
   }
 
   Future<void> refresh() async {
