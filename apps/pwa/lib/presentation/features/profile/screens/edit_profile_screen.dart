@@ -24,6 +24,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
   bool _isCheckingUsername = false;
   bool? _isUsernameAvailable;
   Timer? _debounceTimer;
+  bool _uploadingAvatar = false;
 
   @override
   void initState() {
@@ -78,6 +79,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
     );
 
     if (image != null && context.mounted) {
+      setState(() => _uploadingAvatar = true);
       context.read<ProfileCubit>().uploadAvatar(image);
     }
   }
@@ -111,6 +113,11 @@ class _EditProfilePageState extends State<EditProfilePage> {
                 content: Text(state.error!),
                 backgroundColor: Colors.red,
               ),
+            );
+          } else if (_uploadingAvatar && !state.isUpdating) {
+            setState(() => _uploadingAvatar = false);
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Profile photo updated')),
             );
           }
         }

@@ -24,6 +24,7 @@ class LiveChatTab extends StatefulWidget {
   // External actions
   final Function(ChatMessage, String)? onReact;
   final Function(ChatMessage)? onPin;
+  final Function(ChatMessage)? onDelete;
   final Function(ChatMessage)? onReport;
   final Function(ChatMessage)? onMute;
   final Function(ChatMessage)? onBan;
@@ -40,6 +41,7 @@ class LiveChatTab extends StatefulWidget {
     this.members = const [],
     this.onReact,
     this.onPin,
+    this.onDelete,
     this.onReport,
     this.onMute,
     this.onBan,
@@ -54,9 +56,17 @@ class LiveChatTab extends StatefulWidget {
 class _LiveChatTabState extends State<LiveChatTab>
     with AutomaticKeepAliveClientMixin {
   ChatMessage? _reactingToMessage;
+  final TextEditingController _searchController = TextEditingController();
+  bool _showSearch = false;
 
   @override
   bool get wantKeepAlive => true;
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -66,11 +76,56 @@ class _LiveChatTabState extends State<LiveChatTab>
 
     return Column(
       children: [
-        const InfoBanner(
-          icon: Icons.info,
-          text: 'Active/Live Chat',
+        Row(
+          children: [
+            Expanded(
+              child: _showSearch
+                  ? Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                      child: TextField(
+                        controller: _searchController,
+                        autofocus: true,
+                        style: const TextStyle(color: Colors.white),
+                        decoration: InputDecoration(
+                          hintText: 'Search messages…',
+                          hintStyle: const TextStyle(color: Colors.white38),
+                          filled: true,
+                          fillColor: Colors.white10,
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide.none,
+                          ),
+                          suffixIcon: IconButton(
+                            icon: const Icon(Icons.clear, color: Colors.white54, size: 18),
+                            onPressed: () {
+                              _searchController.clear();
+                              chatCubit.setSearchQuery('');
+                            },
+                          ),
+                        ),
+                        onChanged: chatCubit.setSearchQuery,
+                      ),
+                    )
+                  : const InfoBanner(icon: Icons.info, text: 'Active/Live Chat'),
+            ),
+            IconButton(
+              icon: Icon(
+                _showSearch ? Icons.search_off : Icons.search,
+                color: Colors.white54,
+                size: 20,
+              ),
+              onPressed: () {
+                setState(() => _showSearch = !_showSearch);
+                if (!_showSearch) {
+                  _searchController.clear();
+                  chatCubit.setSearchQuery('');
+                }
+              },
+            ),
+          ],
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 4),
         if (_reactingToMessage != null &&
             context.read<FeatureFlagCubit>().isEnabled('enable_forum_reactions'))
           ReactionBar(
@@ -114,6 +169,7 @@ class _LiveChatTabState extends State<LiveChatTab>
                               message: msg,
                               onReply: chatCubit.setReplyTo,
                               onReact: widget.onReact,
+                              onDelete: widget.onDelete,
                               onMediaTap: () => widget.onMediaTap(msg.imageUrl),
                               onPin: widget.onPin,
                               onReport: widget.onReport,

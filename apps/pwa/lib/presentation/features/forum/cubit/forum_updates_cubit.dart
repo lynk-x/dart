@@ -112,6 +112,22 @@ class ForumUpdatesCubit extends Cubit<ForumUpdatesState> {
     });
   }
 
+  Future<void> deleteMessage(String messageId) async {
+    final original = List<ChatMessage>.from(state.messages);
+    if (!isClosed) emit(state.copyWith(messages: state.messages.where((m) => m.id != messageId).toList()));
+    try {
+      if (userId == kGuestUserId) return;
+      await Supabase.instance.client
+          .from('forum_messages')
+          .update({'deleted_at': DateTime.now().toIso8601String()})
+          .eq('id', messageId);
+      await refresh();
+    } catch (e, stack) {
+      debugPrint('[ForumUpdatesCubit] Error deleting msg: $e\n$stack');
+      if (!isClosed) emit(state.copyWith(messages: original));
+    }
+  }
+
   void onBroadcastMessageReceived(ChatMessage msg) {
     if (msg.userId == userId) return;
     if (state.messages.any((m) => m.id == msg.id)) return;

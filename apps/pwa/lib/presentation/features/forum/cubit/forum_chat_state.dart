@@ -6,6 +6,7 @@ class ForumChatState extends BaseMessageState {
   final bool isTyping;
   final bool showJumpToBottom;
   final String? error;
+  final String searchQuery;
 
   const ForumChatState({
     super.messages = const [],
@@ -16,6 +17,7 @@ class ForumChatState extends BaseMessageState {
     this.showJumpToBottom = false,
     super.linkPreviews = const {},
     this.error,
+    this.searchQuery = '',
   });
 
   ForumChatState copyWith({
@@ -30,6 +32,7 @@ class ForumChatState extends BaseMessageState {
     Map<String, LinkPreviewData>? linkPreviews,
     String? error,
     bool clearError = false,
+    String? searchQuery,
   }) {
     return ForumChatState(
       messages: messages ?? this.messages,
@@ -41,6 +44,7 @@ class ForumChatState extends BaseMessageState {
       showJumpToBottom: showJumpToBottom ?? this.showJumpToBottom,
       linkPreviews: linkPreviews ?? this.linkPreviews,
       error: clearError ? null : error ?? this.error,
+      searchQuery: searchQuery ?? this.searchQuery,
     );
   }
 
@@ -51,5 +55,6 @@ class ForumChatState extends BaseMessageState {
         isTyping,
         showJumpToBottom,
         error,
+        searchQuery,
       ];
 }

@@ -20,6 +20,7 @@ class ForumChatCubit extends Cubit<ForumChatState> {
   Timer? _typingThrottle;
   Timer? _hideTypingTimer;
   StreamSubscription? _syncSubscription;
+  Timer? _searchTimer;
 
   ForumChatCubit({
     required this.forumId,
@@ -143,10 +144,34 @@ class ForumChatCubit extends Cubit<ForumChatState> {
     });
   }
 
+  Future<void> deleteMessage(String messageId) async {
+    final original = List<ChatMessage>.from(state.messages);
+    if (!isClosed) emit(state.copyWith(messages: state.messages.where((m) => m.id != messageId).toList()));
+    try {
+      if (userId == kGuestUserId) return;
+      await Supabase.instance.client
+          .from('forum_messages')
+          .update({'deleted_at': DateTime.now().toIso8601String()})
+          .eq('id', messageId);
+      await refresh();
+    } catch (e, stack) {
+      debugPrint('[ForumChatCubit] Error deleting msg: $e\n$stack');
+      if (!isClosed) emit(state.copyWith(messages: original));
+    }
+  }
+
   void onBroadcastMessageReceived(ChatMessage msg) {
     if (msg.userId == userId) return;
     if (state.messages.any((m) => m.id == msg.id)) return;
     if (!isClosed) emit(state.copyWith(messages: [msg, ...state.messages]));
+  }
+
+  void setSearchQuery(String query) {
+    emit(state.copyWith(searchQuery: query));
+    _searchTimer?.cancel();
+    _searchTimer = Timer(const Duration(milliseconds: 300), () {
+      refresh();
+    });
   }
 
   Future<void> refresh() async {
@@ -158,6 +183,10 @@ class ForumChatCubit extends Cubit<ForumChatState> {
               '*, user_profile(full_name, is_premium), forum_members!inner(role_id), vw_message_reaction_counts(*)')
           .eq('forum_id', forumId)
           .eq('message_type', 'chat');
+
+      if (state.searchQuery.isNotEmpty) {
+        query = query.textSearch('fts', state.searchQuery, config: 'english');
+      }
 
       final data = await query
           .order('is_pinned', ascending: false)
@@ -187,6 +216,10 @@ class ForumChatCubit extends Cubit<ForumChatState> {
               '*, user_profile(full_name, is_premium), forum_members!inner(role_id), vw_message_reaction_counts(*)')
           .eq('forum_id', forumId)
           .eq('message_type', 'chat');
+
+      if (state.searchQuery.isNotEmpty) {
+        query = query.textSearch('fts', state.searchQuery, config: 'english');
+      }
 
       final data = await query
           .order('is_pinned', ascending: false)
@@ -376,6 +409,7 @@ class ForumChatCubit extends Cubit<ForumChatState> {
     _typingThrottle?.cancel();
     _hideTypingTimer?.cancel();
     _syncSubscription?.cancel();
+    _searchTimer?.cancel();
     return super.close();
   }
 }

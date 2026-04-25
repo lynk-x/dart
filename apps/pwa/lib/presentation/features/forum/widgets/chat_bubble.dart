@@ -16,6 +16,7 @@ class ChatBubble extends StatefulWidget {
   final Function(ChatMessage)? onMute;
   final Function(ChatMessage)? onBan;
   final Function(ChatMessage, String)? onReact;
+  final Function(ChatMessage)? onDelete;
   final VoidCallback? onMediaTap;
   final VoidCallback? onLongPressBubble;
   final bool isOrganizer;
@@ -32,6 +33,7 @@ class ChatBubble extends StatefulWidget {
     this.onMute,
     this.onBan,
     this.onReact,
+    this.onDelete,
     this.onMediaTap,
     this.onLongPressBubble,
     this.isOrganizer = false,
@@ -64,10 +66,41 @@ class _ChatBubbleState extends State<ChatBubble> {
         children: [
           if (!widget.message.isMe) _buildSenderInfo(),
           if (shouldBlur) _buildBlurredBubble() else _buildBubble(),
+          if (widget.message.isMe) _buildStatusIndicator(),
           if (widget.showActions) _buildActions(context),
         ],
       ),
     );
+  }
+
+  Widget _buildStatusIndicator() {
+    if (widget.message.isSending) {
+      return const Padding(
+        padding: EdgeInsets.only(top: 2, right: 4),
+        child: SizedBox(
+          width: 10,
+          height: 10,
+          child: CircularProgressIndicator(strokeWidth: 1.5, color: Colors.white38),
+        ),
+      );
+    }
+    if (widget.message.hasError) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 2, right: 4),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.error_outline, size: 12, color: Colors.redAccent),
+            const SizedBox(width: 3),
+            Text(
+              'Failed to send',
+              style: AppTypography.inter(fontSize: 10, color: Colors.redAccent),
+            ),
+          ],
+        ),
+      );
+    }
+    return const SizedBox.shrink();
   }
 
   Widget _buildActions(BuildContext context) {
@@ -98,6 +131,36 @@ class _ChatBubbleState extends State<ChatBubble> {
               color: Colors.redAccent,
             ),
           ],
+          if (widget.message.isMe && widget.onDelete != null)
+            ActionBarItem(
+              label: 'Delete',
+              color: Colors.redAccent,
+              onTap: () async {
+                final confirmed = await showDialog<bool>(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                    backgroundColor: const Color(0xFF1A1A1A),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    title: const Text('Delete message?', style: TextStyle(color: Colors.white)),
+                    content: const Text(
+                      'This message will be removed for everyone.',
+                      style: TextStyle(color: Colors.white54),
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(ctx, false),
+                        child: const Text('Cancel', style: TextStyle(color: Colors.white38)),
+                      ),
+                      TextButton(
+                        onPressed: () => Navigator.pop(ctx, true),
+                        child: const Text('Delete', style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
+                      ),
+                    ],
+                  ),
+                );
+                if (confirmed == true) widget.onDelete?.call(widget.message);
+              },
+            ),
           if (widget.onPin != null)
             ActionBarItem(
               label: 'Pin',

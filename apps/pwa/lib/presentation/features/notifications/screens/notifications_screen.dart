@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:lynk_core/core.dart';
 import 'package:lynk_x/presentation/features/notifications/widgets/notification_card.dart';
 import 'package:lynk_x/presentation/features/notifications/models/notification_model.dart';
@@ -38,7 +39,11 @@ class _NotificationsPageState extends State<NotificationsPage> {
       case NotificationType.livechats:
       case NotificationType.media:
         final forumId = data['forum_id'] as String?;
-        context.push('/forum', extra: forumId);
+        if (forumId != null) {
+          context.push('/forum/$forumId');
+        } else {
+          context.go('/');
+        }
         break;
       case NotificationType.eventUpdate:
         final eventId = data['event_id'] as String?;
@@ -58,6 +63,9 @@ class _NotificationsPageState extends State<NotificationsPage> {
         }
         break;
       default:
+        if (actionUrl != null) {
+          launchUrl(Uri.parse(actionUrl));
+        }
         break;
     }
   }

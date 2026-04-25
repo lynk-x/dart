@@ -29,18 +29,6 @@ class _InterstitialAdState extends State<InterstitialAd> {
   void initState() {
     super.initState();
     _startTimer();
-    _logImpression();
-  }
-
-  void _logImpression() {
-    final userId = Supabase.instance.client.auth.currentUser?.id;
-    if (userId != null) {
-      Supabase.instance.client.from('ad_analytics').insert({
-        'campaign_id': widget.ad.id,
-        'interaction_type': 'impression',
-        'user_id': userId,
-      }).catchError((_) {});
-    }
   }
 
   void _logClickAndNavigate() async {

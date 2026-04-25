@@ -309,6 +309,10 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
         walletCurrency: _walletCurrency,
         walletSufficient: _walletSufficient,
         onWallet: _payWithWallet,
+        onTopUp: () {
+          Navigator.pop(ctx);
+          context.push('/wallet');
+        },
         onMpesa: _payWithMpesa,
       ),
     );
@@ -649,6 +653,7 @@ class _PaymentSheet extends StatefulWidget {
   final String walletCurrency;
   final bool walletSufficient;
   final VoidCallback onWallet;
+  final VoidCallback onTopUp;
   final Future<void> Function(String phone) onMpesa;
 
   const _PaymentSheet({
@@ -657,6 +662,7 @@ class _PaymentSheet extends StatefulWidget {
     required this.walletCurrency,
     required this.walletSufficient,
     required this.onWallet,
+    required this.onTopUp,
     required this.onMpesa,
   });
 
@@ -718,6 +724,22 @@ class _PaymentSheetState extends State<_PaymentSheet> {
             enabled: widget.walletSufficient,
             onTap: widget.onWallet,
           ),
+
+          if (!widget.walletSufficient)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                onPressed: widget.onTopUp,
+                icon: const Icon(Icons.add_card, size: 14),
+                label: const Text('Top up wallet →'),
+                style: TextButton.styleFrom(
+                  foregroundColor: AppColors.primary,
+                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
+                  visualDensity: VisualDensity.compact,
+                  textStyle: const TextStyle(fontSize: 13),
+                ),
+              ),
+            ),
 
           const SizedBox(height: 12),
 

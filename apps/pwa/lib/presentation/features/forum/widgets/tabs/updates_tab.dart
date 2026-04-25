@@ -15,6 +15,7 @@ class UpdatesTab extends StatefulWidget {
   final Future<void> Function() onRefresh;
   final Function(String, ChatMessage?) onSendMessage;
   final Function(ChatMessage)? onPin;
+  final Function(ChatMessage)? onDelete;
   final Function(ChatMessage)? onReport;
   final Function(ChatMessage)? onMute;
   final Function(ChatMessage)? onBan;
@@ -37,6 +38,7 @@ class UpdatesTab extends StatefulWidget {
     required this.onRefresh,
     required this.onSendMessage,
     this.onPin,
+    this.onDelete,
     this.onReport,
     this.onMute,
     this.onBan,
@@ -68,11 +70,22 @@ class _UpdatesTabState extends State<UpdatesTab>
     super.build(context);
     return Column(
       children: [
-        const InfoBanner(
-          icon: Icons.push_pin,
-          text: 'pinned message',
+        Builder(
+          builder: (_) {
+            final pinned = widget.messages.where((m) => m.isPinned).toList();
+            if (pinned.isEmpty) return const SizedBox.shrink();
+            final preview = pinned.first.message.length > 80
+                ? '${pinned.first.message.substring(0, 80)}…'
+                : pinned.first.message;
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                InfoBanner(icon: Icons.push_pin, text: preview),
+                const SizedBox(height: 8),
+              ],
+            );
+          },
         ),
-        const SizedBox(height: 8),
         CategoryFilterBar(
           selectedCategory: widget.selectedCategory,
           onSelectionChanged: widget.onSelectionChanged,
@@ -106,6 +119,7 @@ class _UpdatesTabState extends State<UpdatesTab>
                         return ChatBubble(
                           message: message,
                           onPin: widget.onPin,
+                          onDelete: widget.onDelete,
                           onReport: widget.onReport,
                           onMute: widget.onMute,
                           onBan: widget.onBan,

@@ -938,7 +938,8 @@ class _KycGateBanner extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 const Text(
-                  'Withdrawals require Tier 2 verification (Government ID).',
+                  'To withdraw funds you must verify your identity. '
+                  'This is a quick one-time process — you\'ll need a government-issued ID such as a national ID, passport, or driving licence.',
                   style: TextStyle(color: Colors.white54, fontSize: 12),
                 ),
                 const SizedBox(height: 8),
