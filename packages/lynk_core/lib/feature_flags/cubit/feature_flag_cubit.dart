@@ -11,14 +11,19 @@ class FeatureFlagCubit extends Cubit<FeatureFlagState> {
   FeatureFlagCubit() : super(const FeatureFlagState());
 
   Future<void> init() async {
+    // Set isLoading: true synchronously before any await so that SplashScreen's
+    // BlocConsumer sees isLoading: true as its initial state and does not
+    // navigate away prematurely on the appVersion emission below.
+    emit(state.copyWith(isLoading: true));
+
     try {
       final packageInfo = await PackageInfo.fromPlatform();
+      // copyWith without isLoading preserves the isLoading: true set above.
       if (!isClosed) emit(state.copyWith(appVersion: packageInfo.version));
     } catch (e) {
       debugPrint('[FeatureFlagCubit] PackageInfo failed: $e');
     }
-    
-    // Use try-catch to prevent Supabase initialization errors from hanging the cubit
+
     try {
       await Future.wait([fetchFlags(), _fetchUserCountry()]);
     } catch (e) {

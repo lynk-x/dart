@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import '../src/widgets/primary_button.dart';
 import 'widgets/social_button.dart';
@@ -18,9 +19,11 @@ class _AuthPageState extends State<AuthPage> {
 
   Future<void> _signInWithProvider(BuildContext context, OAuthProvider provider) async {
     try {
+      // Web uses the current origin as the redirect; native uses the deep-link scheme.
+      final redirectTo = kIsWeb ? null : 'io.supabase.lynkx://login-callback/';
       await Supabase.instance.client.auth.signInWithOAuth(
         provider,
-        redirectTo: 'io.supabase.lynkx://login-callback/',
+        redirectTo: redirectTo,
       );
     } catch (e) {
       if (context.mounted) {
