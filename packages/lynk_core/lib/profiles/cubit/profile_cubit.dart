@@ -1,13 +1,20 @@
-import 'dart:io';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:flutter/foundation.dart';
 import 'profile_state.dart';
 import '../domain/models/profile_model.dart';
 
 class ProfileCubit extends Cubit<ProfileState> {
   ProfileCubit() : super(const ProfileInitial());
 
-  String? get userId => Supabase.instance.client.auth.currentUser?.id;
+  String? get userId {
+    try {
+      return Supabase.instance.client.auth.currentUser?.id;
+    } catch (_) {
+      return null;
+    }
+  }
 
   Future<void> loadProfile() async {
     final uid = userId;
@@ -60,21 +67,27 @@ class ProfileCubit extends Cubit<ProfileState> {
     }
   }
 
-  Future<void> uploadAvatar(File imageFile) async {
+  // XFile works on both web (blob URL) and mobile (file path).
+  // Reads bytes so we can use uploadBinary, which is platform-agnostic.
+  Future<void> uploadAvatar(XFile imageFile) async {
     final currentState = state;
     if (currentState is! ProfileLoaded || userId == null) return;
     final uid = userId!;
 
     emit(currentState.copyWith(isUpdating: true));
     try {
-      final fileExt = imageFile.path.split('.').last;
-      final fileName =
-          '$uid-${DateTime.now().millisecondsSinceEpoch}.$fileExt';
+      final bytes = await imageFile.readAsBytes();
+      final ext = imageFile.name.split('.').last.toLowerCase();
+      final fileName = '$uid-${DateTime.now().millisecondsSinceEpoch}.$ext';
       final path = 'avatars/$fileName';
 
       await Supabase.instance.client.storage
           .from('profiles')
-          .upload(path, imageFile);
+          .uploadBinary(
+            path,
+            bytes,
+            fileOptions: FileOptions(contentType: 'image/$ext'),
+          );
 
       final imageUrl =
           Supabase.instance.client.storage.from('profiles').getPublicUrl(path);
@@ -87,6 +100,7 @@ class ProfileCubit extends Cubit<ProfileState> {
 
       emit(ProfileLoaded(profile: updatedProfile));
     } catch (e) {
+      debugPrint('[ProfileCubit] uploadAvatar failed: $e');
       emit(currentState.copyWith(isUpdating: false, error: e.toString()));
     }
   }

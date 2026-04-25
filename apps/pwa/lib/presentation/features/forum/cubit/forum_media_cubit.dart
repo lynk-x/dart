@@ -1,13 +1,16 @@
-import 'dart:io';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/foundation.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:uuid/uuid.dart';
-import 'package:flutter_image_compress/flutter_image_compress.dart';
-import 'package:video_thumbnail/video_thumbnail.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:lynk_x/presentation/features/forum/models/forum_model.dart';
 import 'forum_media_state.dart';
+
+// flutter_image_compress, video_thumbnail, and path_provider have no web
+// support. Thumbnail generation is skipped on web; on mobile it remains
+// available via the conditional import below.
+import 'forum_media_cubit_thumbnail_stub.dart'
+    if (dart.library.io) 'forum_media_cubit_thumbnail_mobile.dart';
 
 class ForumMediaCubit extends Cubit<ForumMediaState> {
   static const _uuid = Uuid();
@@ -85,66 +88,40 @@ class ForumMediaCubit extends Cubit<ForumMediaState> {
   }
 
   Future<void> uploadMedia({
-    required File file,
+    required XFile file,
     required String type,
     required String mimeType,
   }) async {
     if (isClosed) return;
     emit(state.copyWith(isUploading: true));
     try {
-      final ext = file.path.split('.').last;
+      final bytes = await file.readAsBytes();
+      final ext = file.name.split('.').last.toLowerCase();
       final fileId = _uuid.v4();
       final fileName = '$fileId.$ext';
       final path = '$forumId/$fileName';
 
       await Supabase.instance.client.storage
           .from('forum_media')
-          .upload(path, file, fileOptions: FileOptions(contentType: mimeType));
+          .uploadBinary(path, bytes, fileOptions: FileOptions(contentType: mimeType));
 
       final publicUrl = Supabase.instance.client.storage
           .from('forum_media')
           .getPublicUrl(path);
 
+      // Thumbnail generation uses dart:io APIs — skipped on web.
       String? thumbnailPublicUrl;
-      try {
-        final tempDir = await getTemporaryDirectory();
-        final thumbPath = '${tempDir.path}/thumb_$fileName.jpg';
-        File? thumbFile;
-
-        if (type == 'image') {
-          final result = await FlutterImageCompress.compressAndGetFile(
-            file.absolute.path,
-            thumbPath,
-            quality: 70,
-            minWidth: 400,
-            minHeight: 400,
+      if (!kIsWeb) {
+        try {
+          thumbnailPublicUrl = await generateThumbnail(
+            file: file,
+            type: type,
+            fileId: fileId,
+            forumId: forumId,
           );
-          if (result != null) thumbFile = File(result.path);
-        } else if (type == 'video') {
-          final result = await VideoThumbnail.thumbnailFile(
-            video: file.path,
-            thumbnailPath: thumbPath,
-            imageFormat: ImageFormat.JPEG,
-            maxWidth: 400,
-            quality: 70,
-          );
-          if (result != null) thumbFile = File(result);
+        } catch (e) {
+          debugPrint('[ForumMediaCubit] Thumbnail generation failed: $e');
         }
-
-        if (thumbFile != null) {
-          final thumbName = 'thumbnails/$fileId.jpg';
-          await Supabase.instance.client.storage.from('forum_media').upload(
-                thumbName,
-                thumbFile,
-                fileOptions: const FileOptions(contentType: 'image/jpeg'),
-              );
-          thumbnailPublicUrl = Supabase.instance.client.storage
-              .from('forum_media')
-              .getPublicUrl(thumbName);
-        }
-      } catch (e, stack) {
-      debugPrint('[ForumMediaCubit] Error: $e\n$stack');
-        // Thumbnail generation failed, proceed without it
       }
 
       await Supabase.instance.client.from('forum_media').insert({
@@ -155,7 +132,7 @@ class ForumMediaCubit extends Cubit<ForumMediaState> {
         'thumbnail_url': thumbnailPublicUrl,
         'media_type': type,
         'mime_type': mimeType,
-        'file_size': await file.length(),
+        'file_size': bytes.length,
         'is_approved': isOrganizer,
       });
 

@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:image_picker/image_picker.dart';
@@ -27,7 +27,8 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   // Identity Fields
   final _fullNameController = TextEditingController();
   final _userNameController = TextEditingController();
-  File? _imageFile;
+  XFile? _imageFile;
+  Uint8List? _imageBytes;
 
   // Username validation state
   bool _isCheckingUsername = false;
@@ -97,7 +98,10 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   Future<void> _pickImage() async {
     final picker = ImagePicker();
     final pickedFile = await picker.pickImage(source: ImageSource.gallery, imageQuality: 70);
-    if (pickedFile != null) setState(() => _imageFile = File(pickedFile.path));
+    if (pickedFile != null) {
+      final bytes = await pickedFile.readAsBytes();
+      if (mounted) setState(() { _imageFile = pickedFile; _imageBytes = bytes; });
+    }
   }
 
   void _goToNextFromIdentity() {
@@ -400,7 +404,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
               decoration: BoxDecoration(
                 shape: BoxShape.circle, color: Colors.white10,
                 border: Border.all(color: AppColors.primary.withValues(alpha: 0.3), width: 1.5),
-                image: _imageFile != null ? DecorationImage(image: FileImage(_imageFile!), fit: BoxFit.cover) : null,
+                image: _imageBytes != null ? DecorationImage(image: MemoryImage(_imageBytes!), fit: BoxFit.cover) : null,
               ),
               child: _imageFile == null ? const Icon(Icons.person, size: 60, color: Colors.white24) : null,
             ),

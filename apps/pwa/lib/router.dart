@@ -1,8 +1,8 @@
+import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:lynk_core/core.dart';
-import 'package:flutter/foundation.dart';
 
 import 'router_refresh_stream.dart';
 import 'package:lynk_x/presentation/features/homepage/screens/home_screen.dart';
@@ -182,5 +182,31 @@ GoRouter createRouter(
         },
       ),
     ],
+    errorBuilder: (context, state) => Scaffold(
+      backgroundColor: Colors.black,
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.link_off, color: Colors.white24, size: 64),
+            const SizedBox(height: 24),
+            const Text(
+              'Page not found',
+              style: TextStyle(color: Colors.white70, fontSize: 20, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              state.uri.toString(),
+              style: const TextStyle(color: Colors.white30, fontSize: 13),
+            ),
+            const SizedBox(height: 32),
+            TextButton(
+              onPressed: () => context.go('/'),
+              child: const Text('Go home', style: TextStyle(color: Color(0xFF00FF00))),
+            ),
+          ],
+        ),
+      ),
+    ),
   );
 }

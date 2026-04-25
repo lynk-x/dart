@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 import 'package:flutter/material.dart' hide TextField;
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -79,7 +78,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
     );
 
     if (image != null && context.mounted) {
-      context.read<ProfileCubit>().uploadAvatar(File(image.path));
+      context.read<ProfileCubit>().uploadAvatar(image);
     }
   }
 

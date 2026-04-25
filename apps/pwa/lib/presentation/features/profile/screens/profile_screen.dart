@@ -19,66 +19,70 @@ class ProfilePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (_) => ProfileCubit()..loadProfile(),
-      child: Scaffold(
+    return Scaffold(
+      backgroundColor: AppColors.primaryBackground,
+      appBar: AppBar(
         backgroundColor: AppColors.primaryBackground,
-        appBar: AppBar(
-          backgroundColor: AppColors.primaryBackground,
-          elevation: 0,
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back, size: 28, color: Colors.white),
-            onPressed: () => context.pop(),
-          ),
-          title: Image.asset(
-            'assets/images/lynk-x_combined-logo.png',
-            width: 200,
-            fit: BoxFit.contain,
-          ),
-          centerTitle: true,
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.share_outlined, size: 24, color: Colors.white),
-              onPressed: _shareProfile,
-            ),
-          ],
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, size: 28, color: Colors.white),
+          onPressed: () => context.pop(),
         ),
-        body: BlocBuilder<ProfileCubit, ProfileState>(
-          builder: (context, state) {
-            if (state is ProfileLoading) {
-              return const Center(
-                child: CircularProgressIndicator(color: Color(0xFF00FF00)),
-              );
-            }
-
-            if (state is ProfileError) {
-              return Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.error_outline, size: 48, color: Colors.white.withValues(alpha: 0.4)),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Failed to load profile',
-                      style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 16),
-                    ),
-                    const SizedBox(height: 16),
-                    TextButton(
-                      onPressed: () => context.read<ProfileCubit>().loadProfile(),
-                      child: const Text('Retry', style: TextStyle(color: Color(0xFF00FF00))),
-                    ),
-                  ],
-                ),
-              );
-            }
-
-            if (state is ProfileLoaded) {
-              return _ProfileContent(profile: state.profile);
-            }
-
-            return const SizedBox.shrink();
-          },
+        title: Image.asset(
+          'assets/images/lynk-x_combined-logo.png',
+          width: 200,
+          fit: BoxFit.contain,
         ),
+        centerTitle: true,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.share_outlined, size: 24, color: Colors.white),
+            onPressed: _shareProfile,
+          ),
+        ],
+      ),
+      body: BlocBuilder<ProfileCubit, ProfileState>(
+        builder: (context, state) {
+          if (state is ProfileInitial) {
+            context.read<ProfileCubit>().loadProfile();
+            return const Center(
+              child: CircularProgressIndicator(color: Color(0xFF00FF00)),
+            );
+          }
+
+          if (state is ProfileLoading) {
+            return const Center(
+              child: CircularProgressIndicator(color: Color(0xFF00FF00)),
+            );
+          }
+
+          if (state is ProfileError) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.error_outline, size: 48, color: Colors.white.withValues(alpha: 0.4)),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Failed to load profile',
+                    style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 16),
+                  ),
+                  const SizedBox(height: 16),
+                  TextButton(
+                    onPressed: () => context.read<ProfileCubit>().loadProfile(),
+                    child: const Text('Retry', style: TextStyle(color: Color(0xFF00FF00))),
+                  ),
+                ],
+              ),
+            );
+          }
+
+          if (state is ProfileLoaded) {
+            return _ProfileContent(profile: state.profile);
+          }
+
+          return const SizedBox.shrink();
+        },
       ),
     );
   }

@@ -1,7 +1,9 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
 import 'package:gal/gal.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:lynk_x/presentation/features/forum/models/forum_model.dart';
 import 'interstitial_ad.dart';
 
@@ -58,6 +60,12 @@ class MediaViewer extends StatelessWidget {
   Future<void> _downloadMedia(BuildContext context) async {
     final targetUrl = mediaItem?.url ?? imageUrl;
     if (targetUrl == null) return;
+
+    if (kIsWeb) {
+      final uri = Uri.tryParse(targetUrl);
+      if (uri != null) await launchUrl(uri, mode: LaunchMode.externalApplication);
+      return;
+    }
 
     try {
       final hasAccess = await Gal.requestAccess();

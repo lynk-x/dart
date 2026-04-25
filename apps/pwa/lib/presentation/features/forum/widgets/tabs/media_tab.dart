@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:image_picker/image_picker.dart';
@@ -13,7 +12,7 @@ class MediaTab extends StatefulWidget {
   final Function(ForumMedia) onMediaTap;
   final List<ForumMedia> mediaItems;
   final bool isLoading;
-  final Future<void> Function(File, String, String) onUpload;
+  final Future<void> Function(XFile, String, String) onUpload;
   final bool isMuted;
   final bool isUploading;
 
@@ -229,7 +228,7 @@ class _MediaTabState extends State<MediaTab>
         );
 
         await widget.onUpload(
-            File(pickedFile.path), isVideo ? 'video' : 'image', mimeType);
+            pickedFile, isVideo ? 'video' : 'image', mimeType);
 
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(

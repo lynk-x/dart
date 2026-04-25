@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -59,6 +60,7 @@ class LynkXApp extends StatefulWidget {
 
 class _LynkXAppState extends State<LynkXApp> {
   late final GoRouter _router;
+  StreamSubscription<AuthState>? _authSubscription;
 
   @override
   void initState() {
@@ -85,10 +87,10 @@ class _LynkXAppState extends State<LynkXApp> {
 
     // Auth state listener — handles sign-in, sign-out, and password recovery.
     try {
-      Supabase.instance.client.auth.onAuthStateChange.listen((data) {
+      _authSubscription = Supabase.instance.client.auth.onAuthStateChange.listen((data) {
         if (data.event == AuthChangeEvent.signedIn) {
-          // Load notifications now that currentUser is confirmed non-null.
           if (!mounted) return;
+          context.read<ProfileCubit>().loadProfile();
           context.read<NotificationCubit>().loadNotifications();
           PushNotificationService.instance.init();
         } else if (data.event == AuthChangeEvent.signedOut) {
@@ -100,6 +102,12 @@ class _LynkXAppState extends State<LynkXApp> {
     } catch (e) {
       debugPrint('[LynkXApp] Supabase Auth listener failed: $e');
     }
+  }
+
+  @override
+  void dispose() {
+    _authSubscription?.cancel();
+    super.dispose();
   }
 
   @override
