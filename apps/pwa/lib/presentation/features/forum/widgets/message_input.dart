@@ -56,6 +56,10 @@ class _MessageInputState extends State<MessageInput> {
 
     if (atIndex != -1 && atIndex >= text.length - 10) {
       final query = text.substring(atIndex + 1).toLowerCase();
+      if (query.isNotEmpty && !RegExp(r'^[\w]+$').hasMatch(query)) {
+        setState(() => _showMentions = false);
+        return;
+      }
       setState(() {
         _filteredMembers = widget.members.where((m) {
           final name = (m['full_name'] as String?)?.toLowerCase() ?? '';
@@ -73,7 +77,8 @@ class _MessageInputState extends State<MessageInput> {
   void _selectMention(Map<String, dynamic> member) {
     final text = _controller.text;
     final atIndex = text.lastIndexOf('@');
-    final newText = '${text.substring(0, atIndex)}@${member['full_name']} ';
+    final handle = (member['user_name'] as String?) ?? (member['full_name'] as String?) ?? '';
+    final newText = '${text.substring(0, atIndex)}@$handle ';
     _controller.text = newText;
     _controller.selection = TextSelection.fromPosition(
       TextPosition(offset: newText.length),
@@ -125,10 +130,11 @@ class _MessageInputState extends State<MessageInput> {
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
-              GestureDetector(
-                onTap: _handleSend,
-                child: const Icon(Icons.send, color: Colors.white, size: 30),
+              const SizedBox(width: 4),
+              IconButton(
+                tooltip: 'Send message',
+                icon: const Icon(Icons.send_rounded, color: Colors.white, size: 26),
+                onPressed: _handleSend,
               ),
             ],
           ),

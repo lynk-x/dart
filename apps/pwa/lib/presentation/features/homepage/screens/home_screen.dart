@@ -117,10 +117,36 @@ class _HomeViewState extends State<HomeView>
           // Surface fetch errors without crashing the whole screen
           if (state.errorMessage != null && state.events.isEmpty) {
             return Center(
-              child: Text(
-                'Could not load events: ${state.errorMessage}',
-                style: const TextStyle(color: Colors.white54),
-                textAlign: TextAlign.center,
+              child: Padding(
+                padding: const EdgeInsets.all(32),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.wifi_off_rounded, size: 48, color: Colors.white24),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Could not load events',
+                      style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      state.errorMessage!,
+                      style: const TextStyle(color: Colors.white38, fontSize: 13),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 24),
+                    ElevatedButton.icon(
+                      onPressed: context.read<HomeCubit>().refresh,
+                      icon: const Icon(Icons.refresh, size: 18),
+                      label: const Text('Try again'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.black,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             );
           }

@@ -12,10 +12,22 @@ class ForumHeader extends StatefulWidget {
   /// Callback triggered when the search mode is toggled.
   final VoidCallback? onSearchToggle;
 
+  /// When true, the lock/unlock icon button is shown.
+  final bool isOrganizer;
+
+  /// Current read-only state of the forum (true = locked).
+  final bool isReadOnly;
+
+  /// Called when the organizer taps the lock/unlock button.
+  final VoidCallback? onLockToggle;
+
   const ForumHeader({
     super.key,
     this.onSearch,
     this.onSearchToggle,
+    this.isOrganizer = false,
+    this.isReadOnly = false,
+    this.onLockToggle,
   });
 
   @override
@@ -66,6 +78,15 @@ class _ForumHeaderState extends State<ForumHeader> {
                     ),
                   ),
           ),
+          if (widget.isOrganizer)
+            IconButton(
+              tooltip: widget.isReadOnly ? 'Unlock chat' : 'Lock chat',
+              icon: Icon(
+                widget.isReadOnly ? Icons.lock_open_rounded : Icons.lock_rounded,
+                color: Colors.black,
+              ),
+              onPressed: widget.onLockToggle,
+            ),
           IconButton(
             icon: Icon(
               _isSearching ? Icons.close : Icons.search,

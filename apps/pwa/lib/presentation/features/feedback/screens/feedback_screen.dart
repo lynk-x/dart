@@ -236,26 +236,27 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
 
             const SizedBox(height: 16),
 
-            // Diagnostic info opt-in
-            GestureDetector(
-              onTap: () => setState(() => _includeDeviceInfo = !_includeDeviceInfo),
-              child: Row(
-                children: [
-                  Checkbox(
-                    value: _includeDeviceInfo,
-                    onChanged: (v) => setState(() => _includeDeviceInfo = v ?? false),
-                    activeColor: AppColors.primary,
-                    side: const BorderSide(color: Colors.white30),
-                  ),
-                  const Expanded(
-                    child: Text(
-                      'Include device info (OS & version) to help diagnose bugs',
-                      style: TextStyle(color: Colors.white60, fontSize: 13),
+            // Diagnostic info opt-in (native only — no platform info on web)
+            if (!kIsWeb)
+              GestureDetector(
+                onTap: () => setState(() => _includeDeviceInfo = !_includeDeviceInfo),
+                child: Row(
+                  children: [
+                    Checkbox(
+                      value: _includeDeviceInfo,
+                      onChanged: (v) => setState(() => _includeDeviceInfo = v ?? false),
+                      activeColor: AppColors.primary,
+                      side: const BorderSide(color: Colors.white30),
                     ),
-                  ),
-                ],
+                    const Expanded(
+                      child: Text(
+                        'Include device info (OS & version) to help diagnose bugs',
+                        style: TextStyle(color: Colors.white60, fontSize: 13),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
 
             const SizedBox(height: 24),
 

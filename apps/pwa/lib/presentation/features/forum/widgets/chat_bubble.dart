@@ -242,7 +242,10 @@ class _ChatBubbleState extends State<ChatBubble> {
         : Colors.white.withValues(alpha: 0.05);
     final textColor = widget.message.isMe ? AppColors.primary : Colors.white;
 
-    return GestureDetector(
+    return Tooltip(
+      message: 'Hold to reply or react',
+      waitDuration: const Duration(seconds: 2),
+      child: GestureDetector(
       onLongPress: widget.onLongPressBubble,
       child: Container(
         constraints:
@@ -273,6 +276,7 @@ class _ChatBubbleState extends State<ChatBubble> {
           ],
         ),
       ),
+    ),
     );
   }
 

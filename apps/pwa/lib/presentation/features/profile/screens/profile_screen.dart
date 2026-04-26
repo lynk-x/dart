@@ -10,10 +10,11 @@ import 'package:lynk_x/services/push_notification_service.dart';
 class ProfilePage extends StatelessWidget {
   const ProfilePage({super.key});
 
-  void _shareProfile() {
+  void _shareProfile(ProfileModel profile) {
+    final name = profile.fullName ?? profile.userName;
     Share.share(
-      'Check out Lynk-X - The ultimate event platform! Join me at: https://lynk-x.app',
-      subject: 'Join me on Lynk-X!',
+      'Check out $name on Lynk-X! https://lynk-x.app/u/${profile.userName}',
+      subject: '$name is on Lynk-X',
     );
   }
 
@@ -37,7 +38,11 @@ class ProfilePage extends StatelessWidget {
         actions: [
           IconButton(
             icon: const Icon(Icons.share_outlined, size: 24, color: Colors.white),
-            onPressed: _shareProfile,
+            tooltip: 'Share profile',
+            onPressed: () {
+              final state = context.read<ProfileCubit>().state;
+              if (state is ProfileLoaded) _shareProfile(state.profile);
+            },
           ),
         ],
       ),

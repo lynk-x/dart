@@ -18,6 +18,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
   // ── loading / processing ───────────────────────────────────────────────────
   bool _isLoading = true;
   bool _isProcessing = false;
+  bool _hasError = false;
 
   // ── plan data ──────────────────────────────────────────────────────────────
   _PlanData? _monthlyPlan;
@@ -36,6 +37,8 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
   // ── M-Pesa async wait ─────────────────────────────────────────────────────
   bool _waitingMpesa = false;
   RealtimeChannel? _subChannel;
+  Timer? _mpesaCountdownTimer;
+  int _mpesaSecondsLeft = 180;
 
   // ── derived ───────────────────────────────────────────────────────────────
   _PlanData? get _selected => _interval == 'year' ? _yearlyPlan : _monthlyPlan;
@@ -56,7 +59,24 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
   @override
   void dispose() {
     _subChannel?.unsubscribe();
+    _mpesaCountdownTimer?.cancel();
     super.dispose();
+  }
+
+  void _startMpesaCountdown() {
+    _mpesaCountdownTimer?.cancel();
+    _mpesaSecondsLeft = 180;
+    _mpesaCountdownTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted) return;
+      setState(() {
+        if (_mpesaSecondsLeft > 0) _mpesaSecondsLeft--;
+      });
+    });
+  }
+
+  void _cancelMpesaCountdown() {
+    _mpesaCountdownTimer?.cancel();
+    _mpesaCountdownTimer = null;
   }
 
   // ── data loading ──────────────────────────────────────────────────────────
@@ -152,7 +172,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
         _isLoading = false;
       });
     } catch (_) {
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted) setState(() { _isLoading = false; _hasError = true; });
     }
   }
 
@@ -190,6 +210,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
       _isProcessing = true;
       _waitingMpesa = true;
     });
+    _startMpesaCountdown();
 
     // Listen for the webhook-created subscription row
     _subChannel = _supabase
@@ -200,6 +221,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
           table: 'subscriptions',
           callback: (_) {
             if (!_waitingMpesa || !mounted) return;
+            _cancelMpesaCountdown();
             setState(() {
               _waitingMpesa = false;
               _isProcessing = false;
@@ -223,6 +245,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
       // Timeout after 3 minutes.
       Future.delayed(const Duration(minutes: 3), () {
         if (!mounted || !_waitingMpesa) return;
+        _cancelMpesaCountdown();
         setState(() {
           _waitingMpesa = false;
           _isProcessing = false;
@@ -364,11 +387,51 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
         centerTitle: true,
       ),
       body: _isLoading
-          ? const Center(
-              child: CircularProgressIndicator(color: AppColors.primary))
-          : _monthlyPlan == null
-              ? _buildNoPlan()
-              : _buildContent(),
+          ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
+          : _hasError
+              ? _buildError()
+              : _monthlyPlan == null
+                  ? _buildNoPlan()
+                  : _buildContent(),
+    );
+  }
+
+  Widget _buildError() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.wifi_off_rounded, size: 48, color: Colors.white24),
+            const SizedBox(height: 16),
+            const Text(
+              'Could not load plans',
+              style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Check your connection and try again.',
+              style: TextStyle(color: Colors.white38, fontSize: 13),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton.icon(
+              onPressed: () {
+                setState(() => _hasError = false);
+                _load();
+              },
+              icon: const Icon(Icons.refresh, size: 18),
+              label: const Text('Try again'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.black,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -626,9 +689,15 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
               style: TextStyle(
                   color: Colors.white.withValues(alpha: 0.5), fontSize: 14),
             ),
+            const SizedBox(height: 8),
+            Text(
+              'Expires in ${(_mpesaSecondsLeft ~/ 60).toString().padLeft(2, '0')}:${(_mpesaSecondsLeft % 60).toString().padLeft(2, '0')}',
+              style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 12),
+            ),
             const SizedBox(height: 28),
             TextButton(
               onPressed: () {
+                _cancelMpesaCountdown();
                 _subChannel?.unsubscribe();
                 setState(() {
                   _waitingMpesa = false;
@@ -673,6 +742,7 @@ class _PaymentSheet extends StatefulWidget {
 class _PaymentSheetState extends State<_PaymentSheet> {
   final _phoneController = TextEditingController();
   bool _mpesaExpanded = false;
+  String? _phoneError;
 
   @override
   void dispose() {
@@ -771,8 +841,11 @@ class _PaymentSheetState extends State<_PaymentSheet> {
                     style: const TextStyle(color: Colors.white),
                     keyboardType: TextInputType.phone,
                     inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    onChanged: (_) {
+                      if (_phoneError != null) setState(() => _phoneError = null);
+                    },
                     decoration: InputDecoration(
-                      hintText: '07XXXXXXXX',
+                      hintText: '7XXXXXXXX',
                       hintStyle: TextStyle(
                           color: Colors.white.withValues(alpha: 0.3)),
                       prefixText: '+254 ',
@@ -783,15 +856,24 @@ class _PaymentSheetState extends State<_PaymentSheet> {
                         borderRadius: BorderRadius.circular(12),
                         borderSide: BorderSide.none,
                       ),
+                      errorBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(color: Colors.redAccent),
+                      ),
                       contentPadding: const EdgeInsets.symmetric(
                           horizontal: 16, vertical: 14),
+                      errorText: _phoneError,
+                      errorStyle: const TextStyle(color: Colors.redAccent, fontSize: 11),
                     ),
                   ),
                   const SizedBox(height: 12),
                   ElevatedButton(
                     onPressed: () {
                       final phone = _phoneController.text.trim();
-                      if (phone.length < 9) return;
+                      if (phone.length != 9) {
+                        setState(() => _phoneError = 'Enter 9 digits after +254 (e.g. 712345678)');
+                        return;
+                      }
                       widget.onMpesa('+254$phone');
                     },
                     style: ElevatedButton.styleFrom(

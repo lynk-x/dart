@@ -46,7 +46,7 @@ class KycVerificationScreen extends StatelessWidget {
                 height: 100,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: const Color(0xFF00FF00).withValues(alpha: 0.1),
+                  color: AppColors.primary.withValues(alpha: 0.1),
                 ),
                 child: const Icon(
                   Icons.verified_user_outlined,
@@ -86,7 +86,7 @@ class KycVerificationScreen extends StatelessWidget {
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                   ),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF00FF00),
+                    backgroundColor: AppColors.primary,
                     foregroundColor: Colors.black,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),

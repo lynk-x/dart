@@ -272,7 +272,10 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
               controller: _userNameController,
               label: 'Username',
               hint: 'johndoe_99',
-              suffixIcon: _isCheckingUsername 
+              helperText: _userNameController.text.isNotEmpty && _userNameController.text.trim().length < 3
+                  ? 'Username must be at least 3 characters'
+                  : null,
+              suffixIcon: _isCheckingUsername
                 ? const SizedBox(width: 20, height: 20, child: Padding(padding: EdgeInsets.all(12), child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white24)))
                 : (_isUsernameAvailable == true 
                     ? const Icon(Icons.check_circle, color: AppColors.primary, size: 20)
@@ -422,6 +425,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
     bool obscureText = false,
     Widget? suffixIcon,
     String? Function(String?)? validator,
+    String? helperText,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -437,6 +441,8 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
             focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: AppColors.primary, width: 1)),
             suffixIcon: suffixIcon,
+            helperText: helperText,
+            helperStyle: const TextStyle(color: Colors.white38, fontSize: 11),
           ),
         ),
       ],

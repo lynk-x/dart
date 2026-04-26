@@ -188,99 +188,6 @@ class _ForumViewState extends State<ForumView> {
     super.dispose();
   }
 
-  void _showActionSheet() {
-    final mainCubit = context.read<ForumCubit>();
-    final state = mainCubit.state;
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (ctx) => Container(
-        padding: const EdgeInsets.only(top: 16, bottom: 32),
-        decoration: BoxDecoration(
-          color: AppColors.tertiary.withValues(alpha: 0.98),
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-          border: const Border(top: BorderSide(color: Colors.white10)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 40,
-              height: 4,
-              margin: const EdgeInsets.only(bottom: 8),
-              decoration: BoxDecoration(
-                color: Colors.white24,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            if (state.isOrganizer) ...[
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                child: Text(
-                  'Organizer',
-                  style: TextStyle(
-                    color: Colors.white38,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0.8,
-                  ),
-                ),
-              ),
-              _buildActionTile(
-                icon: state.isReadOnly ? Icons.lock_open_rounded : Icons.lock_rounded,
-                label: state.isReadOnly ? 'Unlock chat' : 'Lock chat',
-                subtitle: state.isReadOnly
-                    ? 'Allow members to send messages'
-                    : 'Prevent members from sending messages',
-                iconColor: Colors.orange,
-                onTap: () {
-                  Navigator.pop(ctx);
-                  final nextStatus = state.isReadOnly ? 'active' : 'read_only';
-                  mainCubit.updateForumStatus(nextStatus);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(state.isReadOnly ? 'Chat unlocked' : 'Chat locked'),
-                    ),
-                  );
-                },
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildActionTile({
-    required IconData icon,
-    required String label,
-    required String subtitle,
-    required Color iconColor,
-    required VoidCallback onTap,
-  }) {
-    return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-      leading: Container(
-        width: 44,
-        height: 44,
-        decoration: BoxDecoration(
-          color: iconColor.withValues(alpha: 0.15),
-          shape: BoxShape.circle,
-        ),
-        child: Icon(icon, color: iconColor, size: 22),
-      ),
-      title: Text(
-        label,
-        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 15),
-      ),
-      subtitle: Text(
-        subtitle,
-        style: const TextStyle(color: Colors.white54, fontSize: 12),
-      ),
-      onTap: onTap,
-    );
-  }
 
 
   void _openGalleryFromChat(String? imageUrl) {
@@ -390,15 +297,30 @@ class _ForumViewState extends State<ForumView> {
         appBar: _buildAppBar(),
         body: Column(
           children: [
-            ForumHeader(
-              onSearch: (q) =>
-                  context.read<ForumUpdatesCubit>().setSearchQuery(q),
-              onSearchToggle: () {
-                final updatesCubit = context.read<ForumUpdatesCubit>();
-                if (updatesCubit.state.searchQuery.isNotEmpty) {
-                  updatesCubit.setSearchQuery('');
-                }
-              },
+            BlocBuilder<ForumCubit, ForumState>(
+              buildWhen: (p, c) =>
+                  p.isOrganizer != c.isOrganizer || p.isReadOnly != c.isReadOnly,
+              builder: (context, forumState) => ForumHeader(
+                isOrganizer: forumState.isOrganizer,
+                isReadOnly: forumState.isReadOnly,
+                onLockToggle: () {
+                  final messenger = ScaffoldMessenger.of(context);
+                  final nextStatus = forumState.isReadOnly ? 'active' : 'read_only';
+                  cubit.updateForumStatus(nextStatus);
+                  messenger.showSnackBar(SnackBar(
+                    content: Text(forumState.isReadOnly ? 'Chat unlocked' : 'Chat locked'),
+                    behavior: SnackBarBehavior.floating,
+                  ));
+                },
+                onSearch: (q) =>
+                    context.read<ForumUpdatesCubit>().setSearchQuery(q),
+                onSearchToggle: () {
+                  final updatesCubit = context.read<ForumUpdatesCubit>();
+                  if (updatesCubit.state.searchQuery.isNotEmpty) {
+                    updatesCubit.setSearchQuery('');
+                  }
+                },
+              ),
             ),
             _buildWelcomeBanner(),
             BlocBuilder<FeatureFlagCubit, FeatureFlagState>(
@@ -614,7 +536,7 @@ class _ForumViewState extends State<ForumView> {
                         selectedCategory: updatesState.selectedCategory,
                         onSelectionChanged: updatesCubit.setCategory,
                         isOrganizer: state.isOrganizer,
-                        onActionTap: _showActionSheet,
+                        onActionTap: () {},
                         mentionedMedia: updatesState.mentionedMedia,
                         onCancelMention: () =>
                             updatesCubit.setMentionedMedia(null),
@@ -631,7 +553,7 @@ class _ForumViewState extends State<ForumView> {
                     onReport: _showReportDialog,
                     selectedEmoji: state.selectedEmoji,
                     emojiTrigger: state.emojiTrigger,
-                    onActionTap: _showActionSheet,
+                    onActionTap: () {},
                     onPin: (msg) => mainCubit.pinMessage(msg),
                     onDelete: (msg) => context.read<ForumChatCubit>().deleteMessage(msg.id),
                     onMute: (msg) async {

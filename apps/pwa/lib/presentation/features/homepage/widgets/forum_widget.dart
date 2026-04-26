@@ -18,22 +18,27 @@ class ForumWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final formattedDate =
-        DateFormat('MMM d, y • h:mm a').format(event.startDatetime);
+        DateFormat('dd/MM/yyyy • h:mm a').format(event.startDatetime);
 
     return FlameBadge(
       showBadge: event.hasUnread,
       content: event.chatCount.toString(),
-      child: GestureDetector(
-        onTap: () => context.push('/forum/${event.id}'),
-        child: Container(
-          margin: const EdgeInsets.only(bottom: 8),
-          padding: const EdgeInsets.all(4),
-          decoration: BoxDecoration(
-            color: AppColors.primary,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: AppColors.primaryBackground, width: 1.5),
-          ),
-          child: Row(
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        decoration: BoxDecoration(
+          color: AppColors.primary,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: AppColors.primaryBackground, width: 1.5),
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(7),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: () => context.push('/forum/${event.id}'),
+              child: Padding(
+                padding: const EdgeInsets.all(4),
+                child: Row(
             children: [
               // Thumbnail — uses CachedNetworkImage if URL is available,
               // falls back to an icon placeholder for development mock data.
@@ -104,8 +109,11 @@ class ForumWidget extends StatelessWidget {
                   ],
                 ),
               ),
-            ],
+                ],
+              ),
+            ),
           ),
+        ),
         ),
       ),
     );

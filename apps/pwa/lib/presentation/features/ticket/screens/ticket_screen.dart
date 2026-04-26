@@ -27,8 +27,46 @@ class TicketPage extends StatelessWidget {
   }
 }
 
-class TicketView extends StatelessWidget {
+class TicketView extends StatefulWidget {
   const TicketView({super.key});
+
+  @override
+  State<TicketView> createState() => _TicketViewState();
+}
+
+class _TicketViewState extends State<TicketView> {
+  bool _isCancellingResale = false;
+  Timer? _countdownTimer;
+  Duration? _remaining;
+  DateTime? _trackedExpiry;
+
+  @override
+  void dispose() {
+    _countdownTimer?.cancel();
+    super.dispose();
+  }
+
+  void _startCountdown(DateTime expiresAt) {
+    if (_trackedExpiry == expiresAt) return;
+    _trackedExpiry = expiresAt;
+    _countdownTimer?.cancel();
+    _tick(expiresAt);
+    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (_) => _tick(expiresAt));
+  }
+
+  void _tick(DateTime expiresAt) {
+    if (!mounted) return;
+    final diff = expiresAt.toLocal().difference(DateTime.now());
+    setState(() => _remaining = diff.isNegative ? Duration.zero : diff);
+    if (!diff.isNegative && diff.inSeconds <= 0) _countdownTimer?.cancel();
+  }
+
+  String _formatCountdown(Duration d) {
+    if (d.inHours >= 1) {
+      return '${d.inHours}h ${(d.inMinutes % 60).toString().padLeft(2, '0')}m left';
+    }
+    return '${d.inMinutes}m ${(d.inSeconds % 60).toString().padLeft(2, '0')}s left';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -267,9 +305,10 @@ class TicketView extends StatelessWidget {
     );
   }
 
-  void _cancelResaleListing(BuildContext context, String listingId) async {
+  Future<void> _cancelResaleListing(BuildContext context, String listingId) async {
     final cubit = context.read<TicketCubit>();
     final messenger = ScaffoldMessenger.of(context);
+    setState(() => _isCancellingResale = true);
     try {
       await cubit.cancelResaleListing(listingId);
       messenger.showSnackBar(
@@ -279,6 +318,8 @@ class TicketView extends StatelessWidget {
       messenger.showSnackBar(
         SnackBar(content: Text('Failed to cancel: $e'), backgroundColor: Colors.red),
       );
+    } finally {
+      if (mounted) setState(() => _isCancellingResale = false);
     }
   }
 
@@ -306,9 +347,11 @@ class TicketView extends StatelessWidget {
     final currency = listing['currency'] as String? ?? '';
     final price = (listing['asking_price'] as num).toStringAsFixed(2);
     final expiresAt = DateTime.tryParse(listing['expires_at'] as String? ?? '');
-    final expiresText = expiresAt != null
-        ? 'Expires ${DateFormat('dd/MM HH:mm').format(expiresAt.toLocal())}'
-        : '';
+    if (expiresAt != null) _startCountdown(expiresAt);
+
+    final expiresText = _remaining != null
+        ? _formatCountdown(_remaining!)
+        : (expiresAt != null ? 'Expires ${DateFormat('dd/MM HH:mm').format(expiresAt.toLocal())}' : '');
 
     return Container(
       padding: const EdgeInsets.all(14),
@@ -334,11 +377,21 @@ class TicketView extends StatelessWidget {
               ],
             ),
           ),
-          TextButton(
-            onPressed: () => _cancelResaleListing(context, listing['id'] as String),
-            style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 8)),
-            child: const Text('Cancel', style: TextStyle(color: Colors.orange, fontSize: 12)),
-          ),
+          if (_isCancellingResale)
+            const SizedBox(
+              width: 36,
+              height: 36,
+              child: Padding(
+                padding: EdgeInsets.all(8),
+                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.orange),
+              ),
+            )
+          else
+            TextButton(
+              onPressed: () => _cancelResaleListing(context, listing['id'] as String),
+              style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 8)),
+              child: const Text('Cancel', style: TextStyle(color: Colors.orange, fontSize: 12)),
+            ),
         ],
       ),
     );
@@ -702,7 +755,7 @@ class _TransferTicketDialogState extends State<_TransferTicketDialog> {
           backgroundColor: AppColors.primary,
         ),
       );
-      cubit.refresh();
+      await cubit.refresh();
     } catch (e) {
       messenger.showSnackBar(
         SnackBar(
@@ -988,11 +1041,19 @@ class _ResellTicketSheetState extends State<_ResellTicketSheet> {
               focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.primary, width: 1)),
             ),
           ),
-          const SizedBox(height: 8),
-          const Text(
-            'Payment is wallet-to-wallet. No platform fee.',
-            style: TextStyle(color: Colors.white38, fontSize: 11),
-          ),
+          if (_maxPrice != null && (double.tryParse(_priceController.text.trim()) ?? 0) > _maxPrice!) ...[
+            const SizedBox(height: 6),
+            Text(
+              'Price cannot exceed the original purchase price of $_currency ${_maxPrice!.toStringAsFixed(2)}',
+              style: const TextStyle(color: Colors.redAccent, fontSize: 12),
+            ),
+          ] else ...[
+            const SizedBox(height: 8),
+            const Text(
+              'Payment is wallet-to-wallet. No platform fee.',
+              style: TextStyle(color: Colors.white38, fontSize: 11),
+            ),
+          ],
           const SizedBox(height: 24),
           _isSubmitting
               ? const Center(child: CircularProgressIndicator(color: AppColors.primary))

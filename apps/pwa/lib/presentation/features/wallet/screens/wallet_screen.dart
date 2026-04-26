@@ -285,6 +285,9 @@ class _TopUpSheetState extends State<_TopUpSheet> {
   static const _mpesaCurrencies = {'KES', 'UGX', 'TZS', 'NGN'};
   static const _quickAmounts = {
     'KES': [500.0, 1000.0, 2500.0, 5000.0],
+    'UGX': [20000.0, 50000.0, 100000.0, 200000.0],
+    'TZS': [20000.0, 50000.0, 100000.0, 250000.0],
+    'NGN': [5000.0, 10000.0, 25000.0, 50000.0],
     'USD': [10.0, 25.0, 50.0, 100.0],
     'GBP': [10.0, 25.0, 50.0, 100.0],
   };
@@ -317,11 +320,21 @@ class _TopUpSheetState extends State<_TopUpSheet> {
 
   void _submit() {
     final amount = _parsedAmount;
-    if (amount == null || amount <= 0) return;
+    if (amount == null || amount <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter a valid amount')),
+      );
+      return;
+    }
     final cubit = context.read<WalletCubit>();
     if (_isMpesa) {
       final phone = _phoneController.text.trim();
-      if (phone.length < 9) return;
+      if (phone.length < 9) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please enter a valid phone number')),
+        );
+        return;
+      }
       cubit.initiateTopUpMpesa(
         amount: amount,
         currency: _currency,
@@ -425,40 +438,43 @@ class _TopUpSheetState extends State<_TopUpSheet> {
         const SizedBox(height: 20),
 
         // ── Currency selector ──────────────────────────────────────────
-        Row(
-          children: ['KES', 'USD', 'GBP'].map((c) {
-            final selected = c == _currency;
-            return Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: GestureDetector(
-                onTap: () => setState(() {
-                  _currency = c;
-                  _quickPick = null;
-                  _amountController.clear();
-                }),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 150),
-                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: selected
-                        ? AppColors.primary.withValues(alpha: 0.15)
-                        : Colors.white.withValues(alpha: 0.05),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: ['KES', 'UGX', 'TZS', 'NGN', 'USD', 'GBP'].map((c) {
+              final selected = c == _currency;
+              return Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: GestureDetector(
+                  onTap: () => setState(() {
+                    _currency = c;
+                    _quickPick = null;
+                    _amountController.clear();
+                  }),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 150),
+                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+                    decoration: BoxDecoration(
                       color: selected
-                          ? AppColors.primary.withValues(alpha: 0.5)
-                          : Colors.white12,
+                          ? AppColors.primary.withValues(alpha: 0.15)
+                          : Colors.white.withValues(alpha: 0.05),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: selected
+                            ? AppColors.primary.withValues(alpha: 0.5)
+                            : Colors.white12,
+                      ),
                     ),
+                    child: Text(c,
+                        style: TextStyle(
+                            color: selected ? AppColors.primary : Colors.white54,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13)),
                   ),
-                  child: Text(c,
-                      style: TextStyle(
-                          color: selected ? AppColors.primary : Colors.white54,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 13)),
                 ),
-              ),
-            );
-          }).toList(),
+              );
+            }).toList(),
+          ),
         ),
         const SizedBox(height: 20),
 
@@ -767,7 +783,7 @@ class _PayoutSheetState extends State<_PayoutSheet> {
                 ),
                 const SizedBox(height: 4),
                 const Text(
-                  'Min: ~\$10 USD equivalent',
+                  'Minimum withdrawal: ~\$10 USD equivalent',
                   style: TextStyle(color: Colors.white38, fontSize: 11),
                 ),
                 const SizedBox(height: 20),
@@ -857,6 +873,20 @@ class _PayoutSheetState extends State<_PayoutSheet> {
 
                 const SizedBox(height: 24),
 
+                if (_selectedMethodId == null && state.payoutMethods.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Row(
+                      children: const [
+                        Icon(Icons.info_outline, size: 14, color: Colors.white38),
+                        SizedBox(width: 6),
+                        Text(
+                          'Select a payout method above to continue',
+                          style: TextStyle(color: Colors.white38, fontSize: 12),
+                        ),
+                      ],
+                    ),
+                  ),
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
@@ -865,7 +895,12 @@ class _PayoutSheetState extends State<_PayoutSheet> {
                         : () {
                             final amount = double.tryParse(
                                 _amountController.text.trim());
-                            if (amount == null || amount <= 0) return;
+                            if (amount == null || amount <= 0) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Please enter a valid amount')),
+                              );
+                              return;
+                            }
                             context.read<WalletCubit>().requestWithdrawal(
                               amount:         amount,
                               currency:       _selectedCurrency,
@@ -1252,6 +1287,25 @@ class _TransactionTile extends StatelessWidget {
   final WalletTransaction tx;
   const _TransactionTile({required this.tx});
 
+  static const _reasonLabels = {
+    'top_up_mpesa':      'M-Pesa Top Up',
+    'top_up_card':       'Card Top Up',
+    'ticket_purchase':   'Ticket Purchase',
+    'ticket_refund':     'Ticket Refund',
+    'subscription':      'Subscription Payment',
+    'subscription_refund': 'Subscription Refund',
+    'resale_sale':       'Ticket Resale — Sale',
+    'resale_purchase':   'Ticket Resale — Purchase',
+    'withdrawal':        'Withdrawal',
+    'withdrawal_refund': 'Withdrawal Refund',
+    'transfer_in':       'Transfer Received',
+    'transfer_out':      'Transfer Sent',
+  };
+
+  String get _label =>
+      _reasonLabels[tx.reason] ??
+      tx.reason.replaceAll('_', ' ').split(' ').map((w) => w.isEmpty ? '' : '${w[0].toUpperCase()}${w.substring(1)}').join(' ');
+
   @override
   Widget build(BuildContext context) {
     final isIncoming = tx.category == 'incoming';
@@ -1288,7 +1342,7 @@ class _TransactionTile extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    tx.reason.replaceAll('_', ' ').toUpperCase(),
+                    _label,
                     style: AppTypography.inter(
                       fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white70,
                     ),

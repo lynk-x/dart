@@ -149,9 +149,13 @@ class _LiveChatTabState extends State<LiveChatTab>
                       ? ListView(
                           controller: widget.scrollController,
                           physics: const AlwaysScrollableScrollPhysics(),
-                          children: const [
-                            SizedBox(height: 100),
-                            EmptyState(message: 'No messages yet'),
+                          children: [
+                            const SizedBox(height: 100),
+                            EmptyState(
+                              message: _showSearch
+                                  ? 'No messages matched your search'
+                                  : 'No messages yet',
+                            ),
                           ],
                         )
                       : ListView.builder(
