@@ -493,7 +493,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                'This permanently deletes your profile, tickets, and event history. This cannot be undone.',
+                'This permanently deletes your profile, tickets and event history. This cannot be undone.',
                 style: TextStyle(color: Colors.white70),
               ),
               const SizedBox(height: 20),
