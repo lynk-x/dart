@@ -52,11 +52,28 @@ class _EditProfilePageState extends State<EditProfilePage> {
   void initState() {
     super.initState();
     _usernameController.addListener(_onUsernameChanged);
+    _usernameController.addListener(_onFieldChanged);
+    _nameController.addListener(_onFieldChanged);
+    _bioController.addListener(_onFieldChanged);
+    _taglineController.addListener(_onFieldChanged);
+    
+    // Load profile data on entry
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) context.read<ProfileCubit>().loadProfile();
+    });
+  }
+
+  void _onFieldChanged() {
+    if (mounted) setState(() {});
   }
 
   @override
   void dispose() {
     _usernameController.removeListener(_onUsernameChanged);
+    _usernameController.removeListener(_onFieldChanged);
+    _nameController.removeListener(_onFieldChanged);
+    _bioController.removeListener(_onFieldChanged);
+    _taglineController.removeListener(_onFieldChanged);
     _debounceTimer?.cancel();
     _nameController.dispose();
     _usernameController.dispose();
@@ -109,6 +126,16 @@ class _EditProfilePageState extends State<EditProfilePage> {
     } finally {
       if (mounted) setState(() => _isOpeningGallery = false);
     }
+  }
+
+  bool _hasChanges(ProfileModel profile) {
+    final nameChanged = _nameController.text.trim() != (profile.fullName ?? '');
+    final usernameChanged = _usernameController.text.trim() != profile.userName;
+    final bioChanged = _bioController.text.trim() != (profile.bio ?? '');
+    final taglineChanged = _taglineController.text.trim() != (profile.tagline ?? '');
+    final countryChanged = _selectedCountryCode != profile.countryCode;
+
+    return nameChanged || usernameChanged || bioChanged || taglineChanged || countryChanged;
   }
 
   void _saveChanges(BuildContext context) {
@@ -164,6 +191,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                     onTap: () {
                       setState(() => _selectedCountryCode = country.code);
                       Navigator.pop(context);
+                      _onFieldChanged();
                     },
                   );
                 },
@@ -259,142 +287,186 @@ class _EditProfilePageState extends State<EditProfilePage> {
               ),
             ],
           ),
-          body: SingleChildScrollView(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              children: [
-                // Avatar section
-                Center(
-                  child: Stack(
-                    children: [
-                      GestureDetector(
-                        onTap: isUpdating ? null : () => _pickImage(context),
-                        child: Container(
-                          width: 100,
-                          height: 100,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border:
-                                Border.all(color: AppColors.tertiary, width: 2),
-                            color: AppColors.tertiary.withValues(alpha: 0.3),
-                            image: profile.avatarUrl != null
-                                ? DecorationImage(
-                                    image: NetworkImage(profile.avatarUrl!),
-                                    fit: BoxFit.cover,
-                                  )
-                                : null,
+          body: Stack(
+            children: [
+              SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(20, 20, 20, 120),
+                child: Column(
+                  children: [
+                    // Avatar section
+                    Center(
+                      child: Stack(
+                        children: [
+                          GestureDetector(
+                            onTap: isUpdating ? null : () => _pickImage(context),
+                            child: Container(
+                              width: 100,
+                              height: 100,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                border:
+                                    Border.all(color: AppColors.tertiary, width: 2),
+                                color: AppColors.tertiary.withValues(alpha: 0.3),
+                                image: profile.avatarUrl != null
+                                    ? DecorationImage(
+                                        image: NetworkImage(profile.avatarUrl!),
+                                        fit: BoxFit.cover,
+                                      )
+                                    : null,
+                              ),
+                              child: profile.avatarUrl == null
+                                  ? const Icon(
+                                      Icons.person,
+                                      size: 50,
+                                      color: Colors.white,
+                                    )
+                                  : null,
+                            ),
                           ),
-                          child: profile.avatarUrl == null
-                              ? const Icon(
-                                  Icons.person,
-                                  size: 50,
-                                  color: Colors.white,
-                                )
-                              : null,
+                          Positioned(
+                            bottom: 0,
+                            right: 0,
+                            child: Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: const BoxDecoration(
+                                color: AppColors.primary,
+                                shape: BoxShape.circle,
+                              ),
+                              child: (_isOpeningGallery || isUpdating)
+                                  ? const SizedBox(
+                                      width: 20,
+                                      height: 20,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Colors.black,
+                                      ),
+                                    )
+                                  : const Icon(
+                                      Icons.camera_alt,
+                                      size: 20,
+                                      color: Colors.black,
+                                    ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 32),
+
+                    // Form inputs
+                    TextField(
+                      label: 'USERNAME',
+                      hintText: 'Enter your username',
+                      controller: _usernameController,
+                      enabled: !isUpdating,
+                      prefixIcon: const Icon(Icons.alternate_email, color: Colors.white24, size: 18),
+                      suffixIcon: _isCheckingUsername
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: Padding(
+                                padding: EdgeInsets.all(12),
+                                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white24),
+                              ),
+                            )
+                          : (_isUsernameAvailable == true
+                              ? const Icon(Icons.check_circle, color: AppColors.primary, size: 20)
+                              : (_isUsernameAvailable == false
+                                  ? const Icon(Icons.error, color: Colors.redAccent, size: 20)
+                                  : null)),
+                    ),
+                    const SizedBox(height: 24),
+                    TextField(
+                      label: 'FULL NAME',
+                      hintText: 'Enter your full name',
+                      controller: _nameController,
+                      enabled: !isUpdating,
+                    ),
+                    const SizedBox(height: 24),
+                    TextField(
+                      label: 'STATUS',
+                      hintText: 'How are you feeling?',
+                      controller: _taglineController,
+                      enabled: !isUpdating,
+                    ),
+                    const SizedBox(height: 24),
+                    TextField(
+                      label: 'BIO',
+                      hintText: 'Tell us about yourself',
+                      controller: _bioController,
+                      enabled: !isUpdating,
+                      maxLines: 3,
+                    ),
+                    const SizedBox(height: 64),
+
+                    // Delete Account
+                    Container(
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.redAccent.withValues(alpha: 0.1)),
+                      ),
+                      child: InkWell(
+                        onTap: isUpdating ? null : () => _showDeleteConfirmation(context),
+                        borderRadius: BorderRadius.circular(12),
+                        hoverColor: Colors.redAccent.withValues(alpha: 0.05),
+                        child: const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 16),
+                          child: Center(
+                            child: Text(
+                              'Delete Account',
+                              style: TextStyle(
+                                color: Colors.redAccent,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                          ),
                         ),
                       ),
-                      Positioned(
-                        bottom: 0,
-                        right: 0,
-                        child: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: const BoxDecoration(
-                            color: AppColors.primary,
-                            shape: BoxShape.circle,
-                          ),
-                          child: (_isOpeningGallery || isUpdating)
-                              ? const SizedBox(
-                                  width: 20,
-                                  height: 20,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: Colors.black,
-                                  ),
-                                )
-                              : const Icon(
-                                  Icons.camera_alt,
-                                  size: 20,
-                                  color: Colors.black,
-                                ),
+                    ),
+                    const SizedBox(height: 24),
+                  ],
+                ),
+              ),
+
+              // Sticky Save Button
+              Positioned(
+                bottom: 0,
+                left: 0,
+                right: 0,
+                child: AnimatedSlide(
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeOutCubic,
+                  offset: _hasChanges(profile) ? Offset.zero : const Offset(0, 1),
+                  child: AnimatedOpacity(
+                    duration: const Duration(milliseconds: 200),
+                    opacity: _hasChanges(profile) ? 1.0 : 0.0,
+                    child: Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            AppColors.primaryBackground.withValues(alpha: 0.0),
+                            AppColors.primaryBackground,
+                          ],
                         ),
                       ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 32),
-
-                // Form inputs
-                TextField(
-                  label: 'USERNAME',
-                  hintText: 'Enter your username',
-                  controller: _usernameController,
-                  enabled: !isUpdating,
-                  prefixIcon: const Icon(Icons.alternate_email, color: Colors.white24, size: 18),
-                  suffixIcon: _isCheckingUsername
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: Padding(
-                            padding: EdgeInsets.all(12),
-                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white24),
-                          ),
-                        )
-                      : (_isUsernameAvailable == true
-                          ? const Icon(Icons.check_circle, color: AppColors.primary, size: 20)
-                          : (_isUsernameAvailable == false
-                              ? const Icon(Icons.error, color: Colors.redAccent, size: 20)
-                              : null)),
-                ),
-                const SizedBox(height: 24),
-                TextField(
-                  label: 'FULL NAME',
-                  hintText: 'Enter your full name',
-                  controller: _nameController,
-                  enabled: !isUpdating,
-                ),
-                const SizedBox(height: 24),
-                TextField(
-                  label: 'STATUS',
-                  hintText: 'How are you feeling?',
-                  controller: _taglineController,
-                  enabled: !isUpdating,
-                ),
-                const SizedBox(height: 24),
-                TextField(
-                  label: 'BIO',
-                  hintText: 'Tell us about yourself',
-                  controller: _bioController,
-                  enabled: !isUpdating,
-                  maxLines: 3,
-                ),
-                const SizedBox(height: 48),
-
-                // Save button
-                PrimaryButton(
-                  icon: isUpdating ? null : Icons.check,
-                  text: isUpdating ? 'Saving...' : 'Save Changes',
-                  onPressed: (isUpdating || _isCheckingUsername || _isUsernameAvailable == false)
-                      ? null
-                      : () => _saveChanges(context),
-                ),
-                const SizedBox(height: 32),
-
-                // Delete Account
-                TextButton(
-                  onPressed: isUpdating
-                      ? null
-                      : () => _showDeleteConfirmation(context),
-                  child: const Text(
-                    'Delete Account',
-                    style: TextStyle(
-                      color: Colors.redAccent,
-                      fontWeight: FontWeight.bold,
+                      child: PrimaryButton(
+                        icon: isUpdating ? null : Icons.check,
+                        text: isUpdating ? 'Saving...' : 'Save Changes',
+                        onPressed: (isUpdating || _isCheckingUsername || _isUsernameAvailable == false)
+                            ? null
+                            : () => _saveChanges(context),
+                      ),
                     ),
                   ),
                 ),
-                const SizedBox(height: 24),
-              ],
-            ),
+              ),
+            ],
           ),
         );
       },

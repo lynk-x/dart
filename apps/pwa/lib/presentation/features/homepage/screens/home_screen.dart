@@ -85,11 +85,7 @@ class _HomeViewState extends State<HomeView>
 
   /// Launches the web app in the device browser.
   Future<void> _launchWebApp() async {
-    final discoveryUrl = context.read<SystemConfigCubit>().state.getString(
-          'web_discovery_url',
-        );
-
-    final uri = Uri.parse(discoveryUrl);
+    final uri = Uri.parse(kWebAppBaseUrl);
     if (!await launchUrl(uri, mode: LaunchMode.inAppBrowserView)) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
