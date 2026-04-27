@@ -276,10 +276,10 @@ class _HomeViewState extends State<HomeView>
       scrolledUnderElevation: 0,
       elevation: 0,
       centerTitle: true,
-      leadingWidth: 70,
+      leadingWidth: 60,
       leading: Builder(builder: (context) {
         return Padding(
-          padding: const EdgeInsets.only(left: 12),
+          padding: const EdgeInsets.only(left: 4),
           child: IconButton(
             icon: const Icon(Icons.person, color: Colors.white, size: 32),
             onPressed: () => Scaffold.of(context).openDrawer(),

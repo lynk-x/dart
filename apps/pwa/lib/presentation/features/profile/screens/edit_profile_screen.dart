@@ -24,6 +24,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
   bool _isCheckingUsername = false;
   bool? _isUsernameAvailable;
   Timer? _debounceTimer;
+  bool _isOpeningGallery = false;
   bool _uploadingAvatar = false;
 
   @override
@@ -71,16 +72,21 @@ class _EditProfilePageState extends State<EditProfilePage> {
   }
 
   Future<void> _pickImage(BuildContext context) async {
-    final picker = ImagePicker();
-    final image = await picker.pickImage(
-      source: ImageSource.gallery,
-      imageQuality: 70,
-      maxWidth: 500,
-    );
+    setState(() => _isOpeningGallery = true);
+    try {
+      final picker = ImagePicker();
+      final image = await picker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 70,
+        maxWidth: 500,
+      );
 
-    if (image != null && context.mounted) {
-      setState(() => _uploadingAvatar = true);
-      context.read<ProfileCubit>().uploadAvatar(image);
+      if (image != null && context.mounted) {
+        setState(() => _uploadingAvatar = true);
+        context.read<ProfileCubit>().uploadAvatar(image);
+      }
+    } finally {
+      if (mounted) setState(() => _isOpeningGallery = false);
     }
   }
 
@@ -209,11 +215,20 @@ class _EditProfilePageState extends State<EditProfilePage> {
                             color: AppColors.primary,
                             shape: BoxShape.circle,
                           ),
-                          child: Icon(
-                            isUpdating ? Icons.hourglass_top : Icons.camera_alt,
-                            size: 20,
-                            color: Colors.black,
-                          ),
+                          child: (_isOpeningGallery || isUpdating)
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.black,
+                                  ),
+                                )
+                              : const Icon(
+                                  Icons.camera_alt,
+                                  size: 20,
+                                  color: Colors.black,
+                                ),
                         ),
                       ),
                     ],
@@ -245,6 +260,15 @@ class _EditProfilePageState extends State<EditProfilePage> {
                 ),
                 const SizedBox(height: 24),
                 TextField(
+                  label: 'TAGLINE',
+                  hintText: 'A short catchy line',
+                  controller: _taglineController,
+                  enabled: !isUpdating,
+                ),
+                const SizedBox(height: 24),
+                const Divider(color: Colors.white10),
+                const SizedBox(height: 24),
+                TextField(
                   label: 'FULL NAME',
                   hintText: 'Enter your full name',
                   controller: _nameController,
@@ -257,13 +281,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
                   controller: _bioController,
                   enabled: !isUpdating,
                   maxLines: 3,
-                ),
-                const SizedBox(height: 24),
-                TextField(
-                  label: 'TAGLINE',
-                  hintText: 'A short catchy line',
-                  controller: _taglineController,
-                  enabled: !isUpdating,
                 ),
                 const SizedBox(height: 48),
 
