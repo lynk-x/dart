@@ -2,9 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
-import 'package:lynk_core/core.dart';
 import 'app.dart';
-import 'services/push_notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -29,26 +27,10 @@ void main() async {
     debugPrint('[Main] Supabase initialization failed: $e');
   }
 
-  final featureFlags = FeatureFlagCubit();
-  try {
-    await featureFlags.init();
-  } catch (e) {
-    debugPrint('[Main] FeatureFlag initialization failed: $e');
-  }
-
-  // Initialize push notifications if user is already signed in and Supabase is ready
-  try {
-    // Check if Supabase is initialized before accessing instance
-    final hasSupabase = supabaseUrl.isNotEmpty && supabaseAnonKey.isNotEmpty;
-    if (hasSupabase && Supabase.instance.client.auth.currentUser != null) {
-      await PushNotificationService.instance.init();
-    }
-  } catch (_) {}
-
-  final crashReportingEnabled =
-      sentryDsn.isNotEmpty && featureFlags.isEnabled('enable_crash_reporting');
-
-  if (crashReportingEnabled) {
+  // runApp() is called immediately after platform init — no network calls here.
+  // Feature flags are fetched inside SplashScreen via FeatureFlagCubit.
+  // Push notification init happens in the auth state listener after sign-in.
+  if (sentryDsn.isNotEmpty) {
     try {
       await SentryFlutter.init(
         (options) {
