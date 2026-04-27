@@ -6,6 +6,7 @@ class ProfileModel {
   final String? fullName;
   final String? bio;
   final String? tagline;
+  final String? countryCode; // ISO 3166-1 alpha-2
   final String subscriptionTier; // 'free' or 'pro'
   final String verificationStatus; // 'none', 'verified', 'official'
 
@@ -17,6 +18,7 @@ class ProfileModel {
     this.fullName,
     this.bio,
     this.tagline,
+    this.countryCode,
     required this.subscriptionTier,
     required this.verificationStatus,
   });
@@ -31,6 +33,7 @@ class ProfileModel {
       fullName: map['full_name'] as String?,
       bio: info['bio'] as String?,
       tagline: info['tagline'] as String?,
+      countryCode: map['country_code'] as String?,
       subscriptionTier: (map['is_premium'] == true) ? 'pro' : 'free',
       verificationStatus: (map['is_verified'] == true) ? 'verified' : 'none',
     );
@@ -41,6 +44,7 @@ class ProfileModel {
       'full_name': fullName,
       'user_name': userName,
       'avatar_url': avatarUrl,
+      'country_code': countryCode,
       'info': {
         'bio': bio,
         'tagline': tagline,
@@ -57,6 +61,7 @@ class ProfileModel {
     String? bio,
     String? tagline,
     String? avatarUrl,
+    String? countryCode,
   }) {
     return ProfileModel(
       id: id,
@@ -66,6 +71,7 @@ class ProfileModel {
       fullName: fullName ?? this.fullName,
       bio: bio ?? this.bio,
       tagline: tagline ?? this.tagline,
+      countryCode: countryCode ?? this.countryCode,
       subscriptionTier: subscriptionTier,
       verificationStatus: verificationStatus,
     );

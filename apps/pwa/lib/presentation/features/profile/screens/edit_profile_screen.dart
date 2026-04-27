@@ -6,6 +6,26 @@ import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 import 'package:lynk_core/core.dart';
 import 'package:lynk_x/presentation/shared/widgets/text_field.dart';
+import 'package:country_flags/country_flags.dart';
+
+class Country {
+  final String name;
+  final String code;
+  const Country({required this.name, required this.code});
+}
+
+const List<Country> kSupportedCountries = [
+  Country(name: 'Kenya', code: 'KE'),
+  Country(name: 'Uganda', code: 'UG'),
+  Country(name: 'Tanzania', code: 'TZ'),
+  Country(name: 'Rwanda', code: 'RW'),
+  Country(name: 'Nigeria', code: 'NG'),
+  Country(name: 'South Africa', code: 'ZA'),
+  Country(name: 'United States', code: 'US'),
+  Country(name: 'United Kingdom', code: 'GB'),
+  Country(name: 'Global', code: 'GL'),
+];
+
 class EditProfilePage extends StatefulWidget {
   const EditProfilePage({super.key});
 
@@ -26,6 +46,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
   Timer? _debounceTimer;
   bool _isOpeningGallery = false;
   bool _uploadingAvatar = false;
+  String? _selectedCountryCode;
 
   @override
   void initState() {
@@ -96,7 +117,62 @@ class _EditProfilePageState extends State<EditProfilePage> {
           userName: _usernameController.text.trim(),
           bio: _bioController.text.trim(),
           tagline: _taglineController.text.trim(),
+          countryCode: _selectedCountryCode,
         );
+  }
+
+  Widget _buildFlag(String? code, {double size = 24}) {
+    if (code == null || code == 'GL') {
+      return Text('🌐', style: TextStyle(fontSize: size));
+    }
+    return SizedBox(
+      width: size * 1.4,
+      height: size,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(4),
+        child: CountryFlag.fromCountryCode(code),
+      ),
+    );
+  }
+
+  void _showCountryPicker(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.tertiary,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) => Container(
+        padding: const EdgeInsets.symmetric(vertical: 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('Select Country', 
+              style: AppTypography.interTight(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
+            const SizedBox(height: 16),
+            Flexible(
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: kSupportedCountries.length,
+                itemBuilder: (context, index) {
+                  final country = kSupportedCountries[index];
+                  final isSelected = _selectedCountryCode == country.code;
+                  return ListTile(
+                    leading: _buildFlag(country.code, size: 20),
+                    title: Text(country.name, style: const TextStyle(color: Colors.white)),
+                    trailing: isSelected ? const Icon(Icons.check_circle, color: AppColors.primary) : null,
+                    onTap: () {
+                      setState(() => _selectedCountryCode = country.code);
+                      Navigator.pop(context);
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -110,6 +186,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
             _bioController.text = state.profile.bio ?? '';
             _taglineController.text = state.profile.tagline ?? '';
             _initialUsername = state.profile.userName;
+            _selectedCountryCode = state.profile.countryCode;
             _initialized = true;
           }
 
@@ -171,6 +248,16 @@ class _EditProfilePageState extends State<EditProfilePage> {
                 color: Colors.white,
               ),
             ),
+            actions: [
+              Padding(
+                padding: const EdgeInsets.only(right: 8.0),
+                child: IconButton(
+                  icon: _buildFlag(_selectedCountryCode, size: 24),
+                  tooltip: 'Select Country',
+                  onPressed: isUpdating ? null : () => _showCountryPicker(context),
+                ),
+              ),
+            ],
           ),
           body: SingleChildScrollView(
             padding: const EdgeInsets.all(20),
@@ -260,18 +347,16 @@ class _EditProfilePageState extends State<EditProfilePage> {
                 ),
                 const SizedBox(height: 24),
                 TextField(
-                  label: 'TAGLINE',
-                  hintText: 'A short catchy line',
-                  controller: _taglineController,
-                  enabled: !isUpdating,
-                ),
-                const SizedBox(height: 24),
-                const Divider(color: Colors.white10),
-                const SizedBox(height: 24),
-                TextField(
                   label: 'FULL NAME',
                   hintText: 'Enter your full name',
                   controller: _nameController,
+                  enabled: !isUpdating,
+                ),
+                const SizedBox(height: 24),
+                TextField(
+                  label: 'STATUS',
+                  hintText: 'How are you feeling?',
+                  controller: _taglineController,
                   enabled: !isUpdating,
                 ),
                 const SizedBox(height: 24),

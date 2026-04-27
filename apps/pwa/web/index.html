@@ -8,8 +8,31 @@
   <base href="$FLUTTER_BASE_HREF">
 
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, user-scalable=yes, viewport-fit=cover">
   <meta http-equiv="X-UA-Compatible" content="IE=Edge">
+
+  <script>
+    // Accessibility: Prevent Flutter from disabling zooming/scaling
+    // Flutter Web engine often injects a viewport meta tag with 'user-scalable=no'.
+    // This observer intercepts it and forces it to allow scaling.
+    (function() {
+      const observer = new MutationObserver((mutations) => {
+        for (const mutation of mutations) {
+          for (const node of mutation.addedNodes) {
+            if (node.nodeName === 'META' && (node.name === 'viewport' || node.getAttribute('flt-viewport') !== null)) {
+              if (node.content.includes('user-scalable=no')) {
+                node.content = node.content.replace('user-scalable=no', 'user-scalable=yes');
+              }
+              if (!node.content.includes('user-scalable')) {
+                node.content += ', user-scalable=yes';
+              }
+            }
+          }
+        }
+      });
+      observer.observe(document.head, { childList: true });
+    })();
+  </script>
 
   <!-- SEO -->
   <title>Lynk-X — Discover &amp; Attend Events</title>

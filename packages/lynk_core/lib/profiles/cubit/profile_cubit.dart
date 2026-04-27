@@ -41,6 +41,7 @@ class ProfileCubit extends Cubit<ProfileState> {
     String? userName,
     String? bio,
     String? tagline,
+    String? countryCode,
   }) async {
     final currentState = state;
     if (currentState is! ProfileLoaded) return;
@@ -54,6 +55,7 @@ class ProfileCubit extends Cubit<ProfileState> {
         userName: userName,
         bio: bio,
         tagline: tagline,
+        countryCode: countryCode,
       );
 
       await Supabase.instance.client

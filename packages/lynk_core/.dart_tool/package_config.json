@@ -92,6 +92,12 @@
       "languageVersion": "3.4"
     },
     {
+      "name": "country_flags",
+      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/country_flags-4.1.2",
+      "packageUri": "lib/",
+      "languageVersion": "3.0"
+    },
+    {
       "name": "cross_file",
       "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/cross_file-0.3.5+2",
       "packageUri": "lib/",
@@ -312,6 +318,18 @@
       "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/image_picker_windows-0.2.2",
       "packageUri": "lib/",
       "languageVersion": "3.6"
+    },
+    {
+      "name": "jovial_misc",
+      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/jovial_misc-0.10.0",
+      "packageUri": "lib/",
+      "languageVersion": "3.0"
+    },
+    {
+      "name": "jovial_svg",
+      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/jovial_svg-1.1.29",
+      "packageUri": "lib/",
+      "languageVersion": "3.0"
     },
     {
       "name": "jwt_decode",
