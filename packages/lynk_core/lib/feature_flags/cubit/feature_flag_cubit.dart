@@ -11,18 +11,16 @@ class FeatureFlagCubit extends Cubit<FeatureFlagState> {
   FeatureFlagCubit() : super(const FeatureFlagState());
 
   Future<void> init() async {
-    // Set isLoading: true synchronously before any await so that SplashScreen's
-    // BlocConsumer sees isLoading: true as its initial state and does not
-    // navigate away prematurely on the appVersion emission below.
     emit(state.copyWith(isLoading: true));
 
-    try {
-      final packageInfo = await PackageInfo.fromPlatform();
-      // copyWith without isLoading preserves the isLoading: true set above.
-      if (!isClosed) emit(state.copyWith(appVersion: packageInfo.version));
-    } catch (e) {
+    // PackageInfo runs in the background — a hang (common in some web
+    // environments due to JS interop) must not block flag loading and splash
+    // navigation. fetchFlags() is what sets isLoading: false.
+    PackageInfo.fromPlatform().then((info) {
+      if (!isClosed) emit(state.copyWith(appVersion: info.version));
+    }).catchError((Object e) {
       debugPrint('[FeatureFlagCubit] PackageInfo failed: $e');
-    }
+    });
 
     try {
       await Future.wait([fetchFlags(), _fetchUserCountry()]);
@@ -39,10 +37,10 @@ class FeatureFlagCubit extends Cubit<FeatureFlagState> {
 
       final data = await Supabase.instance.client
           .from('user_profile')
-          .select('country')
+          .select('country_code')
           .eq('id', userId)
           .maybeSingle();
-      final country = data?['country'] as String?;
+      final country = data?['country_code'] as String?;
       if (country != null && !isClosed) {
         emit(state.copyWith(userCountry: country.toUpperCase()));
       }
