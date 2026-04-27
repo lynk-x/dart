@@ -23,10 +23,11 @@ import 'package:lynk_x/presentation/shared/screens/system_error_screen.dart';
 GoRouter createRouter(
   Stream<AuthState> authStream,
   Stream<ProfileState> profileStream,
+  Stream<dynamic> featureFlagStream,
 ) {
   return GoRouter(
     initialLocation: '/splash',
-    refreshListenable: GoRouterRefreshStream([authStream, profileStream]),
+    refreshListenable: GoRouterRefreshStream([authStream, profileStream, featureFlagStream]),
     redirect: (context, state) {
       try {
         // Safe check for Supabase initialization
@@ -57,6 +58,19 @@ GoRouter createRouter(
           '/error'
         };
         final isPublic = publicRoutes.any((r) => path.startsWith(r));
+
+        // ── Feature-flag kill-switches (evaluated once flags have loaded) ──
+        try {
+          final flagCubit = context.read<FeatureFlagCubit>();
+          if (!flagCubit.state.isLoading && flagCubit.state.flags.isNotEmpty) {
+            if (flagCubit.isEnabled('maintenance_mode') && path != '/maintenance') {
+              return '/maintenance';
+            }
+            if (flagCubit.isEnabled('force_app_update') && path != '/update-required') {
+              return '/update-required';
+            }
+          }
+        } catch (_) {}
 
         if (user == null && !isPublic) return '/auth';
         if (user != null && path == '/auth') return '/';

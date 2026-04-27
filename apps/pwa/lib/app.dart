@@ -78,6 +78,7 @@ class _LynkXAppState extends State<LynkXApp> {
     _router = createRouter(
       authStream,
       context.read<ProfileCubit>().stream,
+      context.read<FeatureFlagCubit>().stream,
     );
 
     // Wire push notification taps to GoRouter
