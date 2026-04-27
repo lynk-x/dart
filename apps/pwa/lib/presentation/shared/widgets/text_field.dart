@@ -8,6 +8,7 @@ class TextField extends m.StatelessWidget {
   final int maxLines;
   final m.TextInputType keyboardType;
   final m.Widget? suffixIcon;
+  final m.Widget? prefixIcon;
   final bool readOnly;
   final bool? enabled;
   final m.VoidCallback? onTap;
@@ -20,6 +21,7 @@ class TextField extends m.StatelessWidget {
     this.maxLines = 1,
     this.keyboardType = m.TextInputType.text,
     this.suffixIcon,
+    this.prefixIcon,
     this.readOnly = false,
     this.enabled,
     this.onTap,
@@ -74,6 +76,7 @@ class TextField extends m.StatelessWidget {
                 width: 1,
               ),
             ),
+            prefixIcon: prefixIcon,
             suffixIcon: suffixIcon,
           ),
         ),

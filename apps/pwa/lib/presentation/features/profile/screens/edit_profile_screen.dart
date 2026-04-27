@@ -152,6 +152,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
             backgroundColor: AppColors.primaryBackground,
             surfaceTintColor: Colors.transparent,
             elevation: 0,
+            centerTitle: true,
             leading: IconButton(
               icon: const Icon(Icons.close, color: Colors.white),
               onPressed: () => context.pop(),
@@ -222,17 +223,11 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
                 // Form inputs
                 TextField(
-                  label: 'FULL NAME',
-                  hintText: 'Enter your full name',
-                  controller: _nameController,
-                  enabled: !isUpdating,
-                ),
-                const SizedBox(height: 24),
-                TextField(
                   label: 'USERNAME',
                   hintText: 'Enter your username',
                   controller: _usernameController,
                   enabled: !isUpdating,
+                  prefixIcon: const Icon(Icons.alternate_email, color: Colors.white24, size: 18),
                   suffixIcon: _isCheckingUsername
                       ? const SizedBox(
                           width: 20,
@@ -246,7 +241,14 @@ class _EditProfilePageState extends State<EditProfilePage> {
                           ? const Icon(Icons.check_circle, color: AppColors.primary, size: 20)
                           : (_isUsernameAvailable == false
                               ? const Icon(Icons.error, color: Colors.redAccent, size: 20)
-                              : const Icon(Icons.alternate_email, color: Colors.white24, size: 18))),
+                              : null)),
+                ),
+                const SizedBox(height: 24),
+                TextField(
+                  label: 'FULL NAME',
+                  hintText: 'Enter your full name',
+                  controller: _nameController,
+                  enabled: !isUpdating,
                 ),
                 const SizedBox(height: 24),
                 TextField(

@@ -59,7 +59,7 @@ class _AuthPageState extends State<AuthPage> {
                       width: 220,
                     ),
                   ),
-                  const SizedBox(height: 40),
+                  const SizedBox(height: 24),
 
                   // Title & Subtitle
                   Text(
@@ -71,7 +71,7 @@ class _AuthPageState extends State<AuthPage> {
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 8),
                   Text(
                     _isLogin
                         ? 'Fill out the information below in order to access your account.'
@@ -83,7 +83,7 @@ class _AuthPageState extends State<AuthPage> {
                       height: 1.5,
                     ),
                   ),
-                  const SizedBox(height: 48),
+                  const SizedBox(height: 24),
 
                   // Toggle
                   Align(
@@ -113,9 +113,9 @@ class _AuthPageState extends State<AuthPage> {
                   else
                     _SignUpForm(useEmail: _useEmail),
 
-                  const SizedBox(height: 32),
+                  const SizedBox(height: 16),
                   const _OrDivider(),
-                  const SizedBox(height: 32),
+                  const SizedBox(height: 16),
 
                   // Social Buttons
                   SocialButton(
@@ -131,7 +131,7 @@ class _AuthPageState extends State<AuthPage> {
                   ),
 
                   if (_isLogin) ...[
-                    const SizedBox(height: 32),
+                    const SizedBox(height: 16),
                     Center(
                       child: TextButton(
                         onPressed: () => context.go('/forgot-password'),
@@ -148,7 +148,7 @@ class _AuthPageState extends State<AuthPage> {
                   ],
 
                   // Footer
-                  const SizedBox(height: 60),
+                  const SizedBox(height: 32),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -270,13 +270,13 @@ class _LoginFormState extends State<_LoginForm> {
             size: 20,
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
         CustomTextField(
           hintText: 'Password',
           controller: _passwordController,
           isPassword: true,
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
         PrimaryButton(
           text: 'Sign In',
           onPressed: _signIn,
@@ -361,19 +361,19 @@ class _SignUpFormState extends State<_SignUpForm> {
             size: 20,
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
         CustomTextField(
           hintText: 'Password',
           controller: _passwordController,
           isPassword: true,
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
         CustomTextField(
           hintText: 'Confirm Password',
           controller: _confirmController,
           isPassword: true,
         ),
-        const SizedBox(height: 32),
+        const SizedBox(height: 24),
         PrimaryButton(
           text: 'Get Started',
           onPressed: _signUp,
