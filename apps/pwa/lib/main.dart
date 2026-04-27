@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -11,10 +12,14 @@ void main() async {
   const supabaseAnonKey = String.fromEnvironment('SUPABASE_ANON_KEY');
   const sentryDsn = String.fromEnvironment('SENTRY_DSN');
 
-  try {
-    await Firebase.initializeApp();
-  } catch (e) {
-    debugPrint('[Main] Firebase initialization skipped/failed: $e');
+  // Firebase web requires explicit options (apiKey, projectId, etc.) which
+  // aren't configured — skip it on web to avoid the null check crash.
+  if (!kIsWeb) {
+    try {
+      await Firebase.initializeApp();
+    } catch (e) {
+      debugPrint('[Main] Firebase initialization skipped/failed: $e');
+    }
   }
 
   try {

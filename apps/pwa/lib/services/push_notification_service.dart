@@ -16,7 +16,10 @@ class PushNotificationService {
   PushNotificationService._();
   static final instance = PushNotificationService._();
 
-  final _messaging = FirebaseMessaging.instance;
+  // Late so FirebaseMessaging.instance is not accessed until init() is called,
+  // which only happens after a confirmed sign-in on a platform where Firebase
+  // was successfully initialized.
+  late final _messaging = FirebaseMessaging.instance;
   final _localNotifications = FlutterLocalNotificationsPlugin();
   StreamSubscription<RemoteMessage>? _foregroundSub;
   StreamSubscription<RemoteMessage>? _openedSub;
@@ -33,6 +36,10 @@ class PushNotificationService {
   );
 
   Future<void> init() async {
+    // Web push via Firebase requires Firebase JS SDK + service worker setup
+    // that isn't configured for this PWA — skip entirely on web.
+    if (kIsWeb) return;
+
     // Request permission
     final settings = await _messaging.requestPermission(
       alert: true,
@@ -169,6 +176,7 @@ class PushNotificationService {
 
   /// Remove the current device token on sign-out.
   Future<void> removeToken() async {
+    if (kIsWeb) return;
     try {
       final token = await _messaging.getToken();
       if (token != null) {
