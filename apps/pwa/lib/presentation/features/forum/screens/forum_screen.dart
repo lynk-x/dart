@@ -280,14 +280,11 @@ class _ForumViewState extends State<ForumView> {
           builder: (context, presenceState) =>
               BlocBuilder<ForumCubit, ForumState>(
             buildWhen: (p, c) =>
-                p.hasMutedLiveChatsMedia != c.hasMutedLiveChatsMedia ||
                 p.eventProgress != c.eventProgress ||
                 p.showAds != c.showAds,
             builder: (context, state) => PresenceDrawer(
               onlineUsers: presenceState.onlineUsers,
               eventProgress: state.eventProgress,
-              isMuted: state.hasMutedLiveChatsMedia,
-              onMuteChanged: (val) => cubit.toggleMuteLiveChatsMedia(val),
               isPremium: state.isPremium,
               showAds: state.showAds,
               onAdsChanged: (val) => cubit.toggleAds(val),

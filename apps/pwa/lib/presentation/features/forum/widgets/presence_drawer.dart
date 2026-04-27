@@ -11,12 +11,6 @@ class PresenceDrawer extends StatelessWidget {
   /// The current progress of the forum's active event (0.0 to 1.0).
   final double eventProgress;
 
-  /// Whether the forum notifications are currently muted.
-  final bool isMuted;
-
-  /// Callback triggered when the mute switch is toggled.
-  final ValueChanged<bool> onMuteChanged;
-
   /// List of online users extracted from Supabase Presence.
   final List<Map<String, dynamic>> onlineUsers;
 
@@ -27,8 +21,6 @@ class PresenceDrawer extends StatelessWidget {
   const PresenceDrawer({
     super.key,
     required this.eventProgress,
-    required this.isMuted,
-    required this.onMuteChanged,
     required this.onlineUsers,
     required this.isPremium,
     required this.showAds,
@@ -100,21 +92,6 @@ class PresenceDrawer extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 20),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text('Mute live chats and media',
-                          style: AppTypography.inter(
-                              color: Colors.white,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600)),
-                      Switch(
-                        value: isMuted,
-                        onChanged: onMuteChanged,
-                        activeThumbColor: AppColors.primary,
-                      ),
-                    ],
-                  ),
                   const SizedBox(height: 10),
                   if (isPremium)
                     Row(

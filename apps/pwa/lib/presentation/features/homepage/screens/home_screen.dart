@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart' hide Badge;
+import 'package:flutter/services.dart';
 import 'package:badges/badges.dart' as badges;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -101,10 +102,23 @@ class _HomeViewState extends State<HomeView>
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    return Scaffold(
-      backgroundColor: AppColors.primaryBackground,
-      drawer: const HomeDrawer(),
-      appBar: _buildAppBar(),
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
+
+        final router = GoRouter.of(context);
+        if (router.canPop()) {
+          router.pop();
+        } else {
+          // If we're at the root, minimize/exit the app
+          await SystemNavigator.pop();
+        }
+      },
+      child: Scaffold(
+        backgroundColor: AppColors.primaryBackground,
+        drawer: const HomeDrawer(),
+        appBar: _buildAppBar(),
       body: BlocBuilder<HomeCubit, HomeState>(
         builder: (context, state) {
           // Full-screen loader on first load
@@ -206,8 +220,9 @@ class _HomeViewState extends State<HomeView>
           );
         },
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildWelcomeBanner() {
     return Container(

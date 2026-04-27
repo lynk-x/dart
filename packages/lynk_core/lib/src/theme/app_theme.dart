@@ -8,6 +8,11 @@ class AppTheme {
       primaryColor: AppColors.primary,
       scaffoldBackgroundColor: Colors.black,
       useMaterial3: true,
+      textSelectionTheme: TextSelectionThemeData(
+        cursorColor: AppColors.primary,
+        selectionColor: AppColors.primary.withValues(alpha: 0.3),
+        selectionHandleColor: AppColors.primary,
+      ),
       snackBarTheme: const SnackBarThemeData(
         backgroundColor: AppColors.tertiary,
         contentTextStyle: TextStyle(color: Colors.white),
