@@ -84,7 +84,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
   void _onUsernameChanged() {
     final name = _usernameController.text.trim();
-    if (name == _initialUsername || name.length < 3) {
+    if (name.toLowerCase() == _initialUsername.toLowerCase() || name.length < 3) {
       if (mounted) setState(() { _isUsernameAvailable = null; _isCheckingUsername = false; });
       return;
     }
@@ -209,11 +209,11 @@ class _EditProfilePageState extends State<EditProfilePage> {
       listener: (context, state) {
         if (state is ProfileLoaded) {
           if (!_initialized) {
-            _nameController.text = state.profile.fullName ?? '';
+            _initialUsername = state.profile.userName;
             _usernameController.text = state.profile.userName;
+            _nameController.text = state.profile.fullName ?? '';
             _bioController.text = state.profile.bio ?? '';
             _taglineController.text = state.profile.tagline ?? '';
-            _initialUsername = state.profile.userName;
             _selectedCountryCode = state.profile.countryCode;
             _initialized = true;
           }

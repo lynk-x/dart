@@ -84,7 +84,7 @@ class ProfileCubit extends Cubit<ProfileState> {
       final path = 'avatars/$fileName';
 
       await Supabase.instance.client.storage
-          .from('profiles')
+          .from('avatars')
           .uploadBinary(
             path,
             bytes,
@@ -92,7 +92,7 @@ class ProfileCubit extends Cubit<ProfileState> {
           );
 
       final imageUrl =
-          Supabase.instance.client.storage.from('profiles').getPublicUrl(path);
+          Supabase.instance.client.storage.from('avatars').getPublicUrl(path);
 
       final updatedProfile = currentState.profile.copyWith(avatarUrl: imageUrl);
 
