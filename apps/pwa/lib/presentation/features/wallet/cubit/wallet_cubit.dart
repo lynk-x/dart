@@ -89,7 +89,7 @@ class WalletCubit extends Cubit<WalletState> {
       final to   = from + _pageSize - 1;
 
       final response = await _supabase
-          .from('transactions')
+          .schema('transactions').from('transactions')
           .select('id, category, reason, amount, currency, status, created_at, metadata')
           // Explicit user_id filter for defense-in-depth — RLS is not a substitute
           // for a missing WHERE clause when the column is available.

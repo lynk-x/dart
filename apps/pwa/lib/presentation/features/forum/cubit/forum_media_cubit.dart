@@ -33,7 +33,7 @@ class ForumMediaCubit extends Cubit<ForumMediaState> {
     emit(state.copyWith(isLoading: true));
     try {
       var query = Supabase.instance.client
-          .from('forum_media')
+          .schema('forum_media').from('forum_media')
           .select()
           .eq('forum_id', forumId);
 
@@ -61,7 +61,7 @@ class ForumMediaCubit extends Cubit<ForumMediaState> {
     final startIndex = state.mediaItems.length;
     try {
       var query = Supabase.instance.client
-          .from('forum_media')
+          .schema('forum_media').from('forum_media')
           .select()
           .eq('forum_id', forumId);
 
@@ -124,7 +124,7 @@ class ForumMediaCubit extends Cubit<ForumMediaState> {
         }
       }
 
-      await Supabase.instance.client.from('forum_media').insert({
+      await Supabase.instance.client.schema('forum_media').from('forum_media').insert({
         'id': fileId,
         'forum_id': forumId,
         'uploader_id': userId,
@@ -152,7 +152,7 @@ class ForumMediaCubit extends Cubit<ForumMediaState> {
     if (!isOrganizer) return;
     try {
       await Supabase.instance.client
-          .from('forum_media')
+          .schema('forum_media').from('forum_media')
           .update({'is_approved': true}).eq('id', mediaId);
       await refreshMedia();
     } catch (e, stack) {
@@ -165,7 +165,7 @@ class ForumMediaCubit extends Cubit<ForumMediaState> {
     if (!isOrganizer) return;
     try {
       await Supabase.instance.client
-          .from('forum_media')
+          .schema('forum_media').from('forum_media')
           .delete()
           .eq('id', mediaId);
       await refreshMedia();

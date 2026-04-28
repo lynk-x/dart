@@ -20,7 +20,7 @@ class TicketCubit extends Cubit<TicketState> {
     if (!isSilent) emit(state.copyWith(isLoading: true, error: null));
 
     try {
-      final response = await Supabase.instance.client.from('tickets').select('''
+      final response = await Supabase.instance.client.schema('tickets').from('tickets').select('''
             *,
             events (
               title,

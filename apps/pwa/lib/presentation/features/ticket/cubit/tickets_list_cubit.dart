@@ -48,7 +48,7 @@ class TicketsListCubit extends Cubit<TicketsListState> {
       final holderName = profileResponse['full_name'] as String? ?? 'Me';
 
       // 2. Get tickets with joined event and tier data
-      final response = await Supabase.instance.client.from('tickets').select('''
+      final response = await Supabase.instance.client.schema('tickets').from('tickets').select('''
             *,
             events (
               title,

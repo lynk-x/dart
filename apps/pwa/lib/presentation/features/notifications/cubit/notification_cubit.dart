@@ -18,7 +18,7 @@ class NotificationCubit extends Cubit<NotificationState> {
     emit(const NotificationLoading());
     try {
       final data = await Supabase.instance.client
-          .from('notifications')
+          .schema('notifications').from('notifications')
           .select()
           .eq('user_id', uid)
           .order('created_at', ascending: false);
@@ -89,7 +89,7 @@ class NotificationCubit extends Cubit<NotificationState> {
     }
     try {
       await Supabase.instance.client
-          .from('notifications')
+          .schema('notifications').from('notifications')
           .update({'is_read': true}).eq('id', notificationId);
     } catch (_) {
       // Best-effort — next load will reconcile
@@ -105,7 +105,7 @@ class NotificationCubit extends Cubit<NotificationState> {
       final uid = _userId;
       if (uid == null) return;
       await Supabase.instance.client
-          .from('notifications')
+          .schema('notifications').from('notifications')
           .update({'is_read': true})
           .eq('user_id', uid)
           .eq('is_read', false);
@@ -122,7 +122,7 @@ class NotificationCubit extends Cubit<NotificationState> {
   Future<void> deleteNotification(String notificationId) async {
     try {
       await Supabase.instance.client
-          .from('notifications')
+          .schema('notifications').from('notifications')
           .delete()
           .eq('id', notificationId);
       // Real-time listener will handle the UI update

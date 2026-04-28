@@ -150,7 +150,7 @@ class ForumChatCubit extends Cubit<ForumChatState> {
     try {
       if (userId == kGuestUserId) return;
       await Supabase.instance.client
-          .from('forum_messages')
+          .schema('forum_messages').from('forum_messages')
           .update({'deleted_at': DateTime.now().toIso8601String()})
           .eq('id', messageId);
       await refresh();
@@ -178,7 +178,7 @@ class ForumChatCubit extends Cubit<ForumChatState> {
     emit(state.copyWith(isLoading: true));
     try {
       var query = Supabase.instance.client
-          .from('forum_messages')
+          .schema('forum_messages').from('forum_messages')
           .select(
               '*, user_profile(full_name, is_premium), forum_members!inner(role_id), vw_message_reaction_counts(*)')
           .eq('forum_id', forumId)
@@ -211,7 +211,7 @@ class ForumChatCubit extends Cubit<ForumChatState> {
     final startIndex = state.messages.length;
     try {
       var query = Supabase.instance.client
-          .from('forum_messages')
+          .schema('forum_messages').from('forum_messages')
           .select(
               '*, user_profile(full_name, is_premium), forum_members!inner(role_id), vw_message_reaction_counts(*)')
           .eq('forum_id', forumId)

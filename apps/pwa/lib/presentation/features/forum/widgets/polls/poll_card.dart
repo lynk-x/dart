@@ -46,7 +46,7 @@ class _PollCardState extends State<PollCard> {
     if (userId == null) return;
 
     final existing = await _supabase
-        .from('responses')
+        .schema('responses').from('responses')
         .select('selected_answer')
         .eq('question_id', widget.questionId)
         .eq('user_id', userId)
@@ -95,7 +95,7 @@ class _PollCardState extends State<PollCard> {
     });
 
     try {
-      await _supabase.from('responses').insert({
+      await _supabase.schema('responses').from('responses').insert({
         'questionnaire_id': widget.questionnaireId,
         'question_id': widget.questionId,
         'user_id': _supabase.auth.currentUser!.id,

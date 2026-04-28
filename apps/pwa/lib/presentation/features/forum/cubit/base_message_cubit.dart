@@ -136,7 +136,7 @@ abstract class BaseMessageCubit<T extends BaseMessageState> extends Cubit<T> {
     try {
       if (userId == kGuestUserId) return;
       await Supabase.instance.client
-          .from('forum_messages')
+          .schema('forum_messages').from('forum_messages')
           .update({'deleted_at': DateTime.now().toIso8601String()}).eq(
               'id', messageId);
       await refresh();

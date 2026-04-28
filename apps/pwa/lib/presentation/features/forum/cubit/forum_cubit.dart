@@ -338,7 +338,7 @@ class ForumCubit extends Cubit<ForumState> {
     if (!state.isModerator) return;
     try {
       await Supabase.instance.client
-          .from('forum_messages')
+          .schema('forum_messages').from('forum_messages')
           .update({'is_pinned': true}).eq('id', message.id);
     } catch (e, stack) {
       debugPrint('[ForumCubit] Error: $e\n$stack');
@@ -439,7 +439,7 @@ class ForumCubit extends Cubit<ForumState> {
       // Toggle reaction (if already exist delete, else insert)
       // For now simple insert-or-ignore/upsert via RPC or logic
       // Assuming a simple insert for demo, but in production we'd use a toggle RPC
-      await Supabase.instance.client.from('message_reactions').upsert({
+      await Supabase.instance.client.schema('message_reactions').from('message_reactions').upsert({
         'message_id': message.id,
         'message_created_at': message.createdAt.toIso8601String(),
         'user_id': userId,

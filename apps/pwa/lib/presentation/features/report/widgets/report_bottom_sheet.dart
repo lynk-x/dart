@@ -124,7 +124,7 @@ class _ReportSheetState extends State<_ReportSheet> {
     }
 
     try {
-      await Supabase.instance.client.from('reports').insert(row);
+      await Supabase.instance.client.schema('reports').from('reports').insert(row);
       if (mounted) {
         Navigator.of(context).pop();
         ScaffoldMessenger.of(context).showSnackBar(
