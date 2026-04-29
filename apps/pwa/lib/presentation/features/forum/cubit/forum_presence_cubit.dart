@@ -6,7 +6,7 @@ import 'forum_presence_state.dart';
 class ForumPresenceCubit extends Cubit<ForumPresenceState> {
   final String forumId;
   final String userId;
-  final String userName;
+  String userName;
   final bool isOrganizer;
   final bool isPremium;
   final RealtimeChannel? channel;
@@ -19,6 +19,13 @@ class ForumPresenceCubit extends Cubit<ForumPresenceState> {
     required this.isPremium,
     this.channel,
   }) : super(const ForumPresenceState());
+
+  void updateUserName(String newName) {
+    if (userName != newName) {
+      userName = newName;
+      _trackUser();
+    }
+  }
 
   void init() {
     _setupPresenceListeners();
@@ -42,9 +49,7 @@ class ForumPresenceCubit extends Cubit<ForumPresenceState> {
       }
     });
 
-    // In case it's already subscribed and we missed the callback transition, 
-    // we attempt an immediate track if the feature flag allowed us to reach here.
-    // Supabase will ignore duplicate tracks if already tracking the same payload.
+    // Attempt an immediate track. Supabase will handle connection state internally.
     _trackUser();
     _updatePresence();
   }
@@ -59,10 +64,12 @@ class ForumPresenceCubit extends Cubit<ForumPresenceState> {
     for (final presence in presenceStates) {
       for (final p in presence.presences) {
         final data = Map<String, dynamic>.from(p.payload);
-        final uid = data['user_id'] as String?;
-        // If it's a guest, we might want to show them anyway, but for now 
-        // we'll keep the deduplication by user_id. 
-        // If multiple guests have the same ID, they show up as one entry.
+        final uid = data['user_id'] as String? ?? data['id'] as String?;
+        // Support both naming conventions for robustness during migration
+        if (data['user_name'] == null && data['full_name'] != null) {
+          data['user_name'] = data['full_name'];
+        }
+        
         if (uid != null && !uniqueUserIds.contains(uid)) {
           uniqueUserIds.add(uid);
           users.add(data);
@@ -79,7 +86,9 @@ class ForumPresenceCubit extends Cubit<ForumPresenceState> {
     try {
       await channel?.track({
         'user_id': userId,
+        'id': userId, // Fallback for components expecting 'id'
         'user_name': userName,
+        'full_name': userName, // Fallback for older clients
         'is_organizer': isOrganizer,
         'is_premium': isPremium,
         'status': 'Online',

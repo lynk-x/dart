@@ -5,6 +5,7 @@ import 'package:lynk_x/presentation/features/forum/models/forum_model.dart';
 class ForumState extends Equatable {
   final String forumStatus;
   final String forumName;
+  final String userName;
   final int currentTabIndex;
 
   // ── Shared Content ─────────────────────────────────────────────────────────
@@ -33,6 +34,7 @@ class ForumState extends Equatable {
   const ForumState({
     this.forumStatus = 'open',
     this.forumName = 'Community Forum',
+    this.userName = 'A User',
     this.currentTabIndex = 0,
     this.mentionedMedia,
     this.members = const [],
@@ -54,6 +56,7 @@ class ForumState extends Equatable {
   ForumState copyWith({
     String? forumStatus,
     String? forumName,
+    String? userName,
     int? currentTabIndex,
     ForumMedia? mentionedMedia,
     bool clearMentionedMedia = false,
@@ -75,6 +78,7 @@ class ForumState extends Equatable {
     return ForumState(
       forumStatus: forumStatus ?? this.forumStatus,
       forumName: forumName ?? this.forumName,
+      userName: userName ?? this.userName,
       currentTabIndex: currentTabIndex ?? this.currentTabIndex,
       mentionedMedia: clearMentionedMedia
           ? null
@@ -101,6 +105,7 @@ class ForumState extends Equatable {
   List<Object?> get props => [
     forumStatus,
     forumName,
+    userName,
     currentTabIndex,
     mentionedMedia,
     members,

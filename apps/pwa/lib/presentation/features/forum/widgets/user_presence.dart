@@ -50,8 +50,11 @@ class _UserPresenceCardState extends State<UserPresenceCard> {
             decoration: BoxDecoration(
               color: widget.isPrimary
                   ? AppColors.primary
-                  : const Color(0xFF0F8C16),
+                  : const Color(0xFF1E1E1E),
               borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: widget.isPremium ? AppColors.secondary : Colors.white12,
+              ),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -61,14 +64,16 @@ class _UserPresenceCardState extends State<UserPresenceCard> {
                   style: AppTypography.interTight(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
-                    color: Colors.black,
+                    color: widget.isPrimary ? Colors.black : Colors.white,
                   ),
                 ),
                 Text(
                   widget.status,
                   style: AppTypography.inter(
                     fontSize: 12,
-                    color: Colors.black.withValues(alpha: 0.8),
+                    color: widget.isPrimary 
+                        ? Colors.black.withValues(alpha: 0.7)
+                        : Colors.white.withValues(alpha: 0.6),
                   ),
                 ),
               ],

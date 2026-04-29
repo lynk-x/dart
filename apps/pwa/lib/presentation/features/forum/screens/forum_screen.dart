@@ -256,6 +256,12 @@ class _ForumViewState extends State<ForumView> {
             _precacheMedia(state.mediaItems);
           },
         ),
+        BlocListener<ForumCubit, ForumState>(
+          listenWhen: (p, c) => p.userName != c.userName,
+          listener: (context, state) {
+            context.read<ForumPresenceCubit>().updateUserName(state.userName);
+          },
+        ),
       ],
       child: Scaffold(
         backgroundColor: AppColors.primaryBackground,

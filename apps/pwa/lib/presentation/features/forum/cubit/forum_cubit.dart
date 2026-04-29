@@ -9,8 +9,8 @@ import 'package:lynk_core/core.dart';
 /// The core ForumCubit handling global state, permissions, members, and coordination.
 class ForumCubit extends Cubit<ForumState> {
   final String forumId;
-  late final String userId;
-  late final String userName;
+  late String userId;
+  late String userName;
   RealtimeChannel? _channel;
   RealtimeChannel? _statusChannel;
   RealtimeChannel? get channel => _channel;
@@ -20,16 +20,16 @@ class ForumCubit extends Cubit<ForumState> {
       : super(const ForumState()) {
     final user = Supabase.instance.client.auth.currentUser;
     userId = user?.id ?? kGuestUserId;
-    userName = user?.userMetadata?['full_name'] ?? 'A User';
+    final initialName = user?.userMetadata?['full_name'] ?? 'A User';
+    userName = initialName;
+    _channel = Supabase.instance.client.channel('forum_$forumId');
+    _channel?.subscribe();
+    emit(state.copyWith(userName: initialName));
   }
 
   Future<void> init() async {
-    _channel = Supabase.instance.client.channel('forum_$forumId');
-    // We subscribe here so children cubits can use the same channel
-    _channel?.subscribe();
-
-    await _syncUserStatus();
     await _loadCachedPermissions();
+    await _syncUserStatus();
     await refreshMembers();
     _setupUserStatusListener();
     _setupForumStatusListener();
@@ -126,8 +126,9 @@ class ForumCubit extends Cubit<ForumState> {
           .eq('id', userId)
           .single();
 
-      userName = data['user_name'] as String? ?? 'A User';
-      bool isPremium = data['is_premium'] == true;
+      final handle = data['user_name'] as String? ?? 'A User';
+      final isPremium = data['is_premium'] == true;
+      userName = handle;
 
       bool isMuted = false;
       bool hasMutedLiveChatsMedia = false;
@@ -137,6 +138,8 @@ class ForumCubit extends Cubit<ForumState> {
       String forumStatus = 'open';
       String forumName = 'Community Forum';
       String? eventIdFromDb;
+
+      // 1. Fetch Forum Info
       try {
         final forumData = await Supabase.instance.client
             .from('forums')
@@ -151,53 +154,50 @@ class ForumCubit extends Cubit<ForumState> {
                       forumData['events']?['title'] as String? ?? 
                       'Community Forum';
         }
-      } catch (e, stack) {
-      debugPrint('[ForumCubit] Error: $e\n$stack');
-    }
+      } catch (e) {
+        debugPrint('[ForumCubit] Forum fetch error: $e');
+      }
 
+      // 2. Fetch specific member role and mutes
       try {
         final memberData = await Supabase.instance.client
             .from('forum_members')
-            .select(
-              'is_muted, has_muted_live_chats_media, role_id, forum_roles(default_capabilities)',
-            )
+            .select('is_muted, has_muted_live_chats_media, role')
             .eq('forum_id', forumId)
             .eq('user_id', userId)
             .maybeSingle();
 
         if (memberData != null) {
           isMuted = memberData['is_muted'] == true;
-          hasMutedLiveChatsMedia =
-              memberData['has_muted_live_chats_media'] == true;
-          final roleId = memberData['role_id'] as String?;
-          isModerator = roleId == 'moderator' || roleId == 'organizer';
-          isOrganizer = roleId == 'organizer';
+          hasMutedLiveChatsMedia = memberData['has_muted_live_chats_media'] == true;
+          final role = memberData['role'] as String?;
+          isModerator = role == 'moderator' || role == 'organizer';
+          isOrganizer = role == 'organizer';
         }
-      } catch (e, stack) {
-      debugPrint('[ForumCubit] Error: $e\n$stack');
-    }
+      } catch (e) {
+        debugPrint('[ForumCubit] Member sync error: $e');
+      }
 
       if (!isClosed) {
-        emit(
-          state.copyWith(
-            isPremium: isPremium,
-            showAds: !isPremium, // Default to off for premium users
-            isMuted: isMuted,
-            hasMutedLiveChatsMedia: hasMutedLiveChatsMedia,
-            isModerator: isModerator,
-            isOrganizer: isOrganizer,
-            forumStatus: forumStatus,
-            forumName: forumName,
-            eventId: eventIdFromDb,
-          ),
-        );
+        emit(state.copyWith(
+          userName: handle,
+          isPremium: isPremium,
+          showAds: !isPremium,
+          isMuted: isMuted,
+          hasMutedLiveChatsMedia: hasMutedLiveChatsMedia,
+          isModerator: isModerator,
+          isOrganizer: isOrganizer,
+          forumStatus: forumStatus,
+          forumName: forumName,
+          eventId: eventIdFromDb,
+        ));
 
         if (eventIdFromDb != null) {
           _syncEventProgress(eventIdFromDb);
         }
       }
     } catch (e, stack) {
-      debugPrint('[ForumCubit] Error: $e\n$stack');
+      debugPrint('[ForumCubit] Global sync error: $e\n$stack');
     }
   }
 
