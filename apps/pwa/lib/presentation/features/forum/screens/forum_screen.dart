@@ -302,7 +302,7 @@ class _ForumViewState extends State<ForumView> {
                 isReadOnly: forumState.isReadOnly,
                 onLockToggle: () {
                   final messenger = ScaffoldMessenger.of(context);
-                  final nextStatus = forumState.isReadOnly ? 'active' : 'read_only';
+                  final nextStatus = forumState.isReadOnly ? 'open' : 'read_only';
                   cubit.updateForumStatus(nextStatus);
                   messenger.showSnackBar(SnackBar(
                     content: Text(forumState.isReadOnly ? 'Chat unlocked' : 'Chat locked'),
@@ -369,10 +369,13 @@ class _ForumViewState extends State<ForumView> {
         icon: const Icon(Icons.arrow_back, color: Colors.white, size: 32),
         onPressed: () => context.pop(),
       ),
-      title: Image.asset(
-        'packages/core/assets/images/lynk-x_combined-logo.png',
-        width: 200,
-        fit: BoxFit.contain,
+      title: Padding(
+        padding: const EdgeInsets.only(bottom: 8),
+        child: Image.asset(
+          'assets/images/lynk-x_combined-logo.png',
+          width: 240,
+          fit: BoxFit.contain,
+        ),
       ),
       centerTitle: true,
       actions: [

@@ -11,7 +11,7 @@ import 'package:lynk_x/presentation/features/homepage/cubit/home_state.dart';
 import 'package:lynk_x/presentation/features/homepage/widgets/forum_widget.dart';
 import 'package:lynk_x/presentation/features/homepage/widgets/home_drawer.dart';
 import 'package:lynk_x/presentation/shared/widgets/empty_state.dart';
-import 'package:lynk_x/core/utils/breakpoints.dart';
+
 import 'package:lynk_x/presentation/features/notifications/cubit/notification_cubit.dart';
 import 'package:lynk_x/presentation/features/notifications/cubit/notification_state.dart';
 
@@ -177,39 +177,62 @@ class _HomeViewState extends State<HomeView>
                   onRefresh: context.read<HomeCubit>().refresh,
                   color: AppColors.primary,
                   backgroundColor: AppColors.tertiary,
-                  // Centre content and cap width on tablets/desktops
-                  child: Breakpoints.constrain(
-                    ListView.builder(
-                      controller: _scrollController,
-                      padding: const EdgeInsets.all(16),
-                      itemCount:
-                          state.events.length + (state.isLoadingMore ? 1 : 0),
-                      itemBuilder: (context, index) {
-                        // Bottom pagination spinner
-                        if (index == state.events.length) {
-                          return const Padding(
-                            padding: EdgeInsets.all(16.0),
-                            child: Center(
-                              child: CircularProgressIndicator(
-                                color: AppColors.primary,
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final isWide = constraints.maxWidth > 600;
+                      
+                      if (isWide) {
+                        return GridView.builder(
+                          controller: _scrollController,
+                          padding: const EdgeInsets.all(16),
+                          gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                            maxCrossAxisExtent: 400,
+                            mainAxisSpacing: 16,
+                            crossAxisSpacing: 16,
+                            childAspectRatio: 1.0, // Square shape
+                          ),
+                          itemCount: state.events.length + (state.isLoadingMore ? 1 : 0),
+                          itemBuilder: (context, index) {
+                            if (index == state.events.length) {
+                              return const Center(
+                                child: CircularProgressIndicator(color: AppColors.primary),
+                              );
+                            }
+                            return ForumWidget(event: state.events[index], isGrid: true);
+                          },
+                        );
+                      }
+
+                      return ListView.builder(
+                        controller: _scrollController,
+                        padding: const EdgeInsets.all(16),
+                        itemCount:
+                            state.events.length + (state.isLoadingMore ? 1 : 0),
+                        itemBuilder: (context, index) {
+                          // Bottom pagination spinner
+                          if (index == state.events.length) {
+                            return const Padding(
+                              padding: EdgeInsets.all(16.0),
+                              child: Center(
+                                child: CircularProgressIndicator(
+                                  color: AppColors.primary,
+                                ),
                               ),
-                            ),
-                          );
-                        }
-                        return ForumWidget(event: state.events[index]);
-                      },
-                    ),
+                            );
+                          }
+                          return ForumWidget(event: state.events[index]);
+                        },
+                      );
+                    },
                   ),
                 ),
               ),
               Padding(
                 padding: const EdgeInsets.all(16.0),
-                child: Breakpoints.constrain(
-                  PrimaryButton(
-                    icon: Icons.search,
-                    text: 'Look up new events',
-                    onPressed: _launchWebApp,
-                  ),
+                child: PrimaryButton(
+                  icon: Icons.search,
+                  text: 'Look up new events',
+                  onPressed: _launchWebApp,
                 ),
               ),
             ],
@@ -250,7 +273,7 @@ class _HomeViewState extends State<HomeView>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                  'Welcome to Lynk-X!',
+                  'Welcome to forums!',
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 14,
@@ -298,10 +321,10 @@ class _HomeViewState extends State<HomeView>
         );
       }),
       title: Image.asset(
-        'assets/images/lynk-x_combined-logo.png',
+          'assets/images/lynk-x_combined-logo.png',
         width: 200,
-        fit: BoxFit.contain,
-      ),
+          fit: BoxFit.contain,
+        ),
       actions: [
         BlocBuilder<NotificationCubit, NotificationState>(
           builder: (context, state) {

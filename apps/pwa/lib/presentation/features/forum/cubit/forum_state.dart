@@ -30,7 +30,7 @@ class ForumState extends Equatable {
   bool get isReadOnly => forumStatus == 'read_only';
 
   const ForumState({
-    this.forumStatus = 'active',
+    this.forumStatus = 'open',
     this.currentTabIndex = 0,
     this.mentionedMedia,
     this.members = const [],

@@ -13,12 +13,103 @@ class ForumWidget extends StatelessWidget {
   /// The event to display.
   final EventModel event;
 
-  const ForumWidget({super.key, required this.event});
+  /// Whether to display in grid mode (square shape, background image).
+  final bool isGrid;
+
+  const ForumWidget({
+    super.key,
+    required this.event,
+    this.isGrid = false,
+  });
 
   @override
   Widget build(BuildContext context) {
     final formattedDate =
         DateFormat('dd/MM/yyyy • h:mm a').format(event.startDatetime);
+
+    if (isGrid) {
+      return FlameBadge(
+        showBadge: event.hasUnread,
+        content: event.chatCount.toString(),
+        child: Container(
+          decoration: BoxDecoration(
+            color: AppColors.primary,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppColors.primaryBackground, width: 2),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.3),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(14),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                // Background Image
+                _buildImage(context),
+                
+                // Gradient Scrim for text readability
+                Positioned.fill(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.bottomCenter,
+                        end: Alignment.topCenter,
+                        colors: [
+                          Colors.black.withValues(alpha: 0.8),
+                          Colors.black.withValues(alpha: 0.2),
+                          Colors.transparent,
+                        ],
+                        stops: const [0.0, 0.5, 1.0],
+                      ),
+                    ),
+                  ),
+                ),
+
+                // Content Overlay
+                Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: () => context.push('/forum/${event.id}'),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            event.title,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppTypography.interTight(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            formattedDate,
+                            style: AppTypography.inter(
+                              fontSize: 12,
+                              color: Colors.white.withValues(alpha: 0.7),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
 
     return FlameBadge(
       showBadge: event.hasUnread,
@@ -39,82 +130,78 @@ class ForumWidget extends StatelessWidget {
               child: Padding(
                 padding: const EdgeInsets.all(4),
                 child: Row(
-            children: [
-              // Thumbnail — uses CachedNetworkImage if URL is available,
-              // falls back to an icon placeholder for development mock data.
-              ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: SizedBox(
-                  width: 60,
-                  height: 60,
-                  child: event.thumbnailUrl != null
-                      ? CachedNetworkImage(
-                          imageUrl: event.thumbnailUrl!,
-                          fit: BoxFit.cover,
-                          placeholder: (_, __) => Container(
-                            color: AppColors.secondaryBackground,
-                            child: const Icon(
-                              Icons.image,
-                              color: AppColors.tertiary,
-                              size: 30,
-                            ),
-                          ),
-                          errorWidget: (_, __, ___) => Container(
-                            color: AppColors.secondaryBackground,
-                            child: const Icon(
-                              Icons.broken_image,
-                              color: AppColors.tertiary,
-                              size: 30,
-                            ),
-                          ),
-                        )
-                      : Container(
-                          color: AppColors.secondaryBackground,
-                          child: const Icon(
-                            Icons.image,
-                            color: AppColors.tertiary,
-                            size: 30,
-                          ),
-                        ),
-                ),
-              ),
-              const SizedBox(width: 16),
-              // Text content
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      event.title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: AppTypography.interTight(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.secondaryText,
-                      ).copyWith(
-                        decoration:
-                            event.isPassed ? TextDecoration.lineThrough : null,
-                        decorationColor:
-                            event.isPassed ? AppColors.primaryText : null,
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: SizedBox(
+                        width: 60,
+                        height: 60,
+                        child: _buildImage(context),
                       ),
                     ),
-                    Text(
-                      formattedDate,
-                      style: AppTypography.inter(
-                        fontSize: 14,
-                        color: AppColors.secondaryText,
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            event.title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppTypography.interTight(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.secondaryText,
+                            ).copyWith(
+                              decoration: event.isPassed
+                                  ? TextDecoration.lineThrough
+                                  : null,
+                              decorationColor:
+                                  event.isPassed ? AppColors.primaryText : null,
+                            ),
+                          ),
+                          Text(
+                            formattedDate,
+                            style: AppTypography.inter(
+                              fontSize: 14,
+                              color: AppColors.secondaryText,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
                 ),
               ),
-                ],
-              ),
             ),
           ),
         ),
-        ),
+      ),
+    );
+  }
+
+  Widget _buildImage(BuildContext context) {
+    if (event.thumbnailUrl != null) {
+      return CachedNetworkImage(
+        imageUrl: event.thumbnailUrl!,
+        fit: BoxFit.cover,
+        placeholder: (_, __) => _buildPlaceholder(),
+        errorWidget: (_, __, ___) => _buildPlaceholder(isError: true),
+      );
+    }
+    return _buildPlaceholder();
+  }
+
+  Widget _buildPlaceholder({bool isError = false}) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.tertiary,
+        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+      ),
+      child: Icon(
+        isError ? Icons.broken_image : Icons.image,
+        color: AppColors.secondaryBackground,
+        size: isGrid ? 48 : 30,
       ),
     );
   }

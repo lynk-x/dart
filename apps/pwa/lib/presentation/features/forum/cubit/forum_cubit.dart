@@ -150,7 +150,7 @@ class ForumCubit extends Cubit<ForumState> {
       bool isModerator = false;
       bool isOrganizer = false;
 
-      String forumStatus = 'active';
+      String forumStatus = 'open';
       String? eventIdFromDb;
       try {
         final forumData = await Supabase.instance.client
@@ -160,7 +160,7 @@ class ForumCubit extends Cubit<ForumState> {
             .maybeSingle();
 
         if (forumData != null) {
-          forumStatus = forumData['status'] as String? ?? 'active';
+          forumStatus = forumData['status'] as String? ?? 'open';
           eventIdFromDb = forumData['event_id'] as String?;
         }
       } catch (e, stack) {
