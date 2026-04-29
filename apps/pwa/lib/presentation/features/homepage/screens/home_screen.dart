@@ -11,7 +11,6 @@ import 'package:lynk_x/presentation/features/homepage/cubit/home_state.dart';
 import 'package:lynk_x/presentation/features/homepage/widgets/forum_widget.dart';
 import 'package:lynk_x/presentation/features/homepage/widgets/home_drawer.dart';
 import 'package:lynk_x/presentation/shared/widgets/empty_state.dart';
-
 import 'package:lynk_x/presentation/features/notifications/cubit/notification_cubit.dart';
 import 'package:lynk_x/presentation/features/notifications/cubit/notification_state.dart';
 
@@ -205,7 +204,7 @@ class _HomeViewState extends State<HomeView>
 
                       return ListView.builder(
                         controller: _scrollController,
-                        padding: const EdgeInsets.all(16),
+                        padding: const EdgeInsets.all(12),
                         itemCount:
                             state.events.length + (state.isLoadingMore ? 1 : 0),
                         itemBuilder: (context, index) {
@@ -287,7 +286,7 @@ class _HomeViewState extends State<HomeView>
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Your event feed is live. Join a forum to chat with attendees, or tap an event to explore.',
+                  'Your event feed is live. Join a forum to chat with attendees or tap an event to explore.',
                   style: TextStyle(
                     color: Colors.white.withValues(alpha: 0.6),
                     fontSize: 12,
