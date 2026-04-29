@@ -125,7 +125,7 @@ class ForumChatCubit extends BaseMessageCubit<ForumChatState> {
           .schema('forum_messages')
           .from('forum_messages')
           .select(
-              '*, user_profile(full_name, is_premium), forum_members!inner(role_id)')
+              '*, user_profile(user_name, is_premium), forum_members!inner(role_id)')
           .eq('forum_id', forumId)
           .eq('message_type', 'chat');
 

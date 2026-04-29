@@ -45,7 +45,7 @@ class ForumCubit extends Cubit<ForumState> {
     try {
       final data = await Supabase.instance.client
           .from('forum_members')
-          .select('user_profile(id, full_name, avatar_url, is_premium)')
+          .select('user_profile(id, user_name, avatar_url, is_premium)')
           .eq('forum_id', forumId);
 
       final members = data
@@ -122,10 +122,11 @@ class ForumCubit extends Cubit<ForumState> {
     try {
       final data = await Supabase.instance.client
           .from('user_profile')
-          .select('is_premium')
+          .select('user_name, is_premium')
           .eq('id', userId)
           .single();
 
+      userName = data['user_name'] as String? ?? 'A User';
       bool isPremium = data['is_premium'] == true;
 
       bool isMuted = false;
