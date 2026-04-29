@@ -30,4 +30,12 @@ abstract class BaseMessageState extends Equatable {
         linkPreviews,
         showJumpToBottom,
       ];
+
+  Map<String, dynamic> baseToMap() {
+    return {
+      'messages': messages.map((m) => m.toMap()).toList(),
+      'searchQuery': searchQuery,
+      'linkPreviews': linkPreviews.map((k, v) => MapEntry(k, v.toMap())),
+    };
+  }
 }

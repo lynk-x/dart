@@ -1,7 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/foundation.dart';
 import 'package:lynk_x/presentation/features/forum/models/forum_model.dart';
-import 'package:lynk_x/presentation/features/forum/services/forum_cache.dart';
 import 'base_message_cubit.dart';
 import 'forum_updates_state.dart';
 
@@ -42,11 +41,6 @@ class ForumUpdatesCubit extends BaseMessageCubit<ForumUpdatesState> {
   }
 
   Future<void> init() async {
-    final cached =
-        await ForumCache.getCachedMessages(forumId, userId, type: 'announcement');
-    if (!isClosed) {
-      emit(state.copyWith(messages: cached));
-    }
     await refresh();
     setupBaseListeners();
   }
@@ -60,7 +54,7 @@ class ForumUpdatesCubit extends BaseMessageCubit<ForumUpdatesState> {
           .schema('forum_messages')
           .from('forum_messages')
           .select(
-              '*, user_profile(full_name, is_premium), forum_members!inner(role_id), vw_message_reaction_counts(*)')
+              '*, user_profile(full_name, is_premium), forum_members!inner(role_id)')
           .eq('forum_id', forumId)
           .eq('message_type', 'announcement');
 
@@ -78,7 +72,6 @@ class ForumUpdatesCubit extends BaseMessageCubit<ForumUpdatesState> {
           .limit(20);
       final messages =
           data.map((json) => ChatMessage.fromMap(json, userId)).toList();
-      await ForumCache.cacheMessages(messages, forumId);
 
       if (!isClosed) {
         emit(state.copyWith(messages: messages, isLoading: false));
@@ -99,7 +92,7 @@ class ForumUpdatesCubit extends BaseMessageCubit<ForumUpdatesState> {
           .schema('forum_messages')
           .from('forum_messages')
           .select(
-              '*, user_profile(full_name, is_premium), forum_members!inner(role_id), vw_message_reaction_counts(*)')
+              '*, user_profile(full_name, is_premium), forum_members!inner(role_id)')
           .eq('forum_id', forumId)
           .eq('message_type', 'announcement');
 
@@ -118,7 +111,6 @@ class ForumUpdatesCubit extends BaseMessageCubit<ForumUpdatesState> {
 
       final more =
           data.map((json) => ChatMessage.fromMap(json, userId)).toList();
-      await ForumCache.cacheMessages(more, forumId);
 
       if (!isClosed) {
         emit(state.copyWith(
@@ -216,4 +208,13 @@ class ForumUpdatesCubit extends BaseMessageCubit<ForumUpdatesState> {
       await refresh();
     }
   }
+
+  @override
+  ForumUpdatesState? fromJson(Map<String, dynamic> json) => ForumUpdatesState.fromMap(json);
+
+  @override
+  Map<String, dynamic>? toJson(ForumUpdatesState state) => state.toJson();
+
+  @override
+  String get id => forumId;
 }

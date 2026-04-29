@@ -1,14 +1,13 @@
 import 'dart:async';
 import 'package:lynk_core/core.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:hydrated_bloc/hydrated_bloc.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
-
 import 'package:lynk_x/presentation/features/forum/models/forum_model.dart';
 import 'base_message_state.dart';
 
-abstract class BaseMessageCubit<T extends BaseMessageState> extends Cubit<T> {
+abstract class BaseMessageCubit<T extends BaseMessageState> extends HydratedCubit<T> {
   static const uuid = Uuid();
   
   final String forumId;

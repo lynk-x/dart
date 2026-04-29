@@ -31,4 +31,18 @@ class ForumMediaState extends Equatable {
 
   @override
   List<Object?> get props => [mediaItems, isLoading, isUploading, error];
+
+  Map<String, dynamic> toJson() {
+    return {
+      'mediaItems': mediaItems.map((m) => m.toMap()).toList(),
+    };
+  }
+
+  static ForumMediaState fromMap(Map<String, dynamic> map) {
+    return ForumMediaState(
+      mediaItems: (map['mediaItems'] as List? ?? [])
+          .map((m) => ForumMedia.fromMap(m as Map<String, dynamic>))
+          .toList(),
+    );
+  }
 }

@@ -24,6 +24,8 @@ class ChatBubble extends StatefulWidget {
   final LinkPreviewData? linkPreviewData;
   final Function(String, LinkPreviewData)? onLinkPreviewDataFetched;
   final bool showActions;
+  final bool showSenderInfo;
+  final bool isGrouped;
 
   const ChatBubble({
     super.key,
@@ -42,6 +44,8 @@ class ChatBubble extends StatefulWidget {
     this.linkPreviewData,
     this.onLinkPreviewDataFetched,
     this.showActions = false,
+    this.showSenderInfo = true,
+    this.isGrouped = false,
   });
 
   @override
@@ -58,7 +62,10 @@ class _ChatBubbleState extends State<ChatBubble> {
     final shouldBlur = isBlocked && !_revealed;
 
     return Container(
-      margin: const EdgeInsets.symmetric(vertical: 8),
+      margin: EdgeInsets.only(
+        top: widget.isGrouped ? 2 : 8,
+        bottom: widget.showSenderInfo ? 8 : 2,
+      ),
       alignment:
           widget.message.isMe ? Alignment.centerRight : Alignment.centerLeft,
       child: Column(
@@ -66,9 +73,9 @@ class _ChatBubbleState extends State<ChatBubble> {
             ? CrossAxisAlignment.end
             : CrossAxisAlignment.start,
         children: [
-          if (!widget.message.isMe) _buildSenderInfo(),
+          if (!widget.message.isMe && widget.showSenderInfo) _buildSenderInfo(),
           if (shouldBlur) _buildBlurredBubble() else _buildBubble(),
-          if (widget.message.isMe) _buildStatusIndicator(),
+          if (widget.message.isMe && widget.showSenderInfo) _buildStatusIndicator(),
           if (widget.showActions) _buildActions(context),
         ],
       ),
@@ -257,8 +264,8 @@ class _ChatBubbleState extends State<ChatBubble> {
           borderRadius: BorderRadius.only(
             topLeft: const Radius.circular(16),
             topRight: const Radius.circular(16),
-            bottomLeft: Radius.circular(widget.message.isMe ? 16 : 0),
-            bottomRight: Radius.circular(widget.message.isMe ? 0 : 16),
+            bottomLeft: Radius.circular(widget.message.isMe ? 16 : (widget.isGrouped ? 16 : 0)),
+            bottomRight: Radius.circular(widget.message.isMe ? (widget.isGrouped ? 16 : 0) : 16),
           ),
           border: Border.all(color: Colors.transparent),
         ),

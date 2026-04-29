@@ -380,10 +380,10 @@ class _ForumViewState extends State<ForumView> {
         onPressed: () => context.pop(),
       ),
       title: Padding(
-        padding: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.only(bottom: 12),
         child: Image.asset(
           'assets/images/lynk-x_combined-logo.png',
-          width: 240,
+          width: 200,
           fit: BoxFit.contain,
         ),
       ),
@@ -419,20 +419,30 @@ class _ForumViewState extends State<ForumView> {
             final chatCount = chatState.searchQuery.isNotEmpty ? chatState.messages.length : null;
 
             int displayedIndex = 0;
-            return Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                if (showUpdates)
-                  _buildTab(
-                      'Updates', displayedIndex++, state.currentTabIndex,
-                      count: updatesCount),
-                if (showChat)
-                  _buildTab(
-                      'Live chat', displayedIndex++, state.currentTabIndex,
-                      hasIndicator: true, count: chatCount),
-                if (showMedia)
-                  _buildTab('Media', displayedIndex++, state.currentTabIndex),
-              ],
+            return Container(
+              decoration: const BoxDecoration(
+                border: Border(
+                  bottom: BorderSide(
+                    color: Colors.white10,
+                    width: 0.5,
+                  ),
+                ),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  if (showUpdates)
+                    _buildTab(
+                        'Updates', displayedIndex++, state.currentTabIndex,
+                        count: updatesCount),
+                  if (showChat)
+                    _buildTab(
+                        'Live chat', displayedIndex++, state.currentTabIndex,
+                        hasIndicator: true, count: chatCount),
+                  if (showMedia)
+                    _buildTab('Media', displayedIndex++, state.currentTabIndex),
+                ],
+              ),
             );
           },
         );

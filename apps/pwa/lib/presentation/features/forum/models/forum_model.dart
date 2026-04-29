@@ -83,6 +83,10 @@ class ChatMessage {
           parsedReactions[emoji] = count;
         }
       }
+    } else if (map['reaction_summary'] != null) {
+      parsedReactions = (map['reaction_summary'] as Map<String, dynamic>).map(
+        (key, value) => MapEntry(key, value as int),
+      );
     } else if (map['reactions'] != null) {
       // Fallback for manual map passed in
       parsedReactions = Map<String, int>.from(map['reactions'] as Map);
@@ -244,16 +248,30 @@ class ForumMedia {
   });
 
   factory ForumMedia.fromMap(Map<String, dynamic> map) {
+    final mediaUrl = map['media_url'] as Map<String, dynamic>? ?? {};
     return ForumMedia(
       id: map['id'] as String,
-      url: map['url'] as String,
-      thumbnailUrl: map['thumbnail_url'] as String?,
+      url: mediaUrl['full_res'] as String? ?? map['url'] as String? ?? '',
+      thumbnailUrl: mediaUrl['thumbnail'] as String? ?? map['thumbnail_url'] as String?,
       mediaType: map['media_type'] as String? ?? 'image',
       caption: map['caption'] as String?,
       uploaderId: map['uploader_id'] as String?,
       isApproved: map['is_approved'] == true,
       createdAt: DateTime.parse(map['created_at'] as String),
     );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'url': url,
+      'thumbnail_url': thumbnailUrl,
+      'media_type': mediaType,
+      'caption': caption,
+      'uploader_id': uploaderId,
+      'is_approved': isApproved,
+      'created_at': createdAt.toIso8601String(),
+    };
   }
 }
 

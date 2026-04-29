@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/foundation.dart';
 import 'package:lynk_x/presentation/features/forum/models/forum_model.dart';
-import 'package:lynk_x/presentation/features/forum/services/forum_cache.dart';
 import 'package:lynk_x/core/sync/sync_item.dart';
 import 'package:lynk_x/core/sync/sync_manager.dart';
 import 'base_message_cubit.dart';
@@ -50,11 +49,6 @@ class ForumChatCubit extends BaseMessageCubit<ForumChatState> {
   }
 
   Future<void> init() async {
-    final cached =
-        await ForumCache.getCachedMessages(forumId, userId, type: 'chat');
-    if (!isClosed) {
-      emit(state.copyWith(messages: cached));
-    }
     await refresh();
     _setupChatListeners();
     setupBaseListeners();
@@ -97,7 +91,7 @@ class ForumChatCubit extends BaseMessageCubit<ForumChatState> {
           .schema('forum_messages')
           .from('forum_messages')
           .select(
-              '*, user_profile(full_name, is_premium), forum_members!inner(role_id), vw_message_reaction_counts(*)')
+              '*, user_profile(full_name, is_premium), forum_members!inner(role_id)')
           .eq('forum_id', forumId)
           .eq('message_type', 'chat');
 
@@ -111,7 +105,6 @@ class ForumChatCubit extends BaseMessageCubit<ForumChatState> {
           .limit(20);
       final messages =
           data.map((json) => ChatMessage.fromMap(json, userId)).toList();
-      await ForumCache.cacheMessages(messages, forumId);
 
       if (!isClosed) {
         emit(state.copyWith(messages: messages, isLoading: false));
@@ -132,7 +125,7 @@ class ForumChatCubit extends BaseMessageCubit<ForumChatState> {
           .schema('forum_messages')
           .from('forum_messages')
           .select(
-              '*, user_profile(full_name, is_premium), forum_members!inner(role_id), vw_message_reaction_counts(*)')
+              '*, user_profile(full_name, is_premium), forum_members!inner(role_id)')
           .eq('forum_id', forumId)
           .eq('message_type', 'chat');
 
@@ -147,7 +140,6 @@ class ForumChatCubit extends BaseMessageCubit<ForumChatState> {
 
       final more =
           data.map((json) => ChatMessage.fromMap(json, userId)).toList();
-      await ForumCache.cacheMessages(more, forumId);
 
       if (!isClosed) {
         emit(state.copyWith(
@@ -284,6 +276,15 @@ class ForumChatCubit extends BaseMessageCubit<ForumChatState> {
     );
     _typingThrottle = Timer(const Duration(seconds: 3), () {});
   }
+
+  @override
+  ForumChatState? fromJson(Map<String, dynamic> json) => ForumChatState.fromMap(json);
+
+  @override
+  Map<String, dynamic>? toJson(ForumChatState state) => state.toJson();
+
+  @override
+  String get id => forumId;
 
   @override
   Future<void> close() {

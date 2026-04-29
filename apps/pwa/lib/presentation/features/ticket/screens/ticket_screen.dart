@@ -7,7 +7,6 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:add_2_calendar/add_2_calendar.dart' as add_2_calendar;
 import 'package:lynk_core/core.dart';
 import 'package:lynk_x/core/utils/breakpoints.dart';
 import 'package:lynk_x/presentation/features/ticket/cubit/ticket_cubit.dart';
@@ -221,25 +220,6 @@ class _TicketViewState extends State<TicketView> {
                 color: Colors.white24,
                 borderRadius: BorderRadius.circular(2),
               ),
-            ),
-            // Add to Calendar
-            ListTile(
-              leading: const Icon(Icons.calendar_month, color: AppColors.primary),
-              title: const Text('Add to Calendar', style: TextStyle(color: Colors.white)),
-              subtitle: Text(
-                '${DateFormat('dd/MM/yyyy HH:mm').format(ticket.startsAt)} • ${ticket.locationName}',
-                style: const TextStyle(color: Colors.white54, fontSize: 12),
-              ),
-              onTap: () {
-                Navigator.pop(context);
-                add_2_calendar.Add2Calendar.addEvent2Cal(add_2_calendar.Event(
-                  title: ticket.eventTitle,
-                  startDate: ticket.startsAt,
-                  endDate: ticket.endsAt,
-                  location: ticket.locationName,
-                  description: 'Lynk-X ticket reference: #${ticket.ticketCode}',
-                ));
-              },
             ),
             if (isValid) ...[
               const Divider(color: Colors.white12, height: 1),

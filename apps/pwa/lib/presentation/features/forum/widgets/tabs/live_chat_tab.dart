@@ -110,8 +110,23 @@ class _LiveChatTabState extends State<LiveChatTab>
                                             }
 
                                             final message = chatState.messages[index];
+                                            
+                                            // Grouping logic (compare with older message at index + 1)
+                                            bool showSenderInfo = true;
+                                            bool isGrouped = false;
+                                            if (index < chatState.messages.length - 1) {
+                                              final prevMessage = chatState.messages[index + 1];
+                                              final timeDiff = message.createdAt.difference(prevMessage.createdAt).abs();
+                                              if (message.userId == prevMessage.userId && timeDiff.inMinutes < 5) {
+                                                showSenderInfo = false;
+                                                isGrouped = true;
+                                              }
+                                            }
+
                                             return ChatBubble(
                                               message: message,
+                                              showSenderInfo: showSenderInfo,
+                                              isGrouped: isGrouped,
                                               onPin: (msg) => mainCubit.pinMessage(msg),
                                               onDelete: (msg) => chatCubit.deleteMessage(msg.id),
                                               onReport: (msg) => chatCubit.reportMessage(msg.id, 'Spam'),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:video_player/video_player.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:image_picker/image_picker.dart';
@@ -100,29 +101,31 @@ class _MediaTabState extends State<MediaTab>
                                           children: [
                                             ClipRRect(
                                               borderRadius: BorderRadius.circular(8),
-                                              child: CachedNetworkImage(
-                                                imageUrl: displayUrl,
-                                                fit: BoxFit.cover,
-                                                memCacheWidth: 300,
-                                                placeholder: (context, url) => Container(
-                                                  color: Colors.grey[900],
-                                                  child: const Center(
-                                                    child: SizedBox(
-                                                      width: 16,
-                                                      height: 16,
-                                                      child: CircularProgressIndicator(
-                                                        strokeWidth: 1.5,
-                                                        color: AppColors.tertiary,
+                                              child: isVideo
+                                                  ? _VideoThumbnailPreview(url: item.url)
+                                                  : CachedNetworkImage(
+                                                      imageUrl: displayUrl,
+                                                      fit: BoxFit.cover,
+                                                      memCacheWidth: 300,
+                                                      placeholder: (context, url) => Container(
+                                                        color: Colors.grey[900],
+                                                        child: const Center(
+                                                          child: SizedBox(
+                                                            width: 16,
+                                                            height: 16,
+                                                            child: CircularProgressIndicator(
+                                                              strokeWidth: 1.5,
+                                                              color: AppColors.tertiary,
+                                                            ),
+                                                          ),
+                                                        ),
+                                                      ),
+                                                      errorWidget: (context, url, error) => Container(
+                                                        color: Colors.grey[900],
+                                                        child: const Icon(Icons.broken_image,
+                                                            color: Colors.white10),
                                                       ),
                                                     ),
-                                                  ),
-                                                ),
-                                                errorWidget: (context, url, error) => Container(
-                                                  color: Colors.grey[900],
-                                                  child: const Icon(Icons.broken_image,
-                                                      color: Colors.white10),
-                                                ),
-                                              ),
                                             ),
                                             if (isVideo)
                                               const Center(
@@ -247,3 +250,47 @@ class _MediaTabState extends State<MediaTab>
     }
   }
 }
+
+class _VideoThumbnailPreview extends StatefulWidget {
+  final String url;
+  const _VideoThumbnailPreview({required this.url});
+
+  @override
+  State<_VideoThumbnailPreview> createState() => _VideoThumbnailPreviewState();
+}
+
+class _VideoThumbnailPreviewState extends State<_VideoThumbnailPreview> {
+  late VideoPlayerController _controller;
+  bool _initialized = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = VideoPlayerController.networkUrl(Uri.parse(widget.url))
+      ..initialize().then((_) {
+        if (mounted) {
+          setState(() => _initialized = true);
+          _controller.seekTo(const Duration(seconds: 1)); // Show a frame
+        }
+      });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_initialized) {
+      return Container(
+        color: Colors.grey[900],
+        child: const Center(
+            child: CircularProgressIndicator(strokeWidth: 1, color: Colors.white10)),
+      );
+    }
+    return VideoPlayer(_controller);
+  }
+}
+

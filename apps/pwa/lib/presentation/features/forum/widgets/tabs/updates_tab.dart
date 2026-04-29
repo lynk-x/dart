@@ -105,8 +105,23 @@ class _UpdatesTabState extends State<UpdatesTab>
                                           );
                                         }
                                         final message = updatesState.messages[index];
+                                        
+                                        // Grouping logic (compare with older message at index + 1)
+                                        bool showSenderInfo = true;
+                                        bool isGrouped = false;
+                                        if (index < updatesState.messages.length - 1) {
+                                          final prevMessage = updatesState.messages[index + 1];
+                                          final timeDiff = message.createdAt.difference(prevMessage.createdAt).abs();
+                                          if (message.userId == prevMessage.userId && timeDiff.inMinutes < 5) {
+                                            showSenderInfo = false;
+                                            isGrouped = true;
+                                          }
+                                        }
+
                                         return ChatBubble(
                                           message: message,
+                                          showSenderInfo: showSenderInfo,
+                                          isGrouped: isGrouped,
                                           onPin: (msg) => mainCubit.pinMessage(msg),
                                           onDelete: (msg) => updatesCubit.deleteMessage(msg.id),
                                           onReport: (msg) => updatesCubit.reportMessage(msg.id, 'Spam'),

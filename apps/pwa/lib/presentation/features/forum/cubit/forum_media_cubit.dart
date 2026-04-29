@@ -1,4 +1,4 @@
-import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:hydrated_bloc/hydrated_bloc.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
@@ -6,13 +6,7 @@ import 'package:uuid/uuid.dart';
 import 'package:lynk_x/presentation/features/forum/models/forum_model.dart';
 import 'forum_media_state.dart';
 
-// flutter_image_compress, video_thumbnail, and path_provider have no web
-// support. Thumbnail generation is skipped on web; on mobile it remains
-// available via the conditional import below.
-import 'forum_media_cubit_thumbnail_stub.dart'
-    if (dart.library.io) 'forum_media_cubit_thumbnail_mobile.dart';
-
-class ForumMediaCubit extends Cubit<ForumMediaState> {
+class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
   static const _uuid = Uuid();
   final String forumId;
   final String userId;
@@ -87,6 +81,10 @@ class ForumMediaCubit extends Cubit<ForumMediaState> {
     }
   }
 
+  /// Uploads media to Supabase.
+  /// 
+  /// NOTE: For PWA, we rely on the built-in compression of [image_picker] 
+  /// by setting imageQuality and maxWidth during the pick process.
   Future<void> uploadMedia({
     required XFile file,
     required String type,
@@ -109,27 +107,11 @@ class ForumMediaCubit extends Cubit<ForumMediaState> {
           .from('forum_media')
           .getPublicUrl(path);
 
-      // Thumbnail generation uses dart:io APIs — skipped on web.
-      String? thumbnailPublicUrl;
-      if (!kIsWeb) {
-        try {
-          thumbnailPublicUrl = await generateThumbnail(
-            file: file,
-            type: type,
-            fileId: fileId,
-            forumId: forumId,
-          );
-        } catch (e) {
-          debugPrint('[ForumMediaCubit] Thumbnail generation failed: $e');
-        }
-      }
-
       await Supabase.instance.client.schema('forum_media').from('forum_media').insert({
         'id': fileId,
         'forum_id': forumId,
         'uploader_id': userId,
         'url': publicUrl,
-        'thumbnail_url': thumbnailPublicUrl,
         'media_type': type,
         'mime_type': mimeType,
         'file_size': bytes.length,
@@ -178,4 +160,13 @@ class ForumMediaCubit extends Cubit<ForumMediaState> {
   void clearError() {
     emit(state.copyWith(clearError: true));
   }
+
+  @override
+  ForumMediaState? fromJson(Map<String, dynamic> json) => ForumMediaState.fromMap(json);
+
+  @override
+  Map<String, dynamic>? toJson(ForumMediaState state) => state.toJson();
+
+  @override
+  String get id => forumId;
 }

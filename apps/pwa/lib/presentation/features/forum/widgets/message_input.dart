@@ -94,7 +94,7 @@ class _MessageInputState extends State<MessageInput> {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: const BoxDecoration(
         color: AppColors.primaryBackground,
-        border: Border(top: BorderSide(color: Colors.white30, width: 0.5)),
+        border: Border(top: BorderSide(color: Colors.white12, width: 0.5)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,

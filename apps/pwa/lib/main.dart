@@ -4,10 +4,16 @@ import 'package:flutter/services.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
+import 'package:hydrated_bloc/hydrated_bloc.dart';
 import 'app.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize HydratedStorage for persistent state (Web only for PWA)
+  HydratedBloc.storage = await HydratedStorage.build(
+    storageDirectory: HydratedStorageDirectory.web,
+  );
 
   // Lock orientation to portrait
   await SystemChrome.setPreferredOrientations([
@@ -39,9 +45,6 @@ void main() async {
     debugPrint('[Main] Supabase initialization failed: $e');
   }
 
-  // runApp() is called immediately after platform init — no network calls here.
-  // Feature flags are fetched inside SplashScreen via FeatureFlagCubit.
-  // Push notification init happens in the auth state listener after sign-in.
   if (sentryDsn.isNotEmpty) {
     try {
       await SentryFlutter.init(

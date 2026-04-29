@@ -51,4 +51,21 @@ class ForumChatState extends BaseMessageState {
         isTyping,
         error,
       ];
+
+  Map<String, dynamic> toJson() => baseToMap();
+
+  static ForumChatState fromMap(Map<String, dynamic> map) {
+    return ForumChatState(
+      messages: (map['messages'] as List? ?? [])
+          .map((m) => ChatMessage.fromMap(m as Map<String, dynamic>, ''))
+          .toList(),
+      searchQuery: map['searchQuery'] as String? ?? '',
+      linkPreviews: (map['linkPreviews'] as Map? ?? {}).map(
+        (k, v) => MapEntry(
+          k as String,
+          LinkPreviewData.fromMap(v as Map<String, dynamic>),
+        ),
+      ),
+    );
+  }
 }

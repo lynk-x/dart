@@ -4,7 +4,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:lynk_x/presentation/features/forum/models/forum_model.dart';
 import 'forum_state.dart';
 import 'package:flutter/foundation.dart';
-import 'package:lynk_x/presentation/features/forum/services/forum_cache.dart';
 import 'package:lynk_core/core.dart';
 
 /// The core ForumCubit handling global state, permissions, members, and coordination.
@@ -39,23 +38,7 @@ class ForumCubit extends Cubit<ForumState> {
   }
 
   Future<void> _loadCachedPermissions() async {
-    if (userId == kGuestUserId) return;
-    try {
-      final cached = await ForumCache.getCachedMemberInfo(forumId, userId);
-      if (cached != null && !isClosed) {
-        final role = cached['role'] as String?;
-
-        emit(
-          state.copyWith(
-            isModerator: role == 'moderator' || role == 'organizer',
-            isOrganizer: role == 'organizer',
-            // Optionally map specific capabilities here if needed
-          ),
-        );
-      }
-    } catch (e, stack) {
-      debugPrint('[ForumCubit] Error: $e\n$stack');
-    }
+    // Relying on real-time and fresh fetch for now since we are in PWA mode.
   }
 
   Future<void> refreshMembers() async {
@@ -186,20 +169,8 @@ class ForumCubit extends Cubit<ForumState> {
           hasMutedLiveChatsMedia =
               memberData['has_muted_live_chats_media'] == true;
           final roleId = memberData['role_id'] as String?;
-          final forumRoles = memberData['forum_roles'] as Map<String, dynamic>?;
-          final capabilities =
-              (forumRoles?['default_capabilities'] as Map<String, dynamic>?) ??
-                  {};
           isModerator = roleId == 'moderator' || roleId == 'organizer';
           isOrganizer = roleId == 'organizer';
-
-          // Cache the latest status for offline access
-          await ForumCache.cacheMemberInfo(
-            forumId: forumId,
-            userId: userId,
-            role: roleId ?? 'member',
-            capabilities: capabilities,
-          );
         }
       } catch (e, stack) {
       debugPrint('[ForumCubit] Error: $e\n$stack');
