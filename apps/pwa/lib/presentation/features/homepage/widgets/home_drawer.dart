@@ -227,6 +227,17 @@ class _HomeDrawerState extends State<HomeDrawer> {
                     context.push('/tickets');
                   },
                 ),
+                if (context.read<FeatureFlagCubit>().isEnabled('enable_wallet'))
+                  ListTile(
+                    leading: const Icon(Icons.account_balance_wallet,
+                        color: Colors.white),
+                    title: const Text('Wallet',
+                        style: TextStyle(color: Colors.white)),
+                    onTap: () {
+                      context.pop();
+                      context.push('/wallet');
+                    },
+                  ),
                 ListTile(
                   leading: const Icon(Icons.chat_bubble_outline,
                       color: Colors.white),

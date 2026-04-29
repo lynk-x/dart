@@ -3,7 +3,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:lynk_core/core.dart';
 import 'package:lynk_x/presentation/features/forum/cubit/forum_cubit.dart';
@@ -25,6 +24,8 @@ import 'package:lynk_x/presentation/features/forum/widgets/tabs/updates_tab.dart
 import 'package:lynk_x/presentation/features/forum/widgets/tabs/live_chat_tab.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/tabs/media_tab.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/reaction_background.dart';
+
+import 'package:lynk_x/presentation/features/forum/widgets/welcome_banner.dart';
 
 class ForumPage extends StatelessWidget {
   /// The forum to display. Provided as a path parameter via `/forum/:id`.
@@ -150,57 +151,7 @@ class _ForumViewState extends State<ForumView> {
     if (mounted) setState(() => _showWelcome = !dismissed);
   }
 
-  Widget _buildWelcomeBanner() {
-    if (!_showWelcome) return const SizedBox.shrink();
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [const Color(0xFF20F928).withValues(alpha: 0.15), Colors.transparent],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: const Color(0xFF20F928).withValues(alpha: 0.3)),
-        ),
-        child: Row(
-          children: [
-            const CircleAvatar(
-              backgroundColor: Color(0xFF20F928),
-              child: Icon(Icons.celebration, color: Colors.black, size: 20),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Welcome to the Community!',
-                    style: AppTypography.inter(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
-                  ),
-                  Text(
-                    'Introduce yourself in the Live Chat or see the latest updates.',
-                    style: AppTypography.inter(fontSize: 12, color: Colors.white54),
-                  ),
-                ],
-              ),
-            ),
-            IconButton(
-              icon: const Icon(Icons.close, color: Colors.white24, size: 18),
-              onPressed: () async {
-                setState(() => _showWelcome = false);
-                final forumId = context.read<ForumCubit>().forumId;
-                final prefs = await SharedPreferences.getInstance();
-                await prefs.setBool('forum_banner_dismissed_$forumId', true);
-              },
-            ),
-          ],
-        ),
-      ),
-    ).animate().fadeIn(duration: 400.ms).slideY(begin: -0.1);
-  }
+
 
   @override
   void dispose() {
@@ -286,7 +237,18 @@ class _ForumViewState extends State<ForumView> {
             NestedScrollView(
               headerSliverBuilder: (context, innerBoxIsScrolled) {
                 return [
-                  SliverToBoxAdapter(child: _buildWelcomeBanner()),
+                  SliverToBoxAdapter(
+                    child: WelcomeBanner(
+                      show: _showWelcome,
+                      onDismiss: () async {
+                        setState(() => _showWelcome = false);
+                        final forumId = context.read<ForumCubit>().forumId;
+                        final prefs = await SharedPreferences.getInstance();
+                        await prefs.setBool(
+                            'forum_banner_dismissed_$forumId', true);
+                      },
+                    ),
+                  ),
                   BlocBuilder<ForumAdsCubit, ForumAdsState>(
                     builder: (context, adsState) {
                       final showBannerAd = context.read<FeatureFlagCubit>().isEnabled('enable_banner_ad');

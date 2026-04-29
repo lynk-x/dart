@@ -3,28 +3,12 @@ import 'package:flutter/material.dart' hide TextField;
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 import 'package:lynk_core/core.dart';
 import 'package:lynk_x/presentation/shared/widgets/text_field.dart';
 import 'package:country_flags/country_flags.dart';
-
-class Country {
-  final String name;
-  final String code;
-  const Country({required this.name, required this.code});
-}
-
-const List<Country> kSupportedCountries = [
-  Country(name: 'Kenya', code: 'KE'),
-  Country(name: 'Uganda', code: 'UG'),
-  Country(name: 'Tanzania', code: 'TZ'),
-  Country(name: 'Rwanda', code: 'RW'),
-  Country(name: 'Nigeria', code: 'NG'),
-  Country(name: 'South Africa', code: 'ZA'),
-  Country(name: 'United States', code: 'US'),
-  Country(name: 'United Kingdom', code: 'GB'),
-  Country(name: 'Global', code: 'GL'),
-];
+import '../models/country.dart';
+import '../widgets/profile_avatar.dart';
+import '../widgets/delete_account_dialog.dart';
 
 class EditProfilePage extends StatefulWidget {
   const EditProfilePage({super.key});
@@ -41,8 +25,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
   bool _initialized = false;
   String _initialUsername = '';
-  bool _isCheckingUsername = false;
-  bool? _isUsernameAvailable;
+
   Timer? _debounceTimer;
   bool _isOpeningGallery = false;
   bool _uploadingAvatar = false;
@@ -85,27 +68,12 @@ class _EditProfilePageState extends State<EditProfilePage> {
   void _onUsernameChanged() {
     final name = _usernameController.text.trim();
     if (name.toLowerCase() == _initialUsername.toLowerCase() || name.length < 3) {
-      if (mounted) setState(() { _isUsernameAvailable = null; _isCheckingUsername = false; });
       return;
     }
     if (_debounceTimer?.isActive ?? false) _debounceTimer?.cancel();
-    setState(() => _isCheckingUsername = true);
-    _debounceTimer = Timer(const Duration(milliseconds: 500), () async {
+    _debounceTimer = Timer(const Duration(milliseconds: 500), () {
       if (!mounted) return;
-      try {
-        final response = await sb.Supabase.instance.client.rpc(
-          'is_username_available',
-          params: {'username_to_check': name},
-        );
-        if (mounted) {
-          setState(() {
-            _isUsernameAvailable = response as bool;
-            _isCheckingUsername = false;
-          });
-        }
-      } catch (_) {
-        if (mounted) setState(() => _isCheckingUsername = false);
-      }
+      context.read<ProfileCubit>().checkUsernameAvailability(name);
     });
   }
 
@@ -293,63 +261,11 @@ class _EditProfilePageState extends State<EditProfilePage> {
                 padding: const EdgeInsets.fromLTRB(20, 20, 20, 120),
                 child: Column(
                   children: [
-                    // Avatar section
-                    Center(
-                      child: Stack(
-                        children: [
-                          GestureDetector(
-                            onTap: isUpdating ? null : () => _pickImage(context),
-                            child: Container(
-                              width: 100,
-                              height: 100,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                border:
-                                    Border.all(color: AppColors.tertiary, width: 2),
-                                color: AppColors.tertiary.withValues(alpha: 0.3),
-                                image: profile.avatarUrl != null
-                                    ? DecorationImage(
-                                        image: NetworkImage(profile.avatarUrl!),
-                                        fit: BoxFit.cover,
-                                      )
-                                    : null,
-                              ),
-                              child: profile.avatarUrl == null
-                                  ? const Icon(
-                                      Icons.person,
-                                      size: 50,
-                                      color: Colors.white,
-                                    )
-                                  : null,
-                            ),
-                          ),
-                          Positioned(
-                            bottom: 0,
-                            right: 0,
-                            child: Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: const BoxDecoration(
-                                color: AppColors.primary,
-                                shape: BoxShape.circle,
-                              ),
-                              child: (_isOpeningGallery || isUpdating)
-                                  ? const SizedBox(
-                                      width: 20,
-                                      height: 20,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        color: Colors.black,
-                                      ),
-                                    )
-                                  : const Icon(
-                                      Icons.camera_alt,
-                                      size: 20,
-                                      color: Colors.black,
-                                    ),
-                            ),
-                          ),
-                        ],
-                      ),
+                    ProfileAvatar(
+                      avatarUrl: profile.avatarUrl,
+                      isUpdating: isUpdating,
+                      isUploading: _uploadingAvatar || _isOpeningGallery,
+                      onTap: () => _pickImage(context),
                     ),
                     const SizedBox(height: 32),
 
@@ -359,20 +275,24 @@ class _EditProfilePageState extends State<EditProfilePage> {
                       hintText: 'Enter your username',
                       controller: _usernameController,
                       enabled: !isUpdating,
-                      prefixIcon: const Icon(Icons.alternate_email, color: Colors.white24, size: 18),
-                      suffixIcon: _isCheckingUsername
+                      prefixIcon: const Icon(Icons.alternate_email,
+                          color: Colors.white24, size: 18),
+                      suffixIcon: state.isCheckingUsername
                           ? const SizedBox(
                               width: 20,
                               height: 20,
                               child: Padding(
                                 padding: EdgeInsets.all(12),
-                                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white24),
+                                child: CircularProgressIndicator(
+                                    strokeWidth: 2, color: Colors.white24),
                               ),
                             )
-                          : (_isUsernameAvailable == true
-                              ? const Icon(Icons.check_circle, color: AppColors.primary, size: 20)
-                              : (_isUsernameAvailable == false
-                                  ? const Icon(Icons.error, color: Colors.redAccent, size: 20)
+                          : (state.isUsernameAvailable == true
+                              ? const Icon(Icons.check_circle,
+                                  color: AppColors.primary, size: 20)
+                              : (state.isUsernameAvailable == false
+                                  ? const Icon(Icons.error,
+                                      color: Colors.redAccent, size: 20)
                                   : null)),
                     ),
                     const SizedBox(height: 24),
@@ -458,7 +378,9 @@ class _EditProfilePageState extends State<EditProfilePage> {
                       child: PrimaryButton(
                         icon: isUpdating ? null : Icons.check,
                         text: isUpdating ? 'Saving...' : 'Save Changes',
-                        onPressed: (isUpdating || _isCheckingUsername || _isUsernameAvailable == false)
+                        onPressed: (isUpdating ||
+                                state.isCheckingUsername ||
+                                state.isUsernameAvailable == false)
                             ? null
                             : () => _saveChanges(context),
                       ),
@@ -474,86 +396,11 @@ class _EditProfilePageState extends State<EditProfilePage> {
   }
 
   void _showDeleteConfirmation(BuildContext context) {
-    final confirmController = TextEditingController();
     showDialog(
       context: context,
-      builder: (dialogContext) => StatefulBuilder(
-        builder: (_, setDialogState) => AlertDialog(
-          backgroundColor: AppColors.primaryBackground,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: const Row(
-            children: [
-              Icon(Icons.warning_amber_rounded, color: Colors.redAccent, size: 24),
-              SizedBox(width: 10),
-              Text('Delete Account?', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-            ],
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'This permanently deletes your profile, tickets and event history. This cannot be undone.',
-                style: TextStyle(color: Colors.white70),
-              ),
-              const SizedBox(height: 20),
-              const Text(
-                'Type DELETE to confirm:',
-                style: TextStyle(color: Colors.white60, fontSize: 13),
-              ),
-              const SizedBox(height: 8),
-              TextFormField(
-                controller: confirmController,
-                style: const TextStyle(
-                  color: Colors.white,
-                  letterSpacing: 2,
-                  fontWeight: FontWeight.bold,
-                ),
-                decoration: InputDecoration(
-                  hintText: 'DELETE',
-                  hintStyle: const TextStyle(color: Colors.white12),
-                  filled: true,
-                  fillColor: Colors.white.withValues(alpha: 0.06),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: BorderSide.none,
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: const BorderSide(color: Colors.redAccent, width: 1),
-                  ),
-                ),
-                onChanged: (_) => setDialogState(() {}),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('Cancel', style: TextStyle(color: Colors.white60)),
-            ),
-            TextButton(
-              onPressed: confirmController.text == 'DELETE'
-                  ? () async {
-                      Navigator.pop(dialogContext);
-                      try {
-                        await context.read<ProfileCubit>().deleteAccount();
-                      } catch (_) {}
-                    }
-                  : null,
-              child: Text(
-                'Delete Forever',
-                style: TextStyle(
-                  color: confirmController.text == 'DELETE'
-                      ? Colors.redAccent
-                      : Colors.redAccent.withValues(alpha: 0.3),
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-          ],
-        ),
+      builder: (dialogContext) => DeleteAccountDialog(
+        onDelete: () => context.read<ProfileCubit>().deleteAccount(),
       ),
-    ).then((_) => confirmController.dispose());
+    );
   }
 }

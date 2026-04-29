@@ -265,11 +265,12 @@ class _ProfileContent extends StatelessWidget {
             label: 'Edit Profile',
             onTap: () => context.push('/edit-profile'),
           ),
-          _ActionTile(
-            icon: Icons.wallet_outlined,
-            label: 'My Wallet',
-            onTap: () => context.push('/wallet'),
-          ),
+          if (context.read<FeatureFlagCubit>().isEnabled('enable_wallet'))
+            _ActionTile(
+              icon: Icons.wallet_outlined,
+              label: 'My Wallet',
+              onTap: () => context.push('/wallet'),
+            ),
           _ActionTile(
             icon: Icons.confirmation_number_outlined,
             label: 'My Tickets',

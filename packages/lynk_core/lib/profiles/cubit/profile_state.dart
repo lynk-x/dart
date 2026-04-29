@@ -16,22 +16,30 @@ class ProfileLoaded extends ProfileState {
   final ProfileModel profile;
   final bool isUpdating;
   final String? error;
+  final bool? isUsernameAvailable;
+  final bool isCheckingUsername;
 
   const ProfileLoaded({
     required this.profile,
     this.isUpdating = false,
     this.error,
+    this.isUsernameAvailable,
+    this.isCheckingUsername = false,
   });
 
   ProfileLoaded copyWith({
     ProfileModel? profile,
     bool? isUpdating,
     String? error,
+    bool? isUsernameAvailable,
+    bool? isCheckingUsername,
   }) {
     return ProfileLoaded(
       profile: profile ?? this.profile,
       isUpdating: isUpdating ?? this.isUpdating,
       error: error,
+      isUsernameAvailable: isUsernameAvailable ?? this.isUsernameAvailable,
+      isCheckingUsername: isCheckingUsername ?? this.isCheckingUsername,
     );
   }
 }

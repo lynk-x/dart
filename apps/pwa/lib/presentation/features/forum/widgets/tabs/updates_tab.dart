@@ -6,10 +6,9 @@ import 'package:lynk_x/presentation/features/forum/cubit/forum_state.dart';
 import 'package:lynk_x/presentation/features/forum/cubit/forum_updates_cubit.dart';
 import 'package:lynk_x/presentation/features/forum/cubit/forum_updates_state.dart';
 import 'package:lynk_x/presentation/features/forum/models/forum_model.dart';
-import 'package:lynk_x/presentation/features/forum/widgets/chat_bubble.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/info_banner.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/message_input.dart';
-import 'package:lynk_x/presentation/shared/widgets/empty_state.dart';
+import 'package:lynk_x/presentation/features/forum/widgets/chat_message_list.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/category_filter_bar.dart';
 
 /// The 'Updates' tab content for the Forum.
@@ -74,84 +73,35 @@ class _UpdatesTabState extends State<UpdatesTab>
                     child: RefreshIndicator(
                       onRefresh: () async => updatesCubit.refresh(),
                       color: AppColors.primary,
-                      child: updatesState.messages.isEmpty && !updatesState.isLoading
-                          ? CustomScrollView(
-                              controller: widget.scrollController,
-                              physics: const AlwaysScrollableScrollPhysics(),
-                              slivers: const [
-                                SliverFillRemaining(
-                                  child: Center(
-                                    child: EmptyState(message: 'No updates yet'),
-                                  ),
-                                ),
-                              ],
-                            )
-                          : CustomScrollView(
-                              controller: widget.scrollController,
-                              reverse: true,
-                              slivers: [
-                                SliverPadding(
-                                  padding: const EdgeInsets.all(16),
-                                  sliver: SliverList(
-                                    delegate: SliverChildBuilderDelegate(
-                                      (context, index) {
-                                        if (index == updatesState.messages.length) {
-                                          return const Center(
-                                            child: Padding(
-                                              padding: EdgeInsets.all(8.0),
-                                              child: CircularProgressIndicator(
-                                                  strokeWidth: 2, color: AppColors.primary),
-                                            ),
-                                          );
-                                        }
-                                        final message = updatesState.messages[index];
-                                        
-                                        // Grouping logic (compare with older message at index + 1)
-                                        bool showSenderInfo = true;
-                                        bool isGrouped = false;
-                                        if (index < updatesState.messages.length - 1) {
-                                          final prevMessage = updatesState.messages[index + 1];
-                                          final timeDiff = message.createdAt.difference(prevMessage.createdAt).abs();
-                                          if (message.userId == prevMessage.userId && timeDiff.inMinutes < 5) {
-                                            showSenderInfo = false;
-                                            isGrouped = true;
-                                          }
-                                        }
-
-                                        return ChatBubble(
-                                          message: message,
-                                          showSenderInfo: showSenderInfo,
-                                          isGrouped: isGrouped,
-                                          onPin: (msg) => mainCubit.pinMessage(msg),
-                                          onDelete: (msg) => updatesCubit.deleteMessage(msg.id),
-                                          onReport: (msg) => updatesCubit.reportMessage(msg.id, 'Spam'),
-                                          onMute: (msg) => mainCubit.muteUser(msg.userId),
-                                          onBan: (msg) => mainCubit.banUser(msg.userId),
-                                          onReact: (msg, emoji) => mainCubit.reactToMessage(msg, emoji),
-                                          isOrganizer: mainState.isOrganizer,
-                                          onReply: (msg) => updatesCubit.setReplyTo(msg),
-                                          onLongPressBubble: () {
-                                            setState(() {
-                                              if (_selectedMessage == message) {
-                                                _selectedMessage = null;
-                                              } else {
-                                                _selectedMessage = message;
-                                              }
-                                            });
-                                          },
-                                          showActions: _selectedMessage == message,
-                                          linkPreviewData: updatesState.linkPreviews[message.message],
-                                          onLinkPreviewDataFetched: (url, data) => updatesCubit.saveLinkPreview(url, data),
-                                          onMediaTap: widget.onMediaTap,
-                                        );
-                                      },
-                                      childCount: updatesState.messages.length +
-                                          (updatesState.isLoading ? 1 : 0),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
+                      child: ChatMessageList(
+                        scrollController: widget.scrollController,
+                        chatState: updatesState,
+                        isOrganizer: mainState.isOrganizer,
+                        isPremium: mainState.isPremium,
+                        onPin: (msg) => mainCubit.pinMessage(msg),
+                        onDelete: (msg) => updatesCubit.deleteMessage(msg.id),
+                        onReport: (msg) =>
+                            updatesCubit.reportMessage(msg.id, 'Spam'),
+                        onMute: (msg) => mainCubit.muteUser(msg.userId),
+                        onBan: (msg) => mainCubit.banUser(msg.userId),
+                        onReact: (msg, emoji) =>
+                            mainCubit.reactToMessage(msg, emoji),
+                        onReply: (msg) => updatesCubit.setReplyTo(msg),
+                        onReactionTap: (msg) {}, // Not used in updates
+                        onMessageLongPress: (message) {
+                          setState(() {
+                            if (_selectedMessage == message) {
+                              _selectedMessage = null;
+                            } else {
+                              _selectedMessage = message;
+                            }
+                          });
+                        },
+                        selectedMessageId: _selectedMessage?.id,
+                        onLinkPreviewDataFetched: (String url, LinkPreviewData data) =>
+                            updatesCubit.saveLinkPreview(url, data),
+                        onMediaTap: widget.onMediaTap,
+                      ),
                     ),
                   ),
                 ),

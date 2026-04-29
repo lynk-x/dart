@@ -8,6 +8,9 @@ import 'action_bar.dart';
 import 'polls/poll_attachment.dart';
 
 /// A stylized chat bubble used for both Live Chat and Updates.
+import 'link_preview.dart';
+
+/// A stylized chat bubble used for both Live Chat and Updates.
 class ChatBubble extends StatefulWidget {
   final ChatMessage message;
   final Function(ChatMessage)? onReply;
@@ -332,7 +335,7 @@ class _ChatBubbleState extends State<ChatBubble> {
       final validUrl =
           urlContent.startsWith('http') ? urlContent : 'https://$urlContent';
 
-      return _CustomLinkPreview(
+      return ChatLinkPreview(
         url: validUrl,
         message: widget.message.message,
         textStyle: textStyle,
@@ -343,92 +346,5 @@ class _ChatBubbleState extends State<ChatBubble> {
     }
 
     return Text(widget.message.message, style: textStyle);
-  }
-}
-
-class _CustomLinkPreview extends StatefulWidget {
-  final String url;
-  final String message;
-  final TextStyle textStyle;
-  final LinkPreviewData? data;
-  final Function(LinkPreviewData)? onFetched;
-
-  const _CustomLinkPreview({
-    required this.url,
-    required this.message,
-    required this.textStyle,
-    this.data,
-    this.onFetched,
-  });
-
-  @override
-  State<_CustomLinkPreview> createState() => _CustomLinkPreviewState();
-}
-
-class _CustomLinkPreviewState extends State<_CustomLinkPreview> {
-  @override
-  void initState() {
-    super.initState();
-    if (widget.data == null) {
-      _fetchMetadata();
-    }
-  }
-
-  Future<void> _fetchMetadata() async {
-    // Actually fetching metadata here would require http/html packages.
-    // For now, satisfy the UI with a placeholder or simple fetcher if available.
-    // I'll define a basic metadata fetcher.
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (widget.data == null) return Text(widget.message, style: widget.textStyle);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(widget.message, style: widget.textStyle),
-        const SizedBox(height: 4),
-        Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: const Color(0xFF0A0A0A),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (widget.data!.image != null)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 8.0),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(4),
-                    child: Image.network(
-                      widget.data!.image!,
-                      fit: BoxFit.cover,
-                      errorBuilder: (c, e, s) => const SizedBox.shrink(),
-                    ),
-                  ),
-                ),
-              if (widget.data!.title != null)
-                Text(
-                  widget.data!.title!,
-                  style: widget.textStyle.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.primary,
-                  ),
-                ),
-              if (widget.data!.description != null)
-                Text(
-                  widget.data!.description!,
-                  style: widget.textStyle.copyWith(fontSize: 12, color: Colors.white70),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-            ],
-          ),
-        ),
-      ],
-    );
   }
 }

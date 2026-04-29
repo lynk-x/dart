@@ -120,5 +120,24 @@ class ProfileCubit extends Cubit<ProfileState> {
     }
   }
 
+  Future<void> checkUsernameAvailability(String username) async {
+    final currentState = state;
+    if (currentState is! ProfileLoaded) return;
+
+    emit(currentState.copyWith(isCheckingUsername: true, isUsernameAvailable: null));
+    try {
+      final response = await Supabase.instance.client.rpc(
+        'is_username_available',
+        params: {'username_to_check': username},
+      );
+      emit(currentState.copyWith(
+        isCheckingUsername: false,
+        isUsernameAvailable: response as bool,
+      ));
+    } catch (e) {
+      emit(currentState.copyWith(isCheckingUsername: false));
+    }
+  }
+
   void reset() => emit(const ProfileInitial());
 }
