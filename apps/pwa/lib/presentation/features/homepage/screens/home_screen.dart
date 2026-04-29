@@ -227,7 +227,12 @@ class _HomeViewState extends State<HomeView>
                   ),
                 ),
               ),
-              Padding(
+              Container(
+                decoration: const BoxDecoration(
+                  border: Border(
+                    top: BorderSide(color: Colors.white12, width: 0.5),
+                  ),
+                ),
                 padding: const EdgeInsets.all(16.0),
                 child: PrimaryButton(
                   icon: Icons.search,

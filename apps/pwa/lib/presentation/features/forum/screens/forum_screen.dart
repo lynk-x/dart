@@ -412,11 +412,13 @@ class _ForumViewState extends State<ForumView> {
           buildWhen: (previous, current) =>
               previous.currentTabIndex != current.currentTabIndex,
           builder: (context, state) {
-            final updatesState = context.watch<ForumUpdatesCubit>().state;
-            final chatState = context.watch<ForumChatCubit>().state;
+            final updatesSearchQuery = context.select((ForumUpdatesCubit c) => c.state.searchQuery);
+            final updatesCount = context.select((ForumUpdatesCubit c) => c.state.messages.length);
+            final chatSearchQuery = context.select((ForumChatCubit c) => c.state.searchQuery);
+            final chatCount = context.select((ForumChatCubit c) => c.state.messages.length);
             
-            final updatesCount = updatesState.searchQuery.isNotEmpty ? updatesState.messages.length : null;
-            final chatCount = chatState.searchQuery.isNotEmpty ? chatState.messages.length : null;
+            final updatesDisplayCount = updatesSearchQuery.isNotEmpty ? updatesCount : null;
+            final chatDisplayCount = chatSearchQuery.isNotEmpty ? chatCount : null;
 
             int displayedIndex = 0;
             return Container(
@@ -434,11 +436,11 @@ class _ForumViewState extends State<ForumView> {
                   if (showUpdates)
                     _buildTab(
                         'Updates', displayedIndex++, state.currentTabIndex,
-                        count: updatesCount),
+                        count: updatesDisplayCount),
                   if (showChat)
                     _buildTab(
                         'Live chat', displayedIndex++, state.currentTabIndex,
-                        hasIndicator: true, count: chatCount),
+                        hasIndicator: true, count: chatDisplayCount),
                   if (showMedia)
                     _buildTab('Media', displayedIndex++, state.currentTabIndex),
                 ],

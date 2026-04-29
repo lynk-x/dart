@@ -96,7 +96,7 @@ class _LiveChatTabState extends State<LiveChatTab>
                                   reverse: true,
                                   slivers: [
                                     SliverPadding(
-                                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
+                                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
                                       sliver: SliverList(
                                         delegate: SliverChildBuilderDelegate(
                                           (context, index) {
