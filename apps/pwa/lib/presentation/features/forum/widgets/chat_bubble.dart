@@ -61,14 +61,15 @@ class _ChatBubbleState extends State<ChatBubble> {
     final isBlocked = blockCubit.isBlocked(widget.message.userId);
     final shouldBlur = isBlocked && !_revealed;
 
-    return Container(
-      margin: EdgeInsets.only(
-        top: widget.isGrouped ? 2 : 8,
-        bottom: widget.showSenderInfo ? 8 : 2,
-      ),
+    return Align(
       alignment:
           widget.message.isMe ? Alignment.centerRight : Alignment.centerLeft,
-      child: Column(
+      child: Container(
+        margin: EdgeInsets.only(
+          top: widget.isGrouped ? 2 : 8,
+          bottom: widget.showSenderInfo ? 8 : 2,
+        ),
+        child: Column(
         crossAxisAlignment: widget.message.isMe
             ? CrossAxisAlignment.end
             : CrossAxisAlignment.start,
@@ -79,6 +80,7 @@ class _ChatBubbleState extends State<ChatBubble> {
           if (widget.showActions) _buildActions(context),
         ],
       ),
+    ),
     );
   }
 
@@ -250,22 +252,19 @@ class _ChatBubbleState extends State<ChatBubble> {
         : AppColors.tertiary;
     final textColor = widget.message.isMe ? Colors.black : Colors.white;
 
-    return Tooltip(
-      message: 'Hold to reply or react',
-      waitDuration: const Duration(seconds: 2),
-      child: GestureDetector(
+    return GestureDetector(
       onLongPress: widget.onLongPressBubble,
       child: Container(
         constraints:
             BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
           color: bgColor,
           borderRadius: BorderRadius.only(
-            topLeft: const Radius.circular(16),
-            topRight: const Radius.circular(16),
-            bottomLeft: Radius.circular(widget.message.isMe ? 16 : (widget.isGrouped ? 16 : 0)),
-            bottomRight: Radius.circular(widget.message.isMe ? (widget.isGrouped ? 16 : 0) : 16),
+            topLeft: const Radius.circular(12),
+            topRight: const Radius.circular(12),
+            bottomLeft: Radius.circular(widget.message.isMe ? 16 : (widget.isGrouped ? 12 : 0)),
+            bottomRight: Radius.circular(widget.message.isMe ? (widget.isGrouped ? 12 : 0) : 12),
           ),
           border: Border.all(color: Colors.transparent),
         ),
@@ -281,13 +280,12 @@ class _ChatBubbleState extends State<ChatBubble> {
           ],
         ),
       ),
-    ),
     );
   }
 
   Widget _buildReplyPreview() {
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
+      margin: const EdgeInsets.only(bottom: 4),
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
           color: const Color(0xFF0A0A0A), borderRadius: BorderRadius.circular(8)),
@@ -311,7 +309,7 @@ class _ChatBubbleState extends State<ChatBubble> {
     return GestureDetector(
       onTap: () => widget.onMediaTap?.call(widget.message.imageUrl),
       child: Container(
-        margin: const EdgeInsets.only(bottom: 8),
+        margin: const EdgeInsets.only(bottom: 6),
         clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(borderRadius: BorderRadius.circular(12)),
         child: Image.network(
@@ -390,7 +388,7 @@ class _CustomLinkPreviewState extends State<_CustomLinkPreview> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(widget.message, style: widget.textStyle),
-        const SizedBox(height: 8),
+        const SizedBox(height: 4),
         Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(

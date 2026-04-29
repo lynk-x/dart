@@ -98,7 +98,8 @@ class ChatMessage {
       userId: map['author_id'] as String? ?? map['user_id'] as String? ?? '',
       message: map['content'] as String? ?? '',
       createdAt: DateTime.parse(map['created_at'] as String),
-      isMe: (map['author_id'] ?? map['user_id']) == currentUserId,
+      isMe: (map['author_id']?.toString().toLowerCase() == currentUserId.toLowerCase()) ||
+            (map['user_id']?.toString().toLowerCase() == currentUserId.toLowerCase()),
       type: map['message_type'] == 'announcement'
           ? MessageType.announcement
           : MessageType.chat,

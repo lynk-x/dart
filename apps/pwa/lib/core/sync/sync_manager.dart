@@ -139,7 +139,9 @@ class SyncManager {
 
     switch (item.action) {
       case SyncAction.insert:
-        await client.from(item.table).insert(item.payload);
+        var query = client.from(item.table);
+        if (item.schema != null) query = client.schema(item.schema!).from(item.table);
+        await query.insert(item.payload);
         return _ExecuteOutcome.success;
 
       case SyncAction.update:
@@ -147,7 +149,9 @@ class SyncManager {
 
       case SyncAction.delete:
         final id = item.payload['id'] as String;
-        await client.from(item.table).delete().eq('id', id);
+        var query = client.from(item.table);
+        if (item.schema != null) query = client.schema(item.schema!).from(item.table);
+        await query.delete().eq('id', id);
         return _ExecuteOutcome.success;
 
       case SyncAction.rpc:
@@ -165,13 +169,17 @@ class SyncManager {
     // clientWins: write unconditionally without a round-trip pre-check.
     if (item.conflictPolicy == ConflictPolicy.clientWins ||
         item.serverUpdatedAtBaseline == null) {
-      await client.from(item.table).update(item.payload).eq('id', id);
+      var query = client.from(item.table);
+      if (item.schema != null) query = client.schema(item.schema!).from(item.table);
+      await query.update(item.payload).eq('id', id);
       return _ExecuteOutcome.success;
     }
 
     // For serverWins and manual: fetch current updated_at to detect conflict.
-    final serverRows = await client
-        .from(item.table)
+    var selectQuery = client.from(item.table);
+    if (item.schema != null) selectQuery = client.schema(item.schema!).from(item.table);
+    
+    final serverRows = await selectQuery
         .select('updated_at')
         .eq('id', id)
         .limit(1);
@@ -195,12 +203,16 @@ class SyncManager {
         serverUpdatedAt.isAfter(baseline);
 
     if (!hasConflict) {
-      await client.from(item.table).update(item.payload).eq('id', id);
+      var query = client.from(item.table);
+      if (item.schema != null) query = client.schema(item.schema!).from(item.table);
+      await query.update(item.payload).eq('id', id);
       return _ExecuteOutcome.success;
     }
 
     // Conflict detected — fetch the full server row for the conflict event.
-    final fullRows = await client.from(item.table).select().eq('id', id).limit(1);
+    var fullRowsQuery = client.from(item.table);
+    if (item.schema != null) fullRowsQuery = client.schema(item.schema!).from(item.table);
+    final fullRows = await fullRowsQuery.select().eq('id', id).limit(1);
     final serverVersion = fullRows.isNotEmpty
         ? Map<String, dynamic>.from(fullRows.first)
         : <String, dynamic>{};

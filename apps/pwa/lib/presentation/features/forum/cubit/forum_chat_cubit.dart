@@ -187,6 +187,7 @@ class ForumChatCubit extends BaseMessageCubit<ForumChatState> {
       SyncManager.instance.addWork(SyncItem(
         id: messageId,
         table: 'forum_messages',
+        schema: 'forum_messages',
         action: SyncAction.insert,
         payload: {
           'id': messageId,

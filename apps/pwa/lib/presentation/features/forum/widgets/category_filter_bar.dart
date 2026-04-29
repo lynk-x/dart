@@ -21,9 +21,11 @@ class CategoryFilterBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 40,
-      child: ListView.separated(
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: SizedBox(
+        height: 40,
+        child: ListView.separated(
         padding: const EdgeInsets.symmetric(horizontal: 16),
         scrollDirection: Axis.horizontal,
         itemCount: categories.length,
@@ -39,8 +41,9 @@ class CategoryFilterBar extends StatelessWidget {
           );
         },
       ),
-    );
-  }
+    ),
+  );
+}
 
   void _handleTap(String tappedCategory) {
     if (selectedCategory == tappedCategory) {

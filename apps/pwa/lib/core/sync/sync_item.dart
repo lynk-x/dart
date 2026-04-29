@@ -25,6 +25,7 @@ enum ConflictPolicy {
 class SyncItem {
   final String id;
   final String table;
+  final String? schema;
   final SyncAction action;
   final Map<String, dynamic> payload;
   final DateTime createdAt;
@@ -44,6 +45,7 @@ class SyncItem {
   SyncItem({
     required this.id,
     required this.table,
+    this.schema,
     required this.action,
     required this.payload,
     DateTime? createdAt,
@@ -55,6 +57,7 @@ class SyncItem {
   SyncItem copyWith({int? retryCount}) => SyncItem(
         id: id,
         table: table,
+        schema: schema,
         action: action,
         payload: payload,
         createdAt: createdAt,
@@ -67,6 +70,7 @@ class SyncItem {
     return {
       'id': id,
       'table': table,
+      'schema': schema,
       'action': action.name,
       'payload': jsonEncode(payload),
       'createdAt': createdAt.toIso8601String(),
@@ -80,6 +84,7 @@ class SyncItem {
     return SyncItem(
       id: map['id'] as String,
       table: map['table'] as String,
+      schema: map['schema'] as String?,
       action: SyncAction.values.byName(map['action'] as String),
       payload: jsonDecode(map['payload'] as String) as Map<String, dynamic>,
       createdAt: DateTime.parse(map['createdAt'] as String),

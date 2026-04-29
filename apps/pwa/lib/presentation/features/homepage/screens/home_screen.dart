@@ -323,7 +323,7 @@ class _HomeViewState extends State<HomeView>
       title: Image.asset(
           'assets/images/lynk-x_combined-logo.png',
         width: 200,
-          fit: BoxFit.contain,
+          fit: BoxFit.cover,
         ),
       actions: [
         BlocBuilder<NotificationCubit, NotificationState>(

@@ -380,11 +380,11 @@ class _ForumViewState extends State<ForumView> {
         onPressed: () => context.pop(),
       ),
       title: Padding(
-        padding: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.only(bottom: 8, top: 8),
         child: Image.asset(
           'assets/images/lynk-x_combined-logo.png',
           width: 200,
-          fit: BoxFit.contain,
+          fit: BoxFit.cover,
         ),
       ),
       centerTitle: true,
@@ -423,7 +423,7 @@ class _ForumViewState extends State<ForumView> {
               decoration: const BoxDecoration(
                 border: Border(
                   bottom: BorderSide(
-                    color: Colors.white10,
+                    color: Colors.white,
                     width: 0.5,
                   ),
                 ),
