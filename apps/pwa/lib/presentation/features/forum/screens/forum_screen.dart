@@ -4,19 +4,19 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:lynk_core/core.dart';
-import 'package:lynk_x/presentation/features/forum/models/forum_model.dart';
 import 'package:lynk_x/presentation/features/forum/cubit/forum_cubit.dart';
 import 'package:lynk_x/presentation/features/forum/cubit/forum_state.dart';
 import 'package:lynk_x/presentation/features/forum/cubit/forum_chat_cubit.dart';
 import 'package:lynk_x/presentation/features/forum/cubit/forum_updates_cubit.dart';
-import 'package:lynk_x/presentation/features/forum/cubit/forum_updates_state.dart';
 import 'package:lynk_x/presentation/features/forum/cubit/forum_ads_cubit.dart';
 import 'package:lynk_x/presentation/features/forum/cubit/forum_ads_state.dart';
 import 'package:lynk_x/presentation/features/forum/cubit/forum_presence_cubit.dart';
 import 'package:lynk_x/presentation/features/forum/cubit/forum_presence_state.dart';
 import 'package:lynk_x/presentation/features/forum/cubit/forum_media_cubit.dart';
 import 'package:lynk_x/presentation/features/forum/cubit/forum_media_state.dart';
+import 'package:lynk_x/presentation/features/forum/models/forum_model.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/ad_carousel.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/forum_header.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/presence_drawer.dart';
@@ -24,6 +24,7 @@ import 'package:lynk_x/presentation/features/forum/widgets/media_viewer.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/tabs/updates_tab.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/tabs/live_chat_tab.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/tabs/media_tab.dart';
+import 'package:lynk_x/presentation/features/forum/widgets/reaction_background.dart';
 
 class ForumPage extends StatelessWidget {
   /// The forum to display. Provided as a path parameter via `/forum/:id`.
@@ -91,6 +92,13 @@ class ForumPage extends StatelessWidget {
                   channel: mainCubit.channel,
                 )..init(),
               ),
+              BlocProvider(
+                create: (context) => ForumMediaCubit(
+                  forumId: mainCubit.forumId,
+                  userId: mainCubit.userId,
+                  isOrganizer: state.isOrganizer,
+                )..init(),
+              ),
             ],
             child: const ForumView(),
           );
@@ -112,6 +120,7 @@ class _ForumViewState extends State<ForumView> {
   final ScrollController _chatScrollController = ScrollController();
   late final PageController _pageController;
   bool _showWelcome = false;
+  final Set<String> _precachedUrls = {};
 
   @override
   void initState() {
@@ -119,6 +128,19 @@ class _ForumViewState extends State<ForumView> {
     final initialTab = context.read<ForumCubit>().state.currentTabIndex;
     _pageController = PageController(initialPage: initialTab);
     _loadBannerState();
+  }
+
+  void _precacheMedia(List<ForumMedia> mediaItems) {
+    if (!mounted) return;
+    // Pre-cache only the first 9 items to save bandwidth but ensure instant grid load
+    final itemsToPrecache = mediaItems.take(9);
+    for (final item in itemsToPrecache) {
+      final url = item.thumbnailUrl ?? item.url;
+      if (!_precachedUrls.contains(url)) {
+        _precachedUrls.add(url);
+        precacheImage(CachedNetworkImageProvider(url), context);
+      }
+    }
   }
 
   Future<void> _loadBannerState() async {
@@ -190,52 +212,7 @@ class _ForumViewState extends State<ForumView> {
 
 
 
-  void _openGalleryFromChat(String? imageUrl) {
-    final state = context.read<ForumCubit>().state;
-    final adsState = context.read<ForumAdsCubit>().state;
-    MediaViewer.show(
-      context,
-      imageUrl: imageUrl,
-      interstitialAd: (state.isPremium ||
-              !context.read<FeatureFlagCubit>().isEnabled('enable_forum_ads'))
-          ? null
-          : adsState.interstitialAd,
-      onMention: () {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Image referenced in chat!')),
-        );
-      },
-    );
-  }
 
-  void _openGalleryFromMedia(ForumMedia mediaItem, ForumMediaCubit mediaCubit) {
-    final state = context.read<ForumCubit>().state;
-    final adsState = context.read<ForumAdsCubit>().state;
-    MediaViewer.show(
-      context,
-      mediaItem: mediaItem,
-      interstitialAd: (state.isPremium ||
-              !context.read<FeatureFlagCubit>().isEnabled('enable_forum_ads'))
-          ? null
-          : adsState.interstitialAd,
-      onApprove: (state.isOrganizer && !mediaItem.isApproved)
-          ? () => mediaCubit.approveMedia(mediaItem.id)
-          : null,
-      onMention: () {
-        context.read<ForumCubit>().setMentionedMedia(mediaItem);
-        _onTabSelected(1);
-      },
-    );
-  }
-
-  void _onTabSelected(int index) {
-    context.read<ForumCubit>().setTabIndex(index);
-    _pageController.animateToPage(
-      index,
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeInOut,
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -273,6 +250,12 @@ class _ForumViewState extends State<ForumView> {
             }
           },
         ),
+        BlocListener<ForumMediaCubit, ForumMediaState>(
+          listenWhen: (p, c) => p.mediaItems != c.mediaItems,
+          listener: (context, state) {
+            _precacheMedia(state.mediaItems);
+          },
+        ),
       ],
       child: Scaffold(
         backgroundColor: AppColors.primaryBackground,
@@ -292,75 +275,96 @@ class _ForumViewState extends State<ForumView> {
           ),
         ),
         appBar: _buildAppBar(),
-        body: Column(
+        body: Stack(
           children: [
-            BlocBuilder<ForumCubit, ForumState>(
-              buildWhen: (p, c) =>
-                  p.isOrganizer != c.isOrganizer || p.isReadOnly != c.isReadOnly,
-              builder: (context, forumState) => ForumHeader(
-                isOrganizer: forumState.isOrganizer,
-                isReadOnly: forumState.isReadOnly,
-                forumName: forumState.forumName,
-                onLockToggle: () {
-                  final messenger = ScaffoldMessenger.of(context);
-                  final nextStatus = forumState.isReadOnly ? 'open' : 'read_only';
-                  cubit.updateForumStatus(nextStatus);
-                  messenger.showSnackBar(SnackBar(
-                    content: Text(forumState.isReadOnly ? 'Chat unlocked' : 'Chat locked'),
-                    behavior: SnackBarBehavior.floating,
-                  ));
-                },
-                onSearch: (q) {
-                  context.read<ForumUpdatesCubit>().setSearchQuery(q);
-                  context.read<ForumChatCubit>().setSearchQuery(q);
-                },
-                onSearchToggle: () {
-                  final updatesCubit = context.read<ForumUpdatesCubit>();
-                  final chatCubit = context.read<ForumChatCubit>();
-                  if (updatesCubit.state.searchQuery.isNotEmpty || 
-                      chatCubit.state.searchQuery.isNotEmpty) {
-                    updatesCubit.setSearchQuery('');
-                    chatCubit.setSearchQuery('');
-                  }
+            NestedScrollView(
+              headerSliverBuilder: (context, innerBoxIsScrolled) {
+                return [
+                  SliverToBoxAdapter(child: _buildWelcomeBanner()),
+                  BlocBuilder<ForumAdsCubit, ForumAdsState>(
+                    builder: (context, adsState) {
+                      final showBannerAd = context.read<FeatureFlagCubit>().isEnabled('enable_banner_ad');
+                      final hasAds = !cubit.state.isPremium && 
+                                    showBannerAd && 
+                                    context.read<FeatureFlagCubit>().isEnabled('enable_forum_ads') && 
+                                    adsState.ads.isNotEmpty;
+                      
+                      return SliverPersistentHeader(
+                        pinned: true,
+                        delegate: _SliverAppBarDelegate(
+                          height: 52 + (hasAds ? 100 : 0) + 50, 
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              BlocBuilder<ForumCubit, ForumState>(
+                                buildWhen: (p, c) =>
+                                    p.isOrganizer != c.isOrganizer || p.isReadOnly != c.isReadOnly,
+                                builder: (context, forumState) => ForumHeader(
+                                  isOrganizer: forumState.isOrganizer,
+                                  isReadOnly: forumState.isReadOnly,
+                                  forumName: forumState.forumName,
+                                  onLockToggle: () {
+                                    final messenger = ScaffoldMessenger.of(context);
+                                    final nextStatus = forumState.isReadOnly ? 'open' : 'read_only';
+                                    cubit.updateForumStatus(nextStatus);
+                                    messenger.showSnackBar(SnackBar(
+                                      content: Text(forumState.isReadOnly ? 'Chat unlocked' : 'Chat locked'),
+                                      behavior: SnackBarBehavior.floating,
+                                    ));
+                                  },
+                                  onSearch: (q) {
+                                    context.read<ForumUpdatesCubit>().setSearchQuery(q);
+                                    context.read<ForumChatCubit>().setSearchQuery(q);
+                                  },
+                                  onSearchToggle: () {
+                                    final updatesCubit = context.read<ForumUpdatesCubit>();
+                                    final chatCubit = context.read<ForumChatCubit>();
+                                    if (updatesCubit.state.searchQuery.isNotEmpty || 
+                                        chatCubit.state.searchQuery.isNotEmpty) {
+                                      updatesCubit.setSearchQuery('');
+                                      chatCubit.setSearchQuery('');
+                                    }
+                                  },
+                                ),
+                              ),
+                              if (hasAds) AdCarousel(
+                                ads: adsState.ads,
+                                onAdViewed: (adId) =>
+                                    context.read<ForumAdsCubit>().logAdImpression(adId),
+                                onAdClicked: (ad) async {
+                                  context.read<ForumAdsCubit>().logAdClick(ad.id);
+                                  if (ad.targetUrl != null) {
+                                    final uri = Uri.parse(ad.targetUrl!);
+                                    if (await canLaunchUrl(uri)) {
+                                      await launchUrl(uri);
+                                    }
+                                  } else if (ad.targetEventId != null) {
+                                    context.push('/events/${ad.targetEventId}');
+                                  }
+                                },
+                              ),
+                              _buildTabs(),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ];
+              },
+              body: _buildTabContent(),
+            ),
+            IgnorePointer(
+              child: BlocBuilder<ForumCubit, ForumState>(
+                buildWhen: (p, c) => p.emojiTrigger != c.emojiTrigger,
+                builder: (context, state) {
+                  return ReactionBackground(
+                    emoji: state.selectedEmoji,
+                    trigger: state.emojiTrigger,
+                  );
                 },
               ),
             ),
-            _buildWelcomeBanner(),
-            BlocBuilder<FeatureFlagCubit, FeatureFlagState>(
-              builder: (context, _) {
-                final showBannerAd = context
-                    .read<FeatureFlagCubit>()
-                    .isEnabled('enable_banner_ad');
-                return BlocBuilder<ForumAdsCubit, ForumAdsState>(
-                  builder: (context, adsState) {
-                    if (cubit.state.isPremium ||
-                        !showBannerAd ||
-                        !context.read<FeatureFlagCubit>().isEnabled('enable_forum_ads') ||
-                        adsState.ads.isEmpty) {
-                      return const SizedBox.shrink();
-                    }
-                    return AdCarousel(
-                      ads: adsState.ads,
-                      onAdViewed: (adId) =>
-                          context.read<ForumAdsCubit>().logAdImpression(adId),
-                      onAdClicked: (ad) async {
-                        context.read<ForumAdsCubit>().logAdClick(ad.id);
-                        if (ad.targetUrl != null) {
-                          final uri = Uri.parse(ad.targetUrl!);
-                          if (await canLaunchUrl(uri)) {
-                            await launchUrl(uri);
-                          }
-                        } else if (ad.targetEventId != null) {
-                          context.push('/events/${ad.targetEventId}');
-                        }
-                      },
-                    );
-                  },
-                );
-              },
-            ),
-            _buildTabs(),
-            Expanded(child: _buildTabContent()),
           ],
         ),
       ),
@@ -415,26 +419,20 @@ class _ForumViewState extends State<ForumView> {
             final chatCount = chatState.searchQuery.isNotEmpty ? chatState.messages.length : null;
 
             int displayedIndex = 0;
-            return Container(
-              decoration: const BoxDecoration(
-                border:
-                    Border(bottom: BorderSide(color: Colors.white10, width: 1)),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  if (showUpdates)
-                    _buildTab(
-                        'Updates', displayedIndex++, state.currentTabIndex,
-                        count: updatesCount),
-                  if (showChat)
-                    _buildTab(
-                        'Live chat', displayedIndex++, state.currentTabIndex,
-                        hasIndicator: true, count: chatCount),
-                  if (showMedia)
-                    _buildTab('Media', displayedIndex++, state.currentTabIndex),
-                ],
-              ),
+            return Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                if (showUpdates)
+                  _buildTab(
+                      'Updates', displayedIndex++, state.currentTabIndex,
+                      count: updatesCount),
+                if (showChat)
+                  _buildTab(
+                      'Live chat', displayedIndex++, state.currentTabIndex,
+                      hasIndicator: true, count: chatCount),
+                if (showMedia)
+                  _buildTab('Media', displayedIndex++, state.currentTabIndex),
+              ],
             );
           },
         );
@@ -445,17 +443,21 @@ class _ForumViewState extends State<ForumView> {
   Widget _buildTab(String label, int index, int currentIndex,
       {bool hasIndicator = false, int? count}) {
     bool isActive = currentIndex == index;
+    // Only show indicator if the tab is not currently active
+    bool showIndicator = hasIndicator && !isActive;
     final displayLabel = count != null ? '$label ($count)' : label;
+
     return GestureDetector(
-      onTap: () => _onTabSelected(index),
-      child: Padding(
+      onTap: () => _navigateToTab(index),
+      child: Container(
+        color: Colors.transparent,
         padding: const EdgeInsets.only(top: 12),
         child: Column(
           children: [
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                if (hasIndicator)
+                if (showIndicator)
                   Container(
                     width: 8,
                     height: 8,
@@ -465,14 +467,14 @@ class _ForumViewState extends State<ForumView> {
                       shape: BoxShape.circle,
                     ),
                   ),
-                (Text(
+                Text(
                   displayLabel,
                   style: AppTypography.inter(
                     fontSize: 16,
                     color: isActive ? Colors.white : Colors.white38,
                     fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
                   ),
-                )),
+                ),
               ],
             ),
             const SizedBox(height: 12),
@@ -480,9 +482,8 @@ class _ForumViewState extends State<ForumView> {
               height: 3,
               width: 40,
               decoration: BoxDecoration(
-                color: isActive ? Colors.white : Colors.transparent,
-                borderRadius:
-                    const BorderRadius.vertical(top: Radius.circular(3)),
+                color: isActive ? AppColors.primary : Colors.transparent,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(3)),
               ),
             ),
           ],
@@ -502,7 +503,8 @@ class _ForumViewState extends State<ForumView> {
 
         return BlocBuilder<ForumCubit, ForumState>(
           buildWhen: (p, c) =>
-              p.isOrganizer != c.isOrganizer || p.isMuted != c.isMuted,
+              p.selectedEmoji != c.selectedEmoji ||
+              p.emojiTrigger != c.emojiTrigger,
           builder: (context, state) {
             final mainCubit = context.read<ForumCubit>();
             return PageView(
@@ -510,120 +512,22 @@ class _ForumViewState extends State<ForumView> {
               onPageChanged: (index) => mainCubit.setTabIndex(index),
               children: [
                 if (showUpdates)
-                  // Tab: Updates
-                  BlocBuilder<ForumUpdatesCubit, ForumUpdatesState>(
-                    builder: (context, updatesState) {
-                      final updatesCubit = context.read<ForumUpdatesCubit>();
-                      return UpdatesTab(
-                        messages: updatesState.messages,
-                        scrollController: _updatesScrollController,
-                        isLoading: updatesState.isLoading,
-                        onRefresh: () async => updatesCubit.refresh(),
-                        onSendMessage: (text, replyTo) => updatesCubit
-                            .sendMessage(text, 
-                              isOrganizer: state.isOrganizer,
-                              isPremium: state.isPremium,
-                            ),
-                        onPin: (msg) => mainCubit.pinMessage(msg),
-                        onDelete: (msg) => updatesCubit.deleteMessage(msg.id),
-                        onMute: (msg) async {
-                          final ok = await mainCubit.muteUser(msg.userId);
-                          if (!ok && context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Action failed or insufficient permissions'),
-                              ),
-                            );
-                          }
-                        },
-                        onBan: (msg) async {
-                          final ok = await mainCubit.banUser(msg.userId);
-                          if (!ok && context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Action failed or insufficient permissions'),
-                              ),
-                            );
-                          }
-                        },
-                        onReport: _showReportDialog,
-                        selectedCategory: updatesState.selectedCategory,
-                        onSelectionChanged: updatesCubit.setCategory,
-                        isOrganizer: state.isOrganizer,
-                        onActionTap: () {},
-                        mentionedMedia: updatesState.mentionedMedia,
-                        onCancelMention: () =>
-                            updatesCubit.setMentionedMedia(null),
-                        members: state.members,
-                        linkPreviews: updatesState.linkPreviews,
-                        onLinkPreviewDataFetched: updatesCubit.saveLinkPreview,
-                      );
-                    },
+                  UpdatesTab(
+                    scrollController: _updatesScrollController,
+                    onActionTap: () => _navigateToTab(2),
+                    onMediaTap: (url) => _viewMedia(url),
                   ),
                 if (showChat)
-                  // Tab: Live Chat
                   LiveChatTab(
                     scrollController: _chatScrollController,
-                    onReport: _showReportDialog,
                     selectedEmoji: state.selectedEmoji,
                     emojiTrigger: state.emojiTrigger,
-                    onActionTap: () {},
-                    onPin: (msg) => mainCubit.pinMessage(msg),
-                    onDelete: (msg) => context.read<ForumChatCubit>().deleteMessage(msg.id),
-                    onMute: (msg) async {
-                      final ok = await mainCubit.muteUser(msg.userId);
-                      if (!ok && context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Action failed or insufficient permissions'),
-                          ),
-                        );
-                      }
-                    },
-                    onBan: (msg) async {
-                      final ok = await mainCubit.banUser(msg.userId);
-                      if (!ok && context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Action failed or insufficient permissions'),
-                          ),
-                        );
-                      }
-                    },
-                    isOrganizer: state.isOrganizer,
-                    isMuted: state.isMuted || state.isReadOnly,
-                    members: state.members,
-                    onMediaTap: _openGalleryFromChat,
+                    onActionTap: () => _navigateToTab(2),
+                    onMediaTap: (url) => _viewMedia(url),
                   ),
                 if (showMedia)
-                  // Tab: Media
-                  BlocProvider(
-                    create: (context) => ForumMediaCubit(
-                      forumId: mainCubit.forumId,
-                      userId: mainCubit.userId,
-                      isOrganizer: state.isOrganizer,
-                    )..init(),
-                    child: BlocBuilder<ForumMediaCubit, ForumMediaState>(
-                      builder: (context, mediaState) {
-                        final mediaCubit = context.read<ForumMediaCubit>();
-                        return MediaTab(
-                          onRefresh: () async => mediaCubit.refreshMedia(),
-                          onScrollToBottom: () => mediaCubit.loadMore(),
-                          onMediaTap: (media) =>
-                              _openGalleryFromMedia(media, mediaCubit),
-                          mediaItems: mediaState.mediaItems,
-                          isLoading: mediaState.isLoading,
-                          onUpload: (file, type, mimeType) =>
-                              mediaCubit.uploadMedia(
-                            file: file,
-                            type: type,
-                            mimeType: mimeType,
-                          ),
-                          isMuted: state.isMuted || state.isReadOnly,
-                          isUploading: mediaState.isUploading,
-                        );
-                      },
-                    ),
+                  MediaTab(
+                    onMediaTap: (item) => _viewMedia(item.url),
                   ),
               ],
             );
@@ -633,40 +537,48 @@ class _ForumViewState extends State<ForumView> {
     );
   }
 
-  void _showReportDialog(ChatMessage message) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: AppColors.tertiary,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        title: const Text('Report Message',
-            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('Why are you reporting this message?',
-                style: TextStyle(color: Colors.white70)),
-            const SizedBox(height: 16),
-            ...['Spam', 'Inappropriate', 'Harassment', 'Other'].map((reason) {
-              return ListTile(
-                title:
-                    Text(reason, style: const TextStyle(color: Colors.white)),
-                onTap: () {
-                  context.read<ForumCubit>().reportUser(
-                        message.userId,
-                        reason,
-                        messageId: message.id,
-                      );
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Reported for $reason')),
-                  );
-                },
-              );
-            }),
-          ],
-        ),
-      ),
+  void _navigateToTab(int index) {
+    context.read<ForumCubit>().setTabIndex(index);
+    _pageController.animateToPage(
+      index,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
     );
+  }
+
+  void _viewMedia(String? url) {
+    if (url == null) return;
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => MediaViewer(imageUrl: url),
+    );
+  }
+}
+
+class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
+  _SliverAppBarDelegate({required this.child, required this.height});
+
+  final Widget child;
+  final double height;
+
+  @override
+  double get minExtent => height;
+  @override
+  double get maxExtent => height;
+
+  @override
+  Widget build(
+      BuildContext context, double shrinkOffset, bool overlapsContent) {
+    return Container(
+      color: AppColors.primaryBackground,
+      child: child,
+    );
+  }
+
+  @override
+  bool shouldRebuild(_SliverAppBarDelegate oldDelegate) {
+    return child != oldDelegate.child || height != oldDelegate.height;
   }
 }

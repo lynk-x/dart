@@ -405,7 +405,7 @@ class ForumCubit extends Cubit<ForumState> {
     }
   }
 
-  void handleEmojiTap(String emoji, {ChatMessage? message}) {
+  void reactToMessage(ChatMessage message, String emoji) {
     // 1. Update local UI (Flying emoji)
     if (!isClosed) {
       emit(state.copyWith(
@@ -420,10 +420,22 @@ class ForumCubit extends Cubit<ForumState> {
       payload: {'emoji': emoji},
     );
 
-    // 3. Handle Message Reaction (Slack-style) if a message is targetted
-    if (message != null) {
-      _persistReaction(message, emoji);
+    // 3. Handle Message Reaction (Slack-style)
+    _persistReaction(message, emoji);
+  }
+
+  void handleEmojiTap(String emoji) {
+    // Legacy support for flying emojis only
+    if (!isClosed) {
+      emit(state.copyWith(
+        selectedEmoji: emoji,
+        emojiTrigger: state.emojiTrigger + 1,
+      ));
     }
+    _channel?.sendBroadcastMessage(
+      event: 'live_reaction',
+      payload: {'emoji': emoji},
+    );
   }
 
   void waveAtUser(String targetUserId, String myUserName) {

@@ -17,7 +17,8 @@ class ChatBubble extends StatefulWidget {
   final Function(ChatMessage)? onBan;
   final Function(ChatMessage, String)? onReact;
   final Function(ChatMessage)? onDelete;
-  final VoidCallback? onMediaTap;
+  final Function(String?)? onMediaTap;
+  final Function(ChatMessage)? onReactionTap;
   final VoidCallback? onLongPressBubble;
   final bool isOrganizer;
   final LinkPreviewData? linkPreviewData;
@@ -35,6 +36,7 @@ class ChatBubble extends StatefulWidget {
     this.onReact,
     this.onDelete,
     this.onMediaTap,
+    this.onReactionTap,
     this.onLongPressBubble,
     this.isOrganizer = false,
     this.linkPreviewData,
@@ -300,7 +302,7 @@ class _ChatBubbleState extends State<ChatBubble> {
 
   Widget _buildImageContent() {
     return GestureDetector(
-      onTap: widget.onMediaTap,
+      onTap: () => widget.onMediaTap?.call(widget.message.imageUrl),
       child: Container(
         margin: const EdgeInsets.only(bottom: 8),
         clipBehavior: Clip.antiAlias,

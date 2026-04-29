@@ -91,10 +91,10 @@ class _MessageInputState extends State<MessageInput> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: const BoxDecoration(
         color: AppColors.primaryBackground,
-        border: Border(top: BorderSide(color: Colors.white10, width: 0.5)),
+        border: Border(top: BorderSide(color: Colors.white30, width: 0.5)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,

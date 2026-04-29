@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:lynk_core/core.dart';
+import 'package:lynk_x/presentation/features/forum/cubit/forum_cubit.dart';
+import 'package:lynk_x/presentation/features/forum/cubit/forum_state.dart';
+import 'package:lynk_x/presentation/features/forum/cubit/forum_updates_cubit.dart';
+import 'package:lynk_x/presentation/features/forum/cubit/forum_updates_state.dart';
 import 'package:lynk_x/presentation/features/forum/models/forum_model.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/chat_bubble.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/info_banner.dart';
@@ -9,49 +14,15 @@ import 'package:lynk_x/presentation/features/forum/widgets/category_filter_bar.d
 
 /// The 'Updates' tab content for the Forum.
 class UpdatesTab extends StatefulWidget {
-  final List<ChatMessage> messages;
   final ScrollController scrollController;
-  final bool isLoading;
-  final Future<void> Function() onRefresh;
-  final Function(String, ChatMessage?) onSendMessage;
-  final Function(ChatMessage)? onPin;
-  final Function(ChatMessage)? onDelete;
-  final Function(ChatMessage)? onReport;
-  final Function(ChatMessage)? onMute;
-  final Function(ChatMessage)? onBan;
-  final Function(ChatMessage, String)? onReact;
-  final String? selectedCategory;
-  final Function(String?) onSelectionChanged;
   final VoidCallback onActionTap;
-  final bool isOrganizer;
-  final ForumMedia? mentionedMedia;
-  final VoidCallback? onCancelMention;
-  final List<Map<String, dynamic>> members;
-  final Map<String, LinkPreviewData> linkPreviews;
-  final Function(String, LinkPreviewData) onLinkPreviewDataFetched;
+  final Function(String?) onMediaTap;
 
   const UpdatesTab({
     super.key,
-    required this.messages,
     required this.scrollController,
-    required this.isLoading,
-    required this.onRefresh,
-    required this.onSendMessage,
-    this.onPin,
-    this.onDelete,
-    this.onReport,
-    this.onMute,
-    this.onBan,
-    this.onReact,
-    required this.selectedCategory,
-    required this.onSelectionChanged,
     required this.onActionTap,
-    this.isOrganizer = false,
-    this.mentionedMedia,
-    this.onCancelMention,
-    this.members = const [],
-    this.linkPreviews = const {},
-    required this.onLinkPreviewDataFetched,
+    required this.onMediaTap,
   });
 
   @override
@@ -68,103 +39,124 @@ class _UpdatesTabState extends State<UpdatesTab>
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    return Column(
-      children: [
-        Builder(
-          builder: (_) {
-            final pinned = widget.messages.where((m) => m.isPinned).toList();
-            if (pinned.isEmpty) return const SizedBox.shrink();
-            final preview = pinned.first.message.length > 80
-                ? '${pinned.first.message.substring(0, 80)}…'
-                : pinned.first.message;
+    final mainCubit = context.read<ForumCubit>();
+    final updatesCubit = context.read<ForumUpdatesCubit>();
+
+    return BlocBuilder<ForumCubit, ForumState>(
+      buildWhen: (p, c) =>
+          p.isOrganizer != c.isOrganizer ||
+          p.isMuted != c.isMuted ||
+          p.isReadOnly != c.isReadOnly ||
+          p.members != c.members,
+      builder: (context, mainState) {
+        return BlocBuilder<ForumUpdatesCubit, ForumUpdatesState>(
+          builder: (context, updatesState) {
+            final pinned = updatesState.messages.where((m) => m.isPinned).toList();
+            
             return Column(
-              mainAxisSize: MainAxisSize.min,
               children: [
-                InfoBanner(icon: Icons.push_pin, text: preview),
+                if (pinned.isNotEmpty) ...[
+                  InfoBanner(
+                    icon: Icons.push_pin,
+                    text: pinned.first.message.length > 80
+                        ? '${pinned.first.message.substring(0, 80)}…'
+                        : pinned.first.message,
+                  ),
+                  const SizedBox(height: 8),
+                ],
+                CategoryFilterBar(
+                  selectedCategory: updatesState.selectedCategory,
+                  onSelectionChanged: (cat) => updatesCubit.setCategory(cat),
+                ),
                 const SizedBox(height: 8),
+                Expanded(
+                  child: RepaintBoundary(
+                    child: RefreshIndicator(
+                      onRefresh: () async => updatesCubit.refresh(),
+                      color: AppColors.primary,
+                      child: updatesState.messages.isEmpty && !updatesState.isLoading
+                          ? CustomScrollView(
+                              controller: widget.scrollController,
+                              physics: const AlwaysScrollableScrollPhysics(),
+                              slivers: const [
+                                SliverFillRemaining(
+                                  child: Center(
+                                    child: EmptyState(message: 'No updates yet'),
+                                  ),
+                                ),
+                              ],
+                            )
+                          : CustomScrollView(
+                              controller: widget.scrollController,
+                              reverse: true,
+                              slivers: [
+                                SliverPadding(
+                                  padding: const EdgeInsets.all(16),
+                                  sliver: SliverList(
+                                    delegate: SliverChildBuilderDelegate(
+                                      (context, index) {
+                                        if (index == updatesState.messages.length) {
+                                          return const Center(
+                                            child: Padding(
+                                              padding: EdgeInsets.all(8.0),
+                                              child: CircularProgressIndicator(
+                                                  strokeWidth: 2, color: AppColors.primary),
+                                            ),
+                                          );
+                                        }
+                                        final message = updatesState.messages[index];
+                                        return ChatBubble(
+                                          message: message,
+                                          onPin: (msg) => mainCubit.pinMessage(msg),
+                                          onDelete: (msg) => updatesCubit.deleteMessage(msg.id),
+                                          onReport: (msg) => updatesCubit.reportMessage(msg.id, 'Spam'),
+                                          onMute: (msg) => mainCubit.muteUser(msg.userId),
+                                          onBan: (msg) => mainCubit.banUser(msg.userId),
+                                          onReact: (msg, emoji) => mainCubit.reactToMessage(msg, emoji),
+                                          isOrganizer: mainState.isOrganizer,
+                                          onReply: (msg) => updatesCubit.setReplyTo(msg),
+                                          onLongPressBubble: () {
+                                            setState(() {
+                                              if (_selectedMessage == message) {
+                                                _selectedMessage = null;
+                                              } else {
+                                                _selectedMessage = message;
+                                              }
+                                            });
+                                          },
+                                          showActions: _selectedMessage == message,
+                                          linkPreviewData: updatesState.linkPreviews[message.message],
+                                          onLinkPreviewDataFetched: (url, data) => updatesCubit.saveLinkPreview(url, data),
+                                          onMediaTap: widget.onMediaTap,
+                                        );
+                                      },
+                                      childCount: updatesState.messages.length +
+                                          (updatesState.isLoading ? 1 : 0),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                    ),
+                  ),
+                ),
+                MessageInput(
+                  onSendMessage: (text, replyTo) => updatesCubit.sendMessage(
+                    text,
+                    isOrganizer: mainState.isOrganizer,
+                    isPremium: mainState.isPremium,
+                  ),
+                  onActionTap: widget.onActionTap,
+                  mentionedMedia: updatesState.mentionedMedia,
+                  onCancelMention: () => updatesCubit.setMentionedMedia(null),
+                  onChanged: (text) {},
+                  members: mainState.members,
+                ),
               ],
             );
           },
-        ),
-        CategoryFilterBar(
-          selectedCategory: widget.selectedCategory,
-          onSelectionChanged: widget.onSelectionChanged,
-        ),
-        const SizedBox(height: 8),
-        Expanded(
-          child: RepaintBoundary(
-            child: RefreshIndicator(
-              onRefresh: widget.onRefresh,
-              color: AppColors.primary,
-              child: widget.messages.isEmpty && !widget.isLoading
-                  ? ListView(
-                      controller: widget.scrollController,
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      children: const [
-                        SizedBox(height: 100),
-                        EmptyState(message: 'No updates yet'),
-                      ],
-                    )
-                  : ListView.builder(
-                      controller: widget.scrollController,
-                      reverse: true,
-                      padding: const EdgeInsets.all(16),
-                      itemCount:
-                          widget.messages.length + (widget.isLoading ? 1 : 0),
-                      itemBuilder: (context, index) {
-                        if (index == widget.messages.length) {
-                          return _buildLoader();
-                        }
-                        final message = widget.messages[index];
-                        return ChatBubble(
-                          message: message,
-                          onPin: widget.onPin,
-                          onDelete: widget.onDelete,
-                          onReport: widget.onReport,
-                          onMute: widget.onMute,
-                          onBan: widget.onBan,
-                          onReact: widget.onReact,
-                          isOrganizer: widget.isOrganizer,
-                          onLongPressBubble: () {
-                            setState(() {
-                              if (_selectedMessage == message) {
-                                _selectedMessage = null;
-                              } else {
-                                _selectedMessage = message;
-                              }
-                            });
-                          },
-                          showActions: _selectedMessage == message,
-                          linkPreviewData: widget.linkPreviews[message.message],
-                          onLinkPreviewDataFetched:
-                              widget.onLinkPreviewDataFetched,
-                        );
-                      },
-                    ),
-            ),
-          ),
-        ),
-        MessageInput(
-          onSendMessage: widget.onSendMessage,
-          onActionTap: widget.onActionTap,
-          mentionedMedia: widget.mentionedMedia,
-          onCancelMention: widget.onCancelMention,
-          onChanged: (text) {},
-          members: widget.members,
-        ),
-      ],
-    );
-  }
-
-  Widget _buildLoader() {
-    return const Center(
-      child: Padding(
-        padding: EdgeInsets.all(8.0),
-        child: CircularProgressIndicator(
-          strokeWidth: 2,
-          color: AppColors.primary,
-        ),
-      ),
+        );
+      },
     );
   }
 }

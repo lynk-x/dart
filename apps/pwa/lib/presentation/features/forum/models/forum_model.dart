@@ -109,6 +109,56 @@ class ChatMessage {
     );
   }
 
+  ChatMessage copyWith({
+    String? id,
+    String? sender,
+    String? userId,
+    String? message,
+    DateTime? createdAt,
+    bool? isMe,
+    MessageType? type,
+    String? role,
+    Color? roleColor,
+    ChatMessage? replyTo,
+    String? imageUrl,
+    String? thumbnailUrl,
+    String? linkPreviewTitle,
+    String? linkPreviewUrl,
+    String? targetRoute,
+    String? category,
+    String? questionnaireId,
+    Map<String, int>? reactions,
+    bool? isSending,
+    bool? hasError,
+    bool? isPinned,
+    bool? isPremium,
+  }) {
+    return ChatMessage(
+      id: id ?? this.id,
+      sender: sender ?? this.sender,
+      userId: userId ?? this.userId,
+      message: message ?? this.message,
+      createdAt: createdAt ?? this.createdAt,
+      isMe: isMe ?? this.isMe,
+      type: type ?? this.type,
+      role: role ?? this.role,
+      roleColor: roleColor ?? this.roleColor,
+      replyTo: replyTo ?? this.replyTo,
+      imageUrl: imageUrl ?? this.imageUrl,
+      thumbnailUrl: thumbnailUrl ?? this.thumbnailUrl,
+      linkPreviewTitle: linkPreviewTitle ?? this.linkPreviewTitle,
+      linkPreviewUrl: linkPreviewUrl ?? this.linkPreviewUrl,
+      targetRoute: targetRoute ?? this.targetRoute,
+      category: category ?? this.category,
+      questionnaireId: questionnaireId ?? this.questionnaireId,
+      reactions: reactions ?? this.reactions,
+      isSending: isSending ?? this.isSending,
+      hasError: hasError ?? this.hasError,
+      isPinned: isPinned ?? this.isPinned,
+      isPremium: isPremium ?? this.isPremium,
+    );
+  }
+
   Map<String, dynamic> toMap() {
     return {
       'id': id,

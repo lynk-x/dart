@@ -2,59 +2,53 @@ import 'package:lynk_x/presentation/features/forum/models/forum_model.dart';
 import 'base_message_state.dart';
 
 class ForumChatState extends BaseMessageState {
-  final ChatMessage? replyingTo;
   final bool isTyping;
-  final bool showJumpToBottom;
   final String? error;
-  final String searchQuery;
 
   const ForumChatState({
-    super.messages = const [],
-    super.isLoading = false,
-    this.replyingTo,
+    super.messages,
+    super.isLoading,
+    super.searchQuery,
+    super.replyingTo,
     super.mentionedMedia,
+    super.linkPreviews,
+    super.showJumpToBottom,
     this.isTyping = false,
-    this.showJumpToBottom = false,
-    super.linkPreviews = const {},
     this.error,
-    this.searchQuery = '',
   });
 
   ForumChatState copyWith({
     List<ChatMessage>? messages,
     bool? isLoading,
+    String? searchQuery,
     ChatMessage? replyingTo,
     bool clearReplyTo = false,
     ForumMedia? mentionedMedia,
     bool clearMentionedMedia = false,
-    bool? isTyping,
-    bool? showJumpToBottom,
     Map<String, LinkPreviewData>? linkPreviews,
+    bool? showJumpToBottom,
+    bool? isTyping,
     String? error,
     bool clearError = false,
-    String? searchQuery,
   }) {
     return ForumChatState(
       messages: messages ?? this.messages,
       isLoading: isLoading ?? this.isLoading,
+      searchQuery: searchQuery ?? this.searchQuery,
       replyingTo: clearReplyTo ? null : replyingTo ?? this.replyingTo,
       mentionedMedia:
           clearMentionedMedia ? null : mentionedMedia ?? this.mentionedMedia,
-      isTyping: isTyping ?? this.isTyping,
-      showJumpToBottom: showJumpToBottom ?? this.showJumpToBottom,
       linkPreviews: linkPreviews ?? this.linkPreviews,
+      showJumpToBottom: showJumpToBottom ?? this.showJumpToBottom,
+      isTyping: isTyping ?? this.isTyping,
       error: clearError ? null : error ?? this.error,
-      searchQuery: searchQuery ?? this.searchQuery,
     );
   }
 
   @override
   List<Object?> get props => [
         ...super.props,
-        replyingTo,
         isTyping,
-        showJumpToBottom,
         error,
-        searchQuery,
       ];
 }

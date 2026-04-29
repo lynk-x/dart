@@ -17,6 +17,8 @@ abstract class BaseMessageCubit<T extends BaseMessageState> extends Cubit<T> {
   final RealtimeChannel? channel;
   final String messageType;
 
+  Timer? searchTimer;
+
   BaseMessageCubit({
     required this.forumId,
     required this.userId,
@@ -30,13 +32,16 @@ abstract class BaseMessageCubit<T extends BaseMessageState> extends Cubit<T> {
   T copyWithState({
     List<ChatMessage>? messages,
     bool? isLoading,
+    String? searchQuery,
+    ChatMessage? replyingTo,
+    bool clearReplyTo = false,
     ForumMedia? mentionedMedia,
     bool clearMentionedMedia = false,
     Map<String, LinkPreviewData>? linkPreviews,
+    bool? showJumpToBottom,
   });
 
-  /// Base listeners. Note: If subclasses override or need custom listeners,
-  /// they must handle them or call super._setupBaseListeners.
+  /// Base listeners.
   void setupBaseListeners() {
     channel?.onBroadcast(
       event: 'new_message',
@@ -123,15 +128,24 @@ abstract class BaseMessageCubit<T extends BaseMessageState> extends Cubit<T> {
   void onBroadcastMessageReceived(ChatMessage msg) {
     if (msg.userId == userId) return;
     if (state.messages.any((m) => m.id == msg.id)) return;
-    emit(copyWithState(messages: [msg, ...state.messages]));
+    if (!isClosed) emit(copyWithState(messages: [msg, ...state.messages]));
   }
 
-  /// Must be implemented by child classes
   Future<void> refresh();
+
+  Future<void> loadMore();
+
+  void setSearchQuery(String query) {
+    if (!isClosed) emit(copyWithState(searchQuery: query));
+    searchTimer?.cancel();
+    searchTimer = Timer(const Duration(milliseconds: 300), () {
+      refresh();
+    });
+  }
 
   Future<void> deleteMessage(String messageId) async {
     final originalMessages = List<ChatMessage>.from(state.messages);
-    emit(copyWithState(messages: state.messages.where((m) => m.id != messageId).toList()));
+    if (!isClosed) emit(copyWithState(messages: state.messages.where((m) => m.id != messageId).toList()));
 
     try {
       if (userId == kGuestUserId) return;
@@ -143,6 +157,34 @@ abstract class BaseMessageCubit<T extends BaseMessageState> extends Cubit<T> {
     } catch (e, stack) {
       debugPrint('[BaseMessageCubit] Error deleting msg: $e\n$stack');
       if (!isClosed) emit(copyWithState(messages: originalMessages));
+    }
+  }
+
+  void setReplyTo(ChatMessage? message) {
+    if (message == null) {
+      if (!isClosed) emit(copyWithState(clearReplyTo: true));
+    } else {
+      if (!isClosed) emit(copyWithState(replyingTo: message));
+    }
+  }
+
+  void setMentionedMedia(ForumMedia? media) {
+    if (media == null) {
+      if (!isClosed) emit(copyWithState(clearMentionedMedia: true));
+    } else {
+      if (!isClosed) emit(copyWithState(mentionedMedia: media));
+    }
+  }
+
+  void saveLinkPreview(String url, LinkPreviewData data) {
+    final updated = Map<String, LinkPreviewData>.from(state.linkPreviews);
+    updated[url] = data;
+    if (!isClosed) emit(copyWithState(linkPreviews: updated));
+  }
+
+  void setJumpToBottom(bool show) {
+    if (show != state.showJumpToBottom) {
+      if (!isClosed) emit(copyWithState(showJumpToBottom: show));
     }
   }
 
@@ -169,26 +211,9 @@ abstract class BaseMessageCubit<T extends BaseMessageState> extends Cubit<T> {
     final index = state.messages.indexWhere((m) => m.id == messageId);
     if (index != -1) {
       final oldMsg = state.messages[index];
-      final newMsg = ChatMessage(
-        id: oldMsg.id,
-        sender: oldMsg.sender,
-        userId: oldMsg.userId,
+      final newMsg = oldMsg.copyWith(
         message: content ?? oldMsg.message,
-        createdAt: oldMsg.createdAt,
-        isMe: oldMsg.isMe,
-        type: oldMsg.type,
-        role: oldMsg.role,
-        roleColor: oldMsg.roleColor,
-        replyTo: oldMsg.replyTo,
-        imageUrl: oldMsg.imageUrl,
-        thumbnailUrl: oldMsg.thumbnailUrl,
-        linkPreviewTitle: oldMsg.linkPreviewTitle,
-        linkPreviewUrl: oldMsg.linkPreviewUrl,
-        targetRoute: oldMsg.targetRoute,
-        category: oldMsg.category,
         reactions: reactions ?? oldMsg.reactions,
-        isSending: oldMsg.isSending,
-        hasError: oldMsg.hasError,
         isPinned: isPinned ?? oldMsg.isPinned,
       );
 
@@ -196,5 +221,11 @@ abstract class BaseMessageCubit<T extends BaseMessageState> extends Cubit<T> {
       updated[index] = newMsg;
       if (!isClosed) emit(copyWithState(messages: updated));
     }
+  }
+
+  @override
+  Future<void> close() {
+    searchTimer?.cancel();
+    return super.close();
   }
 }

@@ -3,36 +3,42 @@ import 'base_message_state.dart';
 
 class ForumUpdatesState extends BaseMessageState {
   final String? selectedCategory;
-  final String searchQuery;
 
   const ForumUpdatesState({
-    super.messages = const [],
-    super.isLoading = false,
-    this.selectedCategory,
+    super.messages,
+    super.isLoading,
+    super.searchQuery,
+    super.replyingTo,
     super.mentionedMedia,
-    super.linkPreviews = const {},
-    this.searchQuery = '',
+    super.linkPreviews,
+    super.showJumpToBottom,
+    this.selectedCategory,
   });
 
   ForumUpdatesState copyWith({
     List<ChatMessage>? messages,
     bool? isLoading,
+    String? searchQuery,
+    ChatMessage? replyingTo,
+    bool clearReplyTo = false,
     String? selectedCategory,
     bool clearCategory = false,
     ForumMedia? mentionedMedia,
     bool clearMentionedMedia = false,
     Map<String, LinkPreviewData>? linkPreviews,
-    String? searchQuery,
+    bool? showJumpToBottom,
   }) {
     return ForumUpdatesState(
       messages: messages ?? this.messages,
       isLoading: isLoading ?? this.isLoading,
-      selectedCategory:
-          clearCategory ? null : selectedCategory ?? this.selectedCategory,
+      searchQuery: searchQuery ?? this.searchQuery,
+      replyingTo: clearReplyTo ? null : replyingTo ?? this.replyingTo,
       mentionedMedia:
           clearMentionedMedia ? null : mentionedMedia ?? this.mentionedMedia,
       linkPreviews: linkPreviews ?? this.linkPreviews,
-      searchQuery: searchQuery ?? this.searchQuery,
+      showJumpToBottom: showJumpToBottom ?? this.showJumpToBottom,
+      selectedCategory:
+          clearCategory ? null : selectedCategory ?? this.selectedCategory,
     );
   }
 
@@ -40,6 +46,5 @@ class ForumUpdatesState extends BaseMessageState {
   List<Object?> get props => [
         ...super.props,
         selectedCategory,
-        searchQuery,
       ];
 }

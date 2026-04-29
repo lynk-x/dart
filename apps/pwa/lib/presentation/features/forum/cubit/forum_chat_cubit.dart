@@ -1,33 +1,53 @@
 import 'package:lynk_core/core.dart';
 import 'dart:async';
-import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/foundation.dart';
-import 'package:uuid/uuid.dart';
 import 'package:lynk_x/presentation/features/forum/models/forum_model.dart';
 import 'package:lynk_x/presentation/features/forum/services/forum_cache.dart';
 import 'package:lynk_x/core/sync/sync_item.dart';
 import 'package:lynk_x/core/sync/sync_manager.dart';
+import 'base_message_cubit.dart';
 import 'forum_chat_state.dart';
 
-class ForumChatCubit extends Cubit<ForumChatState> {
-  static const _uuid = Uuid();
-  final String forumId;
-  final String userId;
-  final String userName;
-  final RealtimeChannel? channel;
-
+class ForumChatCubit extends BaseMessageCubit<ForumChatState> {
   Timer? _typingThrottle;
   Timer? _hideTypingTimer;
   StreamSubscription? _syncSubscription;
-  Timer? _searchTimer;
 
   ForumChatCubit({
-    required this.forumId,
-    required this.userId,
-    required this.userName,
-    this.channel,
-  }) : super(const ForumChatState());
+    required super.forumId,
+    required super.userId,
+    required super.userName,
+    super.channel,
+  }) : super(
+          messageType: 'chat',
+          initialState: const ForumChatState(),
+        );
+
+  @override
+  ForumChatState copyWithState({
+    List<ChatMessage>? messages,
+    bool? isLoading,
+    String? searchQuery,
+    ChatMessage? replyingTo,
+    bool clearReplyTo = false,
+    ForumMedia? mentionedMedia,
+    bool clearMentionedMedia = false,
+    Map<String, LinkPreviewData>? linkPreviews,
+    bool? showJumpToBottom,
+  }) {
+    return state.copyWith(
+      messages: messages,
+      isLoading: isLoading,
+      searchQuery: searchQuery,
+      replyingTo: replyingTo,
+      clearReplyTo: clearReplyTo,
+      mentionedMedia: mentionedMedia,
+      clearMentionedMedia: clearMentionedMedia,
+      linkPreviews: linkPreviews,
+      showJumpToBottom: showJumpToBottom,
+    );
+  }
 
   Future<void> init() async {
     final cached =
@@ -36,7 +56,8 @@ class ForumChatCubit extends Cubit<ForumChatState> {
       emit(state.copyWith(messages: cached));
     }
     await refresh();
-    _setupListeners();
+    _setupChatListeners();
+    setupBaseListeners();
     _setupSyncListener();
   }
 
@@ -52,7 +73,7 @@ class ForumChatCubit extends Cubit<ForumChatState> {
     });
   }
 
-  void _setupListeners() {
+  void _setupChatListeners() {
     channel?.onBroadcast(
       event: 'typing',
       callback: (payload) {
@@ -65,120 +86,16 @@ class ForumChatCubit extends Cubit<ForumChatState> {
         }
       },
     );
-
-    channel?.onBroadcast(
-      event: 'new_message',
-      callback: (payload) {
-        if (payload.isEmpty) return;
-        final msg = ChatMessage.fromMap(payload, userId);
-        if (msg.type == MessageType.chat) {
-          onBroadcastMessageReceived(msg);
-        }
-      },
-    );
-
-    channel?.onBroadcast(
-      event: 'message_reaction',
-      callback: (payload) {
-        final String? msgId = payload['message_id'] as String?;
-        final String? emoji = payload['emoji_code'] as String?;
-        final String? action = payload['action'] as String?;
-
-        if (msgId == null || emoji == null) return;
-
-        final index = state.messages.indexWhere((m) => m.id == msgId);
-        if (index != -1) {
-          final msg = state.messages[index];
-          final updatedReactions = Map<String, int>.from(msg.reactions);
-          if (action == 'added') {
-            updatedReactions[emoji] = (updatedReactions[emoji] ?? 0) + 1;
-          } else {
-            updatedReactions[emoji] = (updatedReactions[emoji] ?? 1) - 1;
-            if (updatedReactions[emoji]! <= 0) updatedReactions.remove(emoji);
-          }
-
-          _updateMessageInPlace(msgId, reactions: updatedReactions);
-        }
-      },
-    );
-
-    // Sync updates/deletes (e.g., pinning, soft-deletion)
-    channel?.onPostgresChanges(
-      event: PostgresChangeEvent.all,
-      schema: 'public',
-      table: 'forum_messages',
-      filter: PostgresChangeFilter(
-        type: PostgresChangeFilterType.eq,
-        column: 'forum_id',
-        value: forumId,
-      ),
-      callback: (payload) {
-        if (payload.eventType == PostgresChangeEvent.delete) {
-          final id = payload.oldRecord['id'] as String?;
-          final updated = state.messages.where((m) => m.id != id).toList();
-          if (!isClosed) emit(state.copyWith(messages: updated));
-        } else if (payload.eventType == PostgresChangeEvent.update) {
-          final data = payload.newRecord;
-          if (data['message_type'] != 'chat') return;
-
-          if (data['deleted_at'] != null) {
-            final id = data['id'] as String?;
-            final updated = state.messages.where((m) => m.id != id).toList();
-            if (!isClosed) emit(state.copyWith(messages: updated));
-          } else {
-            _updateMessageInPlace(
-              data['id'] as String,
-              content: data['content'] as String?,
-              isPinned: data['is_pinned'] == true,
-            );
-          }
-        }
-      },
-    );
-
-    // Re-sync on reconnection to catch missed broadcast/db messages
-    channel?.subscribe((status, error) {
-      if (status == RealtimeSubscribeStatus.subscribed) {
-        refresh();
-      }
-    });
   }
 
-  Future<void> deleteMessage(String messageId) async {
-    final original = List<ChatMessage>.from(state.messages);
-    if (!isClosed) emit(state.copyWith(messages: state.messages.where((m) => m.id != messageId).toList()));
-    try {
-      if (userId == kGuestUserId) return;
-      await Supabase.instance.client
-          .schema('forum_messages').from('forum_messages')
-          .update({'deleted_at': DateTime.now().toIso8601String()})
-          .eq('id', messageId);
-      await refresh();
-    } catch (e, stack) {
-      debugPrint('[ForumChatCubit] Error deleting msg: $e\n$stack');
-      if (!isClosed) emit(state.copyWith(messages: original));
-    }
-  }
-
-  void onBroadcastMessageReceived(ChatMessage msg) {
-    if (msg.userId == userId) return;
-    if (state.messages.any((m) => m.id == msg.id)) return;
-    if (!isClosed) emit(state.copyWith(messages: [msg, ...state.messages]));
-  }
-
-  void setSearchQuery(String query) {
-    emit(state.copyWith(searchQuery: query));
-    _searchTimer?.cancel();
-    _searchTimer = Timer(const Duration(milliseconds: 300), () {
-      refresh();
-    });
-  }
-
+  @override
   Future<void> refresh() async {
+    if (isClosed) return;
     emit(state.copyWith(isLoading: true));
     try {
       var query = Supabase.instance.client
-          .schema('forum_messages').from('forum_messages')
+          .schema('forum_messages')
+          .from('forum_messages')
           .select(
               '*, user_profile(full_name, is_premium), forum_members!inner(role_id), vw_message_reaction_counts(*)')
           .eq('forum_id', forumId)
@@ -205,13 +122,15 @@ class ForumChatCubit extends Cubit<ForumChatState> {
     }
   }
 
+  @override
   Future<void> loadMore() async {
-    if (state.isLoading) return;
+    if (state.isLoading || isClosed) return;
     emit(state.copyWith(isLoading: true));
     final startIndex = state.messages.length;
     try {
       var query = Supabase.instance.client
-          .schema('forum_messages').from('forum_messages')
+          .schema('forum_messages')
+          .from('forum_messages')
           .select(
               '*, user_profile(full_name, is_premium), forum_members!inner(role_id), vw_message_reaction_counts(*)')
           .eq('forum_id', forumId)
@@ -242,8 +161,9 @@ class ForumChatCubit extends Cubit<ForumChatState> {
     }
   }
 
-  void sendMessage(String text, {required bool isOrganizer, required bool isPremium}) async {
-    final messageId = _uuid.v4();
+  void sendMessage(String text,
+      {required bool isOrganizer, required bool isPremium}) async {
+    final messageId = BaseMessageCubit.uuid.v4();
     final now = DateTime.now();
     final replyTo = state.replyingTo;
     final mediaId = state.mentionedMedia?.id;
@@ -313,14 +233,14 @@ class ForumChatCubit extends Cubit<ForumChatState> {
   }
 
   void _completeMessage(String id) {
-    _updateMessageInPlace(id, isSending: false, hasError: false);
+    _updateMessageInPlaceInternal(id, isSending: false, hasError: false);
   }
 
   void _failMessage(String id) {
-    _updateMessageInPlace(id, isSending: false, hasError: true);
+    _updateMessageInPlaceInternal(id, isSending: false, hasError: true);
   }
 
-  void _updateMessageInPlace(
+  void _updateMessageInPlaceInternal(
     String id, {
     String? content,
     bool? isPinned,
@@ -332,20 +252,8 @@ class ForumChatCubit extends Cubit<ForumChatState> {
     if (index == -1) return;
 
     final msg = state.messages[index];
-    final updatedMsg = ChatMessage(
-      id: msg.id,
-      sender: msg.sender,
-      userId: msg.userId,
+    final updatedMsg = msg.copyWith(
       message: content ?? msg.message,
-      createdAt: msg.createdAt,
-      isMe: msg.isMe,
-      type: msg.type,
-      role: msg.role,
-      roleColor: msg.roleColor,
-      replyTo: msg.replyTo,
-      imageUrl: msg.imageUrl,
-      thumbnailUrl: msg.thumbnailUrl,
-      category: msg.category,
       reactions: reactions ?? msg.reactions,
       isPinned: isPinned ?? msg.isPinned,
       isSending: isSending ?? msg.isSending,
@@ -357,7 +265,8 @@ class ForumChatCubit extends Cubit<ForumChatState> {
     if (!isClosed) emit(state.copyWith(messages: updatedList));
   }
 
-  void retryMessage(ChatMessage message, {required bool isOrganizer, required bool isPremium}) {
+  void retryMessage(ChatMessage message,
+      {required bool isOrganizer, required bool isPremium}) {
     emit(state.copyWith(
         messages: state.messages.where((m) => m.id != message.id).toList()));
     sendMessage(message.message, isOrganizer: isOrganizer, isPremium: isPremium);
@@ -376,40 +285,11 @@ class ForumChatCubit extends Cubit<ForumChatState> {
     _typingThrottle = Timer(const Duration(seconds: 3), () {});
   }
 
-  void setReplyTo(ChatMessage? message) {
-    if (message == null) {
-      emit(state.copyWith(clearReplyTo: true));
-    } else {
-      emit(state.copyWith(replyingTo: message));
-    }
-  }
-
-  void setMentionedMedia(ForumMedia? media) {
-    if (media == null) {
-      emit(state.copyWith(clearMentionedMedia: true));
-    } else {
-      emit(state.copyWith(mentionedMedia: media));
-    }
-  }
-
-  void saveLinkPreview(String url, LinkPreviewData data) {
-    final updated = Map<String, LinkPreviewData>.from(state.linkPreviews);
-    updated[url] = data;
-    emit(state.copyWith(linkPreviews: updated));
-  }
-
-  void setJumpToBottom(bool show) {
-    if (show != state.showJumpToBottom) {
-      emit(state.copyWith(showJumpToBottom: show));
-    }
-  }
-
   @override
   Future<void> close() {
     _typingThrottle?.cancel();
     _hideTypingTimer?.cancel();
     _syncSubscription?.cancel();
-    _searchTimer?.cancel();
     return super.close();
   }
 }

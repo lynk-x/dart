@@ -1,4 +1,3 @@
-import 'package:lynk_core/core.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/foundation.dart';
@@ -26,37 +25,52 @@ class ForumPresenceCubit extends Cubit<ForumPresenceState> {
   }
 
   void _setupPresenceListeners() {
+    debugPrint('[ForumPresenceCubit] Setting up presence listeners for $forumId');
+    
     channel?.onPresenceSync((payload) {
-      final presenceStates = channel?.presenceState();
-      if (presenceStates != null) {
-        final List<Map<String, dynamic>> users = [];
-        final Set<String> uniqueUserIds = {};
-
-        for (final presence in presenceStates) {
-          for (final p in presence.presences) {
-            final data = Map<String, dynamic>.from(p.payload);
-            final uid = data['user_id'] as String?;
-            if (uid != null && !uniqueUserIds.contains(uid)) {
-              uniqueUserIds.add(uid);
-              users.add(data);
-            }
-          }
-        }
-        if (!isClosed) emit(state.copyWith(onlineUsers: users));
-      }
+      debugPrint('[ForumPresenceCubit] Presence sync received');
+      _updatePresence();
     });
 
-    // We subscribe and track when joined.
+    // Attempt initial sync
+    _updatePresence();
+
+    // Subscribe to status changes to trigger track
     channel?.subscribe((status, error) {
+      debugPrint('[ForumPresenceCubit] Channel status: $status, error: $error');
       if (status == RealtimeSubscribeStatus.subscribed) {
         _trackUser();
       }
     });
   }
 
-  Future<void> _trackUser() async {
-    if (userId == kGuestUserId) return;
+  void _updatePresence() {
+    final presenceStates = channel?.presenceState();
+    if (presenceStates == null) return;
 
+    final List<Map<String, dynamic>> users = [];
+    final Set<String> uniqueUserIds = {};
+
+    for (final presence in presenceStates) {
+      for (final p in presence.presences) {
+        final data = Map<String, dynamic>.from(p.payload);
+        final uid = data['user_id'] as String?;
+        // If it's a guest, we might want to show them anyway, but for now 
+        // we'll keep the deduplication by user_id. 
+        // If multiple guests have the same ID, they show up as one entry.
+        if (uid != null && !uniqueUserIds.contains(uid)) {
+          uniqueUserIds.add(uid);
+          users.add(data);
+        }
+      }
+    }
+
+    debugPrint('[ForumPresenceCubit] Sync complete. Online users: ${users.length}');
+    if (!isClosed) emit(state.copyWith(onlineUsers: users));
+  }
+
+  Future<void> _trackUser() async {
+    debugPrint('[ForumPresenceCubit] Tracking user: $userId ($userName)');
     try {
       await channel?.track({
         'user_id': userId,
@@ -78,5 +92,11 @@ class ForumPresenceCubit extends Cubit<ForumPresenceState> {
     } catch (e, stack) {
       debugPrint('[ForumPresenceCubit] Error in untrackUser: $e\n$stack');
     }
+  }
+
+  @override
+  Future<void> close() {
+    untrackUser();
+    return super.close();
   }
 }
