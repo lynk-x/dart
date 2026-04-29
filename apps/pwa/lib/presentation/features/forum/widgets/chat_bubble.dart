@@ -192,9 +192,8 @@ class _ChatBubbleState extends State<ChatBubble> {
           BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.05),
+        color: AppColors.tertiary,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white10),
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(12),
@@ -238,9 +237,9 @@ class _ChatBubbleState extends State<ChatBubble> {
 
   Widget _buildBubble() {
     final bgColor = widget.message.isMe
-        ? AppColors.primary.withValues(alpha: 0.15)
-        : Colors.white.withValues(alpha: 0.05);
-    final textColor = widget.message.isMe ? AppColors.primary : Colors.white;
+        ? AppColors.primary
+        : AppColors.tertiary;
+    final textColor = widget.message.isMe ? Colors.black : Colors.white;
 
     return Tooltip(
       message: 'Hold to reply or react',
@@ -259,10 +258,7 @@ class _ChatBubbleState extends State<ChatBubble> {
             bottomLeft: Radius.circular(widget.message.isMe ? 16 : 0),
             bottomRight: Radius.circular(widget.message.isMe ? 0 : 16),
           ),
-          border: Border.all(
-              color: widget.message.isMe
-                  ? AppColors.primary.withValues(alpha: 0.3)
-                  : Colors.white10),
+          border: Border.all(color: Colors.transparent),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -285,7 +281,7 @@ class _ChatBubbleState extends State<ChatBubble> {
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-          color: Colors.black26, borderRadius: BorderRadius.circular(8)),
+          color: const Color(0xFF0A0A0A), borderRadius: BorderRadius.circular(8)),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -389,9 +385,8 @@ class _CustomLinkPreviewState extends State<_CustomLinkPreview> {
         Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: Colors.black26,
+            color: const Color(0xFF0A0A0A),
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Colors.white10),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,

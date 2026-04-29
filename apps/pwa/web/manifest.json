@@ -7,7 +7,7 @@
     "display": "standalone",
     "orientation": "portrait",
     "background_color": "#000000",
-    "theme_color": "#20F928",
+    "theme_color": "#000000",
     "prefer_related_applications": false,
     "categories": ["entertainment", "social", "lifestyle"],
     "shortcuts": [

@@ -300,6 +300,7 @@ class _ForumViewState extends State<ForumView> {
               builder: (context, forumState) => ForumHeader(
                 isOrganizer: forumState.isOrganizer,
                 isReadOnly: forumState.isReadOnly,
+                forumName: forumState.forumName,
                 onLockToggle: () {
                   final messenger = ScaffoldMessenger.of(context);
                   final nextStatus = forumState.isReadOnly ? 'open' : 'read_only';
@@ -309,12 +310,17 @@ class _ForumViewState extends State<ForumView> {
                     behavior: SnackBarBehavior.floating,
                   ));
                 },
-                onSearch: (q) =>
-                    context.read<ForumUpdatesCubit>().setSearchQuery(q),
+                onSearch: (q) {
+                  context.read<ForumUpdatesCubit>().setSearchQuery(q);
+                  context.read<ForumChatCubit>().setSearchQuery(q);
+                },
                 onSearchToggle: () {
                   final updatesCubit = context.read<ForumUpdatesCubit>();
-                  if (updatesCubit.state.searchQuery.isNotEmpty) {
+                  final chatCubit = context.read<ForumChatCubit>();
+                  if (updatesCubit.state.searchQuery.isNotEmpty || 
+                      chatCubit.state.searchQuery.isNotEmpty) {
                     updatesCubit.setSearchQuery('');
+                    chatCubit.setSearchQuery('');
                   }
                 },
               ),
@@ -402,6 +408,12 @@ class _ForumViewState extends State<ForumView> {
           buildWhen: (previous, current) =>
               previous.currentTabIndex != current.currentTabIndex,
           builder: (context, state) {
+            final updatesState = context.watch<ForumUpdatesCubit>().state;
+            final chatState = context.watch<ForumChatCubit>().state;
+            
+            final updatesCount = updatesState.searchQuery.isNotEmpty ? updatesState.messages.length : null;
+            final chatCount = chatState.searchQuery.isNotEmpty ? chatState.messages.length : null;
+
             int displayedIndex = 0;
             return Container(
               decoration: const BoxDecoration(
@@ -413,11 +425,12 @@ class _ForumViewState extends State<ForumView> {
                 children: [
                   if (showUpdates)
                     _buildTab(
-                        'Updates', displayedIndex++, state.currentTabIndex),
+                        'Updates', displayedIndex++, state.currentTabIndex,
+                        count: updatesCount),
                   if (showChat)
                     _buildTab(
                         'Live chat', displayedIndex++, state.currentTabIndex,
-                        hasIndicator: true),
+                        hasIndicator: true, count: chatCount),
                   if (showMedia)
                     _buildTab('Media', displayedIndex++, state.currentTabIndex),
                 ],
@@ -430,8 +443,9 @@ class _ForumViewState extends State<ForumView> {
   }
 
   Widget _buildTab(String label, int index, int currentIndex,
-      {bool hasIndicator = false}) {
+      {bool hasIndicator = false, int? count}) {
     bool isActive = currentIndex == index;
+    final displayLabel = count != null ? '$label ($count)' : label;
     return GestureDetector(
       onTap: () => _onTabSelected(index),
       child: Padding(
@@ -452,7 +466,7 @@ class _ForumViewState extends State<ForumView> {
                     ),
                   ),
                 (Text(
-                  label,
+                  displayLabel,
                   style: AppTypography.inter(
                     fontSize: 16,
                     color: isActive ? Colors.white : Colors.white38,

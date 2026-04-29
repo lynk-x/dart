@@ -56,17 +56,9 @@ class LiveChatTab extends StatefulWidget {
 class _LiveChatTabState extends State<LiveChatTab>
     with AutomaticKeepAliveClientMixin {
   ChatMessage? _reactingToMessage;
-  final TextEditingController _searchController = TextEditingController();
-  bool _showSearch = false;
 
   @override
   bool get wantKeepAlive => true;
-
-  @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -76,55 +68,7 @@ class _LiveChatTabState extends State<LiveChatTab>
 
     return Column(
       children: [
-        Row(
-          children: [
-            Expanded(
-              child: _showSearch
-                  ? Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                      child: TextField(
-                        controller: _searchController,
-                        autofocus: true,
-                        style: const TextStyle(color: Colors.white),
-                        decoration: InputDecoration(
-                          hintText: 'Search messages…',
-                          hintStyle: const TextStyle(color: Colors.white38),
-                          filled: true,
-                          fillColor: Colors.white10,
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide.none,
-                          ),
-                          suffixIcon: IconButton(
-                            icon: const Icon(Icons.clear, color: Colors.white54, size: 18),
-                            onPressed: () {
-                              _searchController.clear();
-                              chatCubit.setSearchQuery('');
-                            },
-                          ),
-                        ),
-                        onChanged: chatCubit.setSearchQuery,
-                      ),
-                    )
-                  : const InfoBanner(icon: Icons.info, text: 'Active/Live Chat'),
-            ),
-            IconButton(
-              icon: Icon(
-                _showSearch ? Icons.search_off : Icons.search,
-                color: Colors.white54,
-                size: 20,
-              ),
-              onPressed: () {
-                setState(() => _showSearch = !_showSearch);
-                if (!_showSearch) {
-                  _searchController.clear();
-                  chatCubit.setSearchQuery('');
-                }
-              },
-            ),
-          ],
-        ),
+        const InfoBanner(icon: Icons.info, text: 'Active/Live Chat'),
         const SizedBox(height: 4),
         if (_reactingToMessage != null &&
             context.read<FeatureFlagCubit>().isEnabled('enable_forum_reactions'))
@@ -152,7 +96,7 @@ class _LiveChatTabState extends State<LiveChatTab>
                           children: [
                             const SizedBox(height: 100),
                             EmptyState(
-                              message: _showSearch
+                              message: chatState.searchQuery.isNotEmpty
                                   ? 'No messages matched your search'
                                   : 'No messages yet',
                             ),

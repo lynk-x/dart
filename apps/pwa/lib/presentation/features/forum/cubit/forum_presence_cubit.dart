@@ -46,9 +46,12 @@ class ForumPresenceCubit extends Cubit<ForumPresenceState> {
       }
     });
 
-    // Start tracking if already subscribed, otherwise we might need to wait for subscription status
-    // But usually channel is provided already.
-    _trackUser();
+    // We subscribe and track when joined.
+    channel?.subscribe((status, error) {
+      if (status == RealtimeSubscribeStatus.subscribed) {
+        _trackUser();
+      }
+    });
   }
 
   Future<void> _trackUser() async {

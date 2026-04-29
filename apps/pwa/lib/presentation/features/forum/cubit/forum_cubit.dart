@@ -151,17 +151,21 @@ class ForumCubit extends Cubit<ForumState> {
       bool isOrganizer = false;
 
       String forumStatus = 'open';
+      String forumName = 'Community Forum';
       String? eventIdFromDb;
       try {
         final forumData = await Supabase.instance.client
             .from('forums')
-            .select('status, event_id')
+            .select('status, event_id, title, events(title)')
             .eq('id', forumId)
             .maybeSingle();
 
         if (forumData != null) {
           forumStatus = forumData['status'] as String? ?? 'open';
           eventIdFromDb = forumData['event_id'] as String?;
+          forumName = forumData['title'] as String? ?? 
+                      forumData['events']?['title'] as String? ?? 
+                      'Community Forum';
         }
       } catch (e, stack) {
       debugPrint('[ForumCubit] Error: $e\n$stack');
@@ -211,6 +215,7 @@ class ForumCubit extends Cubit<ForumState> {
             isModerator: isModerator,
             isOrganizer: isOrganizer,
             forumStatus: forumStatus,
+            forumName: forumName,
             eventId: eventIdFromDb,
           ),
         );

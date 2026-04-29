@@ -3,7 +3,7 @@ import 'package:lynk_core/core.dart';
 
 /// The header component for the Forum screen.
 ///
-/// Displays the 'Community Forum' title inside a green [AppColors.primary]
+/// Displays the [forumName] title inside a green [AppColors.primary]
 /// container and can toggle into an inline search [TextField].
 class ForumHeader extends StatefulWidget {
   /// Callback triggered when the user types in the search field.
@@ -21,6 +21,9 @@ class ForumHeader extends StatefulWidget {
   /// Called when the organizer taps the lock/unlock button.
   final VoidCallback? onLockToggle;
 
+  /// The name of the forum to display.
+  final String forumName;
+
   const ForumHeader({
     super.key,
     this.onSearch,
@@ -28,6 +31,7 @@ class ForumHeader extends StatefulWidget {
     this.isOrganizer = false,
     this.isReadOnly = false,
     this.onLockToggle,
+    this.forumName = 'Community Forum',
   });
 
   @override
@@ -70,7 +74,7 @@ class _ForumHeaderState extends State<ForumHeader> {
                     ),
                   )
                 : Text(
-                    'Community Forum',
+                    widget.forumName,
                     style: AppTypography.interTight(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
