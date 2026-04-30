@@ -199,7 +199,8 @@ class _UserPresenceCardState extends State<UserPresenceCard> {
                     style: const TextStyle(color: Colors.white),
                   ),
                   onTap: () {
-                    context.read<ForumCubit>().reportUser(
+                    final cubit = context.read<ForumCubit>();
+                    cubit.reportUser(
                       widget.userId,
                       reason,
                     );

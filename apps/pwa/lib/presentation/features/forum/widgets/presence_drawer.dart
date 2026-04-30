@@ -51,19 +51,29 @@ class PresenceDrawer extends StatelessWidget {
                     color: Colors.white)),
             const SizedBox(height: 20),
             Expanded(
-              child: ListView(
+              child: ListView.builder(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
-                children: onlineUsers.map((user) {
-                  return UserPresenceCard(
-                    userId: user['user_id'] as String? ?? '',
-                    username: user['user_name'] as String? ?? 'Unknown',
-                    status: user['status'] as String? ?? 'Online',
-                    isOrganizer: user['is_organizer'] == true,
-                    isPremium: user['is_premium'] == true,
-                    isPrimary: user['user_id'] ==
-                        Supabase.instance.client.auth.currentUser?.id,
-                  );
-                }).toList(),
+                itemCount: onlineUsers.length,
+                itemBuilder: (context, index) {
+                  try {
+                    final user = onlineUsers[index];
+                    final String userId = (user['user_id'] ?? user['id'] ?? '').toString();
+                    if (userId.isEmpty) return const SizedBox.shrink();
+
+                    return UserPresenceCard(
+                      key: ValueKey('presence_$userId'),
+                      userId: userId,
+                      username: (user['user_name'] ?? user['full_name'] ?? 'Unknown').toString(),
+                      status: (user['status'] ?? 'Online').toString(),
+                      isOrganizer: user['is_organizer'] == true,
+                      isPremium: user['is_premium'] == true,
+                      isPrimary: userId == Supabase.instance.client.auth.currentUser?.id,
+                    );
+                  } catch (e) {
+                    debugPrint('[PresenceDrawer] Error building user card: $e');
+                    return const SizedBox.shrink();
+                  }
+                },
               ),
             ),
             // Persistent Bottom Section
