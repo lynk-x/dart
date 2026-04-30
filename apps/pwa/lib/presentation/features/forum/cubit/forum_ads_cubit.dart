@@ -84,7 +84,7 @@ class ForumAdsCubit extends Cubit<ForumAdsState> {
       final results = await Future.wait([
         Supabase.instance.client
             .from('ad_campaigns')
-            .select('*, ad_assets(*)')
+            .select('*, ad_media(*)')
             .eq('status', 'active')
             .eq('type', 'banner')
             .lte('start_at', now)
@@ -93,7 +93,7 @@ class ForumAdsCubit extends Cubit<ForumAdsState> {
             .limit(8),
         Supabase.instance.client
             .from('ad_campaigns')
-            .select('*, ad_assets(*)')
+            .select('*, ad_media(*)')
             .eq('status', 'active')
             .eq('type', 'interstitial')
             .lte('start_at', now)

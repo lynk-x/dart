@@ -207,7 +207,7 @@ class AdModel {
   });
 
   factory AdModel.fromMap(Map<String, dynamic> map) {
-    final assets = map['ad_assets'] as List<dynamic>?;
+    final assets = map['ad_media'] as List<dynamic>?;
     final firstAsset =
         assets != null && assets.isNotEmpty ? assets.first : null;
     final metadata = map['metadata'] as Map<String, dynamic>? ?? {};

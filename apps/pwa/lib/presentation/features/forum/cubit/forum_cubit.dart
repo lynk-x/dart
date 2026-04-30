@@ -118,7 +118,10 @@ class ForumCubit extends Cubit<ForumState> {
   }
 
   Future<void> _syncUserStatus() async {
-    if (userId == kGuestUserId) return;
+    if (userId == kGuestUserId) {
+      userName = 'Guest';
+      return;
+    }
     try {
       final data = await Supabase.instance.client
           .from('user_profile')
@@ -143,7 +146,7 @@ class ForumCubit extends Cubit<ForumState> {
       try {
         final forumData = await Supabase.instance.client
             .from('forums')
-            .select('status, event_id, title, events(title)')
+            .select('status, event_id, events(title)')
             .eq('id', forumId)
             .maybeSingle();
 
