@@ -96,6 +96,7 @@ class PresenceDrawer extends StatelessWidget {
                   GestureDetector(
                     onTap: () {
                       if (eventId != null) {
+                        Navigator.pop(context); // Close the drawer
                         context.push(
                           '/forum/$forumId/sessions',
                           extra: {

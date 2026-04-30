@@ -39,10 +39,12 @@ class ForumPresenceCubit extends Cubit<ForumPresenceState> {
       _updatePresence();
     });
 
-    // The channel is already subscribed by ForumCubit; calling subscribe() again
-    // would create a duplicate subscription. Track immediately instead.
     _trackUser();
+    
+    // Initial sync check with small delays to allow local track to propagate
     _updatePresence();
+    Future.delayed(const Duration(milliseconds: 500), () => _updatePresence());
+    Future.delayed(const Duration(seconds: 2), () => _updatePresence());
   }
 
   void _updatePresence() {
