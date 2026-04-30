@@ -96,13 +96,20 @@ class _WalletPageState extends State<WalletPage> {
         elevation: 0,
         centerTitle: true,
         title: Text(
-          'Wallet Dashboard',
+          'Wallet',
           style: AppTypography.inter(
             fontSize: 18,
             fontWeight: FontWeight.bold,
             color: Colors.white,
           ),
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.settings_outlined, color: Colors.white70),
+            onPressed: () => context.push('/wallet/settings'),
+          ),
+          const SizedBox(width: 8),
+        ],
       ),
       body: BlocBuilder<WalletCubit, WalletState>(
         builder: (context, state) {
@@ -120,7 +127,7 @@ class _WalletPageState extends State<WalletPage> {
                 const SizedBox(height: 20),
                 // ── QR Code Section ──────────────────────────────────────────
                 Container(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 24),
                   decoration: BoxDecoration(
                     color: AppColors.surface,
                     borderRadius: BorderRadius.circular(32),
@@ -153,12 +160,8 @@ class _WalletPageState extends State<WalletPage> {
                             color: Colors.black,
                           ),
                           dataModuleStyle: const QrDataModuleStyle(
-                            dataModuleShape: QrDataModuleShape.circle,
+                            dataModuleShape: QrDataModuleShape.square,
                             color: Colors.black,
-                          ),
-                          embeddedImage: const AssetImage('assets/images/lynk-x_logo.png'),
-                          embeddedImageStyle: const QrEmbeddedImageStyle(
-                            size: Size(40, 40),
                           ),
                         ),
                       ),
@@ -174,29 +177,32 @@ class _WalletPageState extends State<WalletPage> {
                 
                 const SizedBox(height: 32),
 
-                // ── Navigation Cards ─────────────────────────────────────────
-                _DashboardActionCard(
-                  title: 'My Wallets',
-                  subtitle: 'View balances and add new currencies',
-                  icon: Icons.account_balance_wallet_rounded,
-                  onTap: () => context.push('/wallet/list'),
-                ),
-                
-                const SizedBox(height: 16),
-                
-                _DashboardActionCard(
-                  title: 'Transaction History',
-                  subtitle: 'View all recent P2P and top-up activity',
-                  icon: Icons.history_rounded,
-                  onTap: () {
-                    context.push('/wallet/list');
-                  },
-                ),
-                
-                const SizedBox(height: 40),
-                Text(
-                  'Powered by Lynk-X Pay',
-                  style: AppTypography.inter(fontSize: 12, color: Colors.white24, fontWeight: FontWeight.w500),
+                // ── Quick Actions Row ────────────────────────────────────────
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    _ActionIcon(
+                      label: 'Send',
+                      icon: Icons.send_rounded,
+                      onTap: () => context.push('/wallet/list'),
+                    ),
+                    _ActionIcon(
+                      label: 'Receive',
+                      icon: Icons.download_rounded,
+                      onTap: () => context.push('/wallet/list'),
+                    ),
+                    const SizedBox(width: 60), // Space for centered FAB
+                    _ActionIcon(
+                      label: 'Wallets',
+                      icon: Icons.account_balance_wallet_rounded,
+                      onTap: () => context.push('/wallet/list'),
+                    ),
+                    _ActionIcon(
+                      label: 'History',
+                      icon: Icons.history_rounded,
+                      onTap: () => context.push('/wallet/history'),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -206,7 +212,49 @@ class _WalletPageState extends State<WalletPage> {
       floatingActionButton: FloatingActionButton(
         onPressed: () => _showScanner(context),
         backgroundColor: AppColors.primary,
+        shape: const CircleBorder(),
         child: const Icon(Icons.qr_code_scanner_rounded, color: Colors.black),
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+      bottomNavigationBar: BottomAppBar(
+        color: AppColors.surface,
+        shape: const CircularNotchedRectangle(),
+        notchMargin: 8,
+        child: Container(height: 20), // Height for the notch
+      ),
+    );
+  }
+}
+
+class _ActionIcon extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  const _ActionIcon({required this.label, required this.icon, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: 0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: AppColors.primary, size: 28),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            label,
+            style: AppTypography.inter(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white70),
+          ),
+        ],
       ),
     );
   }
@@ -273,66 +321,6 @@ class _WalletScannerSheet extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _DashboardActionCard extends StatelessWidget {
-  final String title;
-  final String subtitle;
-  final IconData icon;
-  final VoidCallback onTap;
-
-  const _DashboardActionCard({
-    required this.title,
-    required this.subtitle,
-    required this.icon,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 56,
-              height: 56,
-              decoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Icon(icon, color: AppColors.primary, size: 28),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: AppTypography.inter(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    subtitle,
-                    style: AppTypography.inter(fontSize: 13, color: Colors.white54),
-                  ),
-                ],
-              ),
-            ),
-            const Icon(Icons.chevron_right, color: Colors.white24),
-          ],
-        ),
       ),
     );
   }

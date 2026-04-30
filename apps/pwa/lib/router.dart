@@ -18,6 +18,8 @@ import 'package:lynk_x/presentation/features/splashscreen/screens/splash_screen.
 import 'package:lynk_x/presentation/features/wallet/screens/wallet_screen.dart';
 import 'package:lynk_x/presentation/features/wallet/screens/wallet_list_screen.dart';
 import 'package:lynk_x/presentation/features/wallet/screens/wallet_transactions_screen.dart';
+import 'package:lynk_x/presentation/features/wallet/screens/wallet_history_screen.dart';
+import 'package:lynk_x/presentation/features/wallet/screens/wallet_settings_screen.dart';
 import 'package:lynk_x/presentation/features/wallet/widgets/wallet_security_gate.dart';
 import 'package:lynk_x/presentation/features/kyc/screens/kyc_verification_screen.dart';
 import 'package:lynk_x/presentation/features/subscription/screens/subscription_screen.dart';
@@ -157,6 +159,14 @@ GoRouter createRouter(
                 },
               ),
             ],
+          ),
+          GoRoute(
+            path: 'history',
+            builder: (_, __) => const WalletSecurityGate(child: WalletHistoryPage()),
+          ),
+          GoRoute(
+            path: 'settings',
+            builder: (_, __) => const WalletSecurityGate(child: WalletSettingsPage()),
           ),
         ],
       ),
