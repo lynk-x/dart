@@ -4,9 +4,9 @@ import 'package:go_router/go_router.dart';
 import 'package:lynk_core/core.dart';
 import 'package:lynk_x/presentation/features/wallet/cubit/wallet_cubit.dart';
 import 'package:lynk_x/presentation/features/wallet/cubit/wallet_state.dart';
-import 'package:barcode_widget/barcode_widget.dart';
+import 'package:qr_flutter/qr_flutter.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
 import 'package:lynk_x/presentation/features/wallet/widgets/wallet_pin_setup_sheet.dart';
 
 class WalletPage extends StatefulWidget {
@@ -39,14 +39,14 @@ class _WalletPageState extends State<WalletPage> {
       context: context,
       barrierDismissible: false,
       builder: (context) => AlertDialog(
-        backgroundColor: AppColors.secondaryBackground,
+        backgroundColor: AppColors.surface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         title: Text(
           'Welcome to Lynk-X Wallet',
           style: AppTypography.inter(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white),
         ),
         content: Text(
-          'Manage your funds, pay for tickets, and transfer money to friends seamlessly. By continuing, you agree to enable wallet features.',
+          'Manage your funds, pay for tickets and transfer money to friends seamlessly. By continuing, you agree to enable wallet features.',
           style: AppTypography.inter(fontSize: 14, color: Colors.white70),
         ),
         actions: [
@@ -75,6 +75,15 @@ class _WalletPageState extends State<WalletPage> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => const WalletPinSetupSheet(),
+    );
+  }
+
+  void _showScanner(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.black,
+      builder: (context) => const _WalletScannerSheet(),
     );
   }
 
@@ -111,9 +120,9 @@ class _WalletPageState extends State<WalletPage> {
                 const SizedBox(height: 20),
                 // ── QR Code Section ──────────────────────────────────────────
                 Container(
-                  padding: const EdgeInsets.all(32),
+                  padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: AppColors.secondaryBackground,
+                    color: AppColors.surface,
                     borderRadius: BorderRadius.circular(32),
                     border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
                   ),
@@ -130,16 +139,27 @@ class _WalletPageState extends State<WalletPage> {
                       ),
                       const SizedBox(height: 32),
                       Container(
-                        padding: const EdgeInsets.all(20),
+                        padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(24),
                         ),
-                        child: BarcodeWidget(
-                          barcode: Barcode.qrCode(),
+                        child: QrImageView(
                           data: accountId,
-                          width: 220,
-                          height: 220,
+                          version: QrVersions.auto,
+                          size: 220.0,
+                          eyeStyle: const QrEyeStyle(
+                            eyeShape: QrEyeShape.circle,
+                            color: Colors.black,
+                          ),
+                          dataModuleStyle: const QrDataModuleStyle(
+                            dataModuleShape: QrDataModuleShape.circle,
+                            color: Colors.black,
+                          ),
+                          embeddedImage: const AssetImage('assets/images/lynk-x_logo.png'),
+                          embeddedImageStyle: const QrEmbeddedImageStyle(
+                            size: Size(40, 40),
+                          ),
                         ),
                       ),
                       const SizedBox(height: 24),
@@ -183,6 +203,77 @@ class _WalletPageState extends State<WalletPage> {
           );
         },
       ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => _showScanner(context),
+        backgroundColor: AppColors.primary,
+        child: const Icon(Icons.qr_code_scanner_rounded, color: Colors.black),
+      ),
+    );
+  }
+}
+
+class _WalletScannerSheet extends StatelessWidget {
+  const _WalletScannerSheet();
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: MediaQuery.of(context).size.height * 0.8,
+      child: Column(
+        children: [
+          const SizedBox(height: 12),
+          Container(
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: Colors.white24,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          Expanded(
+            child: Stack(
+              children: [
+                MobileScanner(
+                  onDetect: (capture) {
+                    final List<Barcode> barcodes = capture.barcodes;
+                    if (barcodes.isNotEmpty) {
+                      final String? code = barcodes.first.rawValue;
+                      if (code != null) {
+                        Navigator.pop(context);
+                        // TODO: Handle the scanned account ID (e.g., navigate to transfer)
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Scanned: $code')),
+                        );
+                      }
+                    }
+                  },
+                ),
+                Center(
+                  child: Container(
+                    width: 250,
+                    height: 250,
+                    decoration: BoxDecoration(
+                      border: Border.all(color: AppColors.primary, width: 2),
+                      borderRadius: BorderRadius.circular(24),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  bottom: 40,
+                  left: 0,
+                  right: 0,
+                  child: Center(
+                    child: Text(
+                      'Scan a Lynk-X QR Code',
+                      style: AppTypography.inter(color: Colors.white, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -207,7 +298,7 @@ class _DashboardActionCard extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: AppColors.secondaryBackground,
+          color: AppColors.surface,
           borderRadius: BorderRadius.circular(24),
           border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
         ),

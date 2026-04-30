@@ -29,6 +29,8 @@ dependencies:
   universal_io: ^2.3.1
   video_player: ^2.10.1
   barcode_widget: ^2.0.4
+  qr_flutter: ^4.1.0
+  mobile_scanner: ^7.2.0
   geolocator: ^13.0.2
   share_plus: ^10.1.4
   url_launcher: ^6.3.0
