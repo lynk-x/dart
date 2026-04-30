@@ -44,6 +44,10 @@ class WalletState extends Equatable {
 
   /// The currency currently being viewed in the transactions sub-page.
   final String? selectedCurrency;
+  
+  // Security
+  final bool hasPinSet;
+  final bool isWalletUnlocked;
 
   const WalletState({
     this.balances       = const [],
@@ -61,6 +65,8 @@ class WalletState extends Equatable {
     this.kycTier,
     this.accountId,
     this.selectedCurrency,
+    this.hasPinSet       = false,
+    this.isWalletUnlocked = false,
   });
 
   WalletState copyWith({
@@ -85,6 +91,8 @@ class WalletState extends Equatable {
     String? accountId,
     String? selectedCurrency,
     bool clearSelectedCurrency = false,
+    bool? hasPinSet,
+    bool? isWalletUnlocked,
   }) {
     return WalletState(
       balances:        balances       ?? this.balances,
@@ -102,6 +110,8 @@ class WalletState extends Equatable {
       kycTier:         clearKycTier   ? null : kycTier    ?? this.kycTier,
       accountId:       accountId      ?? this.accountId,
       selectedCurrency: clearSelectedCurrency ? null : selectedCurrency ?? this.selectedCurrency,
+      hasPinSet:       hasPinSet      ?? this.hasPinSet,
+      isWalletUnlocked: isWalletUnlocked ?? this.isWalletUnlocked,
     );
   }
 
@@ -112,5 +122,6 @@ class WalletState extends Equatable {
     topUpStatus, topUpError, topUpPaymentUrl,
     withdrawStatus, withdrawError, payoutMethods,
     kycTier, accountId, selectedCurrency,
+    hasPinSet, isWalletUnlocked,
   ];
 }

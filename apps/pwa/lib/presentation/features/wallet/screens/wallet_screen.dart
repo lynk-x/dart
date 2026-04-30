@@ -4,7 +4,10 @@ import 'package:go_router/go_router.dart';
 import 'package:lynk_core/core.dart';
 import 'package:lynk_x/presentation/features/wallet/cubit/wallet_cubit.dart';
 import 'package:lynk_x/presentation/features/wallet/cubit/wallet_state.dart';
-import 'package:lynk_x/presentation/features/wallet/models/wallet_model.dart';
+import 'package:barcode_widget/barcode_widget.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+import 'package:lynk_x/presentation/features/wallet/widgets/wallet_pin_setup_sheet.dart';
 
 class WalletPage extends StatefulWidget {
   const WalletPage({super.key});
@@ -18,10 +21,61 @@ class _WalletPageState extends State<WalletPage> {
   void initState() {
     super.initState();
     context.read<WalletCubit>().init();
-    // Reset currency filter when coming back to the main list
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<WalletCubit>().setCurrency(null);
+      _checkOptIn();
     });
+  }
+
+  Future<void> _checkOptIn() async {
+    final prefs = await SharedPreferences.getInstance();
+    final hasOptedIn = prefs.getBool('wallet_opt_in_v1') ?? false;
+    if (!hasOptedIn && mounted) {
+      _showOptInPopup();
+    }
+  }
+
+  void _showOptInPopup() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.secondaryBackground,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: Text(
+          'Welcome to Lynk-X Wallet',
+          style: AppTypography.inter(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white),
+        ),
+        content: Text(
+          'Manage your funds, pay for tickets, and transfer money to friends seamlessly. By continuing, you agree to enable wallet features.',
+          style: AppTypography.inter(fontSize: 14, color: Colors.white70),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () async {
+              final prefs = await SharedPreferences.getInstance();
+              await prefs.setBool('wallet_opt_in_v1', true);
+              if (context.mounted) {
+                Navigator.pop(context);
+                _showPinSetup();
+              }
+            },
+            child: Text(
+              'Get Started',
+              style: AppTypography.inter(fontWeight: FontWeight.bold, color: AppColors.primary),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showPinSetup() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => const WalletPinSetupSheet(),
+    );
   }
 
   @override
@@ -33,154 +87,154 @@ class _WalletPageState extends State<WalletPage> {
         elevation: 0,
         centerTitle: true,
         title: Text(
-          'Wallets',
+          'Wallet Dashboard',
           style: AppTypography.inter(
-            fontSize: 20,
+            fontSize: 18,
             fontWeight: FontWeight.bold,
             color: Colors.white,
           ),
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.add, color: Colors.white, size: 28),
-            onPressed: () => _showAddWalletDialog(context),
-          ),
-        ],
       ),
       body: BlocBuilder<WalletCubit, WalletState>(
         builder: (context, state) {
-          if (state.isLoading && state.balances.isEmpty) {
+          if (state.isLoading && state.accountId == null) {
             return const Center(child: CircularProgressIndicator(color: AppColors.primary));
           }
 
-          if (state.balances.isEmpty) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(32),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.account_balance_wallet_outlined, size: 64, color: Colors.white24),
-                    const SizedBox(height: 16),
-                    const Text('No wallets yet', style: TextStyle(color: Colors.white54)),
-                    const SizedBox(height: 24),
-                    PrimaryButton(
-                      text: 'Add your first wallet',
-                      onPressed: () => _showAddWalletDialog(context),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          }
+          final accountId = state.accountId ?? 'No account linked';
 
-          return RefreshIndicator(
-            onRefresh: () => context.read<WalletCubit>().refresh(),
-            child: ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: state.balances.length,
-              itemBuilder: (context, index) {
-                final balance = state.balances[index];
-                return _WalletTile(balance: balance);
-              },
+          return SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                const SizedBox(height: 20),
+                // ── QR Code Section ──────────────────────────────────────────
+                Container(
+                  padding: const EdgeInsets.all(32),
+                  decoration: BoxDecoration(
+                    color: AppColors.secondaryBackground,
+                    borderRadius: BorderRadius.circular(32),
+                    border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+                  ),
+                  child: Column(
+                    children: [
+                      Text(
+                        'My QR Code',
+                        style: AppTypography.inter(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Scan to transfer funds',
+                        style: AppTypography.inter(fontSize: 13, color: Colors.white54),
+                      ),
+                      const SizedBox(height: 32),
+                      Container(
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(24),
+                        ),
+                        child: BarcodeWidget(
+                          barcode: Barcode.qrCode(),
+                          data: accountId,
+                          width: 220,
+                          height: 220,
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      SelectableText(
+                        accountId,
+                        style: AppTypography.inter(fontSize: 12, color: Colors.white38, letterSpacing: 1),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
+                ),
+                
+                const SizedBox(height: 32),
+
+                // ── Navigation Cards ─────────────────────────────────────────
+                _DashboardActionCard(
+                  title: 'My Wallets',
+                  subtitle: 'View balances and add new currencies',
+                  icon: Icons.account_balance_wallet_rounded,
+                  onTap: () => context.push('/wallet/list'),
+                ),
+                
+                const SizedBox(height: 16),
+                
+                _DashboardActionCard(
+                  title: 'Transaction History',
+                  subtitle: 'View all recent P2P and top-up activity',
+                  icon: Icons.history_rounded,
+                  onTap: () {
+                    context.push('/wallet/list');
+                  },
+                ),
+                
+                const SizedBox(height: 40),
+                Text(
+                  'Powered by Lynk-X Pay',
+                  style: AppTypography.inter(fontSize: 12, color: Colors.white24, fontWeight: FontWeight.w500),
+                ),
+              ],
             ),
           );
         },
       ),
     );
   }
-
-  void _showAddWalletDialog(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: AppColors.tertiary,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-      builder: (context) => Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Add New Wallet', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            const Text('Select a currency to create a new wallet.', style: TextStyle(color: Colors.white54, fontSize: 14)),
-            const SizedBox(height: 24),
-            Wrap(
-              spacing: 12,
-              runSpacing: 12,
-              children: ['KES', 'USD', 'GBP', 'EUR', 'NGN', 'UGX'].map((c) {
-                return GestureDetector(
-                  onTap: () {
-                    Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('$c wallet will be created upon your first transaction.')),
-                    );
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.05),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.white10),
-                    ),
-                    child: Text(c, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                  ),
-                );
-              }).toList(),
-            ),
-            const SizedBox(height: 32),
-          ],
-        ),
-      ),
-    );
-  }
 }
 
-class _WalletTile extends StatelessWidget {
-  final WalletBalance balance;
-  const _WalletTile({required this.balance});
+class _DashboardActionCard extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  const _DashboardActionCard({
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: () => context.push('/wallet/${balance.currency}'),
+      onTap: onTap,
       child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [
-              AppColors.primary.withValues(alpha: 0.1),
-              Colors.white.withValues(alpha: 0.02),
-            ],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
+          color: AppColors.secondaryBackground,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
         ),
         child: Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(12),
+              width: 56,
+              height: 56,
               decoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: 0.15),
-                shape: BoxShape.circle,
+                color: AppColors.primary.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(16),
               ),
-              child: Text(
-                balance.currency.substring(0, 1),
-                style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 18),
-              ),
+              child: Icon(icon, color: AppColors.primary, size: 28),
             ),
             const SizedBox(width: 16),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(balance.currency, style: const TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w600)),
                   Text(
-                    '${balance.currency} ${balance.balance.toStringAsFixed(2)}',
-                    style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+                    title,
+                    style: AppTypography.inter(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle,
+                    style: AppTypography.inter(fontSize: 13, color: Colors.white54),
                   ),
                 ],
               ),

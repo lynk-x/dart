@@ -1,6 +1,9 @@
 import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:crypto/crypto.dart';
+import 'dart:convert';
+import 'package:local_auth/local_auth.dart';
 
 import 'package:lynk_x/presentation/features/wallet/models/wallet_model.dart';
 import 'wallet_state.dart';
@@ -18,6 +21,7 @@ class WalletCubit extends Cubit<WalletState> {
   WalletCubit() : super(const WalletState());
 
   final _supabase = Supabase.instance.client;
+  final _localAuth = LocalAuthentication();
 
   // Realtime subscription for live balance updates
   RealtimeChannel? _balanceChannel;
@@ -34,7 +38,7 @@ class WalletCubit extends Cubit<WalletState> {
   /// Fetch initial wallet data and subscribe to realtime balance updates.
   Future<void> init() async {
     emit(state.copyWith(isLoading: true, clearError: true));
-    await Future.wait([_fetchBalances(), _fetchTransactions(reset: true)]);
+    await Future.wait([_fetchBalances(), _fetchTransactions(reset: true), _checkPinStatus()]);
     _subscribeToBalanceUpdates();
     _authSubscription = _supabase.auth.onAuthStateChange.listen((event) {
       if (event.event == AuthChangeEvent.tokenRefreshed ||
@@ -60,14 +64,16 @@ class WalletCubit extends Cubit<WalletState> {
       // Fetch all wallets for the current user's account(s)
       final response = await _supabase
           .from('account_wallets')
-          .select('currency, balance, pending_balance')
+          .select('account_id, currency, balance, pending_balance:escrow_balance')
           .order('currency', ascending: true);
 
       final balances = (response as List)
           .map((row) => WalletBalance.fromMap(row as Map<String, dynamic>))
           .toList();
 
-      emit(state.copyWith(balances: balances, isLoading: false));
+      final accountId = balances.isNotEmpty ? (response[0]['account_id'] as String) : null;
+
+      emit(state.copyWith(balances: balances, accountId: accountId, isLoading: false));
     } catch (e) {
       emit(state.copyWith(
         isLoading: false,
@@ -373,4 +379,98 @@ class WalletCubit extends Cubit<WalletState> {
     ));
     _fetchTransactions(reset: true);
   }
+
+  /// Explicitly create a zero-balance wallet for a currency.
+  Future<void> createWallet(String currency) async {
+    try {
+      emit(state.copyWith(isLoading: true));
+      await _supabase.rpc('create_wallet', params: {'p_currency': currency});
+      await _fetchBalances();
+    } catch (e) {
+      emit(state.copyWith(
+        isLoading: false,
+        error: 'Failed to create wallet: ${e.toString()}',
+      ));
+    }
+  }
+
+  // ── Security ───────────────────────────────────────────────────────────────
+
+  Future<void> _checkPinStatus() async {
+    try {
+      final res = await _supabase
+          .from('user_profile')
+          .select('wallet_pin_hash')
+          .eq('id', _supabase.auth.currentUser?.id ?? '')
+          .single();
+      
+      final hasPin = res['wallet_pin_hash'] != null;
+      emit(state.copyWith(hasPinSet: hasPin));
+    } catch (_) {}
+  }
+
+  String _hashPin(String pin) {
+    final salt = _supabase.auth.currentUser?.id ?? 'lynk-salt';
+    final bytes = utf8.encode(pin + salt);
+    return sha256.convert(bytes).toString();
+  }
+
+  Future<void> setWalletPin(String pin) async {
+    try {
+      emit(state.copyWith(isLoading: true));
+      final hash = _hashPin(pin);
+      await _supabase.rpc('set_wallet_pin', params: {'p_pin_hash': hash});
+      emit(state.copyWith(hasPinSet: true, isWalletUnlocked: true, isLoading: false));
+    } catch (e) {
+      emit(state.copyWith(isLoading: false, error: 'Failed to set PIN: ${e.toString()}'));
+    }
+  }
+
+  Future<bool> unlockWithPin(String pin) async {
+    try {
+      final hash = _hashPin(pin);
+      final isValid = await _supabase.rpc('verify_wallet_pin', params: {'p_pin_hash': hash}) as bool;
+      if (isValid) {
+        emit(state.copyWith(isWalletUnlocked: true));
+        return true;
+      }
+      return false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<bool> unlockWithBiometrics() async {
+    try {
+      final canCheck = await _localAuth.canCheckBiometrics;
+      if (!canCheck) return false;
+
+      final didAuth = await _localAuth.authenticate(
+        localizedReason: 'Unlock your Lynk-X Wallet',
+        options: const AuthenticationOptions(stickyAuth: true, biometricOnly: true),
+      );
+
+      if (didAuth) {
+        emit(state.copyWith(isWalletUnlocked: true));
+        return true;
+      }
+      return false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  void lockWallet() {
+    emit(state.copyWith(isWalletUnlocked: false));
+  }
+
+  /// PIN Recovery Strategy:
+  /// Since the Wallet PIN is a second factor of authentication, recovery must
+  /// be tied to the primary account security. 
+  /// 
+  /// 1. A "Forgot PIN" action will trigger a server-side event that sends a 
+  ///    secure one-time-link (OTL) to the user's registered email/phone.
+  /// 2. Clicking the OTL will allow the user to set a new PIN.
+  /// 3. As a safety measure, resetting the PIN will place a 24-48 hour "hold"
+  ///    on high-value withdrawals to prevent account takeover abuse.
 }
