@@ -30,6 +30,7 @@ class PresenceDrawer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Drawer(
+      width: (MediaQuery.of(context).size.width * 0.85).clamp(280, 320),
       backgroundColor: Colors.black,
       shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.only(topLeft: Radius.circular(40))),
