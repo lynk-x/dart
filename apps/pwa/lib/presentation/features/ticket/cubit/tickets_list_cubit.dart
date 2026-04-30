@@ -38,32 +38,14 @@ class TicketsListCubit extends Cubit<TicketsListState> {
         return;
       }
 
-      // 1. Get profile for holder name
-      final profileResponse = await Supabase.instance.client
-          .from('user_profile')
-          .select('full_name')
-          .eq('id', user.id)
-          .single();
-      
-      final holderName = profileResponse['full_name'] as String? ?? 'Me';
-
-      // 2. Get tickets with joined event and tier data
-      final response = await Supabase.instance.client.schema('tickets').from('tickets').select('''
-            *,
-            events (
-              title,
-              location,
-              starts_at,
-              ends_at,
-              media
-            ),
-            ticket_tiers (
-              display_name
-            )
-          ''').eq('user_id', user.id).order('created_at', ascending: false);
+      // Use vw_user_tickets view which is pre-joined and RLS-protected
+      final response = await Supabase.instance.client
+          .from('vw_user_tickets')
+          .select()
+          .order('purchased_at', ascending: false);
 
       final tickets = (response as List).map((data) {
-        return TicketModel.fromMap(data as Map<String, dynamic>, holderName: holderName);
+        return TicketModel.fromView(data as Map<String, dynamic>);
       }).toList();
 
       emit(state.copyWith(isLoading: false, tickets: tickets));

@@ -56,12 +56,32 @@ class TicketModel {
           ?? media?['poster'] as String?
           ?? media?['hero'] as String?,
       tierName: tier['display_name'] as String,
-      // Schema column is 'code', not 'ticket_code'
       ticketCode: map['ticket_code'] as String,
       status: ticketStatus,
       isRedeemed: ticketStatus == 'used',
-      redeemedAt: null,
+      redeemedAt: map['redeemed_at'] != null ? DateTime.parse(map['redeemed_at'] as String) : null,
       holderName: holderName,
+      purchasedPrice: (map['purchased_price'] as num?)?.toDouble(),
+      purchasedCurrency: map['purchased_currency'] as String?,
+    );
+  }
+
+  factory TicketModel.fromView(Map<String, dynamic> map) {
+    final ticketStatus = map['ticket_status'] as String? ?? 'active';
+    return TicketModel(
+      id: map['ticket_id'] as String,
+      eventId: map['event_id'] as String,
+      eventTitle: map['event_title'] as String,
+      locationName: map['location_name'] as String? ?? 'Online',
+      startsAt: DateTime.parse(map['starts_at'] as String),
+      endsAt: DateTime.parse(map['ends_at'] as String),
+      thumbnailUrl: map['thumbnail_url'] as String?,
+      tierName: map['tier_name'] as String,
+      ticketCode: map['ticket_code'] as String,
+      status: ticketStatus,
+      isRedeemed: ticketStatus == 'used',
+      redeemedAt: map['redeemed_at'] != null ? DateTime.parse(map['redeemed_at'] as String) : null,
+      holderName: map['holder_name'] as String? ?? 'Guest Attendee',
       purchasedPrice: (map['purchased_price'] as num?)?.toDouble(),
       purchasedCurrency: map['purchased_currency'] as String?,
     );

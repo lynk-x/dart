@@ -20,42 +20,23 @@ class TicketCubit extends Cubit<TicketState> {
     if (!isSilent) emit(state.copyWith(isLoading: true, error: null));
 
     try {
-      final response = await Supabase.instance.client.schema('tickets').from('tickets').select('''
-            *,
-            events (
-              title,
-              location,
-              starts_at,
-              ends_at,
-              media
-            ),
-            ticket_tiers (
-              display_name
-            ),
-            user_profile:user_id (
-              full_name
-            ),
-            ticket_listings!ticket_listings_ticket_id_fkey (
-              id,
-              status,
-              asking_price,
-              currency,
-              buyer_id,
-              expires_at
-            )
-          ''').eq('id', ticketId).single();
+      // 1. Fetch ticket data from view
+      final response = await Supabase.instance.client
+          .from('vw_user_tickets')
+          .select()
+          .eq('ticket_id', ticketId)
+          .single();
 
-      final userProfile = response['user_profile'] as Map<String, dynamic>?;
-      final holderName = userProfile?['full_name'] as String? ?? 'Guest Attendee';
+      final ticket = TicketModel.fromView(response);
 
-      final ticket = TicketModel.fromMap(response, holderName: holderName);
+      // 2. Fetch pending listings separately (as joins on views can be complex for PostgREST)
+      final listingsResponse = await Supabase.instance.client
+          .from('ticket_listings')
+          .select('id, status, asking_price, currency, buyer_id, expires_at')
+          .eq('ticket_id', ticketId)
+          .eq('status', 'pending');
 
-      // Extract pending listing if any
-      final listings = response['ticket_listings'] as List<dynamic>? ?? [];
-      final pendingListing = listings
-          .cast<Map<String, dynamic>>()
-          .where((l) => l['status'] == 'pending')
-          .firstOrNull;
+      final pendingListing = (listingsResponse as List).cast<Map<String, dynamic>>().firstOrNull;
 
       emit(state.copyWith(
         isLoading: false,
