@@ -81,8 +81,19 @@ class _ChatBubbleState extends State<ChatBubble> {
             : CrossAxisAlignment.start,
         children: [
           if (!widget.message.isMe && widget.showSenderInfo) _buildSenderInfo(),
-          if (shouldBlur) _buildBlurredBubble() else _buildBubble(),
-          if (widget.message.isMe && widget.showSenderInfo) _buildStatusIndicator(),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: widget.message.isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              if (widget.message.isMe) ...[
+                _buildStatusIndicator(),
+                _buildMoreIcon(),
+              ],
+              if (shouldBlur) _buildBlurredBubble() else _buildBubble(),
+              if (!widget.message.isMe) _buildMoreIcon(),
+            ],
+          ),
           if (widget.showActions) _buildActions(context),
         ],
       ),
@@ -90,10 +101,26 @@ class _ChatBubbleState extends State<ChatBubble> {
     );
   }
 
+  Widget _buildMoreIcon() {
+    final isLargeScreen = MediaQuery.of(context).size.width > 600;
+    if (!isLargeScreen) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      child: IconButton(
+        icon: const Icon(Icons.more_vert, size: 18, color: Colors.white24),
+        padding: EdgeInsets.zero,
+        constraints: const BoxConstraints(),
+        onPressed: widget.onLongPressBubble,
+        tooltip: 'Actions',
+      ),
+    );
+  }
+
   Widget _buildStatusIndicator() {
     if (widget.message.isSending) {
       return const Padding(
-        padding: EdgeInsets.only(top: 2, right: 4),
+        padding: EdgeInsets.only(right: 6, bottom: 4),
         child: SizedBox(
           width: 10,
           height: 10,
@@ -102,19 +129,9 @@ class _ChatBubbleState extends State<ChatBubble> {
       );
     }
     if (widget.message.hasError) {
-      return Padding(
-        padding: const EdgeInsets.only(top: 2, right: 4),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.error_outline, size: 12, color: Colors.redAccent),
-            const SizedBox(width: 3),
-            Text(
-              'Failed to send',
-              style: AppTypography.inter(fontSize: 10, color: Colors.redAccent),
-            ),
-          ],
-        ),
+      return const Padding(
+        padding: EdgeInsets.only(right: 6, bottom: 4),
+        child: Icon(Icons.error_outline, size: 14, color: Colors.redAccent),
       );
     }
     return const SizedBox.shrink();
