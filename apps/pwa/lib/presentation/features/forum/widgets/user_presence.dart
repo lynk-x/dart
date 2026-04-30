@@ -94,7 +94,7 @@ class _UserPresenceCardState extends State<UserPresenceCard> {
             label: 'View Ticket',
             onTap: () {
               _toggleActions();
-              context.push('/ticket');
+              context.push('/tickets');
             },
             color: AppColors.primary,
           ),

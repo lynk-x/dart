@@ -80,7 +80,7 @@ abstract class BaseMessageCubit<T extends BaseMessageState> extends HydratedCubi
 
     channel?.onPostgresChanges(
       event: PostgresChangeEvent.all,
-      schema: 'public',
+      schema: 'forum_messages',
       table: 'forum_messages',
       filter: PostgresChangeFilter(
         type: PostgresChangeFilterType.eq,

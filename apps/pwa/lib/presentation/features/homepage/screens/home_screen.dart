@@ -114,7 +114,7 @@ class _HomeViewState extends State<HomeView>
         backgroundColor: AppColors.primaryBackground,
         drawer: const HomeDrawer(),
         appBar: _buildAppBar(),
-      body: BlocBuilder<HomeCubit, HomeState>(
+        body: BlocBuilder<HomeCubit, HomeState>(
         builder: (context, state) {
           // Full-screen loader on first load
           if (state.isLoading) {

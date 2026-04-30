@@ -217,16 +217,6 @@ class _HomeDrawerState extends State<HomeDrawer> {
                     context.push('/edit-profile');
                   },
                 ),
-                ListTile(
-                  leading:
-                      const Icon(Icons.confirmation_num, color: Colors.white),
-                  title: const Text('My Tickets',
-                      style: TextStyle(color: Colors.white)),
-                  onTap: () {
-                    context.pop();
-                    context.push('/tickets');
-                  },
-                ),
                 if (context.read<FeatureFlagCubit>().isEnabled('enable_wallet'))
                   ListTile(
                     leading: const Icon(Icons.account_balance_wallet,
@@ -238,6 +228,16 @@ class _HomeDrawerState extends State<HomeDrawer> {
                       context.push('/wallet');
                     },
                   ),
+                ListTile(
+                  leading:
+                      const Icon(Icons.confirmation_num, color: Colors.white),
+                  title: const Text('My Tickets',
+                      style: TextStyle(color: Colors.white)),
+                  onTap: () {
+                    context.pop();
+                    context.push('/tickets');
+                  },
+                ),
                 ListTile(
                   leading: const Icon(Icons.chat_bubble_outline,
                       color: Colors.white),

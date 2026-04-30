@@ -162,7 +162,7 @@ class ForumCubit extends Cubit<ForumState> {
       try {
         final memberData = await Supabase.instance.client
             .from('forum_members')
-            .select('is_muted, has_muted_live_chats_media, role')
+            .select('is_muted, has_muted_live_chats_media, role_id')
             .eq('forum_id', forumId)
             .eq('user_id', userId)
             .maybeSingle();
@@ -170,7 +170,7 @@ class ForumCubit extends Cubit<ForumState> {
         if (memberData != null) {
           isMuted = memberData['is_muted'] == true;
           hasMutedLiveChatsMedia = memberData['has_muted_live_chats_media'] == true;
-          final role = memberData['role'] as String?;
+          final role = memberData['role_id'] as String?;
           isModerator = role == 'moderator' || role == 'organizer';
           isOrganizer = role == 'organizer';
         }

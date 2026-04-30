@@ -105,18 +105,20 @@ class _UpdatesTabState extends State<UpdatesTab>
                     ),
                   ),
                 ),
-                MessageInput(
-                  onSendMessage: (text, replyTo) => updatesCubit.sendMessage(
-                    text,
-                    isOrganizer: mainState.isOrganizer,
-                    isPremium: mainState.isPremium,
+                if (mainState.isOrganizer)
+                  MessageInput(
+                    onSendMessage: (text, replyTo) => updatesCubit.sendMessage(
+                      text,
+                      isOrganizer: mainState.isOrganizer,
+                      isPremium: mainState.isPremium,
+                    ),
+                    onActionTap: widget.onActionTap,
+                    mentionedMedia: updatesState.mentionedMedia,
+                    onCancelMention: () => updatesCubit.setMentionedMedia(null),
+                    onChanged: (text) {},
+                    members: mainState.members,
+                    isOrganizer: true,
                   ),
-                  onActionTap: widget.onActionTap,
-                  mentionedMedia: updatesState.mentionedMedia,
-                  onCancelMention: () => updatesCubit.setMentionedMedia(null),
-                  onChanged: (text) {},
-                  members: mainState.members,
-                ),
               ],
             );
           },

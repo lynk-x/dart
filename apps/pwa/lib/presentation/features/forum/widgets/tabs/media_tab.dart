@@ -170,7 +170,7 @@ class _MediaTabState extends State<MediaTab>
                       ),
                     ),
                   ),
-                if (!(mainState.isMuted || mainState.isReadOnly))
+                if (!mainState.isMuted && (!mainState.isReadOnly || mainState.isOrganizer))
                   _buildUploadActions(context, mediaState.isUploading),
               ],
             );

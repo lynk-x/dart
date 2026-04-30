@@ -12,6 +12,9 @@ class MessageInput extends StatefulWidget {
   final VoidCallback? onActionTap;
   final ValueChanged<String>? onChanged;
   final List<Map<String, dynamic>> members;
+  final bool isReadOnly;
+  final bool isMuted;
+  final bool isOrganizer;
 
   const MessageInput({
     super.key,
@@ -23,6 +26,9 @@ class MessageInput extends StatefulWidget {
     this.onActionTap,
     this.onChanged,
     this.members = const [],
+    this.isReadOnly = false,
+    this.isMuted = false,
+    this.isOrganizer = false,
   });
 
   @override
@@ -90,6 +96,51 @@ class _MessageInputState extends State<MessageInput> {
 
   @override
   Widget build(BuildContext context) {
+    if (widget.isReadOnly && !widget.isOrganizer) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        width: double.infinity,
+        decoration: const BoxDecoration(
+          color: Colors.black26,
+          border: Border(top: BorderSide(color: Colors.white10)),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.lock_outline_rounded,
+                color: Colors.white38, size: 16),
+            const SizedBox(width: 8),
+            Text(
+              'This forum is in read-only mode',
+              style: AppTypography.inter(fontSize: 13, color: Colors.white38),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (widget.isMuted) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        width: double.infinity,
+        decoration: const BoxDecoration(
+          color: Colors.black26,
+          border: Border(top: BorderSide(color: Colors.white10)),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.mic_off_rounded, color: Colors.redAccent, size: 16),
+            const SizedBox(width: 8),
+            Text(
+              'You have been muted in this forum',
+              style: AppTypography.inter(fontSize: 13, color: Colors.redAccent),
+            ),
+          ],
+        ),
+      );
+    }
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: const BoxDecoration(
@@ -133,7 +184,8 @@ class _MessageInputState extends State<MessageInput> {
               const SizedBox(width: 4),
               IconButton(
                 tooltip: 'Send message',
-                icon: const Icon(Icons.send_rounded, color: Colors.white, size: 26),
+                icon: const Icon(Icons.send_rounded,
+                    color: Colors.white, size: 26),
                 onPressed: _handleSend,
               ),
             ],
