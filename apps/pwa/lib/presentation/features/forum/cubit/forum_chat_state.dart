@@ -54,10 +54,10 @@ class ForumChatState extends BaseMessageState {
 
   Map<String, dynamic> toJson() => baseToMap();
 
-  static ForumChatState fromMap(Map<String, dynamic> map) {
+  static ForumChatState fromMap(Map<String, dynamic> map, [String userId = '']) {
     return ForumChatState(
       messages: (map['messages'] as List? ?? [])
-          .map((m) => ChatMessage.fromMap(m as Map<String, dynamic>, ''))
+          .map((m) => ChatMessage.fromMap(m as Map<String, dynamic>, userId))
           .toList(),
       searchQuery: map['searchQuery'] as String? ?? '',
       linkPreviews: (map['linkPreviews'] as Map? ?? {}).map(

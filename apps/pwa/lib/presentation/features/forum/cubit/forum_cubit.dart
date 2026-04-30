@@ -20,11 +20,11 @@ class ForumCubit extends Cubit<ForumState> {
       : super(const ForumState()) {
     final user = Supabase.instance.client.auth.currentUser;
     userId = user?.id ?? kGuestUserId;
-    final initialName = user?.userMetadata?['full_name'] ?? 'A User';
-    userName = initialName;
+    userName = 'A User';
     _channel = Supabase.instance.client.channel('forum_$forumId');
     _channel?.subscribe();
-    emit(state.copyWith(userName: initialName));
+    // userName is intentionally not emitted here — _syncUserStatus sets it
+    // from user_profile.user_name which is the canonical display name.
   }
 
   Future<void> init() async {
@@ -153,9 +153,7 @@ class ForumCubit extends Cubit<ForumState> {
         if (forumData != null) {
           forumStatus = forumData['status'] as String? ?? 'open';
           eventIdFromDb = forumData['event_id'] as String?;
-          forumName = forumData['title'] as String? ?? 
-                      forumData['events']?['title'] as String? ?? 
-                      'Community Forum';
+          forumName = forumData['events']?['title'] as String? ?? 'Community Forum';
         }
       } catch (e) {
         debugPrint('[ForumCubit] Forum fetch error: $e');
@@ -271,6 +269,7 @@ class ForumCubit extends Cubit<ForumState> {
       await Supabase.instance.client.rpc('moderate_user_safe', params: {
         'p_target_user_id': targetUserId,
         'p_action': 'ban',
+        'p_forum_id': forumId,
         'p_reason': reason ?? 'Banned by organizer',
       });
       return true;
@@ -428,24 +427,44 @@ class ForumCubit extends Cubit<ForumState> {
   Future<void> _persistReaction(ChatMessage message, String emoji) async {
     if (userId == kGuestUserId) return;
     try {
-      // Toggle reaction (if already exist delete, else insert)
-      // For now simple insert-or-ignore/upsert via RPC or logic
-      // Assuming a simple insert for demo, but in production we'd use a toggle RPC
-      await Supabase.instance.client.schema('message_reactions').from('message_reactions').upsert({
-        'message_id': message.id,
-        'message_created_at': message.createdAt.toIso8601String(),
-        'user_id': userId,
-        'emoji_code': emoji,
-      });
+      final existing = await Supabase.instance.client
+          .schema('message_reactions')
+          .from('message_reactions')
+          .select('id')
+          .eq('message_id', message.id)
+          .eq('user_id', userId)
+          .eq('emoji_code', emoji)
+          .maybeSingle();
 
-      // Broadcast reaction update so others can update their count immediately
+      final isRemoving = existing != null;
+
+      if (isRemoving) {
+        await Supabase.instance.client
+            .schema('message_reactions')
+            .from('message_reactions')
+            .delete()
+            .eq('message_id', message.id)
+            .eq('user_id', userId)
+            .eq('emoji_code', emoji);
+      } else {
+        await Supabase.instance.client
+            .schema('message_reactions')
+            .from('message_reactions')
+            .insert({
+          'message_id': message.id,
+          'message_created_at': message.createdAt.toIso8601String(),
+          'user_id': userId,
+          'emoji_code': emoji,
+        });
+      }
+
       _channel?.sendBroadcastMessage(
         event: 'message_reaction',
         payload: {
           'message_id': message.id,
           'emoji_code': emoji,
           'user_id': userId,
-          'action': 'added',
+          'action': isRemoving ? 'removed' : 'added',
         },
       );
     } catch (e, stack) {

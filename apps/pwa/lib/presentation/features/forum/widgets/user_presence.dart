@@ -100,7 +100,7 @@ class _UserPresenceCardState extends State<UserPresenceCard> {
           ),
         ],
 
-        if (!widget.isOrganizer) ...[
+        if (!widget.isPrimary) ...[
           ActionBarItem(
             label: 'Report',
             onTap: () {

@@ -92,7 +92,7 @@ class ForumUpdatesCubit extends BaseMessageCubit<ForumUpdatesState> {
           .schema('forum_messages')
           .from('forum_messages')
           .select(
-              '*, user_profile(full_name, is_premium), forum_members!inner(role_id)')
+              '*, user_profile(user_name, is_premium), forum_members!inner(role_id)')
           .eq('forum_id', forumId)
           .eq('message_type', 'announcement');
 
@@ -210,7 +210,7 @@ class ForumUpdatesCubit extends BaseMessageCubit<ForumUpdatesState> {
   }
 
   @override
-  ForumUpdatesState? fromJson(Map<String, dynamic> json) => ForumUpdatesState.fromMap(json);
+  ForumUpdatesState? fromJson(Map<String, dynamic> json) => ForumUpdatesState.fromMap(json, userId);
 
   @override
   Map<String, dynamic>? toJson(ForumUpdatesState state) => state.toJson();

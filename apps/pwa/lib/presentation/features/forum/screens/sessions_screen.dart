@@ -114,6 +114,7 @@ class SessionsView extends StatelessWidget {
                 return _SessionListItem(
                   session: session,
                   isOrganizer: isOrganizer,
+                  onEdit: () => _showSessionEditor(context, session: session),
                 );
               },
             ),
@@ -139,7 +140,7 @@ class SessionsView extends StatelessWidget {
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (bottomContext) => StatefulBuilder(
-        builder: (context, setState) => Padding(
+        builder: (_, setState) => Padding(
           padding: EdgeInsets.only(
             bottom: MediaQuery.of(context).viewInsets.bottom,
             left: 24,
@@ -196,15 +197,29 @@ class SessionsView extends StatelessWidget {
                 height: 50,
                 child: ElevatedButton(
                   onPressed: () {
+                    final title = titleController.text.trim();
+                    if (title.isEmpty) {
+                      ScaffoldMessenger.of(bottomContext).showSnackBar(
+                        const SnackBar(content: Text('Session title is required.')),
+                      );
+                      return;
+                    }
+                    if (!endsAt.isAfter(startsAt)) {
+                      ScaffoldMessenger.of(bottomContext).showSnackBar(
+                        const SnackBar(content: Text('End time must be after start time.')),
+                      );
+                      return;
+                    }
+
                     final newSession = SessionModel(
-                      id: session?.id ?? '', // ID handled by DB on insert
+                      id: session?.id ?? '',
                       eventId: cubit.eventId,
-                      title: titleController.text,
+                      title: title,
                       startsAt: startsAt,
                       endsAt: endsAt,
-                      room: roomController.text.isEmpty
+                      room: roomController.text.trim().isEmpty
                           ? null
-                          : roomController.text,
+                          : roomController.text.trim(),
                     );
 
                     if (session == null) {
@@ -212,7 +227,7 @@ class SessionsView extends StatelessWidget {
                     } else {
                       cubit.updateSession(newSession);
                     }
-                    Navigator.pop(context);
+                    Navigator.pop(bottomContext);
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
@@ -230,7 +245,7 @@ class SessionsView extends StatelessWidget {
                   child: TextButton(
                     onPressed: () {
                       cubit.deleteSession(session.id);
-                      Navigator.pop(context);
+                      Navigator.pop(bottomContext);
                     },
                     child: const Text('Delete Session',
                         style: TextStyle(color: Colors.redAccent)),
@@ -266,8 +281,13 @@ class SessionsView extends StatelessWidget {
 class _SessionListItem extends StatelessWidget {
   final SessionModel session;
   final bool isOrganizer;
+  final VoidCallback? onEdit;
 
-  const _SessionListItem({required this.session, required this.isOrganizer});
+  const _SessionListItem({
+    required this.session,
+    required this.isOrganizer,
+    this.onEdit,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -337,8 +357,7 @@ class _SessionListItem extends StatelessWidget {
           trailing: isOrganizer
               ? IconButton(
                   icon: const Icon(Icons.edit_outlined, color: Colors.white24),
-                  onPressed: () => (context.findAncestorWidgetOfExactType<SessionsView>())
-                      ?._showSessionEditor(context, session: session),
+                  onPressed: onEdit,
                 )
               : null,
         ),

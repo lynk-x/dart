@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:video_player/video_player.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:image_picker/image_picker.dart';
@@ -27,6 +26,7 @@ class MediaTab extends StatefulWidget {
 class _MediaTabState extends State<MediaTab>
     with AutomaticKeepAliveClientMixin {
   final ScrollController _scrollController = ScrollController();
+  bool _loadMoreTriggered = false;
 
   @override
   bool get wantKeepAlive => true;
@@ -44,9 +44,13 @@ class _MediaTabState extends State<MediaTab>
   }
 
   void _onScroll() {
-    if (_scrollController.position.pixels >=
-        _scrollController.position.maxScrollExtent - 200) {
-      context.read<ForumMediaCubit>().loadMore();
+    final pos = _scrollController.position;
+    final nearBottom = pos.pixels >= pos.maxScrollExtent - 200;
+    if (nearBottom && !_loadMoreTriggered) {
+      _loadMoreTriggered = true;
+      context.read<ForumMediaCubit>().loadMore().whenComplete(
+            () => _loadMoreTriggered = false,
+          );
     }
   }
 
@@ -102,7 +106,7 @@ class _MediaTabState extends State<MediaTab>
                                             ClipRRect(
                                               borderRadius: BorderRadius.circular(8),
                                               child: isVideo
-                                                  ? _VideoThumbnailPreview(url: item.url)
+                                                  ? const _VideoThumbnailPreview()
                                                   : CachedNetworkImage(
                                                       imageUrl: displayUrl,
                                                       fit: BoxFit.cover,
@@ -127,11 +131,6 @@ class _MediaTabState extends State<MediaTab>
                                                       ),
                                                     ),
                                             ),
-                                            if (isVideo)
-                                              const Center(
-                                                child: Icon(Icons.play_circle_fill,
-                                                    color: Colors.white70, size: 30),
-                                              ),
                                             if (!item.isApproved)
                                               Container(
                                                 decoration: BoxDecoration(
@@ -251,46 +250,17 @@ class _MediaTabState extends State<MediaTab>
   }
 }
 
-class _VideoThumbnailPreview extends StatefulWidget {
-  final String url;
-  const _VideoThumbnailPreview({required this.url});
-
-  @override
-  State<_VideoThumbnailPreview> createState() => _VideoThumbnailPreviewState();
-}
-
-class _VideoThumbnailPreviewState extends State<_VideoThumbnailPreview> {
-  late VideoPlayerController _controller;
-  bool _initialized = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = VideoPlayerController.networkUrl(Uri.parse(widget.url))
-      ..initialize().then((_) {
-        if (mounted) {
-          setState(() => _initialized = true);
-          _controller.seekTo(const Duration(seconds: 1)); // Show a frame
-        }
-      });
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
+class _VideoThumbnailPreview extends StatelessWidget {
+  const _VideoThumbnailPreview();
 
   @override
   Widget build(BuildContext context) {
-    if (!_initialized) {
-      return Container(
-        color: Colors.grey[900],
-        child: const Center(
-            child: CircularProgressIndicator(strokeWidth: 1, color: Colors.white10)),
-      );
-    }
-    return VideoPlayer(_controller);
+    return Container(
+      color: Colors.grey[900],
+      child: const Center(
+        child: Icon(Icons.play_circle_fill, color: Colors.white38, size: 36),
+      ),
+    );
   }
 }
 

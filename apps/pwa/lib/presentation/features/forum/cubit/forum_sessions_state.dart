@@ -16,11 +16,12 @@ class ForumSessionsState extends Equatable {
     List<SessionModel>? sessions,
     bool? isLoading,
     String? errorMessage,
+    bool clearError = false,
   }) {
     return ForumSessionsState(
       sessions: sessions ?? this.sessions,
       isLoading: isLoading ?? this.isLoading,
-      errorMessage: errorMessage ?? this.errorMessage,
+      errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
     );
   }
 

@@ -91,7 +91,7 @@ class ForumChatCubit extends BaseMessageCubit<ForumChatState> {
           .schema('forum_messages')
           .from('forum_messages')
           .select(
-              '*, user_profile(full_name, is_premium), forum_members!inner(role_id)')
+              '*, user_profile(user_name, is_premium), forum_members!inner(role_id)')
           .eq('forum_id', forumId)
           .eq('message_type', 'chat');
 
@@ -164,7 +164,7 @@ class ForumChatCubit extends BaseMessageCubit<ForumChatState> {
 
     final newMessage = ChatMessage(
       id: messageId,
-      sender: 'Me',
+      sender: userName,
       userId: userId,
       message: text,
       createdAt: now,
@@ -279,7 +279,7 @@ class ForumChatCubit extends BaseMessageCubit<ForumChatState> {
   }
 
   @override
-  ForumChatState? fromJson(Map<String, dynamic> json) => ForumChatState.fromMap(json);
+  ForumChatState? fromJson(Map<String, dynamic> json) => ForumChatState.fromMap(json, userId);
 
   @override
   Map<String, dynamic>? toJson(ForumChatState state) => state.toJson();

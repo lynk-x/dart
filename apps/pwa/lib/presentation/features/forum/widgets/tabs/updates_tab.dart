@@ -107,7 +107,7 @@ class _UpdatesTabState extends State<UpdatesTab>
                 ),
                 if (mainState.isOrganizer)
                   MessageInput(
-                    onSendMessage: (text, replyTo) => updatesCubit.sendMessage(
+                    onSendMessage: (text, _) => updatesCubit.sendMessage(
                       text,
                       isOrganizer: mainState.isOrganizer,
                       isPremium: mainState.isPremium,

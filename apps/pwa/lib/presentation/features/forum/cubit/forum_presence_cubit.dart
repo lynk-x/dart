@@ -39,17 +39,8 @@ class ForumPresenceCubit extends Cubit<ForumPresenceState> {
       _updatePresence();
     });
 
-    // Subscribe to status changes. 
-    // Note: If the channel was already subscribed by ForumCubit, this callback 
-    // will still fire with 'subscribed' in the latest Supabase SDK versions.
-    channel?.subscribe((status, error) {
-      debugPrint('[ForumPresenceCubit] Channel status: $status, error: $error');
-      if (status == RealtimeSubscribeStatus.subscribed) {
-        _trackUser();
-      }
-    });
-
-    // Attempt an immediate track. Supabase will handle connection state internally.
+    // The channel is already subscribed by ForumCubit; calling subscribe() again
+    // would create a duplicate subscription. Track immediately instead.
     _trackUser();
     _updatePresence();
   }

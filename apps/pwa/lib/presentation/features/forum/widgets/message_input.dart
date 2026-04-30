@@ -68,7 +68,7 @@ class _MessageInputState extends State<MessageInput> {
       }
       setState(() {
         _filteredMembers = widget.members.where((m) {
-          final name = (m['full_name'] as String?)?.toLowerCase() ?? '';
+          final name = (m['user_name'] as String?)?.toLowerCase() ?? '';
           return name.contains(query);
         }).toList();
         _showMentions = _filteredMembers.isNotEmpty;
@@ -315,7 +315,7 @@ class _MessageInputState extends State<MessageInput> {
                   : null,
             ),
             title: Text(
-              member['full_name'] ?? 'Unknown',
+              member['user_name'] as String? ?? 'Unknown',
               style: AppTypography.inter(fontSize: 13, color: Colors.white),
             ),
             onTap: () => _selectMention(member),

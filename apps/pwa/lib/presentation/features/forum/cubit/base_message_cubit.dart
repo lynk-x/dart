@@ -110,12 +110,9 @@ abstract class BaseMessageCubit<T extends BaseMessageState> extends HydratedCubi
         }
       },
     );
-
-    channel?.subscribe((status, error) {
-      if (status == RealtimeSubscribeStatus.subscribed) {
-        refresh();
-      }
-    });
+    // Do NOT call channel?.subscribe() here — ForumCubit owns the channel
+    // lifecycle and has already subscribed it. Re-subscribing fires duplicate
+    // CDC callbacks and triggers spurious refresh() calls.
   }
 
   MessageType _getTypeEnum(String type) {

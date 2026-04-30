@@ -5,6 +5,16 @@ import 'package:lynk_x/presentation/features/forum/widgets/chat_bubble.dart';
 import 'package:lynk_x/presentation/shared/widgets/empty_state.dart';
 import 'package:lynk_x/presentation/features/forum/cubit/base_message_state.dart';
 
+final _urlRegExp = RegExp(r'(?:(?:https?|ftp)://)?[\w/\-?=%.]+\.[\w/\-?=%.]+');
+
+LinkPreviewData? _linkPreviewFor(String messageText, Map<String, LinkPreviewData> previews) {
+  final match = _urlRegExp.firstMatch(messageText);
+  if (match == null) return null;
+  final raw = messageText.substring(match.start, match.end);
+  final url = raw.startsWith('http') ? raw : 'https://$raw';
+  return previews[url];
+}
+
 /// A specialized widget to render the list of chat messages in the forum.
 /// Handles grouping logic and infinite scroll loading indicators.
 class ChatMessageList extends StatelessWidget {
@@ -115,7 +125,7 @@ class ChatMessageList extends StatelessWidget {
                   onLongPressBubble: onLongPressBubble ??
                       () => onMessageLongPress?.call(message),
                   showActions: selectedMessageId == message.id,
-                  linkPreviewData: chatState.linkPreviews[message.message],
+                  linkPreviewData: _linkPreviewFor(message.message, chatState.linkPreviews),
                   onLinkPreviewDataFetched: onLinkPreviewDataFetched,
                   onMediaTap: onMediaTap,
                 );

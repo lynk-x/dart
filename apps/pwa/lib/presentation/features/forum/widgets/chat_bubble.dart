@@ -1,6 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:lynk_core/core.dart';
 import 'package:intl/intl.dart';
 import 'package:lynk_x/presentation/features/forum/models/forum_model.dart';
@@ -309,15 +310,31 @@ class _ChatBubbleState extends State<ChatBubble> {
   }
 
   Widget _buildImageContent() {
+    final imageUrl = widget.message.thumbnailUrl ?? widget.message.imageUrl!;
     return GestureDetector(
       onTap: () => widget.onMediaTap?.call(widget.message.imageUrl),
       child: Container(
         margin: const EdgeInsets.only(bottom: 6),
         clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(borderRadius: BorderRadius.circular(12)),
-        child: Image.network(
-            widget.message.thumbnailUrl ?? widget.message.imageUrl!,
-            fit: BoxFit.cover),
+        child: CachedNetworkImage(
+          imageUrl: imageUrl,
+          fit: BoxFit.cover,
+          placeholder: (context, url) => Container(
+            height: 120,
+            color: Colors.grey[900],
+            child: const Center(
+              child: CircularProgressIndicator(strokeWidth: 1.5, color: AppColors.primary),
+            ),
+          ),
+          errorWidget: (context, url, err) => Container(
+            height: 120,
+            color: Colors.grey[900],
+            child: const Center(
+              child: Icon(Icons.broken_image, color: Colors.white24),
+            ),
+          ),
+        ),
       ),
     );
   }

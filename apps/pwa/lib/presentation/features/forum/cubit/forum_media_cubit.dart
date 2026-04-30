@@ -35,7 +35,7 @@ class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
         query = query.eq('is_approved', true);
       }
 
-      final data = await query.order('created_at', ascending: false).limit(21);
+      final data = await query.order('created_at', ascending: false).limit(20);
       final media = data.map((json) => ForumMedia.fromMap(json)).toList();
 
       if (!isClosed) {
@@ -50,7 +50,7 @@ class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
   }
 
   Future<void> loadMore() async {
-    if (state.isLoading || isClosed) return;
+    if (state.isLoading || state.isUploading || isClosed) return;
     emit(state.copyWith(isLoading: true));
     final startIndex = state.mediaItems.length;
     try {
@@ -124,9 +124,8 @@ class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
       }
     } catch (e, stack) {
       debugPrint('[ForumMediaCubit] Error: $e\n$stack');
-      if (!isClosed) {
-        emit(state.copyWith(isUploading: false, error: e.toString()));
-      }
+      if (!isClosed) emit(state.copyWith(isUploading: false, error: e.toString()));
+      rethrow;
     }
   }
 

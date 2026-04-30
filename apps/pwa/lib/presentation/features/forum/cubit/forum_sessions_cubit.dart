@@ -9,7 +9,7 @@ class ForumSessionsCubit extends Cubit<ForumSessionsState> {
   ForumSessionsCubit({required this.eventId}) : super(const ForumSessionsState());
 
   Future<void> loadSessions() async {
-    emit(state.copyWith(isLoading: true, errorMessage: null));
+    emit(state.copyWith(isLoading: true, clearError: true));
     try {
       final response = await Supabase.instance.client
           .from('event_sessions')
@@ -31,15 +31,18 @@ class ForumSessionsCubit extends Cubit<ForumSessionsState> {
   }
 
   Future<void> addSession(SessionModel session) async {
+    emit(state.copyWith(isLoading: true, clearError: true));
     try {
-      await Supabase.instance.client.from('event_sessions').insert(session.toMap());
+      final payload = session.toMap()..remove('id');
+      await Supabase.instance.client.from('event_sessions').insert(payload);
       await loadSessions();
     } catch (e) {
-      emit(state.copyWith(errorMessage: 'Failed to add session: $e'));
+      emit(state.copyWith(isLoading: false, errorMessage: 'Failed to add session: $e'));
     }
   }
 
   Future<void> updateSession(SessionModel session) async {
+    emit(state.copyWith(isLoading: true, clearError: true));
     try {
       await Supabase.instance.client
           .from('event_sessions')
@@ -47,11 +50,12 @@ class ForumSessionsCubit extends Cubit<ForumSessionsState> {
           .eq('id', session.id);
       await loadSessions();
     } catch (e) {
-      emit(state.copyWith(errorMessage: 'Failed to update session: $e'));
+      emit(state.copyWith(isLoading: false, errorMessage: 'Failed to update session: $e'));
     }
   }
 
   Future<void> deleteSession(String sessionId) async {
+    emit(state.copyWith(isLoading: true, clearError: true));
     try {
       await Supabase.instance.client
           .from('event_sessions')
@@ -59,7 +63,7 @@ class ForumSessionsCubit extends Cubit<ForumSessionsState> {
           .eq('id', sessionId);
       await loadSessions();
     } catch (e) {
-      emit(state.copyWith(errorMessage: 'Failed to delete session: $e'));
+      emit(state.copyWith(isLoading: false, errorMessage: 'Failed to delete session: $e'));
     }
   }
 }

@@ -128,8 +128,17 @@ GoRouter createRouter(
               final eventId = extras?['eventId'] as String?;
               final isOrganizer = extras?['isOrganizer'] as bool? ?? false;
 
+              if (eventId == null || eventId.isEmpty) {
+                return const Scaffold(
+                  body: Center(
+                    child: Text('Missing event ID.',
+                        style: TextStyle(color: Colors.white)),
+                  ),
+                );
+              }
+
               return SessionsScreen(
-                eventId: eventId ?? '',
+                eventId: eventId,
                 isOrganizer: isOrganizer,
               );
             },
