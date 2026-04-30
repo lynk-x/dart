@@ -42,6 +42,9 @@ class WalletState extends Equatable {
   // Resolved account_id — cached to avoid repeated lookups.
   final String? accountId;
 
+  /// The currency currently being viewed in the transactions sub-page.
+  final String? selectedCurrency;
+
   const WalletState({
     this.balances       = const [],
     this.transactions   = const [],
@@ -57,6 +60,7 @@ class WalletState extends Equatable {
     this.payoutMethods  = const [],
     this.kycTier,
     this.accountId,
+    this.selectedCurrency,
   });
 
   WalletState copyWith({
@@ -79,6 +83,8 @@ class WalletState extends Equatable {
     String? kycTier,
     bool clearKycTier = false,
     String? accountId,
+    String? selectedCurrency,
+    bool clearSelectedCurrency = false,
   }) {
     return WalletState(
       balances:        balances       ?? this.balances,
@@ -95,6 +101,7 @@ class WalletState extends Equatable {
       payoutMethods:   payoutMethods  ?? this.payoutMethods,
       kycTier:         clearKycTier   ? null : kycTier    ?? this.kycTier,
       accountId:       accountId      ?? this.accountId,
+      selectedCurrency: clearSelectedCurrency ? null : selectedCurrency ?? this.selectedCurrency,
     );
   }
 
@@ -104,6 +111,6 @@ class WalletState extends Equatable {
     isLoading, isLoadingMore, error,
     topUpStatus, topUpError, topUpPaymentUrl,
     withdrawStatus, withdrawError, payoutMethods,
-    kycTier, accountId,
+    kycTier, accountId, selectedCurrency,
   ];
 }

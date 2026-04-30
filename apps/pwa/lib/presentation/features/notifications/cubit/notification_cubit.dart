@@ -18,9 +18,8 @@ class NotificationCubit extends Cubit<NotificationState> {
     emit(const NotificationLoading());
     try {
       final data = await Supabase.instance.client
-          .schema('notifications').from('notifications')
+          .schema('api').from('v1_notifications')
           .select()
-          .eq('user_id', uid)
           .order('created_at', ascending: false);
 
       final notifications = (data as List)
@@ -39,10 +38,10 @@ class NotificationCubit extends Cubit<NotificationState> {
     if (uid == null) return;
     _channel?.unsubscribe();
     _channel = Supabase.instance.client
-        .channel('public:notifications:user=$uid')
+        .channel('notifications_realtime:$uid')
         .onPostgresChanges(
           event: PostgresChangeEvent.all,
-          schema: 'public',
+          schema: 'notifications',
           table: 'notifications',
           filter: PostgresChangeFilter(
             type: PostgresChangeFilterType.eq,
@@ -89,7 +88,7 @@ class NotificationCubit extends Cubit<NotificationState> {
     }
     try {
       await Supabase.instance.client
-          .schema('notifications').from('notifications')
+          .schema('api').from('v1_notifications')
           .update({'is_read': true}).eq('id', notificationId);
     } catch (_) {
       // Best-effort — next load will reconcile
@@ -105,9 +104,8 @@ class NotificationCubit extends Cubit<NotificationState> {
       final uid = _userId;
       if (uid == null) return;
       await Supabase.instance.client
-          .schema('notifications').from('notifications')
+          .schema('api').from('v1_notifications')
           .update({'is_read': true})
-          .eq('user_id', uid)
           .eq('is_read', false);
 
       final updatedList = currentState.notifications
@@ -122,7 +120,7 @@ class NotificationCubit extends Cubit<NotificationState> {
   Future<void> deleteNotification(String notificationId) async {
     try {
       await Supabase.instance.client
-          .schema('notifications').from('notifications')
+          .schema('api').from('v1_notifications')
           .delete()
           .eq('id', notificationId);
       // Real-time listener will handle the UI update

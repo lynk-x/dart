@@ -9,7 +9,8 @@ import 'package:lynk_x/presentation/features/wallet/models/wallet_model.dart';
 
 class TopUpSheet extends StatefulWidget {
   final List<WalletBalance> currentBalances;
-  const TopUpSheet({super.key, required this.currentBalances});
+  final String? initialCurrency;
+  const TopUpSheet({super.key, required this.currentBalances, this.initialCurrency});
 
   @override
   State<TopUpSheet> createState() => _TopUpSheetState();
@@ -28,8 +29,14 @@ class _TopUpSheetState extends State<TopUpSheet> {
 
   final _amountController = TextEditingController();
   final _phoneController  = TextEditingController();
-  String _currency = 'KES';
+  late String _currency;
   double? _quickPick;
+
+  @override
+  void initState() {
+    super.initState();
+    _currency = widget.initialCurrency ?? 'KES';
+  }
 
   @override
   void dispose() {

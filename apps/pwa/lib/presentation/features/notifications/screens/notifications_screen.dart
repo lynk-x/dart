@@ -18,6 +18,15 @@ class NotificationsPage extends StatefulWidget {
 }
 
 class _NotificationsPageState extends State<NotificationsPage> {
+  @override
+  void initState() {
+    super.initState();
+    final cubit = context.read<NotificationCubit>();
+    if (cubit.state is NotificationInitial) {
+      cubit.loadNotifications();
+    }
+  }
+
   void _handleNotificationTap(NotificationModel notification) {
     // 1. Mark as read immediately
     context.read<NotificationCubit>().markAsRead(notification.id);

@@ -16,6 +16,7 @@ import 'package:lynk_x/presentation/features/profile/screens/profile_setup_scree
 import 'package:lynk_x/presentation/features/feedback/screens/feedback_screen.dart';
 import 'package:lynk_x/presentation/features/splashscreen/screens/splash_screen.dart';
 import 'package:lynk_x/presentation/features/wallet/screens/wallet_screen.dart';
+import 'package:lynk_x/presentation/features/wallet/screens/wallet_transactions_screen.dart';
 import 'package:lynk_x/presentation/features/kyc/screens/kyc_verification_screen.dart';
 import 'package:lynk_x/presentation/features/subscription/screens/subscription_screen.dart';
 import 'package:lynk_x/presentation/shared/screens/system_error_screen.dart';
@@ -141,6 +142,15 @@ GoRouter createRouter(
           }
           return const WalletPage();
         },
+        routes: [
+          GoRoute(
+            path: ':currency',
+            builder: (context, state) {
+              final currency = state.pathParameters['currency']!;
+              return WalletTransactionsPage(currency: currency);
+            },
+          ),
+        ],
       ),
       GoRoute(
           path: '/edit-profile', builder: (_, __) => const EditProfilePage()),

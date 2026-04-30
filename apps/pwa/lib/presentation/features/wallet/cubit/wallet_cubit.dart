@@ -88,12 +88,16 @@ class WalletCubit extends Cubit<WalletState> {
       final from = _currentPage * _pageSize;
       final to   = from + _pageSize - 1;
 
-      final response = await _supabase
+      var query = _supabase
           .schema('transactions').from('transactions')
           .select('id, category, reason, amount, currency, status, created_at, metadata')
-          // Explicit user_id filter for defense-in-depth — RLS is not a substitute
-          // for a missing WHERE clause when the column is available.
-          .eq('user_id', _supabase.auth.currentUser?.id ?? '')
+          .eq('user_id', _supabase.auth.currentUser?.id ?? '');
+
+      if (state.selectedCurrency != null) {
+        query = query.eq('currency', state.selectedCurrency!);
+      }
+
+      final response = await query
           .order('created_at', ascending: false)
           .range(from, to);
 
@@ -359,5 +363,14 @@ class WalletCubit extends Cubit<WalletState> {
     _balanceChannel?.unsubscribe();
     _balanceChannel = null;
     emit(const WalletState());
+  }
+
+  void setCurrency(String? currency) {
+    if (state.selectedCurrency == currency) return;
+    emit(state.copyWith(
+      selectedCurrency: currency,
+      clearSelectedCurrency: currency == null,
+    ));
+    _fetchTransactions(reset: true);
   }
 }
