@@ -21,6 +21,7 @@ class ChatBubble extends StatefulWidget {
   final Function(ChatMessage)? onBan;
   final Function(ChatMessage, String)? onReact;
   final Function(ChatMessage)? onDelete;
+  final VoidCallback? onTapBubble;
   final Function(String?)? onMediaTap;
   final Function(ChatMessage)? onReactionTap;
   final VoidCallback? onLongPressBubble;
@@ -41,6 +42,7 @@ class ChatBubble extends StatefulWidget {
     this.onBan,
     this.onReact,
     this.onDelete,
+    this.onTapBubble,
     this.onMediaTap,
     this.onReactionTap,
     this.onLongPressBubble,
@@ -129,11 +131,27 @@ class _ChatBubbleState extends State<ChatBubble> {
             ? MainAxisAlignment.end
             : MainAxisAlignment.start,
         items: [
-          if (!widget.message.isMe) ...[
+          if (widget.onPin != null)
             ActionBarItem(
-              label: 'Report',
-              onTap: () => widget.onReport?.call(widget.message),
+              label: 'Pin',
+              onTap: () => widget.onPin?.call(widget.message),
+              color: AppColors.primary,
             ),
+          if (widget.isOrganizer && !widget.message.isMe) ...[
+            if (widget.onMute != null)
+              ActionBarItem(
+                label: 'Mute',
+                onTap: () => widget.onMute?.call(widget.message),
+                color: Colors.orangeAccent,
+              ),
+            if (widget.onBan != null)
+              ActionBarItem(
+                label: 'Ban',
+                onTap: () => widget.onBan?.call(widget.message),
+                color: Colors.red,
+              ),
+          ],
+          if (!widget.message.isMe) ...[
             ActionBarItem(
               label: isBlocked ? 'Unblock' : 'Block',
               onTap: () {
@@ -144,6 +162,10 @@ class _ChatBubbleState extends State<ChatBubble> {
                 }
               },
               color: Colors.redAccent,
+            ),
+            ActionBarItem(
+              label: 'Report',
+              onTap: () => widget.onReport?.call(widget.message),
             ),
           ],
           if (widget.message.isMe && widget.onDelete != null)
@@ -176,26 +198,6 @@ class _ChatBubbleState extends State<ChatBubble> {
                 if (confirmed == true) widget.onDelete?.call(widget.message);
               },
             ),
-          if (widget.onPin != null)
-            ActionBarItem(
-              label: 'Pin',
-              onTap: () => widget.onPin?.call(widget.message),
-              color: AppColors.primary,
-            ),
-          if (widget.isOrganizer && !widget.message.isMe) ...[
-            if (widget.onMute != null)
-              ActionBarItem(
-                label: 'Mute',
-                onTap: () => widget.onMute?.call(widget.message),
-                color: Colors.orangeAccent,
-              ),
-            if (widget.onBan != null)
-              ActionBarItem(
-                label: 'Ban',
-                onTap: () => widget.onBan?.call(widget.message),
-                color: Colors.red,
-              ),
-          ],
         ],
       ),
     );
@@ -257,6 +259,7 @@ class _ChatBubbleState extends State<ChatBubble> {
     final textColor = widget.message.isMe ? Colors.black : Colors.white;
 
     return GestureDetector(
+      onTap: widget.onTapBubble,
       onLongPress: widget.onLongPressBubble,
       child: Container(
         constraints:

@@ -88,6 +88,7 @@ class _UpdatesTabState extends State<UpdatesTab>
                             mainCubit.reactToMessage(msg, emoji),
                         onReply: (msg) => updatesCubit.setReplyTo(msg),
                         onReactionTap: (msg) {}, // Not used in updates
+                        onTapBubble: () => setState(() => _selectedMessage = null),
                         onMessageLongPress: (message) {
                           setState(() {
                             if (_selectedMessage == message) {

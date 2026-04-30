@@ -35,6 +35,7 @@ class ChatMessageList extends StatelessWidget {
   final Function(ChatMessage)? onMessageLongPress;
   final Function(String, LinkPreviewData)? onLinkPreviewDataFetched;
   final Function(String?)? onMediaTap;
+  final VoidCallback? onTapBubble;
 
   const ChatMessageList({
     super.key,
@@ -55,6 +56,7 @@ class ChatMessageList extends StatelessWidget {
     this.onMessageLongPress,
     this.onLinkPreviewDataFetched,
     this.onMediaTap,
+    this.onTapBubble,
   });
 
   @override
@@ -122,6 +124,7 @@ class ChatMessageList extends StatelessWidget {
                   isOrganizer: isOrganizer,
                   onReply: onReply,
                   onReactionTap: onReactionTap,
+                  onTapBubble: onTapBubble,
                   onLongPressBubble: onLongPressBubble ??
                       () => onMessageLongPress?.call(message),
                   showActions: selectedMessageId == message.id,

@@ -35,6 +35,7 @@ class LiveChatTab extends StatefulWidget {
 class _LiveChatTabState extends State<LiveChatTab>
     with AutomaticKeepAliveClientMixin {
   ChatMessage? _reactingToMessage;
+  String? _selectedMessageId;
 
   @override
   bool get wantKeepAlive => true;
@@ -94,6 +95,17 @@ class _LiveChatTabState extends State<LiveChatTab>
                             onReply: (msg) => chatCubit.setReplyTo(msg),
                             onReactionTap: (msg) =>
                                 setState(() => _reactingToMessage = msg),
+                            onTapBubble: () => setState(() => _selectedMessageId = null),
+                            onMessageLongPress: (msg) {
+                              setState(() {
+                                if (_selectedMessageId == msg.id) {
+                                  _selectedMessageId = null;
+                                } else {
+                                  _selectedMessageId = msg.id;
+                                }
+                              });
+                            },
+                            selectedMessageId: _selectedMessageId,
                             onLinkPreviewDataFetched: (String url, LinkPreviewData data) =>
                                 chatCubit.saveLinkPreview(url, data),
                             onMediaTap: widget.onMediaTap,
