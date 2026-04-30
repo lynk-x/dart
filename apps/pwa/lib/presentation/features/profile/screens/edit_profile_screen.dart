@@ -225,170 +225,200 @@ class _EditProfilePageState extends State<EditProfilePage> {
         final profile = (state as ProfileLoaded).profile;
         final isUpdating = state.isUpdating;
 
-        return Scaffold(
-          backgroundColor: AppColors.primaryBackground,
-          appBar: AppBar(
-            backgroundColor: AppColors.primaryBackground,
-            surfaceTintColor: Colors.transparent,
-            elevation: 0,
-            centerTitle: true,
-            leading: IconButton(
-              icon: const Icon(Icons.close, color: Colors.white),
-              onPressed: () => context.pop(),
-            ),
-            title: Text(
-              'Edit Profile',
-              style: AppTypography.interTight(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
+        return PopScope(
+          canPop: !_hasChanges(profile),
+          onPopInvokedWithResult: (didPop, result) async {
+            if (didPop) return;
+            
+            final shouldPop = await showDialog<bool>(
+              context: context,
+              builder: (context) => AlertDialog(
+                backgroundColor: AppColors.surface,
+                title: const Text('Discard changes?', style: TextStyle(color: Colors.white)),
+                content: const Text('You have unsaved changes. Are you sure you want to leave?', style: TextStyle(color: Colors.white70)),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context, false),
+                    child: const Text('Stay', style: TextStyle(color: Colors.white54)),
+                  ),
+                  TextButton(
+                    onPressed: () => Navigator.pop(context, true),
+                    child: const Text('Discard', style: TextStyle(color: Colors.redAccent)),
+                  ),
+                ],
               ),
-            ),
-            actions: [
-              Padding(
-                padding: const EdgeInsets.only(right: 8.0),
-                child: IconButton(
-                  icon: _buildFlag(_selectedCountryCode, size: 24),
-                  tooltip: 'Select Country',
-                  onPressed: isUpdating ? null : () => _showCountryPicker(context),
+            );
+
+            if (shouldPop == true && context.mounted) {
+              context.pop();
+            }
+          },
+          child: Scaffold(
+            backgroundColor: AppColors.primaryBackground,
+            appBar: AppBar(
+              backgroundColor: AppColors.primaryBackground,
+              surfaceTintColor: Colors.transparent,
+              elevation: 0,
+              centerTitle: true,
+              leading: IconButton(
+                icon: const Icon(Icons.close, color: Colors.white),
+                onPressed: () {
+                   if (_hasChanges(profile)) {
+                     // Trigger PopScope logic via Navigator pop
+                     Navigator.maybePop(context);
+                   } else {
+                     context.pop();
+                   }
+                },
+              ),
+              title: Text(
+                'Edit Profile',
+                style: AppTypography.interTight(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
                 ),
               ),
-            ],
-          ),
-          body: Stack(
-            children: [
-              SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(20, 20, 20, 120),
-                child: Column(
-                  children: [
-                    ProfileAvatar(
-                      avatarUrl: profile.avatarUrl,
-                      isUpdating: isUpdating,
-                      isUploading: _uploadingAvatar || _isOpeningGallery,
-                      onTap: () => _pickImage(context),
-                    ),
-                    const SizedBox(height: 32),
-
-                    // Form inputs
-                    TextField(
-                      label: 'USERNAME',
-                      hintText: 'Enter your username',
-                      controller: _usernameController,
-                      enabled: !isUpdating,
-                      prefixIcon: const Icon(Icons.alternate_email,
-                          color: Colors.white24, size: 18),
-                      suffixIcon: state.isCheckingUsername
-                          ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: Padding(
-                                padding: EdgeInsets.all(12),
-                                child: CircularProgressIndicator(
-                                    strokeWidth: 2, color: Colors.white24),
-                              ),
-                            )
-                          : (state.isUsernameAvailable == true
-                              ? const Icon(Icons.check_circle,
-                                  color: AppColors.primary, size: 20)
-                              : (state.isUsernameAvailable == false
-                                  ? const Icon(Icons.error,
-                                      color: Colors.redAccent, size: 20)
-                                  : null)),
-                    ),
-                    const SizedBox(height: 24),
-                    TextField(
-                      label: 'FULL NAME',
-                      hintText: 'Enter your full name',
-                      controller: _nameController,
-                      enabled: !isUpdating,
-                    ),
-                    const SizedBox(height: 24),
-                    TextField(
-                      label: 'STATUS',
-                      hintText: 'How are you feeling?',
-                      controller: _taglineController,
-                      enabled: !isUpdating,
-                    ),
-                    const SizedBox(height: 24),
-                    TextField(
-                      label: 'BIO',
-                      hintText: 'Tell us about yourself',
-                      controller: _bioController,
-                      enabled: !isUpdating,
-                      maxLines: 3,
-                    ),
-                    const SizedBox(height: 64),
-
-                    // Delete Account
-                    Container(
-                      width: double.infinity,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.redAccent.withValues(alpha: 0.1)),
+              actions: [
+                Padding(
+                  padding: const EdgeInsets.only(right: 8.0),
+                  child: IconButton(
+                    icon: _buildFlag(_selectedCountryCode, size: 24),
+                    tooltip: 'Select Country',
+                    onPressed: isUpdating ? null : () => _showCountryPicker(context),
+                  ),
+                ),
+              ],
+            ),
+            body: Stack(
+              children: [
+                SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 120),
+                  child: Column(
+                    children: [
+                      ProfileAvatar(
+                        avatarUrl: profile.avatarUrl,
+                        isUpdating: isUpdating,
+                        isUploading: _uploadingAvatar || _isOpeningGallery,
+                        onTap: () => _pickImage(context),
                       ),
-                      child: InkWell(
-                        onTap: isUpdating ? null : () => _showDeleteConfirmation(context),
-                        borderRadius: BorderRadius.circular(12),
-                        hoverColor: Colors.redAccent.withValues(alpha: 0.05),
-                        child: const Padding(
-                          padding: EdgeInsets.symmetric(vertical: 16),
-                          child: Center(
-                            child: Text(
-                              'Delete Account',
-                              style: TextStyle(
-                                color: Colors.redAccent,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 14,
-                                letterSpacing: 0.5,
+                      const SizedBox(height: 32),
+                      TextField(
+                        label: 'USERNAME',
+                        hintText: 'Enter your username',
+                        controller: _usernameController,
+                        enabled: !isUpdating,
+                        prefixIcon: const Icon(Icons.alternate_email,
+                            color: Colors.white24, size: 18),
+                        suffixIcon: state.isCheckingUsername
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: Padding(
+                                  padding: EdgeInsets.all(12),
+                                  child: CircularProgressIndicator(
+                                      strokeWidth: 2, color: Colors.white24),
+                                ),
+                              )
+                            : (state.isUsernameAvailable == true
+                                ? const Icon(Icons.check_circle,
+                                    color: AppColors.primary, size: 20)
+                                : (state.isUsernameAvailable == false
+                                    ? const Icon(Icons.error,
+                                        color: Colors.redAccent, size: 20)
+                                    : null)),
+                      ),
+                      const SizedBox(height: 24),
+                      TextField(
+                        label: 'FULL NAME',
+                        hintText: 'Enter your full name',
+                        controller: _nameController,
+                        enabled: !isUpdating,
+                      ),
+                      const SizedBox(height: 24),
+                      TextField(
+                        label: 'STATUS',
+                        hintText: 'How are you feeling?',
+                        controller: _taglineController,
+                        enabled: !isUpdating,
+                      ),
+                      const SizedBox(height: 24),
+                      TextField(
+                        label: 'BIO',
+                        hintText: 'Tell us about yourself',
+                        controller: _bioController,
+                        enabled: !isUpdating,
+                        maxLines: 3,
+                      ),
+                      const SizedBox(height: 64),
+                      Container(
+                        width: double.infinity,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.redAccent.withValues(alpha: 0.1)),
+                        ),
+                        child: InkWell(
+                          onTap: isUpdating ? null : () => _showDeleteConfirmation(context),
+                          borderRadius: BorderRadius.circular(12),
+                          hoverColor: Colors.redAccent.withValues(alpha: 0.05),
+                          child: const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 16),
+                            child: Center(
+                              child: Text(
+                                'Delete Account',
+                                style: TextStyle(
+                                  color: Colors.redAccent,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                  letterSpacing: 0.5,
+                                ),
                               ),
                             ),
                           ),
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 24),
-                  ],
+                      const SizedBox(height: 24),
+                    ],
+                  ),
                 ),
-              ),
-
-              // Sticky Save Button
-              Positioned(
-                bottom: 0,
-                left: 0,
-                right: 0,
-                child: AnimatedSlide(
-                  duration: const Duration(milliseconds: 300),
-                  curve: Curves.easeOutCubic,
-                  offset: _hasChanges(profile) ? Offset.zero : const Offset(0, 1),
-                  child: AnimatedOpacity(
-                    duration: const Duration(milliseconds: 200),
-                    opacity: _hasChanges(profile) ? 1.0 : 0.0,
-                    child: Container(
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            AppColors.primaryBackground.withValues(alpha: 0.0),
-                            AppColors.primaryBackground,
-                          ],
+                Positioned(
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  child: AnimatedSlide(
+                    duration: const Duration(milliseconds: 300),
+                    curve: Curves.easeOutCubic,
+                    offset: _hasChanges(profile) ? Offset.zero : const Offset(0, 1),
+                    child: AnimatedOpacity(
+                      duration: const Duration(milliseconds: 200),
+                      opacity: _hasChanges(profile) ? 1.0 : 0.0,
+                      child: Container(
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              AppColors.primaryBackground.withValues(alpha: 0.0),
+                              AppColors.primaryBackground,
+                            ],
+                          ),
                         ),
-                      ),
-                      child: PrimaryButton(
-                        icon: isUpdating ? null : Icons.check,
-                        text: isUpdating ? 'Saving...' : 'Save Changes',
-                        onPressed: (isUpdating ||
-                                state.isCheckingUsername ||
-                                state.isUsernameAvailable == false)
-                            ? null
-                            : () => _saveChanges(context),
+                        child: PrimaryButton(
+                          icon: isUpdating ? null : Icons.check,
+                          text: isUpdating ? 'Saving...' : 'Save Changes',
+                          onPressed: (isUpdating ||
+                                  state.isCheckingUsername ||
+                                  state.isUsernameAvailable == false)
+                              ? null
+                              : () => _saveChanges(context),
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         );
       },

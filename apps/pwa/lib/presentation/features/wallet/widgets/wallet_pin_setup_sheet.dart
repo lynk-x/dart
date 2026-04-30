@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:lynk_core/core.dart';
 import 'package:lynk_x/presentation/features/wallet/cubit/wallet_cubit.dart';
@@ -15,6 +16,19 @@ class _WalletPinSetupSheetState extends State<WalletPinSetupSheet> {
   final List<int> _pin2 = [];
   bool _isConfirming = false;
   String? _error;
+  final FocusNode _focusNode = FocusNode();
+
+  @override
+  void initState() {
+    super.initState();
+    _focusNode.requestFocus();
+  }
+
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    super.dispose();
+  }
 
   void _onNumberTap(int n) {
     setState(() => _error = null);
@@ -54,63 +68,82 @@ class _WalletPinSetupSheetState extends State<WalletPinSetupSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      color: AppColors.primaryBackground,
-      child: SafeArea(
-        child: Column(
-          children: [
-            const SizedBox(height: 32),
-            Text(
-              _isConfirming ? 'Confirm your PIN' : 'Set your Wallet PIN',
-              style: AppTypography.inter(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              _error ?? (_isConfirming ? 'Re-enter the 6-digit code' : 'Choose a secure 6-digit code'),
-              style: AppTypography.inter(fontSize: 14, color: _error != null ? Colors.redAccent : Colors.white54),
-            ),
-            const SizedBox(height: 40),
-            
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: List.generate(6, (index) {
-                final target = _isConfirming ? _pin2 : _pin1;
-                final isFilled = index < target.length;
-                return Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 8),
-                  width: 16,
-                  height: 16,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: isFilled ? AppColors.primary : Colors.white10,
-                    border: Border.all(color: isFilled ? AppColors.primary : Colors.white24),
-                  ),
-                );
-              }),
-            ),
-
-            const Spacer(),
-
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 20),
-              child: GridView.count(
-                shrinkWrap: true,
-                crossAxisCount: 3,
-                mainAxisSpacing: 20,
-                crossAxisSpacing: 20,
+    return KeyboardListener(
+      focusNode: _focusNode,
+      autofocus: true,
+      onKeyEvent: (event) {
+        if (event is KeyDownEvent) {
+          final key = event.logicalKey;
+          if (key.keyLabel.length == 1 && RegExp(r'[0-9]').hasMatch(key.keyLabel)) {
+            _onNumberTap(int.parse(key.keyLabel));
+          } else if (key == LogicalKeyboardKey.backspace) {
+            _onDelete();
+          }
+        }
+      },
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 450),
+          child: Container(
+            color: AppColors.primaryBackground,
+            child: SafeArea(
+              child: Column(
                 children: [
-                  ...List.generate(9, (index) => _PinButton(n: index + 1, onTap: () => _onNumberTap(index + 1))),
-                  const SizedBox.shrink(),
-                  _PinButton(n: 0, onTap: () => _onNumberTap(0)),
-                  IconButton(
-                    onPressed: _onDelete,
-                    icon: const Icon(Icons.backspace_outlined, color: Colors.white70, size: 24),
+                  const SizedBox(height: 32),
+                  Text(
+                    _isConfirming ? 'Confirm your PIN' : 'Set your Wallet PIN',
+                    style: AppTypography.inter(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white),
                   ),
+                  const SizedBox(height: 8),
+                  Text(
+                    _error ?? (_isConfirming ? 'Re-enter the 6-digit code' : 'Choose a secure 6-digit code'),
+                    style: AppTypography.inter(fontSize: 14, color: _error != null ? Colors.redAccent : Colors.white54),
+                  ),
+                  const SizedBox(height: 40),
+                  
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: List.generate(6, (index) {
+                      final target = _isConfirming ? _pin2 : _pin1;
+                      final isFilled = index < target.length;
+                      return Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 8),
+                        width: 16,
+                        height: 16,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: isFilled ? AppColors.primary : Colors.white10,
+                          border: Border.all(color: isFilled ? AppColors.primary : Colors.white24),
+                        ),
+                      );
+                    }),
+                  ),
+
+                  const Spacer(),
+
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 20),
+                    child: GridView.count(
+                      shrinkWrap: true,
+                      crossAxisCount: 3,
+                      mainAxisSpacing: 20,
+                      crossAxisSpacing: 20,
+                      children: [
+                        ...List.generate(9, (index) => _PinButton(n: index + 1, onTap: () => _onNumberTap(index + 1))),
+                        const SizedBox.shrink(),
+                        _PinButton(n: 0, onTap: () => _onNumberTap(0)),
+                        IconButton(
+                          onPressed: _onDelete,
+                          icon: const Icon(Icons.backspace_outlined, color: Colors.white70, size: 24),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 40),
                 ],
               ),
             ),
-            const SizedBox(height: 40),
-          ],
+          ),
         ),
       ),
     );

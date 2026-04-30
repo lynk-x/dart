@@ -5,10 +5,12 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
+import 'package:flutter_web_plugins/url_strategy.dart';
 import 'app.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  usePathUrlStrategy();
 
   // Initialize HydratedStorage for persistent state (Web only for PWA)
   HydratedBloc.storage = await HydratedStorage.build(
