@@ -8,6 +8,7 @@ import 'router_refresh_stream.dart';
 import 'package:lynk_x/presentation/features/homepage/screens/home_screen.dart';
 import 'package:lynk_x/presentation/features/profile/screens/profile_screen.dart';
 import 'package:lynk_x/presentation/features/forum/screens/forum_screen.dart';
+import 'package:lynk_x/presentation/features/forum/screens/sessions_screen.dart';
 import 'package:lynk_x/presentation/features/notifications/screens/notifications_screen.dart';
 import 'package:lynk_x/presentation/features/ticket/screens/ticket_screen.dart';
 import 'package:lynk_x/presentation/features/ticket/screens/tickets_list_screen.dart';
@@ -119,6 +120,21 @@ GoRouter createRouter(
           final forumId = state.pathParameters['id']!;
           return ForumPage(forumId: forumId);
         },
+        routes: [
+          GoRoute(
+            path: 'sessions',
+            builder: (context, state) {
+              final extras = state.extra as Map<String, dynamic>?;
+              final eventId = extras?['eventId'] as String?;
+              final isOrganizer = extras?['isOrganizer'] as bool? ?? false;
+
+              return SessionsScreen(
+                eventId: eventId ?? '',
+                isOrganizer: isOrganizer,
+              );
+            },
+          ),
+        ],
       ),
       GoRoute(
         path: '/notifications',

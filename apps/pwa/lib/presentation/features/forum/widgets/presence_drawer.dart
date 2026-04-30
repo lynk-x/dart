@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:lynk_core/core.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:go_router/go_router.dart';
 import 'user_presence.dart';
 
 /// The end-drawer component for the Forum screen.
@@ -16,6 +17,9 @@ class PresenceDrawer extends StatelessWidget {
 
   final bool isPremium;
   final bool showAds;
+  final bool isOrganizer;
+  final String? eventId;
+  final String forumId;
   final ValueChanged<bool> onAdsChanged;
 
   const PresenceDrawer({
@@ -24,7 +28,10 @@ class PresenceDrawer extends StatelessWidget {
     required this.onlineUsers,
     required this.isPremium,
     required this.showAds,
+    required this.isOrganizer,
     required this.onAdsChanged,
+    required this.forumId,
+    this.eventId,
   });
 
   @override
@@ -86,20 +93,45 @@ class PresenceDrawer extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('EVENT PROGRESS',
-                      style: AppTypography.inter(
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white54)),
-                  const SizedBox(height: 8),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(4),
-                    child: LinearProgressIndicator(
-                      value: eventProgress,
-                      backgroundColor: Colors.white10,
-                      valueColor: const AlwaysStoppedAnimation<Color>(
-                          AppColors.primary),
-                      minHeight: 8,
+                  GestureDetector(
+                    onTap: () {
+                      if (eventId != null) {
+                        context.push(
+                          '/forum/$forumId/sessions',
+                          extra: {
+                            'eventId': eventId,
+                            'isOrganizer': isOrganizer,
+                          },
+                        );
+                      }
+                    },
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text('EVENT PROGRESS',
+                                style: AppTypography.inter(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white54)),
+                            const Icon(Icons.chevron_right,
+                                color: Colors.white24, size: 16),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(4),
+                          child: LinearProgressIndicator(
+                            value: eventProgress,
+                            backgroundColor: Colors.white10,
+                            valueColor: const AlwaysStoppedAnimation<Color>(
+                                AppColors.primary),
+                            minHeight: 8,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                   const SizedBox(height: 20),

@@ -12,6 +12,7 @@ export 'auth/verify_email_page.dart';
 export 'src/widgets/primary_button.dart';
 export 'src/widgets/flame_badge.dart';
 export 'src/models/event_model.dart';
+export 'src/models/session_model.dart';
 export 'profiles/domain/models/profile_model.dart';
 export 'profiles/cubit/profile_cubit.dart';
 export 'profiles/cubit/profile_state.dart';
