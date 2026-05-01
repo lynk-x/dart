@@ -81,52 +81,60 @@ class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
     }
   }
 
-  /// Uploads media to Supabase.
-  /// 
-  /// NOTE: For PWA, we rely on the built-in compression of [image_picker] 
-  /// by setting imageQuality and maxWidth during the pick process.
-  Future<void> uploadMedia({
-    required XFile file,
+  /// Uploads multiple media items to Supabase.
+  Future<void> uploadMultipleMedia({
+    required List<XFile> files,
     required String type,
-    required String mimeType,
   }) async {
-    if (isClosed) return;
+    if (isClosed || files.isEmpty) return;
     emit(state.copyWith(isUploading: true));
     try {
-      final bytes = await file.readAsBytes();
-      final ext = file.name.split('.').last.toLowerCase();
-      final fileId = _uuid.v4();
-      final fileName = '$fileId.$ext';
-      final path = '$forumId/$fileName';
+      for (final file in files) {
+        final bytes = await file.readAsBytes();
+        final ext = file.name.split('.').last.toLowerCase();
+        final fileId = _uuid.v4();
+        final fileName = '$fileId.$ext';
+        final path = '$forumId/$fileName';
+        final mimeType = type == 'video' ? 'video/$ext' : 'image/$ext';
 
-      await Supabase.instance.client.storage
-          .from('forum_media')
-          .uploadBinary(path, bytes, fileOptions: FileOptions(contentType: mimeType));
+        await Supabase.instance.client.storage
+            .from('forum_media')
+            .uploadBinary(path, bytes, fileOptions: FileOptions(contentType: mimeType));
 
-      final publicUrl = Supabase.instance.client.storage
-          .from('forum_media')
-          .getPublicUrl(path);
+        final publicUrl = Supabase.instance.client.storage
+            .from('forum_media')
+            .getPublicUrl(path);
 
-      await Supabase.instance.client.schema('forum_media').from('forum_media').insert({
-        'id': fileId,
-        'forum_id': forumId,
-        'uploader_id': userId,
-        'url': publicUrl,
-        'media_type': type,
-        'mime_type': mimeType,
-        'file_size': bytes.length,
-        'is_approved': isOrganizer,
-      });
+        await Supabase.instance.client.schema('forum_media').from('forum_media').insert({
+          'id': fileId,
+          'forum_id': forumId,
+          'uploader_id': userId,
+          'url': publicUrl,
+          'media_type': type,
+          'mime_type': mimeType,
+          'file_size': bytes.length,
+          'is_approved': isOrganizer,
+        });
+      }
 
       if (!isClosed) {
         emit(state.copyWith(isUploading: false));
         await refreshMedia();
       }
     } catch (e, stack) {
-      debugPrint('[ForumMediaCubit] Error: $e\n$stack');
+      debugPrint('[ForumMediaCubit] Multi-upload error: $e\n$stack');
       if (!isClosed) emit(state.copyWith(isUploading: false, error: e.toString()));
       rethrow;
     }
+  }
+
+  /// Uploads a single media file to Supabase.
+  Future<void> uploadMedia({
+    required XFile file,
+    required String type,
+    required String mimeType,
+  }) async {
+    await uploadMultipleMedia(files: [file], type: type);
   }
 
   Future<void> approveMedia(String mediaId) async {

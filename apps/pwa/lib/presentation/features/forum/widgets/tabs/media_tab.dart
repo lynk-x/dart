@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:lynk_core/core.dart';
 import 'package:lynk_x/presentation/features/forum/cubit/forum_cubit.dart';
 import 'package:lynk_x/presentation/features/forum/cubit/forum_state.dart';
@@ -13,7 +14,6 @@ import 'package:lynk_x/presentation/shared/widgets/permission_request_sheet.dart
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:lynk_x/presentation/features/forum/models/forum_model.dart';
 import 'package:lynk_x/core/network/lynk_cache_manager.dart';
-
 
 /// The 'Media' tab content for the Forum.
 class MediaTab extends StatefulWidget {
@@ -197,7 +197,7 @@ class _MediaTabState extends State<MediaTab>
           Expanded(
             child: PrimaryButton(
               icon: isUploading ? null : Icons.image,
-              text: isUploading ? 'Uploading...' : 'Upload image',
+              text: isUploading ? 'Uploading...' : 'Upload images',
               onPressed: isUploading ? null : () => _pickAndUpload(context, ImageSource.gallery, false),
             ),
           ),
@@ -205,7 +205,7 @@ class _MediaTabState extends State<MediaTab>
           Expanded(
             child: PrimaryButton(
               icon: isUploading ? null : Icons.video_collection,
-              text: isUploading ? 'Uploading...' : 'Upload video',
+              text: isUploading ? 'Uploading...' : 'Upload videos',
               onPressed: isUploading ? null : () => _pickAndUpload(context, ImageSource.gallery, true),
             ),
           ),
@@ -244,32 +244,62 @@ class _MediaTabState extends State<MediaTab>
   Future<void> _actuallyPickAndUpload(BuildContext context, ImageSource source, bool isVideo) async {
     final mediaCubit = context.read<ForumMediaCubit>();
     try {
-      final picker = ImagePicker();
-      final XFile? pickedFile = isVideo
-          ? await picker.pickVideo(source: source)
-          : await picker.pickImage(source: source, imageQuality: 70);
+      final List<XFile> pickedFiles = [];
 
-      if (pickedFile != null && context.mounted) {
-        final ext = pickedFile.path.split('.').last.toLowerCase();
-        final mimeType = isVideo ? 'video/$ext' : 'image/$ext';
+      if (source == ImageSource.gallery) {
+        // FilePicker supports multi-select for both images and videos on PWA/Web
+        final result = await FilePicker.platform.pickFiles(
+          type: isVideo ? FileType.video : FileType.image,
+          allowMultiple: true,
+        );
+        
+        if (result != null && result.files.isNotEmpty) {
+          for (final file in result.files) {
+            if (file.bytes != null) {
+              pickedFiles.add(XFile.fromData(
+                file.bytes!,
+                name: file.name,
+                length: file.size,
+              ));
+            }
+          }
+        }
+      } else {
+        // Fallback for camera/single pick
+        final picker = ImagePicker();
+        if (isVideo) {
+          final XFile? file = await picker.pickVideo(source: source);
+          if (file != null) pickedFiles.add(file);
+        } else {
+          final XFile? file = await picker.pickImage(source: source, imageQuality: 70);
+          if (file != null) pickedFiles.add(file);
+        }
+      }
 
-        AppSnackBars.showInfo(context, 'Uploading ${isVideo ? 'video' : 'image'}...');
+      if (pickedFiles.isNotEmpty && context.mounted) {
+        final count = pickedFiles.length;
+        AppSnackBars.showInfo(
+          context, 
+          'Uploading $count ${isVideo ? (count > 1 ? 'videos' : 'video') : (count > 1 ? 'images' : 'image')}...'
+        );
 
-        await mediaCubit.uploadMedia(
-          file: pickedFile,
+        await mediaCubit.uploadMultipleMedia(
+          files: pickedFiles,
           type: isVideo ? 'video' : 'image',
-          mimeType: mimeType,
         );
 
         if (context.mounted) {
-          AppSnackBars.showSuccess(context, 'Upload successful! Your media is being processed.');
+          AppSnackBars.showSuccess(
+            context, 
+            'Upload successful! ${count > 1 ? 'Items are' : 'Media is'} being processed.'
+          );
         }
       }
     } catch (e) {
       if (context.mounted) {
         AppSnackBars.showError(
           context,
-          'Access denied. Please enable ${isVideo ? 'video' : 'image'} library access in your device settings.',
+          'Access denied or upload failed. Please check your device settings.',
         );
       }
     }
@@ -289,4 +319,3 @@ class _VideoThumbnailPreview extends StatelessWidget {
     );
   }
 }
-
