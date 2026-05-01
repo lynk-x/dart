@@ -45,6 +45,7 @@ class _HomeViewState extends State<HomeView>
     with AutomaticKeepAliveClientMixin {
   final ScrollController _scrollController = ScrollController();
   bool _showWelcomeBanner = false;
+  DateTime? _lastBackPressTime;
 
   @override
   bool get wantKeepAlive => true;
@@ -102,13 +103,40 @@ class _HomeViewState extends State<HomeView>
       onPopInvokedWithResult: (didPop, result) async {
         if (didPop) return;
 
+        // 1. If the drawer is open, close it first
+        final scaffoldState = Scaffold.of(context);
+        if (scaffoldState.isDrawerOpen) {
+          scaffoldState.closeDrawer();
+          return;
+        }
+
+        // 2. If there are sub-pages in the router stack, pop them
         final router = GoRouter.of(context);
         if (router.canPop()) {
           router.pop();
-        } else {
-          // If we're at the root, minimize/exit the app
-          await SystemNavigator.pop();
+          return;
         }
+
+        // 3. Root-level Exit Logic: Double-tap to exit pattern
+        final now = DateTime.now();
+        if (_lastBackPressTime == null || 
+            now.difference(_lastBackPressTime!) > const Duration(seconds: 2)) {
+          _lastBackPressTime = now;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('Press back again to exit', style: TextStyle(color: Colors.white)),
+              backgroundColor: AppColors.surface,
+              duration: const Duration(seconds: 2),
+              behavior: SnackBarBehavior.floating,
+              margin: const EdgeInsets.only(bottom: 20, left: 20, right: 20),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+          );
+          return;
+        }
+
+        // Final exit
+        await SystemNavigator.pop();
       },
       child: Scaffold(
         backgroundColor: AppColors.primaryBackground,

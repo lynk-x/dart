@@ -15,7 +15,7 @@ import 'package:lynk_x/presentation/features/ticket/screens/tickets_list_screen.
 import 'package:lynk_x/presentation/features/profile/screens/edit_profile_screen.dart';
 import 'package:lynk_x/presentation/features/profile/screens/profile_setup_screen.dart';
 import 'package:lynk_x/presentation/features/feedback/screens/feedback_screen.dart';
-import 'package:lynk_x/presentation/features/splashscreen/screens/splash_screen.dart';
+
 import 'package:lynk_x/presentation/features/wallet/screens/wallet_screen.dart';
 import 'package:lynk_x/presentation/features/wallet/screens/wallet_list_screen.dart';
 import 'package:lynk_x/presentation/features/wallet/screens/wallet_transactions_screen.dart';
@@ -32,7 +32,7 @@ GoRouter createRouter(
   Stream<dynamic> featureFlagStream,
 ) {
   return GoRouter(
-    initialLocation: '/splash',
+    initialLocation: '/',
     refreshListenable: GoRouterRefreshStream([authStream, profileStream, featureFlagStream]),
     redirect: (context, state) {
       try {
@@ -56,7 +56,6 @@ GoRouter createRouter(
 
         const publicRoutes = {
           '/auth',
-          '/splash',
           '/forgot-password',
           '/reset-password',
           '/verify-email',
@@ -111,7 +110,6 @@ GoRouter createRouter(
         path: '/reset-password',
         builder: (_, __) => const ResetPasswordPage(),
       ),
-      GoRoute(path: '/splash', builder: (_, __) => const SplashScreen()),
       GoRoute(path: '/', builder: (_, __) => const HomePage()),
       GoRoute(path: '/profile', builder: (_, __) => const ProfilePage()),
       GoRoute(

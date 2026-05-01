@@ -96,34 +96,30 @@
   </div>
   <script src="flutter_bootstrap.js" async></script>
   <script>
-    // The flutter_bootstrap.js script will eventually initialize the engine.
-    // We can listen for the app start to hide our loader.
-    // However, the simplest way is to let Flutter replace the body.
-    // To make it smoother, we use an interval to check if flutter is ready
-    // OR we can hook into the loader if we knew the entrypoint.
+    const loading = document.getElementById('loading');
     
-    // For now, the most reliable way is to let the loader be replaced when Flutter paints.
-    // But to ensure it's removed from DOM:
-    window.addEventListener('flutter-first-frame', function() {
-      var loader = document.getElementById('loading');
-      if (loader) {
-        loader.style.opacity = '0';
-        setTimeout(function() {
-          loader.remove();
-        }, 500);
+    function removeLoader() {
+      if (!loading) return;
+      loading.style.opacity = '0';
+      setTimeout(() => {
+        if (loading.parentNode) loading.remove();
+      }, 400);
+    }
+
+    // 1. Proactive: Watch for Flutter's rendering pane to appear in the DOM
+    const observer = new MutationObserver((mutations, obs) => {
+      if (document.querySelector('flt-glass-pane')) {
+        removeLoader();
+        obs.disconnect();
       }
     });
+    observer.observe(document.body, { childList: true, subtree: true });
 
-    // Fallback: If flutter doesn't signal within 10 seconds, clear the loader anyway
-    setTimeout(function() {
-      var loader = document.getElementById('loading');
-      if (loader) {
-        loader.style.opacity = '0';
-        setTimeout(function() {
-          if (loader.parentNode) loader.remove();
-        }, 500);
-      }
-    }, 10000);
+    // 2. Event-based: Standard Flutter signal
+    window.addEventListener('flutter-first-frame', removeLoader);
+
+    // 3. Fallback: If everything else fails (e.g. script error), clear it
+    setTimeout(removeLoader, 8000);
   </script>
 </body>
 </html>
