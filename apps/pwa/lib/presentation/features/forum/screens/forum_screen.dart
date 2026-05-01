@@ -26,9 +26,6 @@ import 'package:lynk_x/presentation/features/forum/widgets/tabs/updates_tab.dart
 import 'package:lynk_x/presentation/features/forum/widgets/tabs/live_chat_tab.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/tabs/media_tab.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/reaction_background.dart';
-import 'package:lynk_x/presentation/features/forum/widgets/info_banner.dart';
-import 'package:lynk_x/presentation/features/forum/widgets/category_filter_bar.dart';
-import 'package:lynk_x/presentation/features/forum/cubit/forum_updates_state.dart';
 
 import 'package:lynk_x/presentation/features/forum/widgets/welcome_banner.dart';
 
@@ -265,29 +262,13 @@ class _ForumViewState extends State<ForumView> {
                                         showBannerAd && 
                                         context.read<FeatureFlagCubit>().isEnabled('enable_forum_ads') && 
                                         adsState.ads.isNotEmpty;
-
-                          final featureFlags = context.read<FeatureFlagCubit>();
-                          final showUpdates = featureFlags.isEnabled('enable_forum_announcements');
-                          final showChat = featureFlags.isEnabled('enable_forum_live_chat');
                           
-                          int updatesIndex = -1;
-                          int checkIndex = 0;
-                          if (showChat) checkIndex++;
-                          if (showUpdates) updatesIndex = checkIndex;
-                          
-                          final isUpdatesTabActive = forumState.currentTabIndex == updatesIndex;
-                          final updatesState = context.watch<ForumUpdatesCubit>().state;
-                          final pinned = updatesState.messages.where((m) => m.isPinned).toList();
-                          final hasPinned = isUpdatesTabActive && pinned.isNotEmpty;
-
                           final adsHeight = hasAds ? 50.0 : 0.0;
-                          final filterHeight = isUpdatesTabActive ? 52.0 : 0.0;
-                          final bannerHeight = hasPinned ? 48.0 : 0.0;
                           
                           return SliverPersistentHeader(
                             pinned: true,
                             delegate: _SliverAppBarDelegate(
-                              height: 102.0 + adsHeight + filterHeight + bannerHeight, 
+                              height: 102.0 + adsHeight, 
                               child: Column(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
@@ -337,30 +318,6 @@ class _ForumViewState extends State<ForumView> {
                                     ),
                                   ),
                                   _buildTabs(),
-                                  if (hasPinned)
-                                    Padding(
-                                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
-                                      child: InfoBanner(
-                                        icon: Icons.push_pin,
-                                        text: pinned.first.message.length > 80
-                                            ? '${pinned.first.message.substring(0, 80)}…'
-                                            : pinned.first.message,
-                                      ),
-                                    ),
-                                  if (isUpdatesTabActive)
-                                    BlocBuilder<ForumUpdatesCubit, ForumUpdatesState>(
-                                      builder: (context, updatesState) {
-                                        return Container(
-                                          padding: const EdgeInsets.only(bottom: 8),
-                                          color: AppColors.primaryBackground,
-                                          child: CategoryFilterBar(
-                                            selectedCategory: updatesState.selectedCategory,
-                                            onSelectionChanged: (cat) =>
-                                                context.read<ForumUpdatesCubit>().setCategory(cat),
-                                          ),
-                                        );
-                                      },
-                                    ),
                                 ],
                               ),
                             ),

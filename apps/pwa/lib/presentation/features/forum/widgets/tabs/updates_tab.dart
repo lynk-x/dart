@@ -5,8 +5,10 @@ import 'package:lynk_x/presentation/features/forum/cubit/forum_cubit.dart';
 import 'package:lynk_x/presentation/features/forum/cubit/forum_state.dart';
 import 'package:lynk_x/presentation/features/forum/cubit/forum_updates_cubit.dart';
 import 'package:lynk_x/presentation/features/forum/cubit/forum_updates_state.dart';
+import 'package:lynk_x/presentation/features/forum/widgets/info_banner.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/message_input.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/chat_bubble.dart';
+import 'package:lynk_x/presentation/features/forum/widgets/category_filter_bar.dart';
 
 /// The 'Updates' tab content for the Forum.
 class UpdatesTab extends StatefulWidget {
@@ -47,22 +49,28 @@ class _UpdatesTabState extends State<UpdatesTab>
       builder: (context, mainState) {
         return BlocBuilder<ForumUpdatesCubit, ForumUpdatesState>(
           builder: (context, updatesState) {
+            final pinned = updatesState.messages.where((m) => m.isPinned).toList();
+            final hasPinned = pinned.isNotEmpty;
+            final headerHeight = 60.0 + (hasPinned ? 48.0 : 0.0);
+            
             return Column(
               children: [
                 Expanded(
-                  child: RepaintBoundary(
-                    child: RefreshIndicator(
-                      onRefresh: () async => updatesCubit.refresh(),
-                      color: AppColors.primary,
-                      child: CustomScrollView(
-                        controller: widget.scrollController,
-                        reverse: false,
-                        slivers: [
-                          // Messages List
-                          SliverPadding(
-                            padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-                            sliver: SliverList(
-                              delegate: SliverChildBuilderDelegate(
+                  child: Stack(
+                    children: [
+                      RepaintBoundary(
+                        child: RefreshIndicator(
+                          onRefresh: () async => updatesCubit.refresh(),
+                          color: AppColors.primary,
+                          child: CustomScrollView(
+                            controller: widget.scrollController,
+                            reverse: false,
+                            slivers: [
+                              // Messages List with top padding for fixed header
+                              SliverPadding(
+                                padding: EdgeInsets.fromLTRB(16, headerHeight + 8, 16, 0),
+                                sliver: SliverList(
+                                  delegate: SliverChildBuilderDelegate(
                                 (context, index) {
                                   if (index == updatesState.messages.length) {
                                     return const Center(
@@ -110,7 +118,38 @@ class _UpdatesTabState extends State<UpdatesTab>
                       ),
                     ),
                   ),
-                ),
+
+                  // Fixed Header (Outside scrollable layer)
+                  Positioned(
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    child: Container(
+                      color: AppColors.primaryBackground,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          CategoryFilterBar(
+                            selectedCategory: updatesState.selectedCategory,
+                            onSelectionChanged: (cat) => updatesCubit.setCategory(cat),
+                          ),
+                          if (hasPinned)
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+                              child: InfoBanner(
+                                icon: Icons.push_pin,
+                                text: pinned.first.message.length > 80
+                                    ? '${pinned.first.message.substring(0, 80)}…'
+                                    : pinned.first.message,
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
                 if (mainState.isOrganizer)
                   MessageInput(
                     onSendMessage: (text, _) => updatesCubit.sendMessage(
