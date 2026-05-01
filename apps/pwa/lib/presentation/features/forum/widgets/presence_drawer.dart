@@ -92,7 +92,6 @@ class PresenceDrawer extends StatelessWidget {
             ),
             // Persistent Bottom Section
             Container(
-              padding: const EdgeInsets.all(20),
               decoration: const BoxDecoration(
                 border: Border(top: BorderSide(color: Colors.white10)),
               ),
@@ -113,9 +112,8 @@ class PresenceDrawer extends StatelessWidget {
                         );
                       }
                     },
-                    borderRadius: BorderRadius.circular(8),
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 8.0),
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -146,24 +144,26 @@ class PresenceDrawer extends StatelessWidget {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 16),
                   if (isPremium)
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text('Enable Advertisements',
-                            style: AppTypography.inter(
-                                color: Colors.white,
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600)),
-                        Switch(
-                          value: showAds,
-                          onChanged: onAdsChanged,
-                          activeThumbColor: AppColors.primary,
-                        ),
-                      ],
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text('Enable Advertisements',
+                              style: AppTypography.inter(
+                                  color: Colors.white,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600)),
+                          Switch(
+                            value: showAds,
+                            onChanged: onAdsChanged,
+                            activeThumbColor: AppColors.primary,
+                          ),
+                        ],
+                      ),
                     ),
-                  const SizedBox(height: 10),
+                  if (!isPremium) const SizedBox(height: 10),
                 ],
               ),
             ),

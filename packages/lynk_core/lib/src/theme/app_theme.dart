@@ -17,6 +17,10 @@ class AppTheme {
         backgroundColor: AppColors.tertiary,
         contentTextStyle: TextStyle(color: Colors.white),
       ),
+      appBarTheme: const AppBarTheme(
+        scrolledUnderElevation: 0,
+        surfaceTintColor: Colors.transparent,
+      ),
     );
   }
 }
