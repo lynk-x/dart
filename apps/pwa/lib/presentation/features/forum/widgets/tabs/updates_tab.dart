@@ -100,21 +100,6 @@ class _UpdatesTabState extends State<UpdatesTab>
                               ),
                             ),
                           ),
-                          
-                          // Pinned Category Filter (appearing at top because of reverse: true)
-                          SliverPersistentHeader(
-                            pinned: true,
-                            delegate: _PinnedFilterDelegate(
-                              child: Container(
-                                color: AppColors.primaryBackground,
-                                padding: const EdgeInsets.only(bottom: 8),
-                                child: CategoryFilterBar(
-                                  selectedCategory: updatesState.selectedCategory,
-                                  onSelectionChanged: (cat) => updatesCubit.setCategory(cat),
-                                ),
-                              ),
-                            ),
-                          ),
 
                           // Pinned Info Banner (appearing below filter at top)
                           if (pinned.isNotEmpty)
@@ -129,6 +114,21 @@ class _UpdatesTabState extends State<UpdatesTab>
                                 ),
                               ),
                             ),
+                          
+                          // Pinned Category Filter (appearing at absolute top because it's last in reversed list)
+                          SliverPersistentHeader(
+                            pinned: true,
+                            delegate: _PinnedFilterDelegate(
+                              child: Container(
+                                color: AppColors.primaryBackground,
+                                padding: const EdgeInsets.only(bottom: 8),
+                                child: CategoryFilterBar(
+                                  selectedCategory: updatesState.selectedCategory,
+                                  onSelectionChanged: (cat) => updatesCubit.setCategory(cat),
+                                ),
+                              ),
+                            ),
+                          ),
                         ],
                       ),
                     ),
