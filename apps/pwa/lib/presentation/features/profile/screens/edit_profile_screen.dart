@@ -77,6 +77,45 @@ class _EditProfilePageState extends State<EditProfilePage> {
     });
   }
 
+   void _onAvatarTap(BuildContext context, ProfileModel profile) {
+     if (profile.avatarUrl == null) {
+       _pickImage(context);
+       return;
+     }
+
+     showModalBottomSheet(
+       context: context,
+       backgroundColor: AppColors.tertiary,
+       shape: const RoundedRectangleBorder(
+         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+       ),
+       builder: (context) => Container(
+         padding: const EdgeInsets.symmetric(vertical: 24),
+         child: Column(
+           mainAxisSize: MainAxisSize.min,
+           children: [
+             ListTile(
+               leading: const Icon(Icons.photo_library_outlined, color: Colors.white),
+               title: const Text('Choose from Gallery', style: TextStyle(color: Colors.white)),
+               onTap: () {
+                 Navigator.pop(context);
+                 _pickImage(context);
+               },
+             ),
+             ListTile(
+               leading: const Icon(Icons.delete_outline, color: Colors.redAccent),
+               title: const Text('Remove Photo', style: TextStyle(color: Colors.redAccent)),
+               onTap: () {
+                 Navigator.pop(context);
+                 context.read<ProfileCubit>().removeAvatar();
+               },
+             ),
+           ],
+         ),
+       ),
+     );
+   }
+
   Future<void> _pickImage(BuildContext context) async {
     setState(() => _isOpeningGallery = true);
     try {
@@ -300,7 +339,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                         avatarUrl: profile.avatarUrl,
                         isUpdating: isUpdating,
                         isUploading: _uploadingAvatar || _isOpeningGallery,
-                        onTap: () => _pickImage(context),
+                        onTap: () => _onAvatarTap(context, profile),
                       ),
                       const SizedBox(height: 32),
                       TextField(

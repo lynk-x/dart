@@ -158,38 +158,43 @@ GoRouter createRouter(
         path: '/tickets',
         builder: (_, __) => const TicketsListScreen(),
       ),
-      GoRoute(
-        path: '/wallet',
-        builder: (context, __) {
+      ShellRoute(
+        builder: (context, state, child) {
           if (!context.read<FeatureFlagCubit>().isEnabled('enable_wallet')) {
             return const SystemErrorScreen(
               title: 'Feature Unavailable',
               message: 'The wallet is not available in your region yet.',
             );
           }
-          return const WalletSecurityGate(child: WalletPage());
+          return WalletSecurityGate(child: child);
         },
         routes: [
           GoRoute(
-            path: 'list',
-            builder: (_, __) => const WalletSecurityGate(child: WalletListPage()),
+            path: '/wallet',
+            builder: (context, __) => const WalletPage(),
             routes: [
               GoRoute(
-                path: ':currency',
-                builder: (context, state) {
-                  final currency = state.pathParameters['currency']!;
-                  return WalletSecurityGate(child: WalletTransactionsPage(currency: currency));
-                },
+                path: 'list',
+                builder: (_, __) => const WalletListPage(),
+                routes: [
+                  GoRoute(
+                    path: ':currency',
+                    builder: (context, state) {
+                      final currency = state.pathParameters['currency']!;
+                      return WalletTransactionsPage(currency: currency);
+                    },
+                  ),
+                ],
+              ),
+              GoRoute(
+                path: 'history',
+                builder: (_, __) => const WalletHistoryPage(),
+              ),
+              GoRoute(
+                path: 'settings',
+                builder: (_, __) => const WalletSettingsPage(),
               ),
             ],
-          ),
-          GoRoute(
-            path: 'history',
-            builder: (_, __) => const WalletSecurityGate(child: WalletHistoryPage()),
-          ),
-          GoRoute(
-            path: 'settings',
-            builder: (_, __) => const WalletSecurityGate(child: WalletSettingsPage()),
           ),
         ],
       ),

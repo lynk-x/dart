@@ -126,7 +126,9 @@ class _WalletTransactionsPageState extends State<WalletTransactionsPage> {
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          '${balance.currency} ${balance.balance.toStringAsFixed(2)}',
+                          state.isPrivacyModeEnabled
+                            ? '••••••'
+                            : '${balance.currency} ${balance.balance.toStringAsFixed(2)}',
                           style: AppTypography.inter(
                             fontSize: 32,
                             fontWeight: FontWeight.bold,
@@ -136,7 +138,9 @@ class _WalletTransactionsPageState extends State<WalletTransactionsPage> {
                         if (balance.pendingBalance > 0) ...[
                           const SizedBox(height: 4),
                           Text(
-                            '+ ${balance.currency} ${balance.pendingBalance.toStringAsFixed(2)} pending',
+                            state.isPrivacyModeEnabled
+                              ? '+ •••••• pending'
+                              : '+ ${balance.currency} ${balance.pendingBalance.toStringAsFixed(2)} pending',
                             style: AppTypography.inter(fontSize: 12, color: AppColors.primary.withValues(alpha: 0.7)),
                           ),
                         ],
@@ -330,9 +334,15 @@ class TransactionTile extends StatelessWidget {
                 ],
               ),
             ),
-            Text(
-              '$sign ${tx.currency} ${tx.amount.toStringAsFixed(2)}',
-              style: AppTypography.inter(fontSize: 15, fontWeight: FontWeight.bold, color: color),
+            BlocBuilder<WalletCubit, WalletState>(
+              builder: (context, state) {
+                return Text(
+                  state.isPrivacyModeEnabled 
+                    ? '••••••'
+                    : '$sign ${tx.currency} ${tx.amount.toStringAsFixed(2)}',
+                  style: AppTypography.inter(fontSize: 15, fontWeight: FontWeight.bold, color: color),
+                );
+              },
             ),
           ],
         ),

@@ -107,6 +107,26 @@ class ProfileCubit extends Cubit<ProfileState> {
     }
   }
 
+  Future<void> removeAvatar() async {
+    final currentState = state;
+    if (currentState is! ProfileLoaded || userId == null) return;
+    final uid = userId!;
+
+    emit(currentState.copyWith(isUpdating: true));
+    try {
+      await Supabase.instance.client
+          .from('user_profile')
+          .update({'avatar_url': null}).eq('id', uid);
+
+      final updatedProfile = currentState.profile.copyWith(clearAvatarUrl: true);
+
+      emit(ProfileLoaded(profile: updatedProfile));
+    } catch (e) {
+      debugPrint('[ProfileCubit] removeAvatar failed: $e');
+      emit(currentState.copyWith(isUpdating: false, error: e.toString()));
+    }
+  }
+
   Future<void> deleteAccount() async {
     final currentState = state;
     if (currentState is! ProfileLoaded) return;

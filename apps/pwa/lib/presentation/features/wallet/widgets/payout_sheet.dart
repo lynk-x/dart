@@ -24,6 +24,7 @@ class PayoutSheet extends StatefulWidget {
 class _PayoutSheetState extends State<PayoutSheet> {
   final _amountController = TextEditingController();
   final _phoneController  = TextEditingController();
+  final _pinController    = TextEditingController();
 
   late String  _selectedCurrency;
   String? _selectedMethodId;
@@ -39,6 +40,7 @@ class _PayoutSheetState extends State<PayoutSheet> {
   void dispose() {
     _amountController.dispose();
     _phoneController.dispose();
+    _pinController.dispose();
     super.dispose();
   }
 
@@ -240,7 +242,27 @@ class _PayoutSheetState extends State<PayoutSheet> {
                     onCancel: () => setState(() => _showAddMethod = false),
                   ),
 
-                const SizedBox(height: 24),
+                Text(
+                   'Confirm with PIN',
+                   style: AppTypography.inter(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.white54),
+                 ),
+                 const SizedBox(height: 8),
+                 TextField(
+                   controller: _pinController,
+                   obscureText: true,
+                   keyboardType: TextInputType.number,
+                   inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(6)],
+                   style: const TextStyle(color: Colors.white, fontSize: 16),
+                   decoration: InputDecoration(
+                     hintText: 'Enter 6-digit PIN',
+                     hintStyle: const TextStyle(color: Colors.white24),
+                     filled: true,
+                     fillColor: Colors.white.withValues(alpha: 0.05),
+                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                     contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                   ),
+                 ),
+                 const SizedBox(height: 24),
                 SizedBox(
                   width: double.infinity,
                   child: PrimaryButton(
@@ -252,11 +274,17 @@ class _PayoutSheetState extends State<PayoutSheet> {
                         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enter a valid amount')));
                         return;
                       }
-                      context.read<WalletCubit>().requestWithdrawal(
-                        amount: amount,
-                        currency: _selectedCurrency,
-                        payoutMethodId: _selectedMethodId!,
-                      );
+                       final pin = _pinController.text.trim();
+                       if (pin.length < 4) {
+                         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enter your wallet PIN')));
+                         return;
+                       }
+                       context.read<WalletCubit>().requestWithdrawal(
+                         amount: amount,
+                         currency: _selectedCurrency,
+                         payoutMethodId: _selectedMethodId!,
+                         pin: pin,
+                       );
                     },
                   ),
                 ),

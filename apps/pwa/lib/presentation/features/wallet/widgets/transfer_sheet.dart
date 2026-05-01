@@ -23,6 +23,7 @@ class TransferSheet extends StatefulWidget {
 class _TransferSheetState extends State<TransferSheet> {
   final _amountController = TextEditingController();
   late String _currency;
+  final _pinController = TextEditingController();
   double? _quickPick;
 
   @override
@@ -37,6 +38,7 @@ class _TransferSheetState extends State<TransferSheet> {
   @override
   void dispose() {
     _amountController.dispose();
+    _pinController.dispose();
     super.dispose();
   }
 
@@ -71,10 +73,19 @@ class _TransferSheetState extends State<TransferSheet> {
       return;
     }
 
+    final pin = _pinController.text.trim();
+    if (pin.length < 4) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter your wallet PIN')),
+      );
+      return;
+    }
+
     context.read<WalletCubit>().transferFunds(
       amount: amount,
       currency: _currency,
       recipientAccountId: widget.recipientAccountId,
+      pin: pin,
     );
   }
 
@@ -227,6 +238,32 @@ class _TransferSheetState extends State<TransferSheet> {
                         const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                   ),
                 ),
+
+                 // ── PIN Confirmation ──────────────────────────────────────────
+                 const SizedBox(height: 20),
+                 Text('Confirm with PIN',
+                     style: AppTypography.inter(
+                         fontSize: 13, fontWeight: FontWeight.w600, color: Colors.white54)),
+                 const SizedBox(height: 8),
+                 TextField(
+                   controller: _pinController,
+                   obscureText: true,
+                   keyboardType: TextInputType.number,
+                   style: const TextStyle(color: Colors.white),
+                   decoration: InputDecoration(
+                     hintText: 'Enter 6-digit PIN',
+                     hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.3)),
+                     filled: true,
+                     fillColor: Colors.white.withValues(alpha: 0.05),
+                     border: OutlineInputBorder(
+                         borderRadius: BorderRadius.circular(12),
+                         borderSide: BorderSide.none),
+                     contentPadding:
+                         const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                   ),
+                 ),
+
+                 const SizedBox(height: 24),
 
                 // ── Error ──────────────────────────────────────────────────────
                 if (state.withdrawStatus == WithdrawStatus.error &&

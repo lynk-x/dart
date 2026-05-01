@@ -4,7 +4,6 @@ import 'package:lynk_core/core.dart';
 import 'package:lynk_x/presentation/features/wallet/widgets/wallet_pin_setup_sheet.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:local_auth/local_auth.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../cubit/wallet_cubit.dart';
 import '../cubit/wallet_state.dart';
 
@@ -18,7 +17,6 @@ class WalletSettingsPage extends StatefulWidget {
 class _WalletSettingsPageState extends State<WalletSettingsPage> {
   final LocalAuthentication auth = LocalAuthentication();
   bool _canCheckBiometrics = false;
-  bool _useBiometrics = false;
   String _biometricLabel = 'Biometric Unlock';
 
   @override
@@ -30,8 +28,6 @@ class _WalletSettingsPageState extends State<WalletSettingsPage> {
   Future<void> _checkBiometrics() async {
     final canCheck = await auth.canCheckBiometrics || await auth.isDeviceSupported();
     final available = await auth.getAvailableBiometrics();
-    final prefs = await SharedPreferences.getInstance();
-    final useBio = prefs.getBool('wallet_use_biometrics_v1') ?? false;
 
     String label = 'Biometric Unlock';
     if (available.contains(BiometricType.face)) {
@@ -45,7 +41,6 @@ class _WalletSettingsPageState extends State<WalletSettingsPage> {
     setState(() {
       _canCheckBiometrics = canCheck;
       _biometricLabel = label;
-      _useBiometrics = useBio;
     });
   }
 
@@ -68,9 +63,8 @@ class _WalletSettingsPageState extends State<WalletSettingsPage> {
       }
     }
 
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('wallet_use_biometrics_v1', value);
-    setState(() => _useBiometrics = value);
+    if (!mounted) return;
+    context.read<WalletCubit>().toggleBiometrics(value);
   }
 
   String _getDailyLimit(String? tier) {
@@ -119,6 +113,15 @@ class _WalletSettingsPageState extends State<WalletSettingsPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                _buildSectionHeader('Accounts'),
+                _buildSettingTile(
+                  title: 'Linked Accounts',
+                  subtitle: 'Manage external bank or card links',
+                  icon: Icons.link_rounded,
+                  onTap: () {},
+                ),
+
+                const SizedBox(height: 32),
                 _buildSectionHeader('Verification & Limits'),
                 _buildSettingTile(
                   title: 'Daily Transfer Limit',
@@ -159,7 +162,7 @@ class _WalletSettingsPageState extends State<WalletSettingsPage> {
                     title: _biometricLabel,
                     subtitle: 'Unlock your wallet using your device biometrics',
                     icon: Icons.fingerprint_rounded,
-                    value: _useBiometrics,
+                    value: state.useBiometrics,
                     onChanged: _toggleBiometrics,
                   ),
                 
@@ -169,17 +172,8 @@ class _WalletSettingsPageState extends State<WalletSettingsPage> {
                   title: 'Privacy Mode',
                   subtitle: 'Hide balances on the main dashboard',
                   icon: Icons.visibility_off_outlined,
-                  value: false,
-                  onChanged: (val) {},
-                ),
-
-                const SizedBox(height: 32),
-                _buildSectionHeader('Accounts'),
-                _buildSettingTile(
-                  title: 'Linked Accounts',
-                  subtitle: 'Manage external bank or card links',
-                  icon: Icons.link_rounded,
-                  onTap: () {},
+                  value: state.isPrivacyModeEnabled,
+                  onChanged: (val) => context.read<WalletCubit>().togglePrivacyMode(val),
                 ),
 
                 const SizedBox(height: 40),

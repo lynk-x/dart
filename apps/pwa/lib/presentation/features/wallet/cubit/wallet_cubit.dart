@@ -4,6 +4,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:crypto/crypto.dart';
 import 'dart:convert';
 import 'package:local_auth/local_auth.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
 
 import 'package:lynk_x/presentation/features/wallet/models/wallet_model.dart';
 import 'wallet_state.dart';
@@ -38,7 +40,13 @@ class WalletCubit extends Cubit<WalletState> {
   /// Fetch initial wallet data and subscribe to realtime balance updates.
   Future<void> init() async {
     emit(state.copyWith(isLoading: true, clearError: true));
-    await Future.wait([_fetchBalances(), _fetchTransactions(reset: true), _checkPinStatus()]);
+    await Future.wait([
+      _fetchBalances(),
+      _fetchTransactions(reset: true),
+      _checkPinStatus(),
+      _loadBiometricPreference(),
+      _loadPrivacyPreference(),
+    ]);
     _subscribeToBalanceUpdates();
     _authSubscription = _supabase.auth.onAuthStateChange.listen((event) {
       if (event.event == AuthChangeEvent.tokenRefreshed ||
@@ -326,6 +334,7 @@ class WalletCubit extends Cubit<WalletState> {
     required double amount,
     required String currency,
     required String payoutMethodId,
+    required String pin,
   }) async {
     if (amount <= 0) {
       emit(state.copyWith(
@@ -341,10 +350,12 @@ class WalletCubit extends Cubit<WalletState> {
     ));
 
     try {
-      await _supabase.rpc('request_attendee_withdrawal', params: {
+      final hash = _hashPin(pin);
+      await _supabase.rpc('request_attendee_withdrawal_v2', params: {
         'p_amount':            amount,
         'p_currency':          currency,
         'p_payout_method_id':  payoutMethodId,
+        'p_pin_hash':          hash,
       });
 
       emit(state.copyWith(withdrawStatus: WithdrawStatus.success));
@@ -362,6 +373,7 @@ class WalletCubit extends Cubit<WalletState> {
     required double amount,
     required String currency,
     required String recipientAccountId,
+    required String pin,
   }) async {
     if (amount <= 0) {
       emit(state.copyWith(
@@ -377,10 +389,12 @@ class WalletCubit extends Cubit<WalletState> {
     ));
 
     try {
-      await _supabase.rpc('transfer_funds', params: {
+      final hash = _hashPin(pin);
+      await _supabase.rpc('transfer_funds_v2', params: {
         'p_amount':               amount,
         'p_currency':             currency,
         'p_recipient_account_id': recipientAccountId,
+        'p_pin_hash':             hash,
       });
 
       emit(state.copyWith(withdrawStatus: WithdrawStatus.success));
@@ -499,6 +513,18 @@ class WalletCubit extends Cubit<WalletState> {
   void lockWallet() {
     emit(state.copyWith(isWalletUnlocked: false));
   }
+  
+  Future<void> _loadBiometricPreference() async {
+    final prefs = await SharedPreferences.getInstance();
+    final useBio = prefs.getBool('wallet_use_biometrics_v1') ?? false;
+    emit(state.copyWith(useBiometrics: useBio));
+  }
+
+  Future<void> toggleBiometrics(bool enable) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('wallet_use_biometrics_v1', enable);
+    emit(state.copyWith(useBiometrics: enable));
+  }
 
   /// PIN Recovery Strategy:
   /// Since the Wallet PIN is a second factor of authentication, recovery must
@@ -509,4 +535,16 @@ class WalletCubit extends Cubit<WalletState> {
   /// 2. Clicking the OTL will allow the user to set a new PIN.
   /// 3. As a safety measure, resetting the PIN will place a 24-48 hour "hold"
   ///    on high-value withdrawals to prevent account takeover abuse.
+
+   Future<void> _loadPrivacyPreference() async {
+     final prefs = await SharedPreferences.getInstance();
+     final enabled = prefs.getBool('wallet_privacy_mode_v1') ?? false;
+     emit(state.copyWith(isPrivacyModeEnabled: enabled));
+   }
+
+   Future<void> togglePrivacyMode(bool enable) async {
+     final prefs = await SharedPreferences.getInstance();
+     await prefs.setBool('wallet_privacy_mode_v1', enable);
+     emit(state.copyWith(isPrivacyModeEnabled: enable));
+   }
 }

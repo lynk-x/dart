@@ -48,6 +48,8 @@ class WalletState extends Equatable {
   // Security
   final bool hasPinSet;
   final bool isWalletUnlocked;
+  final bool useBiometrics;
+  final bool isPrivacyModeEnabled;
 
   const WalletState({
     this.balances       = const [],
@@ -67,6 +69,8 @@ class WalletState extends Equatable {
     this.selectedCurrency,
     this.hasPinSet       = false,
     this.isWalletUnlocked = false,
+    this.useBiometrics    = false,
+    this.isPrivacyModeEnabled = false,
   });
 
   WalletState copyWith({
@@ -93,6 +97,8 @@ class WalletState extends Equatable {
     bool clearSelectedCurrency = false,
     bool? hasPinSet,
     bool? isWalletUnlocked,
+    bool? useBiometrics,
+    bool? isPrivacyModeEnabled,
   }) {
     return WalletState(
       balances:        balances       ?? this.balances,
@@ -112,6 +118,8 @@ class WalletState extends Equatable {
       selectedCurrency: clearSelectedCurrency ? null : selectedCurrency ?? this.selectedCurrency,
       hasPinSet:       hasPinSet      ?? this.hasPinSet,
       isWalletUnlocked: isWalletUnlocked ?? this.isWalletUnlocked,
+      useBiometrics:   useBiometrics  ?? this.useBiometrics,
+      isPrivacyModeEnabled: isPrivacyModeEnabled ?? this.isPrivacyModeEnabled,
     );
   }
 
@@ -122,6 +130,6 @@ class WalletState extends Equatable {
     topUpStatus, topUpError, topUpPaymentUrl,
     withdrawStatus, withdrawError, payoutMethods,
     kycTier, accountId, selectedCurrency,
-    hasPinSet, isWalletUnlocked,
+    hasPinSet, isWalletUnlocked, useBiometrics, isPrivacyModeEnabled,
   ];
 }

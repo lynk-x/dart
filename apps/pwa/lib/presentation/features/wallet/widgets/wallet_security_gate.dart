@@ -23,10 +23,25 @@ class _WalletSecurityGateState extends State<WalletSecurityGate> {
   void initState() {
     super.initState();
     _focusNode.requestFocus();
+    
+    // Auto-trigger biometrics if enabled in settings
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        final state = context.read<WalletCubit>().state;
+        if (state.useBiometrics && state.hasPinSet && !state.isWalletUnlocked) {
+          context.read<WalletCubit>().unlockWithBiometrics();
+        }
+      }
+    });
   }
 
   @override
   void dispose() {
+    // Lock the wallet immediately when leaving the wallet feature.
+    // We capture the cubit reference now because context will be invalid in the microtask.
+    final cubit = context.read<WalletCubit>();
+    Future.microtask(() => cubit.lockWallet());
+    
     _focusNode.dispose();
     super.dispose();
   }
@@ -138,10 +153,13 @@ class _WalletSecurityGateState extends State<WalletSecurityGate> {
                             crossAxisSpacing: 20,
                             children: [
                               ...List.generate(9, (index) => _PinButton(n: index + 1, onTap: () => _onNumberTap(index + 1))),
-                              IconButton(
-                                onPressed: () => context.read<WalletCubit>().unlockWithBiometrics(),
-                                icon: const Icon(Icons.fingerprint, color: Colors.white70, size: 32),
-                              ),
+                               if (state.useBiometrics)
+                                 IconButton(
+                                   onPressed: () => context.read<WalletCubit>().unlockWithBiometrics(),
+                                   icon: const Icon(Icons.fingerprint, color: Colors.white70, size: 32),
+                                 )
+                               else
+                                 const SizedBox.shrink(),
                               _PinButton(n: 0, onTap: () => _onNumberTap(0)),
                               IconButton(
                                 onPressed: _onDelete,

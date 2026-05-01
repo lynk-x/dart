@@ -4,6 +4,8 @@ import 'package:lynk_core/core.dart';
 import 'package:lynk_x/presentation/features/wallet/cubit/wallet_cubit.dart';
 import 'package:lynk_x/presentation/features/wallet/cubit/wallet_state.dart';
 import 'package:lynk_x/presentation/features/wallet/screens/wallet_transactions_screen.dart';
+import 'package:intl/intl.dart';
+import 'package:lynk_x/presentation/features/wallet/models/wallet_model.dart';
 
 class WalletHistoryPage extends StatefulWidget {
   const WalletHistoryPage({super.key});
@@ -34,6 +36,30 @@ class _WalletHistoryPageState extends State<WalletHistoryPage> {
   void dispose() {
     _scrollController.dispose();
     super.dispose();
+  }
+
+  Map<String, List<WalletTransaction>> _groupTransactions(List<WalletTransaction> transactions) {
+    final groups = <String, List<WalletTransaction>>{};
+    for (final tx in transactions) {
+      final date = DateTime(tx.createdAt.year, tx.createdAt.month, tx.createdAt.day);
+      String label;
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      final yesterday = today.subtract(const Duration(days: 1));
+
+      if (date == today) {
+        label = 'Today';
+      } else if (date == yesterday) {
+        label = 'Yesterday';
+      } else if (date.year == now.year) {
+        label = DateFormat('MMMM dd').format(date);
+      } else {
+        label = DateFormat('MMMM dd, yyyy').format(date);
+      }
+
+      groups.putIfAbsent(label, () => []).add(tx);
+    }
+    return groups;
   }
 
   @override
@@ -72,15 +98,18 @@ class _WalletHistoryPageState extends State<WalletHistoryPage> {
             );
           }
 
+          final grouped = _groupTransactions(state.transactions);
+          final sortedKeys = grouped.keys.toList();
+
           return RefreshIndicator(
             color: AppColors.primary,
             onRefresh: () => context.read<WalletCubit>().refresh(),
             child: ListView.builder(
               controller: _scrollController,
               padding: const EdgeInsets.symmetric(vertical: 16),
-              itemCount: state.transactions.length + 1,
-              itemBuilder: (context, index) {
-                if (index == state.transactions.length) {
+              itemCount: sortedKeys.length + 1,
+              itemBuilder: (context, groupIndex) {
+                if (groupIndex == sortedKeys.length) {
                   return state.isLoadingMore
                       ? const Padding(
                           padding: EdgeInsets.all(16),
@@ -88,7 +117,28 @@ class _WalletHistoryPageState extends State<WalletHistoryPage> {
                         )
                       : const SizedBox(height: 80);
                 }
-                return TransactionTile(tx: state.transactions[index]);
+
+                final label = sortedKeys[groupIndex];
+                final txs = grouped[label]!;
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+                      child: Text(
+                        label.toUpperCase(),
+                        style: AppTypography.inter(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white24,
+                          letterSpacing: 1.2,
+                        ),
+                      ),
+                    ),
+                    ...txs.map((tx) => TransactionTile(tx: tx)),
+                  ],
+                );
               },
             ),
           );

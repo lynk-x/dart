@@ -62,11 +62,12 @@ class ProfileModel {
     String? tagline,
     String? avatarUrl,
     String? countryCode,
+    bool clearAvatarUrl = false,
   }) {
     return ProfileModel(
       id: id,
       email: email,
-      avatarUrl: avatarUrl ?? this.avatarUrl,
+      avatarUrl: clearAvatarUrl ? null : (avatarUrl ?? this.avatarUrl),
       userName: userName ?? this.userName,
       fullName: fullName ?? this.fullName,
       bio: bio ?? this.bio,

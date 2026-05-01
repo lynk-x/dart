@@ -26,7 +26,7 @@ class ForumWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final formattedDate =
-        DateFormat('dd/MM/yyyy • h:mm a').format(event.startDatetime);
+        DateFormat('EEE, MMM d • h:mm a').format(event.startDatetime);
 
     if (isGrid) {
       return FlameBadge(
