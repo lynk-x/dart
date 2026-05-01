@@ -5,7 +5,6 @@ import 'package:lynk_x/presentation/features/forum/cubit/forum_cubit.dart';
 import 'package:lynk_x/presentation/features/forum/cubit/forum_state.dart';
 import 'package:lynk_x/presentation/features/forum/cubit/forum_updates_cubit.dart';
 import 'package:lynk_x/presentation/features/forum/cubit/forum_updates_state.dart';
-import 'package:lynk_x/presentation/features/forum/models/forum_model.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/info_banner.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/message_input.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/chat_bubble.dart';
@@ -30,7 +29,7 @@ class UpdatesTab extends StatefulWidget {
 
 class _UpdatesTabState extends State<UpdatesTab>
     with AutomaticKeepAliveClientMixin {
-  ChatMessage? _selectedMessage;
+  String? _selectedMessageId;
 
   @override
   bool get wantKeepAlive => true;
@@ -51,6 +50,7 @@ class _UpdatesTabState extends State<UpdatesTab>
         return BlocBuilder<ForumUpdatesCubit, ForumUpdatesState>(
           builder: (context, updatesState) {
             final pinned = updatesState.messages.where((m) => m.isPinned).toList();
+            final hasPinned = pinned.isNotEmpty;
             
             return Column(
               children: [
@@ -63,9 +63,12 @@ class _UpdatesTabState extends State<UpdatesTab>
                         controller: widget.scrollController,
                         reverse: true,
                         slivers: [
-                          // Messages
+                          // 1. Bottom Padding (for reverse: true)
+                          const SliverToBoxAdapter(child: SizedBox(height: 16)),
+
+                          // 2. Messages List
                           SliverPadding(
-                            padding: const EdgeInsets.all(16),
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
                             sliver: SliverList(
                               delegate: SliverChildBuilderDelegate(
                                 (context, index) {
@@ -91,9 +94,17 @@ class _UpdatesTabState extends State<UpdatesTab>
                                     onReact: (msg, emoji) => mainCubit.reactToMessage(msg, emoji),
                                     onReply: (msg) => updatesCubit.setReplyTo(msg),
                                     onMediaTap: widget.onMediaTap,
-                                    showActions: _selectedMessage?.id == message.id,
-                                    onLongPressBubble: () => setState(() => _selectedMessage = message),
-                                    onTapBubble: () => setState(() => _selectedMessage = null),
+                                    showActions: _selectedMessageId == message.id,
+                                    onLongPressBubble: () {
+                                      setState(() {
+                                        if (_selectedMessageId == message.id) {
+                                          _selectedMessageId = null;
+                                        } else {
+                                          _selectedMessageId = message.id;
+                                        }
+                                      });
+                                    },
+                                    onTapBubble: () => setState(() => _selectedMessageId = null),
                                   );
                                 },
                                 childCount: updatesState.messages.length + (updatesState.isLoading ? 1 : 0),
@@ -101,11 +112,11 @@ class _UpdatesTabState extends State<UpdatesTab>
                             ),
                           ),
 
-                          // Pinned Info Banner (appearing below filter at top)
-                          if (pinned.isNotEmpty)
+                          // 3. Pinned Info Banner (below filter)
+                          if (hasPinned)
                             SliverToBoxAdapter(
                               child: Padding(
-                                padding: const EdgeInsets.only(bottom: 8),
+                                padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
                                 child: InfoBanner(
                                   icon: Icons.push_pin,
                                   text: pinned.first.message.length > 80
@@ -115,12 +126,14 @@ class _UpdatesTabState extends State<UpdatesTab>
                               ),
                             ),
                           
-                          // Pinned Category Filter (appearing at absolute top because it's last in reversed list)
+                          // 4. Pinned Category Filter (Absolute Top)
                           SliverPersistentHeader(
                             pinned: true,
-                            delegate: _PinnedFilterDelegate(
+                            delegate: _PinnedHeaderDelegate(
+                              height: 60,
                               child: Container(
                                 color: AppColors.primaryBackground,
+                                alignment: Alignment.bottomCenter,
                                 padding: const EdgeInsets.only(bottom: 8),
                                 child: CategoryFilterBar(
                                   selectedCategory: updatesState.selectedCategory,
@@ -157,9 +170,16 @@ class _UpdatesTabState extends State<UpdatesTab>
   }
 }
 
-class _PinnedFilterDelegate extends SliverPersistentHeaderDelegate {
+class _PinnedHeaderDelegate extends SliverPersistentHeaderDelegate {
+  final double height;
   final Widget child;
-  _PinnedFilterDelegate({required this.child});
+
+  _PinnedHeaderDelegate({required this.height, required this.child});
+
+  @override
+  double get minExtent => height;
+  @override
+  double get maxExtent => height;
 
   @override
   Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
@@ -167,10 +187,7 @@ class _PinnedFilterDelegate extends SliverPersistentHeaderDelegate {
   }
 
   @override
-  double get maxExtent => 52;
-  @override
-  double get minExtent => 52;
-
-  @override
-  bool shouldRebuild(covariant _PinnedFilterDelegate oldDelegate) => true;
+  bool shouldRebuild(covariant _PinnedHeaderDelegate oldDelegate) {
+    return height != oldDelegate.height || child != oldDelegate.child;
+  }
 }
