@@ -284,7 +284,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
             child: const Text('Keep Premium',
-                style: TextStyle(color: AppColors.primary)),
+                style: TextStyle(color: AppColors.secondary)),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
@@ -348,7 +348,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
   void _showSuccess() {
     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
       content: Text('Welcome to Premium!'),
-      backgroundColor: AppColors.primary,
+      backgroundColor: AppColors.secondary,
     ));
     _load();
   }
@@ -391,7 +391,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
         centerTitle: true,
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
+          ? const Center(child: CircularProgressIndicator(color: AppColors.secondary))
           : _hasError
               ? _buildError()
               : _monthlyPlan == null
@@ -428,7 +428,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
               icon: const Icon(Icons.refresh, size: 18),
               label: const Text('Try again'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
+                backgroundColor: AppColors.secondary,
                 foregroundColor: Colors.black,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
@@ -487,7 +487,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
               ),
               const SizedBox(height: 10),
               Text(
-                'Enhance your event experience. Ad-free forums, exclusive badge, and early access to every new feature.',
+                'Enhance your event experience. Ad-free forums, exclusive badge and early access to every new feature.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                     color: Colors.white.withValues(alpha: 0.55),
@@ -631,9 +631,9 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                       ? null
                       : _showPaymentSheet,
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
+                backgroundColor: AppColors.secondary,
                 disabledBackgroundColor:
-                    AppColors.primary.withValues(alpha: 0.3),
+                    AppColors.secondary.withValues(alpha: 0.3),
                 foregroundColor: Colors.black,
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16)),
@@ -677,7 +677,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const CircularProgressIndicator(color: AppColors.primary),
+            const CircularProgressIndicator(color: AppColors.secondary),
             const SizedBox(height: 24),
             const Text(
               'Waiting for M-Pesa...',
@@ -807,7 +807,7 @@ class _PaymentSheetState extends State<_PaymentSheet> {
                 icon: const Icon(Icons.add_card, size: 14),
                 label: const Text('Top up wallet →'),
                 style: TextButton.styleFrom(
-                  foregroundColor: AppColors.primary,
+                  foregroundColor: AppColors.secondary,
                   padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
                   visualDensity: VisualDensity.compact,
                   textStyle: const TextStyle(fontSize: 13),
@@ -932,7 +932,7 @@ class _ToggleOption extends StatelessWidget {
           duration: const Duration(milliseconds: 180),
           padding: const EdgeInsets.symmetric(vertical: 10),
           decoration: BoxDecoration(
-            color: selected ? AppColors.primary : Colors.transparent,
+            color: selected ? AppColors.secondary : Colors.transparent,
             borderRadius: BorderRadius.circular(10),
           ),
           child: Column(
@@ -955,7 +955,7 @@ class _ToggleOption extends StatelessWidget {
                   style: TextStyle(
                     color: selected
                         ? Colors.black.withValues(alpha: 0.6)
-                        : AppColors.primary.withValues(alpha: 0.8),
+                        : AppColors.secondary.withValues(alpha: 0.8),
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
                   ),
@@ -980,7 +980,7 @@ class _FeatureRow extends StatelessWidget {
         Container(
           padding: const EdgeInsets.all(2),
           decoration: const BoxDecoration(
-              color: AppColors.primary, shape: BoxShape.circle),
+              color: AppColors.secondary, shape: BoxShape.circle),
           child: const Icon(Icons.check, size: 14, color: Colors.black),
         ),
         const SizedBox(width: 14),
