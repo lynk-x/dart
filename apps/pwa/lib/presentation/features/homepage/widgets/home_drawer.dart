@@ -269,7 +269,7 @@ class _HomeDrawerState extends State<HomeDrawer> {
                     margin:
                         const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     decoration: BoxDecoration(
-                      color: AppColors.secondary,
+                      color: AppColors.primary,
                       borderRadius: BorderRadius.circular(16),
                     ),
                     child: Material(
@@ -278,10 +278,7 @@ class _HomeDrawerState extends State<HomeDrawer> {
                         borderRadius: BorderRadius.circular(16),
                         onTap: () {
                           context.pop();
-                          // Direct the user to the new standalone Web App upgrade page!
-                          // In production, change localhost to lynk-x.app
-                          launchUrl(Uri.parse('https://lynk-x.app/upgrade'),
-                              mode: LaunchMode.externalApplication);
+                          context.push('/upgrade');
                         },
                         child: Padding(
                           padding: const EdgeInsets.all(16),
@@ -321,7 +318,7 @@ class _HomeDrawerState extends State<HomeDrawer> {
                       ),
                     ),
                   ),
-                const Divider(color: Colors.white54, height: 32, thickness: 0.5),
+                const Divider(color: Colors.white38, height: 32, thickness: 0.5),
 
                 ListTile(
                   title: Text(
