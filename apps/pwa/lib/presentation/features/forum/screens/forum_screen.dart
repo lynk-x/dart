@@ -228,11 +228,9 @@ class _ForumViewState extends State<ForumView> {
               onlineUsers: presenceState.onlineUsers,
               eventProgress: state.eventProgress,
               isPremium: state.isPremium,
-              showAds: state.showAds,
               isOrganizer: state.isOrganizer,
               eventId: state.eventId,
               forumId: cubit.forumId,
-              onAdsChanged: (val) => cubit.toggleAds(val),
             ),
           ),
         ),
@@ -254,74 +252,75 @@ class _ForumViewState extends State<ForumView> {
                       },
                     ),
                   ),
-                  BlocBuilder<ForumAdsCubit, ForumAdsState>(
-                    builder: (context, adsState) {
-                      final showBannerAd = context.read<FeatureFlagCubit>().isEnabled('enable_banner_ad');
-                      final hasAds = !cubit.state.isPremium && 
-                                    showBannerAd && 
-                                    context.read<FeatureFlagCubit>().isEnabled('enable_forum_ads') && 
-                                    adsState.ads.isNotEmpty;
-                      
-                      return SliverPersistentHeader(
-                        pinned: true,
-                        delegate: _SliverAppBarDelegate(
-                          height: 52 + (hasAds ? 100 : 0) + 50, 
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              BlocBuilder<ForumCubit, ForumState>(
-                                buildWhen: (p, c) =>
-                                    p.isOrganizer != c.isOrganizer || p.isReadOnly != c.isReadOnly,
-                                builder: (context, forumState) => ForumHeader(
-                                  isOrganizer: forumState.isOrganizer,
-                                  isReadOnly: forumState.isReadOnly,
-                                  forumName: forumState.forumName,
-                                  onLockToggle: () {
-                                    final messenger = ScaffoldMessenger.of(context);
-                                    final nextStatus = forumState.isReadOnly ? 'open' : 'read_only';
-                                    cubit.updateForumStatus(nextStatus);
-                                    messenger.showSnackBar(SnackBar(
-                                      content: Text(forumState.isReadOnly ? 'Chat unlocked' : 'Chat locked'),
-                                      behavior: SnackBarBehavior.floating,
-                                    ));
-                                  },
-                                  onSearch: (q) {
-                                    context.read<ForumUpdatesCubit>().setSearchQuery(q);
-                                    context.read<ForumChatCubit>().setSearchQuery(q);
-                                  },
-                                  onSearchToggle: () {
-                                    final updatesCubit = context.read<ForumUpdatesCubit>();
-                                    final chatCubit = context.read<ForumChatCubit>();
-                                    if (updatesCubit.state.searchQuery.isNotEmpty || 
-                                        chatCubit.state.searchQuery.isNotEmpty) {
-                                      updatesCubit.setSearchQuery('');
-                                      chatCubit.setSearchQuery('');
-                                    }
-                                  },
-                                ),
-                              ),
-                              if (hasAds) RepaintBoundary(
-                                child: AdCarousel(
-                                  ads: adsState.ads,
-                                  onAdViewed: (adId) =>
-                                      context.read<ForumAdsCubit>().logAdImpression(adId),
-                                  onAdClicked: (ad) async {
-                                    context.read<ForumAdsCubit>().logAdClick(ad.id);
-                                    if (ad.targetUrl != null) {
-                                      final uri = Uri.parse(ad.targetUrl!);
-                                      if (await canLaunchUrl(uri)) {
-                                        await launchUrl(uri);
+                  BlocBuilder<ForumCubit, ForumState>(
+                    buildWhen: (p, c) => p.isPremium != c.isPremium || p.showAds != c.showAds,
+                    builder: (context, forumState) {
+                      return BlocBuilder<ForumAdsCubit, ForumAdsState>(
+                        builder: (context, adsState) {
+                          final showBannerAd = context.read<FeatureFlagCubit>().isEnabled('enable_banner_ad');
+                          final hasAds = !forumState.isPremium && 
+                                        showBannerAd && 
+                                        context.read<FeatureFlagCubit>().isEnabled('enable_forum_ads') && 
+                                        adsState.ads.isNotEmpty;
+                          
+                          return SliverPersistentHeader(
+                            pinned: true,
+                            delegate: _SliverAppBarDelegate(
+                              height: 102 + (hasAds ? 50 : 0), 
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  ForumHeader(
+                                    isOrganizer: forumState.isOrganizer,
+                                    isReadOnly: forumState.isReadOnly,
+                                    forumName: forumState.forumName,
+                                    onLockToggle: () {
+                                      final messenger = ScaffoldMessenger.of(context);
+                                      final nextStatus = forumState.isReadOnly ? 'open' : 'read_only';
+                                      cubit.updateForumStatus(nextStatus);
+                                      messenger.showSnackBar(SnackBar(
+                                        content: Text(forumState.isReadOnly ? 'Chat unlocked' : 'Chat locked'),
+                                        behavior: SnackBarBehavior.floating,
+                                      ));
+                                    },
+                                    onSearch: (q) {
+                                      context.read<ForumUpdatesCubit>().setSearchQuery(q);
+                                      context.read<ForumChatCubit>().setSearchQuery(q);
+                                    },
+                                    onSearchToggle: () {
+                                      final updatesCubit = context.read<ForumUpdatesCubit>();
+                                      final chatCubit = context.read<ForumChatCubit>();
+                                      if (updatesCubit.state.searchQuery.isNotEmpty || 
+                                          chatCubit.state.searchQuery.isNotEmpty) {
+                                        updatesCubit.setSearchQuery('');
+                                        chatCubit.setSearchQuery('');
                                       }
-                                    } else if (ad.targetEventId != null) {
-                                      context.push('/events/${ad.targetEventId}');
-                                    }
-                                  },
-                                ),
+                                    },
+                                  ),
+                                  if (hasAds) RepaintBoundary(
+                                    child: AdCarousel(
+                                      ads: adsState.ads,
+                                      onAdViewed: (adId) =>
+                                          context.read<ForumAdsCubit>().logAdImpression(adId),
+                                      onAdClicked: (ad) async {
+                                        context.read<ForumAdsCubit>().logAdClick(ad.id);
+                                        if (ad.targetUrl != null) {
+                                          final uri = Uri.parse(ad.targetUrl!);
+                                          if (await canLaunchUrl(uri)) {
+                                            await launchUrl(uri);
+                                          }
+                                        } else if (ad.targetEventId != null) {
+                                          context.push('/events/${ad.targetEventId}');
+                                        }
+                                      },
+                                    ),
+                                  ),
+                                  _buildTabs(),
+                                ],
                               ),
-                              _buildTabs(),
-                            ],
-                          ),
-                        ),
+                            ),
+                          );
+                        },
                       );
                     },
                   ),

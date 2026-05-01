@@ -17,20 +17,16 @@ class PresenceDrawer extends StatelessWidget {
   final List<Map<String, dynamic>> onlineUsers;
 
   final bool isPremium;
-  final bool showAds;
   final bool isOrganizer;
   final String? eventId;
   final String forumId;
-  final ValueChanged<bool> onAdsChanged;
 
   const PresenceDrawer({
     super.key,
     required this.eventProgress,
     required this.onlineUsers,
     required this.isPremium,
-    required this.showAds,
     required this.isOrganizer,
-    required this.onAdsChanged,
     required this.forumId,
     this.eventId,
   });
@@ -144,26 +140,7 @@ class PresenceDrawer extends StatelessWidget {
                       ),
                     ),
                   ),
-                  if (isPremium)
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text('Enable Advertisements',
-                              style: AppTypography.inter(
-                                  color: Colors.white,
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600)),
-                          Switch(
-                            value: showAds,
-                            onChanged: onAdsChanged,
-                            activeThumbColor: AppColors.primary,
-                          ),
-                        ],
-                      ),
-                    ),
-                  if (!isPremium) const SizedBox(height: 10),
+                  const SizedBox(height: 10),
                 ],
               ),
             ),

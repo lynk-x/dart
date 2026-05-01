@@ -63,8 +63,9 @@ class ForumAdsCubit extends Cubit<ForumAdsState> {
         final interstitialResults = results[1] as List<dynamic>;
 
         if (!isClosed) {
+          final ads = bannerResults.map((json) => AdModel.fromMap(json)).toList();
           emit(state.copyWith(
-            ads: bannerResults.map((json) => AdModel.fromMap(json)).toList(),
+            ads: ads.isEmpty ? _defaultAds : ads,
             interstitialAd: interstitialResults.isNotEmpty
                 ? AdModel.fromMap(interstitialResults.first)
                 : null,
@@ -115,7 +116,7 @@ class ForumAdsCubit extends Cubit<ForumAdsState> {
 
       if (!isClosed) {
         emit(state.copyWith(
-          ads: validBanners,
+          ads: validBanners.isEmpty ? _defaultAds : validBanners,
           interstitialAd: validInterstitial,
           clearInterstitial: validInterstitial == null,
           isLoading: false,
@@ -123,11 +124,26 @@ class ForumAdsCubit extends Cubit<ForumAdsState> {
       }
     } catch (e, stack) {
       debugPrint('[ForumAdsCubit] Error grouping ads: $e\n$stack');
-      if (!isClosed) emit(state.copyWith(isLoading: false));
+      if (!isClosed) {
+        emit(state.copyWith(
+          ads: _defaultAds,
+          isLoading: false,
+        ));
+      }
     }
   }
 
+  static const List<AdModel> _defaultAds = [
+    AdModel(
+      id: 'default_lynk_upgrade',
+      title: 'Upgrade to Lynk-X Premium for an ad-free experience!',
+      callToAction: 'Upgrade',
+      targetUrl: '/subscription',
+    ),
+  ];
+
   void logAdImpression(String adId) {
+    if (adId == 'default_lynk_upgrade') return;
     if (userId == kGuestUserId) return;
     if (_viewedAds.contains(adId)) return;
     if (_impressionTimers.containsKey(adId)) return;
@@ -163,6 +179,7 @@ class ForumAdsCubit extends Cubit<ForumAdsState> {
   }
 
   Future<void> logAdClick(String adId) async {
+    if (adId == 'default_lynk_upgrade') return;
     if (userId == kGuestUserId) return;
     try {
       await Supabase.instance.client.from('ad_analytics').insert({

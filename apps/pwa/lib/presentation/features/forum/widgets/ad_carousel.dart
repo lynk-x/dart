@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:lynk_core/core.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:lynk_x/presentation/features/forum/models/forum_model.dart';
 
 class AdCarousel extends StatefulWidget {
@@ -70,7 +71,7 @@ class _AdCarouselState extends State<AdCarousel> {
 
     return Container(
       height: 50,
-      color: const Color(0xFF1E1E1E),
+      color: AppColors.surface,
       child: PageView.builder(
         controller: _pageController,
         onPageChanged: (index) => setState(() => _currentPage = index),
@@ -79,28 +80,79 @@ class _AdCarouselState extends State<AdCarousel> {
           final ad = widget.ads[index];
           return GestureDetector(
             onTap: () => widget.onAdClicked?.call(ad),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
-                children: [
-                  Text(
-                    ad.title,
-                    style: AppTypography.inter(
-                      fontSize: 12,
-                      color: Colors.white,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                if (ad.imageUrl != null)
+                  CachedNetworkImage(
+                    imageUrl: ad.imageUrl!,
+                    fit: BoxFit.cover,
+                    placeholder: (context, url) =>
+                        Container(color: Colors.black26),
+                    errorWidget: (context, url, err) =>
+                        Container(color: Colors.black26),
+                  ),
+                Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.black.withValues(alpha: 0.1),
+                        Colors.black.withValues(alpha: 0.5),
+                      ],
                     ),
                   ),
-                  const Spacer(),
-                  Text(
-                    ad.callToAction,
-                    style: AppTypography.interTight(
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 4, vertical: 1),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(2),
+                          border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.3),
+                              width: 0.5),
+                        ),
+                        child: Text(
+                          'AD',
+                          style: AppTypography.inter(
+                            fontSize: 9,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          ad.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppTypography.interTight(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        ad.callToAction.toUpperCase(),
+                        style: AppTypography.interTight(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           );
         },
