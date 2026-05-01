@@ -499,6 +499,7 @@ class _ForumViewState extends State<ForumView> {
             final mainCubit = context.read<ForumCubit>();
             return PageView(
               controller: _pageController,
+              physics: const NeverScrollableScrollPhysics(),
               onPageChanged: (index) => mainCubit.setTabIndex(index),
               children: [
                 if (showUpdates)
