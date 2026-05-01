@@ -5,10 +5,8 @@ import 'package:lynk_x/presentation/features/forum/cubit/forum_cubit.dart';
 import 'package:lynk_x/presentation/features/forum/cubit/forum_state.dart';
 import 'package:lynk_x/presentation/features/forum/cubit/forum_updates_cubit.dart';
 import 'package:lynk_x/presentation/features/forum/cubit/forum_updates_state.dart';
-import 'package:lynk_x/presentation/features/forum/widgets/info_banner.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/message_input.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/chat_bubble.dart';
-import 'package:lynk_x/presentation/features/forum/widgets/category_filter_bar.dart';
 
 /// The 'Updates' tab content for the Forum.
 class UpdatesTab extends StatefulWidget {
@@ -49,9 +47,6 @@ class _UpdatesTabState extends State<UpdatesTab>
       builder: (context, mainState) {
         return BlocBuilder<ForumUpdatesCubit, ForumUpdatesState>(
           builder: (context, updatesState) {
-            final pinned = updatesState.messages.where((m) => m.isPinned).toList();
-            final hasPinned = pinned.isNotEmpty;
-            
             return Column(
               children: [
                 Expanded(
@@ -63,40 +58,9 @@ class _UpdatesTabState extends State<UpdatesTab>
                         controller: widget.scrollController,
                         reverse: false,
                         slivers: [
-                          // 2. Pinned Category Filter (Absolute Top)
-                          SliverPersistentHeader(
-                            pinned: true,
-                            delegate: _PinnedHeaderDelegate(
-                              height: 60,
-                              child: Container(
-                                color: AppColors.primaryBackground,
-                                alignment: Alignment.bottomCenter,
-                                padding: const EdgeInsets.only(bottom: 8),
-                                child: CategoryFilterBar(
-                                  selectedCategory: updatesState.selectedCategory,
-                                  onSelectionChanged: (cat) => updatesCubit.setCategory(cat),
-                                ),
-                              ),
-                            ),
-                          ),
-
-                          // 3. Pinned Info Banner (immediately below filter)
-                          if (hasPinned)
-                            SliverToBoxAdapter(
-                              child: Padding(
-                                padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                                child: InfoBanner(
-                                  icon: Icons.push_pin,
-                                  text: pinned.first.message.length > 80
-                                      ? '${pinned.first.message.substring(0, 80)}…'
-                                      : pinned.first.message,
-                                ),
-                              ),
-                            ),
-
-                          // 1. Messages List
+                          // Messages List
                           SliverPadding(
-                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
                             sliver: SliverList(
                               delegate: SliverChildBuilderDelegate(
                                 (context, index) {
@@ -167,27 +131,5 @@ class _UpdatesTabState extends State<UpdatesTab>
         );
       },
     );
-  }
-}
-
-class _PinnedHeaderDelegate extends SliverPersistentHeaderDelegate {
-  final double height;
-  final Widget child;
-
-  _PinnedHeaderDelegate({required this.height, required this.child});
-
-  @override
-  double get minExtent => height;
-  @override
-  double get maxExtent => height;
-
-  @override
-  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
-    return child;
-  }
-
-  @override
-  bool shouldRebuild(covariant _PinnedHeaderDelegate oldDelegate) {
-    return height != oldDelegate.height || child != oldDelegate.child;
   }
 }
