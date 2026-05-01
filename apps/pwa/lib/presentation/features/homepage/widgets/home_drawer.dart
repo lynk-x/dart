@@ -321,7 +321,7 @@ class _HomeDrawerState extends State<HomeDrawer> {
                       ),
                     ),
                   ),
-                const Divider(color: Colors.white10, height: 32, thickness: 0.5),
+                const Divider(color: Colors.white54, height: 32, thickness: 0.5),
 
                 ListTile(
                   title: Text(

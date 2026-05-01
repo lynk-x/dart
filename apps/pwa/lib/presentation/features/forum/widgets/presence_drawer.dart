@@ -99,11 +99,12 @@ class PresenceDrawer extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  GestureDetector(
+                  InkWell(
                     onTap: () {
                       if (eventId != null && eventId!.isNotEmpty) {
+                        final router = GoRouter.of(context);
                         Navigator.pop(context); // Close the drawer
-                        context.push(
+                        router.push(
                           '/forum/$forumId/sessions',
                           extra: {
                             'eventId': eventId,
@@ -112,33 +113,37 @@ class PresenceDrawer extends StatelessWidget {
                         );
                       }
                     },
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text((l10n?.eventProgress ?? 'Event Progress').toUpperCase(),
-                                style: AppTypography.inter(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.white54)),
-                            const Icon(Icons.chevron_right,
-                                color: Colors.white24, size: 16),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(4),
-                          child: LinearProgressIndicator(
-                            value: eventProgress,
-                            backgroundColor: Colors.white10,
-                            valueColor: const AlwaysStoppedAnimation<Color>(
-                                AppColors.primary),
-                            minHeight: 8,
+                    borderRadius: BorderRadius.circular(8),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text((l10n?.eventProgress ?? 'Event Progress').toUpperCase(),
+                                  style: AppTypography.inter(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white54)),
+                              const Icon(Icons.chevron_right,
+                                  color: Colors.white24, size: 16),
+                            ],
                           ),
-                        ),
-                      ],
+                          const SizedBox(height: 8),
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(4),
+                            child: LinearProgressIndicator(
+                              value: eventProgress,
+                              backgroundColor: Colors.white10,
+                              valueColor: const AlwaysStoppedAnimation<Color>(
+                                  AppColors.primary),
+                              minHeight: 8,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                   const SizedBox(height: 16),
