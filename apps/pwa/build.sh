@@ -42,3 +42,4 @@ flutter build web --release --wasm --pwa-strategy=offline-first --dart-define=SU
 
 
 echo "--- Build complete! Output located at: build/web ---"
+chmod -R 755 build/web
