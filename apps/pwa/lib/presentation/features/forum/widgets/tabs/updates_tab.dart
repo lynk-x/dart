@@ -61,12 +61,40 @@ class _UpdatesTabState extends State<UpdatesTab>
                       color: AppColors.primary,
                       child: CustomScrollView(
                         controller: widget.scrollController,
-                        reverse: true,
+                        reverse: false,
                         slivers: [
-                          // 1. Bottom Padding (for reverse: true)
-                          const SliverToBoxAdapter(child: SizedBox(height: 16)),
+                          // 2. Pinned Category Filter (Absolute Top)
+                          SliverPersistentHeader(
+                            pinned: true,
+                            delegate: _PinnedHeaderDelegate(
+                              height: 60,
+                              child: Container(
+                                color: AppColors.primaryBackground,
+                                alignment: Alignment.bottomCenter,
+                                padding: const EdgeInsets.only(bottom: 8),
+                                child: CategoryFilterBar(
+                                  selectedCategory: updatesState.selectedCategory,
+                                  onSelectionChanged: (cat) => updatesCubit.setCategory(cat),
+                                ),
+                              ),
+                            ),
+                          ),
 
-                          // 2. Messages List
+                          // 3. Pinned Info Banner (immediately below filter)
+                          if (hasPinned)
+                            SliverToBoxAdapter(
+                              child: Padding(
+                                padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                                child: InfoBanner(
+                                  icon: Icons.push_pin,
+                                  text: pinned.first.message.length > 80
+                                      ? '${pinned.first.message.substring(0, 80)}…'
+                                      : pinned.first.message,
+                                ),
+                              ),
+                            ),
+
+                          // 1. Messages List
                           SliverPadding(
                             padding: const EdgeInsets.symmetric(horizontal: 16),
                             sliver: SliverList(
@@ -112,36 +140,8 @@ class _UpdatesTabState extends State<UpdatesTab>
                             ),
                           ),
 
-                          // 3. Pinned Info Banner (below filter)
-                          if (hasPinned)
-                            SliverToBoxAdapter(
-                              child: Padding(
-                                padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                                child: InfoBanner(
-                                  icon: Icons.push_pin,
-                                  text: pinned.first.message.length > 80
-                                      ? '${pinned.first.message.substring(0, 80)}…'
-                                      : pinned.first.message,
-                                ),
-                              ),
-                            ),
-                          
-                          // 4. Pinned Category Filter (Absolute Top)
-                          SliverPersistentHeader(
-                            pinned: true,
-                            delegate: _PinnedHeaderDelegate(
-                              height: 60,
-                              child: Container(
-                                color: AppColors.primaryBackground,
-                                alignment: Alignment.bottomCenter,
-                                padding: const EdgeInsets.only(bottom: 8),
-                                child: CategoryFilterBar(
-                                  selectedCategory: updatesState.selectedCategory,
-                                  onSelectionChanged: (cat) => updatesCubit.setCategory(cat),
-                                ),
-                              ),
-                            ),
-                          ),
+                          // Bottom Spacer
+                          const SliverToBoxAdapter(child: SizedBox(height: 80)),
                         ],
                       ),
                     ),
