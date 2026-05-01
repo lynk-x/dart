@@ -37,6 +37,7 @@ dependencies:
   share_plus: ^10.1.4
   url_launcher: ^6.3.0
   cached_network_image: ^3.4.1
+  flutter_cache_manager: ^3.3.1
   flutter_bloc: ^9.1.1
   equatable: ^2.0.8
   hydrated_bloc: ^10.0.0
@@ -52,6 +53,8 @@ dependencies:
   # Crash reporting — wired to the 'enable_crash_reporting' feature flag.
   # DSN is injected via --dart-define=SENTRY_DSN=https://... at build time.
   sentry_flutter: ^8.14.0
+  flutter_svg: ^2.0.10+1
+
 
 
 

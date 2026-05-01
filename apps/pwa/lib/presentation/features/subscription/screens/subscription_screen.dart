@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:lynk_core/core.dart';
+
 
 class SubscriptionScreen extends StatefulWidget {
   const SubscriptionScreen({super.key});
@@ -379,10 +381,12 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
           icon: const Icon(Icons.arrow_back, size: 28, color: Colors.white),
           onPressed: () => context.pop(),
         ),
-        title: Image.asset(
-          'assets/images/lynk-x_combined-logo.png',
-          width: 180,
-          fit: BoxFit.contain,
+        title: RepaintBoundary(
+          child: SvgPicture.asset(
+            'assets/images/official_lynk-x_combined-logo.svg',
+            width: 180,
+            fit: BoxFit.contain,
+          ),
         ),
         centerTitle: true,
       ),

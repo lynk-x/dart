@@ -2,10 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:lynk_core/core.dart';
+
 import 'package:share_plus/share_plus.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:lynk_x/services/push_notification_service.dart';
+import 'package:lynk_x/core/network/lynk_cache_manager.dart';
+
 
 class ProfilePage extends StatelessWidget {
   const ProfilePage({super.key});
@@ -29,10 +33,12 @@ class ProfilePage extends StatelessWidget {
           icon: const Icon(Icons.arrow_back, size: 28, color: Colors.white),
           onPressed: () => context.pop(),
         ),
-        title: Image.asset(
-          'assets/images/lynk-x_combined-logo.png',
-          width: 200,
-          fit: BoxFit.contain,
+        title: RepaintBoundary(
+          child: SvgPicture.asset(
+            'assets/images/official_lynk-x_combined-logo.svg',
+            width: 200,
+            fit: BoxFit.contain,
+          ),
         ),
         centerTitle: true,
         actions: [
@@ -112,7 +118,8 @@ class _ProfileContent extends StatelessWidget {
                   radius: 56,
                   backgroundColor: Colors.white.withValues(alpha: 0.1),
                   backgroundImage: profile.avatarUrl != null
-                      ? CachedNetworkImageProvider(profile.avatarUrl!)
+                      ? CachedNetworkImageProvider(profile.avatarUrl!,
+                          cacheManager: LynkCacheManager.instance)
                       : null,
                   child: profile.avatarUrl == null
                       ? Text(

@@ -3,8 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:lynk_core/core.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:lynk_x/presentation/features/forum/models/forum_model.dart';
+
 import 'package:lynk_x/presentation/shared/widgets/empty_state.dart';
+import 'package:lynk_x/core/network/lynk_cache_manager.dart';
 
 class InterstitialAd extends StatefulWidget {
   final VoidCallback onClose;
@@ -129,10 +132,14 @@ class _InterstitialAdState extends State<InterstitialAd> {
                   fit: StackFit.expand,
                   children: [
                     if (widget.ad.imageUrl != null)
-                      Image.network(
-                        widget.ad.imageUrl!,
+                      CachedNetworkImage(
+                        imageUrl: widget.ad.imageUrl!,
+                        cacheManager: LynkCacheManager.instance,
                         fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => const EmptyState(
+                        placeholder: (context, url) => const Center(
+                          child: CircularProgressIndicator(color: AppColors.primary),
+                        ),
+                        errorWidget: (context, url, error) => const EmptyState(
                             message: 'Ad content loading failed'),
                       )
                     else

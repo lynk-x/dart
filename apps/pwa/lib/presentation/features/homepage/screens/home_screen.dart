@@ -5,7 +5,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:lynk_core/core.dart';
+
 import 'package:lynk_x/presentation/features/homepage/cubit/home_cubit.dart';
 import 'package:lynk_x/presentation/features/homepage/cubit/home_state.dart';
 import 'package:lynk_x/presentation/features/homepage/widgets/forum_widget.dart';
@@ -352,11 +354,13 @@ class _HomeViewState extends State<HomeView>
           ),
         );
       }),
-      title: Image.asset(
-          'assets/images/lynk-x_combined-logo.png',
+      title: RepaintBoundary(
+        child: SvgPicture.asset(
+          'assets/images/official_lynk-x_combined-logo.svg',
         width: 200,
-          fit: BoxFit.cover,
+          fit: BoxFit.contain,
         ),
+      ),
       actions: [
         BlocBuilder<NotificationCubit, NotificationState>(
           builder: (context, state) {

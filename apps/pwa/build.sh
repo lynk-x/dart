@@ -38,6 +38,7 @@ echo "--- Fetching dependencies... ---"
 flutter pub get
 
 echo "--- Building Web (Release) ---"
-flutter build web --release --pwa-strategy=offline-first --dart-define=SUPABASE_URL="${NEXT_PUBLIC_SUPABASE_URL:-${SUPABASE_URL:-}}" --dart-define=SUPABASE_ANON_KEY="${NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:-${SUPABASE_ANON_KEY:-}}" --dart-define=SENTRY_DSN="${SENTRY_DSN:-}" --dart-define=FIREBASE_VAPID_KEY="${FIREBASE_VAPID_KEY:-}"
+flutter build web --release --wasm --pwa-strategy=offline-first --dart-define=SUPABASE_URL="${NEXT_PUBLIC_SUPABASE_URL:-${SUPABASE_URL:-}}" --dart-define=SUPABASE_ANON_KEY="${NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:-${SUPABASE_ANON_KEY:-}}" --dart-define=SENTRY_DSN="${SENTRY_DSN:-}" --dart-define=FIREBASE_VAPID_KEY="${FIREBASE_VAPID_KEY:-}"
+
 
 echo "--- Build complete! Output located at: build/web ---"

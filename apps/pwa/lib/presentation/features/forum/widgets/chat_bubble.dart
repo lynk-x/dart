@@ -5,6 +5,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:lynk_core/core.dart';
 import 'package:intl/intl.dart';
 import 'package:lynk_x/presentation/features/forum/models/forum_model.dart';
+import 'package:lynk_x/core/network/lynk_cache_manager.dart';
 import 'action_bar.dart';
 import 'polls/poll_attachment.dart';
 
@@ -339,6 +340,7 @@ class _ChatBubbleState extends State<ChatBubble> {
         decoration: BoxDecoration(borderRadius: BorderRadius.circular(12)),
         child: CachedNetworkImage(
           imageUrl: imageUrl,
+          cacheManager: LynkCacheManager.instance,
           fit: BoxFit.cover,
           placeholder: (context, url) => Container(
             height: 120,

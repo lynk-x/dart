@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:lynk_core/core.dart';
 import '../models/forum_model.dart';
+import 'package:lynk_x/core/network/lynk_cache_manager.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+
 
 class ChatLinkPreview extends StatefulWidget {
   final String url;
@@ -61,10 +64,16 @@ class _ChatLinkPreviewState extends State<ChatLinkPreview> {
                   padding: const EdgeInsets.only(bottom: 8.0),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(4),
-                    child: Image.network(
-                      widget.data!.image!,
+                    child: CachedNetworkImage(
+                      imageUrl: widget.data!.image!,
+                      cacheManager: LynkCacheManager.instance,
                       fit: BoxFit.cover,
-                      errorBuilder: (c, e, s) => const SizedBox.shrink(),
+                      placeholder: (context, url) => Container(
+                        height: 100,
+                        width: double.infinity,
+                        color: Colors.white12,
+                      ),
+                      errorWidget: (context, url, error) => const SizedBox.shrink(),
                     ),
                   ),
                 ),

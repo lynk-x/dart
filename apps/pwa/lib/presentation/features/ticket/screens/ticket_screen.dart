@@ -2,6 +2,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+
 import 'package:barcode_widget/barcode_widget.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -11,6 +13,8 @@ import 'package:lynk_core/core.dart';
 import 'package:lynk_x/core/utils/breakpoints.dart';
 import 'package:lynk_x/presentation/features/ticket/cubit/ticket_cubit.dart';
 import 'package:lynk_x/presentation/features/ticket/models/ticket_model.dart';
+import 'package:lynk_x/core/network/lynk_cache_manager.dart';
+
 
 class TicketPage extends StatelessWidget {
   final String? ticketId;
@@ -79,10 +83,12 @@ class _TicketViewState extends State<TicketView> {
           icon: const Icon(Icons.arrow_back, size: 32, color: Colors.white),
           onPressed: () => context.pop(),
         ),
-        title: Image.asset(
-          'packages/core/assets/images/lynk-x_combined-logo.png',
-          width: 200,
-          fit: BoxFit.contain,
+        title: RepaintBoundary(
+          child: SvgPicture.asset(
+            'assets/images/official_lynk-x_combined-logo.svg',
+            width: 200,
+            fit: BoxFit.contain,
+          ),
         ),
         actions: [
           IconButton(
@@ -472,6 +478,7 @@ class _TicketViewState extends State<TicketView> {
                   borderRadius: BorderRadius.circular(12),
                   child: CachedNetworkImage(
                     imageUrl: ticket.thumbnailUrl ?? '',
+                    cacheManager: LynkCacheManager.instance,
                     width: 70,
                     height: 70,
                     fit: BoxFit.cover,
@@ -611,13 +618,15 @@ class _TicketViewState extends State<TicketView> {
             ),
             child: Column(
               children: [
-                BarcodeWidget(
-                  barcode: Barcode.code128(),
-                  data: ticket.ticketCode,
-                  drawText: false,
-                  color: Colors.black,
-                  height: 60,
-                  width: double.infinity,
+                RepaintBoundary(
+                  child: BarcodeWidget(
+                    barcode: Barcode.code128(),
+                    data: ticket.ticketCode,
+                    drawText: false,
+                    color: Colors.black,
+                    height: 60,
+                    width: double.infinity,
+                  ),
                 ),
                 const SizedBox(height: 8),
                 Text(

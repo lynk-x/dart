@@ -4,7 +4,9 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:lynk_core/core.dart';
+
 import 'package:lynk_x/presentation/features/forum/cubit/forum_cubit.dart';
 import 'package:lynk_x/presentation/features/forum/cubit/forum_state.dart';
 import 'package:lynk_x/presentation/features/forum/cubit/forum_chat_cubit.dart';
@@ -298,21 +300,23 @@ class _ForumViewState extends State<ForumView> {
                                   },
                                 ),
                               ),
-                              if (hasAds) AdCarousel(
-                                ads: adsState.ads,
-                                onAdViewed: (adId) =>
-                                    context.read<ForumAdsCubit>().logAdImpression(adId),
-                                onAdClicked: (ad) async {
-                                  context.read<ForumAdsCubit>().logAdClick(ad.id);
-                                  if (ad.targetUrl != null) {
-                                    final uri = Uri.parse(ad.targetUrl!);
-                                    if (await canLaunchUrl(uri)) {
-                                      await launchUrl(uri);
+                              if (hasAds) RepaintBoundary(
+                                child: AdCarousel(
+                                  ads: adsState.ads,
+                                  onAdViewed: (adId) =>
+                                      context.read<ForumAdsCubit>().logAdImpression(adId),
+                                  onAdClicked: (ad) async {
+                                    context.read<ForumAdsCubit>().logAdClick(ad.id);
+                                    if (ad.targetUrl != null) {
+                                      final uri = Uri.parse(ad.targetUrl!);
+                                      if (await canLaunchUrl(uri)) {
+                                        await launchUrl(uri);
+                                      }
+                                    } else if (ad.targetEventId != null) {
+                                      context.push('/events/${ad.targetEventId}');
                                     }
-                                  } else if (ad.targetEventId != null) {
-                                    context.push('/events/${ad.targetEventId}');
-                                  }
-                                },
+                                  },
+                                ),
                               ),
                               _buildTabs(),
                             ],
@@ -329,9 +333,11 @@ class _ForumViewState extends State<ForumView> {
               child: BlocBuilder<ForumCubit, ForumState>(
                 buildWhen: (p, c) => p.emojiTrigger != c.emojiTrigger,
                 builder: (context, state) {
-                  return ReactionBackground(
-                    emoji: state.selectedEmoji,
-                    trigger: state.emojiTrigger,
+                  return RepaintBoundary(
+                    child: ReactionBackground(
+                      emoji: state.selectedEmoji,
+                      trigger: state.emojiTrigger,
+                    ),
                   );
                 },
               ),
@@ -350,12 +356,14 @@ class _ForumViewState extends State<ForumView> {
         icon: const Icon(Icons.arrow_back, color: Colors.white, size: 32),
         onPressed: () => context.pop(),
       ),
-      title: Padding(
-        padding: const EdgeInsets.only(bottom: 8, top: 8),
-        child: Image.asset(
-          'assets/images/lynk-x_combined-logo.png',
-          width: 200,
-          fit: BoxFit.cover,
+      title: RepaintBoundary(
+        child: Padding(
+          padding: const EdgeInsets.only(bottom: 8, top: 8),
+          child: SvgPicture.asset(
+            'assets/images/official_lynk-x_combined-logo.svg',
+            width: 200,
+            fit: BoxFit.contain,
+          ),
         ),
       ),
       centerTitle: true,

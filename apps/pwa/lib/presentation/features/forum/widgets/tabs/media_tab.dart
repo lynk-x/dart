@@ -9,6 +9,8 @@ import 'package:lynk_x/presentation/features/forum/cubit/forum_media_cubit.dart'
 import 'package:lynk_x/presentation/features/forum/cubit/forum_media_state.dart';
 import 'package:lynk_x/presentation/shared/widgets/empty_state.dart';
 import 'package:lynk_x/presentation/features/forum/models/forum_model.dart';
+import 'package:lynk_x/core/network/lynk_cache_manager.dart';
+
 
 /// The 'Media' tab content for the Forum.
 class MediaTab extends StatefulWidget {
@@ -109,6 +111,7 @@ class _MediaTabState extends State<MediaTab>
                                                   ? const _VideoThumbnailPreview()
                                                   : CachedNetworkImage(
                                                       imageUrl: displayUrl,
+                                                      cacheManager: LynkCacheManager.instance,
                                                       fit: BoxFit.cover,
                                                       memCacheWidth: 300,
                                                       placeholder: (context, url) => Container(

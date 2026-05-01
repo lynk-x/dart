@@ -65,17 +65,21 @@ class PresenceDrawer extends StatelessWidget {
                 itemBuilder: (context, index) {
                   try {
                     final user = onlineUsers[index];
-                    final String userId = (user['user_id'] ?? user['id'] ?? '').toString();
+                    final String userId =
+                        (user['user_id'] ?? user['id'] ?? '').toString();
                     if (userId.isEmpty) return const SizedBox.shrink();
 
                     return UserPresenceCard(
                       key: ValueKey('presence_$userId'),
                       userId: userId,
-                      username: (user['user_name'] ?? user['full_name'] ?? 'Unknown').toString(),
+                      username:
+                          (user['user_name'] ?? user['full_name'] ?? 'Unknown')
+                              .toString(),
                       status: (user['status'] ?? 'Online').toString(),
                       isOrganizer: user['is_organizer'] == true,
                       isPremium: user['is_premium'] == true,
-                      isPrimary: userId == Supabase.instance.client.auth.currentUser?.id,
+                      isPrimary: userId ==
+                          Supabase.instance.client.auth.currentUser?.id,
                     );
                   } catch (e) {
                     debugPrint('[PresenceDrawer] Error building user card: $e');
@@ -95,7 +99,7 @@ class PresenceDrawer extends StatelessWidget {
                 children: [
                   GestureDetector(
                     onTap: () {
-                      if (eventId != null) {
+                      if (eventId != null && eventId!.isNotEmpty) {
                         Navigator.pop(context); // Close the drawer
                         context.push(
                           '/forum/$forumId/sessions',
