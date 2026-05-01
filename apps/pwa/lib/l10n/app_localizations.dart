@@ -171,6 +171,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Version'**
   String get version;
+
+  /// Relative date label for today
+  ///
+  /// In en, this message translates to:
+  /// **'Today'**
+  String get today;
+
+  /// Relative date label for yesterday
+  ///
+  /// In en, this message translates to:
+  /// **'Yesterday'**
+  String get yesterday;
+
+  /// Label for the event progress bar
+  ///
+  /// In en, this message translates to:
+  /// **'Event Progress'**
+  String get eventProgress;
 }
 
 class _AppLocalizationsDelegate

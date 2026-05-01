@@ -5,6 +5,7 @@ import 'package:lynk_x/presentation/features/wallet/cubit/wallet_cubit.dart';
 import 'package:lynk_x/presentation/features/wallet/cubit/wallet_state.dart';
 import 'package:lynk_x/presentation/features/wallet/screens/wallet_transactions_screen.dart';
 import 'package:intl/intl.dart';
+import 'package:lynk_x/l10n/app_localizations.dart';
 import 'package:lynk_x/presentation/features/wallet/models/wallet_model.dart';
 
 class WalletHistoryPage extends StatefulWidget {
@@ -38,7 +39,10 @@ class _WalletHistoryPageState extends State<WalletHistoryPage> {
     super.dispose();
   }
 
-  Map<String, List<WalletTransaction>> _groupTransactions(List<WalletTransaction> transactions) {
+  Map<String, List<WalletTransaction>> _groupTransactions(
+    List<WalletTransaction> transactions,
+    AppLocalizations? l10n,
+  ) {
     final groups = <String, List<WalletTransaction>>{};
     for (final tx in transactions) {
       final date = DateTime(tx.createdAt.year, tx.createdAt.month, tx.createdAt.day);
@@ -48,13 +52,13 @@ class _WalletHistoryPageState extends State<WalletHistoryPage> {
       final yesterday = today.subtract(const Duration(days: 1));
 
       if (date == today) {
-        label = 'Today';
+        label = l10n?.today ?? 'Today';
       } else if (date == yesterday) {
-        label = 'Yesterday';
+        label = l10n?.yesterday ?? 'Yesterday';
       } else if (date.year == now.year) {
-        label = DateFormat('MMMM dd').format(date);
+        label = DateFormat.MMMMd().format(date);
       } else {
-        label = DateFormat('MMMM dd, yyyy').format(date);
+        label = DateFormat.yMMMMd().format(date);
       }
 
       groups.putIfAbsent(label, () => []).add(tx);
@@ -64,6 +68,8 @@ class _WalletHistoryPageState extends State<WalletHistoryPage> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+
     return Scaffold(
       backgroundColor: AppColors.primaryBackground,
       appBar: AppBar(
@@ -98,7 +104,7 @@ class _WalletHistoryPageState extends State<WalletHistoryPage> {
             );
           }
 
-          final grouped = _groupTransactions(state.transactions);
+          final grouped = _groupTransactions(state.transactions, l10n);
           final sortedKeys = grouped.keys.toList();
 
           return RefreshIndicator(

@@ -4,6 +4,8 @@ import 'package:lynk_core/core.dart';
 import 'package:lynk_x/presentation/features/wallet/widgets/wallet_pin_setup_sheet.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:local_auth/local_auth.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:lynk_x/presentation/shared/widgets/permission_request_sheet.dart';
 import '../cubit/wallet_cubit.dart';
 import '../cubit/wallet_state.dart';
 
@@ -45,6 +47,38 @@ class _WalletSettingsPageState extends State<WalletSettingsPage> {
   }
 
   Future<void> _toggleBiometrics(bool value) async {
+    if (value) {
+      final prefs = await SharedPreferences.getInstance();
+      if (!mounted) return;
+      final hasAcknowledged = prefs.getBool('biometric_permission_acknowledged') ?? false;
+
+      if (!hasAcknowledged) {
+        if (!mounted) return;
+        showModalBottomSheet(
+          context: context,
+          backgroundColor: Colors.transparent,
+          builder: (context) => PermissionRequestSheet(
+            title: 'Secure with Biometrics',
+            description: 'Use your fingerprint or face to quickly and securely unlock your wallet and authorize transfers.',
+            icon: Icons.fingerprint_rounded,
+            actionLabel: 'Enable Biometrics',
+            onGranted: () async {
+              await prefs.setBool('biometric_permission_acknowledged', true);
+              if (context.mounted) {
+                _actuallyToggleBiometrics(true);
+              }
+            },
+          ),
+        );
+        return;
+      }
+    }
+
+    if (!mounted) return;
+    _actuallyToggleBiometrics(value);
+  }
+
+  Future<void> _actuallyToggleBiometrics(bool value) async {
     // If enabling, verify with biometrics first to ensure it works
     if (value) {
       try {

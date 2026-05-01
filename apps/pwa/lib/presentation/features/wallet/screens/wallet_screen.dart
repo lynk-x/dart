@@ -9,6 +9,7 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:lynk_x/presentation/features/wallet/widgets/wallet_pin_setup_sheet.dart';
 import 'package:lynk_x/presentation/features/wallet/widgets/transfer_sheet.dart';
+import 'package:lynk_x/presentation/shared/widgets/permission_request_sheet.dart';
 
 class WalletPage extends StatefulWidget {
   const WalletPage({super.key});
@@ -80,9 +81,33 @@ class _WalletPageState extends State<WalletPage> {
   }
 
   void _showScanner(BuildContext context) async {
-    // Check for camera permission if on mobile
-    // On web, the browser handles this when the stream starts, but we can still check
-    
+    final prefs = await SharedPreferences.getInstance();
+    final hasAcknowledged = prefs.getBool('camera_permission_acknowledged') ?? false;
+
+    if (!hasAcknowledged && context.mounted) {
+      showModalBottomSheet(
+        context: context,
+        backgroundColor: Colors.transparent,
+        builder: (context) => PermissionRequestSheet(
+          title: 'Scan QR Codes',
+          description: 'To pay and transfer funds via QR, we need access to your device camera.',
+          icon: Icons.camera_alt_rounded,
+          actionLabel: 'Enable Camera',
+          onGranted: () async {
+            await prefs.setBool('camera_permission_acknowledged', true);
+            if (context.mounted) {
+              _actuallyShowScanner(context);
+            }
+          },
+        ),
+      );
+      return;
+    }
+    if (!context.mounted) return;
+    _actuallyShowScanner(context);
+  }
+
+  void _actuallyShowScanner(BuildContext context) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,

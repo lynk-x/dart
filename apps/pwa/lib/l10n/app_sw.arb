@@ -1,4 +1,5 @@
 {
+  "@@locale": "sw",
   "profile": "Wasifu",
   "editProfile": "Hariri Wasifu",
   "comingSoon": "Inakuja hivi karibuni",
@@ -10,5 +11,8 @@
   "logoutConfirmMessage": "Je, una uhakika unataka kuondoka? Utahitaji kuingia tena ili kufikia akaunti yako.",
   "privacyPolicy": "Sera ya Faragha",
   "termsConditions": "Vigezo na Masharti",
-  "version": "Toleo"
+  "version": "Toleo",
+  "today": "Leo",
+  "yesterday": "Jana",
+  "eventProgress": "Maendeleo ya Tukio"
 }

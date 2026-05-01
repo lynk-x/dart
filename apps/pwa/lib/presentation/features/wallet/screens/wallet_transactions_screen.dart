@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:lynk_core/core.dart';
 import 'package:lynk_x/presentation/features/wallet/cubit/wallet_cubit.dart';
 import 'package:lynk_x/presentation/features/wallet/cubit/wallet_state.dart';
 import 'package:lynk_x/presentation/features/wallet/models/wallet_model.dart';
+import 'package:lynk_x/presentation/shared/utils/app_snackbars.dart';
 import 'package:lynk_x/presentation/features/wallet/widgets/top_up_sheet.dart';
 import 'package:lynk_x/presentation/features/wallet/widgets/payout_sheet.dart';
 
@@ -58,18 +60,9 @@ class _WalletTransactionsPageState extends State<WalletTransactionsPage> {
         if (state.topUpPaymentUrl != null) {
           _openCardPaymentUrl(context, state.topUpPaymentUrl!);
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Row(
-                children: [
-                  Icon(Icons.account_balance_wallet, color: Colors.white),
-                  SizedBox(width: 12),
-                  Text('Funds received — balance updated!'),
-                ],
-              ),
-              backgroundColor: AppColors.primary,
-              behavior: SnackBarBehavior.floating,
-            ),
+          AppSnackBars.showSuccess(
+            context,
+            'Funds received — your ${widget.currency} balance has been updated.',
           );
         }
       },
@@ -328,7 +321,7 @@ class TransactionTile extends StatelessWidget {
                     style: AppTypography.inter(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white70),
                   ),
                   Text(
-                    tx.createdAt.toString().split('.')[0],
+                    DateFormat.yMMMd().add_Hm().format(tx.createdAt),
                     style: AppTypography.inter(fontSize: 11, color: Colors.white30),
                   ),
                 ],

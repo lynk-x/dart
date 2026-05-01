@@ -5,7 +5,21 @@
   "trailingSlash": false,
   "buildCommand": "bash build.sh",
   "outputDirectory": "build/web",
+  "headers": [
+    {
+      "source": "/(.*).wasm",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "application/wasm"
+        }
+      ]
+    }
+  ],
   "rewrites": [
+    {
+      "handle": "filesystem"
+    },
     {
       "source": "/(.*)",
       "destination": "/index.html"

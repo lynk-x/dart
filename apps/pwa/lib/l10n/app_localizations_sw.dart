@@ -44,4 +44,13 @@ class AppLocalizationsSw extends AppLocalizations {
 
   @override
   String get version => 'Toleo';
+
+  @override
+  String get today => 'Leo';
+
+  @override
+  String get yesterday => 'Jana';
+
+  @override
+  String get eventProgress => 'Maendeleo ya Tukio';
 }

@@ -8,6 +8,9 @@ import 'package:lynk_x/presentation/features/forum/cubit/forum_state.dart';
 import 'package:lynk_x/presentation/features/forum/cubit/forum_media_cubit.dart';
 import 'package:lynk_x/presentation/features/forum/cubit/forum_media_state.dart';
 import 'package:lynk_x/presentation/shared/widgets/empty_state.dart';
+import 'package:lynk_x/presentation/shared/utils/app_snackbars.dart';
+import 'package:lynk_x/presentation/shared/widgets/permission_request_sheet.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:lynk_x/presentation/features/forum/models/forum_model.dart';
 import 'package:lynk_x/core/network/lynk_cache_manager.dart';
 
@@ -212,6 +215,33 @@ class _MediaTabState extends State<MediaTab>
   }
 
   Future<void> _pickAndUpload(BuildContext context, ImageSource source, bool isVideo) async {
+    final prefs = await SharedPreferences.getInstance();
+    final hasAcknowledged = prefs.getBool('media_permission_acknowledged') ?? false;
+
+    if (!hasAcknowledged && context.mounted) {
+      showModalBottomSheet(
+        context: context,
+        backgroundColor: Colors.transparent,
+        builder: (context) => PermissionRequestSheet(
+          title: 'Access your Media',
+          description: 'To share photos and videos with the forum, we need access to your device library.',
+          icon: Icons.perm_media_rounded,
+          actionLabel: 'Allow Access',
+          onGranted: () async {
+            await prefs.setBool('media_permission_acknowledged', true);
+            if (context.mounted) {
+              _actuallyPickAndUpload(context, source, isVideo);
+            }
+          },
+        ),
+      );
+      return;
+    }
+    if (!context.mounted) return;
+    _actuallyPickAndUpload(context, source, isVideo);
+  }
+
+  Future<void> _actuallyPickAndUpload(BuildContext context, ImageSource source, bool isVideo) async {
     final mediaCubit = context.read<ForumMediaCubit>();
     try {
       final picker = ImagePicker();
@@ -223,12 +253,7 @@ class _MediaTabState extends State<MediaTab>
         final ext = pickedFile.path.split('.').last.toLowerCase();
         final mimeType = isVideo ? 'video/$ext' : 'image/$ext';
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Uploading ${isVideo ? 'video' : 'image'}...'),
-            duration: const Duration(seconds: 1),
-          ),
-        );
+        AppSnackBars.showInfo(context, 'Uploading ${isVideo ? 'video' : 'image'}...');
 
         await mediaCubit.uploadMedia(
           file: pickedFile,
@@ -237,15 +262,14 @@ class _MediaTabState extends State<MediaTab>
         );
 
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Upload successful!')),
-          );
+          AppSnackBars.showSuccess(context, 'Upload successful! Your media is being processed.');
         }
       }
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not access ${isVideo ? 'video' : 'image'} library: ${e.toString()}')),
+        AppSnackBars.showError(
+          context,
+          'Access denied. Please enable ${isVideo ? 'video' : 'image'} library access in your device settings.',
         );
       }
     }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:lynk_core/core.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:go_router/go_router.dart';
+import 'package:lynk_x/l10n/app_localizations.dart';
 import 'user_presence.dart';
 
 /// The end-drawer component for the Forum screen.
@@ -36,6 +37,7 @@ class PresenceDrawer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Drawer(
       width: (MediaQuery.of(context).size.width * 0.85).clamp(280, 320),
       backgroundColor: Colors.black,
@@ -116,7 +118,7 @@ class PresenceDrawer extends StatelessWidget {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text('EVENT PROGRESS',
+                            Text((l10n?.eventProgress ?? 'Event Progress').toUpperCase(),
                                 style: AppTypography.inter(
                                     fontSize: 10,
                                     fontWeight: FontWeight.bold,
