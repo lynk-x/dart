@@ -221,7 +221,7 @@ class _HomeDrawerState extends State<HomeDrawer> {
                   ListTile(
                     leading: const Icon(Icons.account_balance_wallet,
                         color: Colors.white),
-                    title: const Text('Wallet',
+                    title: const Text('My Wallet',
                         style: TextStyle(color: Colors.white)),
                     onTap: () {
                       context.pop();
@@ -279,8 +279,8 @@ class _HomeDrawerState extends State<HomeDrawer> {
                         onTap: () {
                           context.pop();
                           // Direct the user to the new standalone Web App upgrade page!
-                          // In production, change localhost to lynk-x.com
-                          launchUrl(Uri.parse('http://localhost:3000/upgrade'),
+                          // In production, change localhost to lynk-x.app
+                          launchUrl(Uri.parse('https://lynk-x.app/upgrade'),
                               mode: LaunchMode.externalApplication);
                         },
                         child: Padding(

@@ -8,6 +8,7 @@ import 'package:qr_flutter/qr_flutter.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:lynk_x/presentation/features/wallet/widgets/wallet_pin_setup_sheet.dart';
+import 'package:lynk_x/presentation/features/wallet/widgets/transfer_sheet.dart';
 
 class WalletPage extends StatefulWidget {
   const WalletPage({super.key});
@@ -288,9 +289,19 @@ class _WalletScannerSheet extends StatelessWidget {
                       final String? code = barcodes.first.rawValue;
                       if (code != null) {
                         Navigator.pop(context);
-                        // TODO: Handle the scanned account ID (e.g., navigate to transfer)
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Scanned: $code')),
+                        
+                        // Show the transfer sheet for the scanned account
+                        showModalBottomSheet(
+                          context: context,
+                          isScrollControlled: true,
+                          backgroundColor: Colors.transparent,
+                          builder: (sheetContext) => BlocProvider.value(
+                            value: context.read<WalletCubit>(),
+                            child: TransferSheet(
+                              recipientAccountId: code,
+                              currentBalances: context.read<WalletCubit>().state.balances,
+                            ),
+                          ),
                         );
                       }
                     }

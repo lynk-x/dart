@@ -357,6 +357,42 @@ class WalletCubit extends Cubit<WalletState> {
     }
   }
 
+  /// Transfer funds to another account.
+  Future<void> transferFunds({
+    required double amount,
+    required String currency,
+    required String recipientAccountId,
+  }) async {
+    if (amount <= 0) {
+      emit(state.copyWith(
+        withdrawStatus: WithdrawStatus.error,
+        withdrawError:  'Transfer amount must be greater than zero.',
+      ));
+      return;
+    }
+
+    emit(state.copyWith(
+      withdrawStatus: WithdrawStatus.submitting,
+      clearWithdrawError: true,
+    ));
+
+    try {
+      await _supabase.rpc('transfer_funds', params: {
+        'p_amount':               amount,
+        'p_currency':             currency,
+        'p_recipient_account_id': recipientAccountId,
+      });
+
+      emit(state.copyWith(withdrawStatus: WithdrawStatus.success));
+      await _fetchBalances(); // Reflect the debit immediately
+    } catch (e) {
+      emit(state.copyWith(
+        withdrawStatus: WithdrawStatus.error,
+        withdrawError:  'Transfer failed: ${e.toString()}',
+      ));
+    }
+  }
+
   /// Reset withdrawal state after dialog closes.
   void resetWithdraw() {
     emit(state.copyWith(
