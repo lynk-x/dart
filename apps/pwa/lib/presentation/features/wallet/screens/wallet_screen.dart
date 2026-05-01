@@ -9,7 +9,6 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:lynk_x/presentation/features/wallet/widgets/wallet_pin_setup_sheet.dart';
 import 'package:lynk_x/presentation/features/wallet/widgets/transfer_sheet.dart';
-import 'package:intl/intl.dart';
 
 class WalletPage extends StatefulWidget {
   const WalletPage({super.key});
@@ -80,7 +79,10 @@ class _WalletPageState extends State<WalletPage> {
     );
   }
 
-  void _showScanner(BuildContext context) {
+  void _showScanner(BuildContext context) async {
+    // Check for camera permission if on mobile
+    // On web, the browser handles this when the stream starts, but we can still check
+    
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -91,28 +93,38 @@ class _WalletPageState extends State<WalletPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.primaryBackground,
-      appBar: AppBar(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        context.go('/');
+      },
+      child: Scaffold(
         backgroundColor: AppColors.primaryBackground,
-        elevation: 0,
-        centerTitle: true,
-        title: Text(
-          'Wallet',
-          style: AppTypography.inter(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
+        appBar: AppBar(
+          backgroundColor: AppColors.primaryBackground,
+          elevation: 0,
+          centerTitle: true,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back, color: Colors.white70),
+            onPressed: () => context.go('/'),
           ),
+          title: Text(
+            'Wallet',
+            style: AppTypography.inter(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+          ),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.settings_outlined, color: Colors.white70),
+              onPressed: () => context.push('/wallet/settings'),
+            ),
+            const SizedBox(width: 8),
+          ],
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.settings_outlined, color: Colors.white70),
-            onPressed: () => context.push('/wallet/settings'),
-          ),
-          const SizedBox(width: 8),
-        ],
-      ),
       body: BlocBuilder<WalletCubit, WalletState>(
         builder: (context, state) {
           if (state.isLoading && state.accountId == null) {
@@ -144,8 +156,9 @@ class _WalletPageState extends State<WalletPage> {
         notchMargin: 8,
         child: Container(height: 20),
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildMobileLayout(WalletState state, String accountId) {
     return SingleChildScrollView(
@@ -168,40 +181,35 @@ class _WalletPageState extends State<WalletPage> {
   Widget _buildDesktopLayout(WalletState state, String accountId) {
     return Center(
       child: Container(
-        constraints: const BoxConstraints(maxWidth: 1200),
+        constraints: const BoxConstraints(maxWidth: 1000),
         padding: const EdgeInsets.all(32),
         child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // Left Column: QR Code & Quick Actions
+            // Left: QR Code
             SizedBox(
               width: 380,
-              child: SingleChildScrollView(
-                child: Column(
-                  children: [
-                    _QRCard(accountId: accountId),
-                    const SizedBox(height: 32),
-                    _DesktopQuickActionsGrid(),
-                  ],
-                ),
-              ),
+              child: _QRCard(accountId: accountId),
             ),
-            const SizedBox(width: 40),
-            // Right Column: Wallets & Recent Activity
+            const SizedBox(width: 64),
+            // Right: Quick Actions Grid (Replacing Wallets/Activity)
             Expanded(
-              child: SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildSectionHeader('Your Wallets'),
-                    const SizedBox(height: 16),
-                    _WalletsGrid(state: state),
-                    const SizedBox(height: 48),
-                    _buildSectionHeader('Recent Activity'),
-                    const SizedBox(height: 16),
-                    _RecentActivityList(state: state),
-                  ],
-                ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Quick Actions',
+                    style: AppTypography.inter(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Select an action to manage your funds and view history',
+                    style: AppTypography.inter(fontSize: 14, color: Colors.white54),
+                  ),
+                  const SizedBox(height: 32),
+                  _DesktopQuickActionsGrid(),
+                ],
               ),
             ),
           ],
@@ -210,12 +218,6 @@ class _WalletPageState extends State<WalletPage> {
     );
   }
 
-  Widget _buildSectionHeader(String title) {
-    return Text(
-      title,
-      style: AppTypography.inter(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white),
-    );
-  }
 }
 
 class _QRCard extends StatelessWidget {
@@ -321,11 +323,6 @@ class _DesktopQuickActionsGrid extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Quick Actions',
-            style: AppTypography.inter(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white70),
-          ),
-          const SizedBox(height: 24),
           GridView.count(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
@@ -396,148 +393,6 @@ class _DesktopActionCard extends StatelessWidget {
   }
 }
 
-class _WalletsGrid extends StatelessWidget {
-  final WalletState state;
-  const _WalletsGrid({required this.state});
-
-  @override
-  Widget build(BuildContext context) {
-    if (state.balances.isEmpty) {
-      return Container(
-        padding: const EdgeInsets.all(40),
-        width: double.infinity,
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.circular(24),
-        ),
-        child: const Center(child: Text('No active wallets', style: TextStyle(color: Colors.white54))),
-      );
-    }
-
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-        maxCrossAxisExtent: 280,
-        mainAxisSpacing: 16,
-        crossAxisSpacing: 16,
-        mainAxisExtent: 100,
-      ),
-      itemCount: state.balances.length,
-      itemBuilder: (context, index) {
-        final balance = state.balances[index];
-        return InkWell(
-          onTap: () => context.push('/wallet/list/${balance.currency}'),
-          borderRadius: BorderRadius.circular(20),
-          child: Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AppColors.surface,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: Colors.white10),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withValues(alpha: 0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(Icons.account_balance_wallet, color: AppColors.primary, size: 20),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(balance.currency, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                      Text(
-                        state.isPrivacyModeEnabled 
-                          ? '•••••• ${balance.currency}'
-                          : '${balance.balance.toStringAsFixed(2)} ${balance.currency}',
-                        style: const TextStyle(color: Colors.white54, fontSize: 12),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _RecentActivityList extends StatelessWidget {
-  final WalletState state;
-  const _RecentActivityList({required this.state});
-
-  @override
-  Widget build(BuildContext context) {
-    if (state.transactions.isEmpty) {
-      return Container(
-        padding: const EdgeInsets.all(40),
-        width: double.infinity,
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.circular(24),
-        ),
-        child: const Center(child: Text('No recent activity', style: TextStyle(color: Colors.white54))),
-      );
-    }
-
-    final recent = state.transactions.take(5).toList();
-
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.white10),
-      ),
-      child: ListView.separated(
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        itemCount: recent.length,
-        separatorBuilder: (_, __) => const Divider(color: Colors.white10, height: 1),
-        itemBuilder: (context, index) {
-          final tx = recent[index];
-          final isCredit = tx.amount > 0;
-          
-          return ListTile(
-            contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-            leading: CircleAvatar(
-              backgroundColor: (isCredit ? Colors.green : Colors.red).withValues(alpha: 0.1),
-              child: Icon(
-                isCredit ? Icons.arrow_downward_rounded : Icons.arrow_upward_rounded,
-                color: isCredit ? Colors.green : Colors.red,
-                size: 18,
-              ),
-            ),
-            title: Text(tx.reason, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
-            subtitle: Text(
-              DateFormat('MMM dd, HH:mm').format(tx.createdAt),
-              style: const TextStyle(color: Colors.white38, fontSize: 12),
-            ),
-            trailing: Text(
-              state.isPrivacyModeEnabled
-                ? '••••••'
-                : '${isCredit ? '+' : ''}${tx.amount.toStringAsFixed(2)} ${tx.currency}',
-              style: TextStyle(
-                color: isCredit ? Colors.green : Colors.white,
-                fontWeight: FontWeight.bold,
-                fontSize: 14,
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-}
 
 class _ActionIcon extends StatelessWidget {
   final String label;
@@ -573,8 +428,43 @@ class _ActionIcon extends StatelessWidget {
   }
 }
 
-class _WalletScannerSheet extends StatelessWidget {
+class _WalletScannerSheet extends StatefulWidget {
   const _WalletScannerSheet();
+
+  @override
+  State<_WalletScannerSheet> createState() => _WalletScannerSheetState();
+}
+
+class _WalletScannerSheetState extends State<_WalletScannerSheet> {
+  final MobileScannerController controller = MobileScannerController();
+  bool _isChecking = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkPermission();
+  }
+
+  Future<void> _checkPermission() async {
+    // MobileScanner handles permissions internally when starting,
+    // but we can listen to the status.
+    setState(() {
+      _isChecking = true;
+    });
+
+    // In a real app with permission_handler, we would check here.
+    // For mobile_scanner, we wait for the first frame or use the controller.
+    
+    setState(() {
+      _isChecking = false;
+    });
+  }
+
+  @override
+  void dispose() {
+    controller.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -592,55 +482,112 @@ class _WalletScannerSheet extends StatelessWidget {
             ),
           ),
           Expanded(
-            child: Stack(
-              children: [
-                MobileScanner(
-                  onDetect: (capture) {
-                    final List<Barcode> barcodes = capture.barcodes;
-                    if (barcodes.isNotEmpty) {
-                      final String? code = barcodes.first.rawValue;
-                      if (code != null) {
-                        Navigator.pop(context);
-                        
-                        showModalBottomSheet(
-                          context: context,
-                          isScrollControlled: true,
-                          backgroundColor: Colors.transparent,
-                          builder: (sheetContext) => BlocProvider.value(
-                            value: context.read<WalletCubit>(),
-                            child: TransferSheet(
-                              recipientAccountId: code,
-                              currentBalances: context.read<WalletCubit>().state.balances,
+            child: _isChecking 
+              ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
+              : ValueListenableBuilder(
+                  valueListenable: controller,
+                  builder: (context, state, child) {
+                    if (!state.isInitialized) {
+                      return const Center(child: CircularProgressIndicator(color: AppColors.primary));
+                    }
+                    
+                    if (state.error != null) {
+                       return Center(
+                         child: Column(
+                           mainAxisSize: MainAxisSize.min,
+                           children: [
+                             const Icon(Icons.error_outline, color: Colors.redAccent, size: 48),
+                             const SizedBox(height: 16),
+                             Text(
+                               state.error!.errorCode == MobileScannerErrorCode.permissionDenied
+                                 ? 'Camera permission denied'
+                                 : 'Could not start camera',
+                               style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                             ),
+                             const SizedBox(height: 8),
+                             const Text(
+                               'Please enable camera access in settings',
+                               style: TextStyle(color: Colors.white54, fontSize: 13),
+                             ),
+                           ],
+                         ),
+                       );
+                    }
+
+                    return Stack(
+                      children: [
+                        MobileScanner(
+                          controller: controller,
+                          onDetect: (capture) {
+                            final List<Barcode> barcodes = capture.barcodes;
+                            if (barcodes.isNotEmpty) {
+                              final String? code = barcodes.first.rawValue;
+                              if (code != null) {
+                                Navigator.pop(context);
+                                
+                                showModalBottomSheet(
+                                  context: context,
+                                  isScrollControlled: true,
+                                  backgroundColor: Colors.transparent,
+                                  builder: (sheetContext) => BlocProvider.value(
+                                    value: context.read<WalletCubit>(),
+                                    child: TransferSheet(
+                                      recipientAccountId: code,
+                                      currentBalances: context.read<WalletCubit>().state.balances,
+                                    ),
+                                  ),
+                                );
+                              }
+                            }
+                          },
+                        ),
+                        Center(
+                          child: Container(
+                            width: 250,
+                            height: 250,
+                            decoration: BoxDecoration(
+                              border: Border.all(color: AppColors.primary, width: 2),
+                              borderRadius: BorderRadius.circular(24),
                             ),
                           ),
-                        );
-                      }
-                    }
+                        ),
+                        Positioned(
+                          bottom: 40,
+                          left: 0,
+                          right: 0,
+                          child: Center(
+                            child: Text(
+                              'Scan a Lynk-X QR Code',
+                              style: AppTypography.inter(color: Colors.white, fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ),
+                        Positioned(
+                          top: 20,
+                          right: 20,
+                          child: IconButton(
+                            icon: ValueListenableBuilder(
+                              valueListenable: controller,
+                              builder: (context, state, child) {
+                                switch (state.torchState) {
+                                  case TorchState.off:
+                                    return const Icon(Icons.flash_off, color: Colors.white);
+                                  case TorchState.on:
+                                    return const Icon(Icons.flash_on, color: AppColors.primary);
+                                  case TorchState.auto:
+                                    return const Icon(Icons.flash_auto, color: Colors.white70);
+                                  case TorchState.unavailable:
+                                    return const Icon(Icons.flash_off, color: Colors.white24);
+                                }
+                              },
+                            ),
+                            onPressed: () => controller.toggleTorch(),
+                          ),
+                        ),
+                      ],
+                    );
                   },
                 ),
-                Center(
-                  child: Container(
-                    width: 250,
-                    height: 250,
-                    decoration: BoxDecoration(
-                      border: Border.all(color: AppColors.primary, width: 2),
-                      borderRadius: BorderRadius.circular(24),
-                    ),
-                  ),
-                ),
-                Positioned(
-                  bottom: 40,
-                  left: 0,
-                  right: 0,
-                  child: Center(
-                    child: Text(
-                      'Scan a Lynk-X QR Code',
-                      style: AppTypography.inter(color: Colors.white, fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                ),
-              ],
-            ),
           ),
         ],
       ),

@@ -130,6 +130,12 @@ class _EditProfilePageState extends State<EditProfilePage> {
         setState(() => _uploadingAvatar = true);
         context.read<ProfileCubit>().uploadAvatar(image);
       }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not access gallery: ${e.toString()}')),
+        );
+      }
     } finally {
       if (mounted) setState(() => _isOpeningGallery = false);
     }

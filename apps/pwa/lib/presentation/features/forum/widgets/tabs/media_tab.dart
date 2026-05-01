@@ -219,11 +219,10 @@ class _MediaTabState extends State<MediaTab>
           ? await picker.pickVideo(source: source)
           : await picker.pickImage(source: source, imageQuality: 70);
 
-      if (pickedFile != null) {
+      if (pickedFile != null && context.mounted) {
         final ext = pickedFile.path.split('.').last.toLowerCase();
         final mimeType = isVideo ? 'video/$ext' : 'image/$ext';
 
-        if (!context.mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Uploading ${isVideo ? 'video' : 'image'}...'),
@@ -239,14 +238,14 @@ class _MediaTabState extends State<MediaTab>
 
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Upload successfully!')),
+            const SnackBar(content: Text('Upload successful!')),
           );
         }
       }
-    } catch (_) {
+    } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to upload media')),
+          SnackBar(content: Text('Could not access ${isVideo ? 'video' : 'image'} library: ${e.toString()}')),
         );
       }
     }

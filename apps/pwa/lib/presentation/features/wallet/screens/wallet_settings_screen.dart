@@ -157,14 +157,7 @@ class _WalletSettingsPageState extends State<WalletSettingsPage> {
                   icon: Icons.lock_outline_rounded,
                   onTap: () => _showChangePin(),
                 ),
-                if (_canCheckBiometrics)
-                  _buildSwitchTile(
-                    title: _biometricLabel,
-                    subtitle: 'Unlock your wallet using your device biometrics',
-                    icon: Icons.fingerprint_rounded,
-                    value: state.useBiometrics,
-                    onChanged: _toggleBiometrics,
-                  ),
+                _buildBiometricTile(state),
                 
                 const SizedBox(height: 32),
                 _buildSectionHeader('Privacy'),
@@ -188,6 +181,26 @@ class _WalletSettingsPageState extends State<WalletSettingsPage> {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildBiometricTile(WalletState state) {
+    if (!_canCheckBiometrics) {
+      return _buildSettingTile(
+        title: 'Biometrics Unavailable',
+        subtitle: 'Your device or browser doesn\'t support biometric unlock.',
+        icon: Icons.fingerprint_rounded,
+        onTap: () {},
+        trailing: const Icon(Icons.info_outline, color: Colors.white24, size: 20),
+      );
+    }
+
+    return _buildSwitchTile(
+      title: _biometricLabel,
+      subtitle: 'Unlock your wallet using your device biometrics',
+      icon: Icons.fingerprint_rounded,
+      value: state.useBiometrics,
+      onChanged: _toggleBiometrics,
     );
   }
 
