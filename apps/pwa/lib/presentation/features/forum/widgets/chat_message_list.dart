@@ -36,6 +36,7 @@ class ChatMessageList extends StatelessWidget {
   final Function(String, LinkPreviewData)? onLinkPreviewDataFetched;
   final Function(String?)? onMediaTap;
   final VoidCallback? onTapBubble;
+  final double topPadding;
 
   const ChatMessageList({
     super.key,
@@ -57,6 +58,7 @@ class ChatMessageList extends StatelessWidget {
     this.onLinkPreviewDataFetched,
     this.onMediaTap,
     this.onTapBubble,
+    this.topPadding = 0,
   });
 
   @override
@@ -81,7 +83,7 @@ class ChatMessageList extends StatelessWidget {
       reverse: true,
       slivers: [
         SliverPadding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+          padding: EdgeInsets.fromLTRB(16, 16 + topPadding, 16, 16),
           sliver: SliverList(
             delegate: SliverChildBuilderDelegate(
               (context, index) {

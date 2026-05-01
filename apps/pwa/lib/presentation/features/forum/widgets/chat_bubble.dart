@@ -87,11 +87,11 @@ class _ChatBubbleState extends State<ChatBubble> {
             mainAxisAlignment: widget.message.isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              if (widget.message.isMe) ...[
-                _buildStatusIndicator(),
-                _buildMoreIcon(),
-              ],
               if (shouldBlur) _buildBlurredBubble() else _buildBubble(),
+              if (widget.message.isMe) ...[
+                _buildMoreIcon(),
+                _buildStatusIndicator(),
+              ],
               if (!widget.message.isMe) _buildMoreIcon(),
             ],
           ),
@@ -121,7 +121,7 @@ class _ChatBubbleState extends State<ChatBubble> {
   Widget _buildStatusIndicator() {
     if (widget.message.isSending) {
       return const Padding(
-        padding: EdgeInsets.only(right: 6, bottom: 4),
+        padding: EdgeInsets.only(left: 6, bottom: 4),
         child: SizedBox(
           width: 10,
           height: 10,
@@ -131,7 +131,7 @@ class _ChatBubbleState extends State<ChatBubble> {
     }
     if (widget.message.hasError) {
       return const Padding(
-        padding: EdgeInsets.only(right: 6, bottom: 4),
+        padding: EdgeInsets.only(left: 6, bottom: 4),
         child: Icon(Icons.error_outline, size: 14, color: Colors.redAccent),
       );
     }

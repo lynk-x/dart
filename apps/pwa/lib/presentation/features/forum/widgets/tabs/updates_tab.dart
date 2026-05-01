@@ -63,47 +63,60 @@ class _UpdatesTabState extends State<UpdatesTab>
                   ),
                   const SizedBox(height: 8),
                 ],
-                CategoryFilterBar(
-                  selectedCategory: updatesState.selectedCategory,
-                  onSelectionChanged: (cat) => updatesCubit.setCategory(cat),
-                ),
-                const SizedBox(height: 8),
                 Expanded(
-                  child: RepaintBoundary(
-                    child: RefreshIndicator(
-                      onRefresh: () async => updatesCubit.refresh(),
-                      color: AppColors.primary,
-                      child: ChatMessageList(
-                        scrollController: widget.scrollController,
-                        chatState: updatesState,
-                        isOrganizer: mainState.isOrganizer,
-                        isPremium: mainState.isPremium,
-                        onPin: (msg) => mainCubit.pinMessage(msg),
-                        onDelete: (msg) => updatesCubit.deleteMessage(msg.id),
-                        onReport: (msg) =>
-                            updatesCubit.reportMessage(msg.id, 'Spam'),
-                        onMute: (msg) => mainCubit.muteUser(msg.userId),
-                        onBan: (msg) => mainCubit.banUser(msg.userId),
-                        onReact: (msg, emoji) =>
-                            mainCubit.reactToMessage(msg, emoji),
-                        onReply: (msg) => updatesCubit.setReplyTo(msg),
-                        onReactionTap: (msg) {}, // Not used in updates
-                        onTapBubble: () => setState(() => _selectedMessage = null),
-                        onMessageLongPress: (message) {
-                          setState(() {
-                            if (_selectedMessage == message) {
-                              _selectedMessage = null;
-                            } else {
-                              _selectedMessage = message;
-                            }
-                          });
-                        },
-                        selectedMessageId: _selectedMessage?.id,
-                        onLinkPreviewDataFetched: (String url, LinkPreviewData data) =>
-                            updatesCubit.saveLinkPreview(url, data),
-                        onMediaTap: widget.onMediaTap,
+                  child: Stack(
+                    children: [
+                      RepaintBoundary(
+                        child: RefreshIndicator(
+                          onRefresh: () async => updatesCubit.refresh(),
+                          color: AppColors.primary,
+                          child: ChatMessageList(
+                            scrollController: widget.scrollController,
+                            chatState: updatesState,
+                            isOrganizer: mainState.isOrganizer,
+                            isPremium: mainState.isPremium,
+                            topPadding: 60, // Space for the floating filter bar
+                            onPin: (msg) => mainCubit.pinMessage(msg),
+                            onDelete: (msg) => updatesCubit.deleteMessage(msg.id),
+                            onReport: (msg) =>
+                                updatesCubit.reportMessage(msg.id, 'Spam'),
+                            onMute: (msg) => mainCubit.muteUser(msg.userId),
+                            onBan: (msg) => mainCubit.banUser(msg.userId),
+                            onReact: (msg, emoji) =>
+                                mainCubit.reactToMessage(msg, emoji),
+                            onReply: (msg) => updatesCubit.setReplyTo(msg),
+                            onReactionTap: (msg) {}, // Not used in updates
+                            onTapBubble: () => setState(() => _selectedMessage = null),
+                            onMessageLongPress: (message) {
+                              setState(() {
+                                if (_selectedMessage == message) {
+                                  _selectedMessage = null;
+                                } else {
+                                  _selectedMessage = message;
+                                }
+                              });
+                            },
+                            selectedMessageId: _selectedMessage?.id,
+                            onLinkPreviewDataFetched: (String url, LinkPreviewData data) =>
+                                updatesCubit.saveLinkPreview(url, data),
+                            onMediaTap: widget.onMediaTap,
+                          ),
+                        ),
                       ),
-                    ),
+                      Positioned(
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        child: Container(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          color: AppColors.primaryBackground,
+                          child: CategoryFilterBar(
+                            selectedCategory: updatesState.selectedCategory,
+                            onSelectionChanged: (cat) => updatesCubit.setCategory(cat),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
                 if (mainState.isOrganizer)
