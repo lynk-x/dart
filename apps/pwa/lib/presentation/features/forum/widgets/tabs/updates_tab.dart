@@ -9,6 +9,7 @@ import 'package:lynk_x/presentation/features/forum/widgets/info_banner.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/message_input.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/chat_bubble.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/category_filter_bar.dart';
+import 'package:lynk_x/presentation/shared/widgets/empty_state.dart';
 
 /// The 'Updates' tab content for the Forum.
 class UpdatesTab extends StatefulWidget {
@@ -91,6 +92,16 @@ class _UpdatesTabState extends State<UpdatesTab>
                                       ? '${pinned.first.message.substring(0, 80)}…'
                                       : pinned.first.message,
                                 ),
+                              ),
+                            ),
+
+                          // Empty state
+                          if (updatesState.messages.isEmpty &&
+                              !updatesState.isLoading)
+                            const SliverFillRemaining(
+                              hasScrollBody: false,
+                              child: EmptyState(
+                                message: 'No messages yet. Start the conversation!',
                               ),
                             ),
 
