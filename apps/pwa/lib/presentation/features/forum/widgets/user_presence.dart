@@ -91,10 +91,10 @@ class _UserPresenceCardState extends State<UserPresenceCard> {
       items: [
         if (widget.isPrimary) ...[
           ActionBarItem(
-            label: 'View Ticket',
+            label: 'View Profile',
             onTap: () {
               _toggleActions();
-              context.push('/tickets');
+              context.push('/profile');
             },
             color: AppColors.primary,
           ),
@@ -169,6 +169,9 @@ class _UserPresenceCardState extends State<UserPresenceCard> {
   }
 
   void _showReportModal(BuildContext context) {
+    final forumCubit = context.read<ForumCubit>();
+    final messenger = ScaffoldMessenger.of(context);
+
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.black,
@@ -199,13 +202,9 @@ class _UserPresenceCardState extends State<UserPresenceCard> {
                     style: const TextStyle(color: Colors.white),
                   ),
                   onTap: () {
-                    final cubit = context.read<ForumCubit>();
-                    cubit.reportUser(
-                      widget.userId,
-                      reason,
-                    );
+                    forumCubit.reportUser(widget.userId, reason);
                     Navigator.pop(bottomSheetContext);
-                    ScaffoldMessenger.of(context).showSnackBar(
+                    messenger.showSnackBar(
                       const SnackBar(content: Text('User reported.')),
                     );
                   },

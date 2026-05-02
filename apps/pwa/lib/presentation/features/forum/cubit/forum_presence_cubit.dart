@@ -40,11 +40,11 @@ class ForumPresenceCubit extends Cubit<ForumPresenceState> {
     });
 
     _trackUser();
-    
-    // Initial sync check with small delays to allow local track to propagate
+
+    // Initial sync checks with small delays to allow local track to propagate
     _updatePresence();
-    Future.delayed(const Duration(milliseconds: 500), () => _updatePresence());
-    Future.delayed(const Duration(seconds: 2), () => _updatePresence());
+    Future.delayed(const Duration(milliseconds: 500), () { if (!isClosed) _updatePresence(); });
+    Future.delayed(const Duration(seconds: 2), () { if (!isClosed) _updatePresence(); });
   }
 
   void _updatePresence() {

@@ -59,7 +59,7 @@ class ForumUpdatesCubit extends BaseMessageCubit<ForumUpdatesState> {
           .eq('message_type', 'announcement');
 
       if (state.selectedCategory != null) {
-        query = query.eq('category', state.selectedCategory!);
+        query = query.eq('hashtag', state.selectedCategory!);
       }
 
       if (state.searchQuery.isNotEmpty) {
@@ -97,7 +97,7 @@ class ForumUpdatesCubit extends BaseMessageCubit<ForumUpdatesState> {
           .eq('message_type', 'announcement');
 
       if (state.selectedCategory != null) {
-        query = query.eq('category', state.selectedCategory!);
+        query = query.eq('hashtag', state.selectedCategory!);
       }
 
       if (state.searchQuery.isNotEmpty) {
@@ -140,11 +140,18 @@ class ForumUpdatesCubit extends BaseMessageCubit<ForumUpdatesState> {
     final imageUrl = state.mentionedMedia?.url;
     final thumbnailUrl = state.mentionedMedia?.thumbnailUrl;
 
-    // Detect Category from text if possible, or use current
+    // Extract #hashtag from text if present, otherwise fall back to selected filter.
+    const validHashtags = ['urgent', 'activity', 'Q&A', 'Resources', 'Rules'];
     String? category = state.selectedCategory;
-    if (text.toLowerCase().contains('#general')) category = 'General';
-    if (text.toLowerCase().contains('#important')) category = 'Important';
-    if (text.toLowerCase().contains('#alert')) category = 'Alert';
+    final hashtagMatch = RegExp(r'#(\w+)', caseSensitive: false).firstMatch(text);
+    if (hashtagMatch != null) {
+      final tag = hashtagMatch.group(1)!;
+      final match = validHashtags.firstWhere(
+        (h) => h.toLowerCase() == tag.toLowerCase(),
+        orElse: () => '',
+      );
+      if (match.isNotEmpty) category = match;
+    }
 
     final newMessage = ChatMessage(
       id: messageId,
@@ -175,7 +182,7 @@ class ForumUpdatesCubit extends BaseMessageCubit<ForumUpdatesState> {
         'author_id': userId,
         'content': text,
         'message_type': 'announcement',
-        'category': category,
+        'hashtag': category,
         if (mediaId != null) 'media_id': mediaId,
       });
 
@@ -187,7 +194,7 @@ class ForumUpdatesCubit extends BaseMessageCubit<ForumUpdatesState> {
           'author_id': userId,
           'content': text,
           'message_type': 'announcement',
-          'category': category,
+          'hashtag': category,
           'created_at': now.toIso8601String(),
           if (mediaId != null) 'media_id': mediaId,
           if (imageUrl != null)

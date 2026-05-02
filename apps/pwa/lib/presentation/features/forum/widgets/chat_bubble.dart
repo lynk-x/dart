@@ -296,6 +296,7 @@ class _ChatBubbleState extends State<ChatBubble> {
           children: [
             if (widget.message.replyTo != null) _buildReplyPreview(),
             if (widget.message.imageUrl != null) _buildImageContent(),
+            if (widget.message.category != null) _buildCategoryBadge(),
             _buildMessageContent(textColor),
             if (widget.message.questionnaireId != null &&
                 context.read<FeatureFlagCubit>().isEnabled('enable_forum_polls'))
@@ -353,6 +354,38 @@ class _ChatBubbleState extends State<ChatBubble> {
             child: const Center(
               child: Icon(Icons.broken_image, color: Colors.white24),
             ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  static const _categoryColors = {
+    'urgent': Color(0xFFFF4444),
+    'activity': Color(0xFF00AAFF),
+    'Q&A': Color(0xFFFFAA00),
+    'Resources': Color(0xFF44DD88),
+    'Rules': Color(0xFFAA88FF),
+  };
+
+  Widget _buildCategoryBadge() {
+    final category = widget.message.category!;
+    final color = _categoryColors[category] ?? AppColors.primary;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: color.withValues(alpha: 0.4), width: 0.5),
+        ),
+        child: Text(
+          '#$category',
+          style: AppTypography.inter(
+            fontSize: 10,
+            fontWeight: FontWeight.w600,
+            color: color,
           ),
         ),
       ),
