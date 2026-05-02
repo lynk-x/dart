@@ -192,8 +192,8 @@ class ForumAdsCubit extends Cubit<ForumAdsState> {
     }
   }
 
-  void updatePremiumStatus(bool val) {
+  Future<void> updatePremiumStatus(bool val) async {
     isPremium = val;
-    loadAds();
+    await loadAds();
   }
 }

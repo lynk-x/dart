@@ -223,7 +223,9 @@ class _ForumViewState extends State<ForumView> {
               BlocBuilder<ForumCubit, ForumState>(
             buildWhen: (p, c) =>
                 p.eventProgress != c.eventProgress ||
-                p.showAds != c.showAds,
+                p.showAds != c.showAds ||
+                p.eventId != c.eventId ||
+                p.isOrganizer != c.isOrganizer,
             builder: (context, state) => PresenceDrawer(
               onlineUsers: presenceState.onlineUsers,
               eventProgress: state.eventProgress,

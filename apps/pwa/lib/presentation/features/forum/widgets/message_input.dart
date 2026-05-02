@@ -250,15 +250,29 @@ class _MessageInputState extends State<MessageInput> {
         children: [
           ClipRRect(
             borderRadius: BorderRadius.circular(4),
-            child: CachedNetworkImage(
-              imageUrl: widget.mentionedMedia!.thumbnailUrl ??
-                  widget.mentionedMedia!.url,
-              width: 40,
-              height: 40,
-              fit: BoxFit.cover,
-              errorWidget: (context, url, err) =>
-                  const Icon(Icons.broken_image, color: Colors.white54),
-            ),
+            child: () {
+              final url = widget.mentionedMedia!.thumbnailUrl?.isNotEmpty == true
+                  ? widget.mentionedMedia!.thumbnailUrl!
+                  : widget.mentionedMedia!.url.isNotEmpty
+                      ? widget.mentionedMedia!.url
+                      : null;
+              if (url == null) {
+                return Container(
+                  width: 40,
+                  height: 40,
+                  color: Colors.grey[900],
+                  child: const Icon(Icons.image, color: Colors.white24, size: 20),
+                );
+              }
+              return CachedNetworkImage(
+                imageUrl: url,
+                width: 40,
+                height: 40,
+                fit: BoxFit.cover,
+                errorWidget: (context, url, err) =>
+                    const Icon(Icons.broken_image, color: Colors.white54),
+              );
+            }(),
           ),
           const SizedBox(width: 8),
           Expanded(

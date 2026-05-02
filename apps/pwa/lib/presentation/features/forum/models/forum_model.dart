@@ -66,6 +66,7 @@ class ChatMessage {
   /// The relative time to display in UI (e.g., "2m ago")
   String get relativeTime {
     final difference = DateTime.now().difference(createdAt);
+    if (difference.inSeconds < 60) return 'Just now';
     if (difference.inMinutes < 60) return '${difference.inMinutes}m ago';
     if (difference.inHours < 24) return '${difference.inHours}h ago';
     return '${difference.inDays}d ago';

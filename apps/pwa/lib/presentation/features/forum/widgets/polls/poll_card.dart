@@ -89,6 +89,9 @@ class _PollCardState extends State<PollCard> {
   Future<void> _vote(int index) async {
     if (_hasVoted || _isSubmitting) return;
 
+    final userId = _supabase.auth.currentUser?.id;
+    if (userId == null) return;
+
     setState(() {
       _isSubmitting = true;
       _selectedIndex = index;
@@ -98,7 +101,7 @@ class _PollCardState extends State<PollCard> {
       await _supabase.schema('responses').from('responses').insert({
         'questionnaire_id': widget.questionnaireId,
         'question_id': widget.questionId,
-        'user_id': _supabase.auth.currentUser!.id,
+        'user_id': userId,
         'selected_answer': [index],
       });
 

@@ -49,107 +49,116 @@ class _UpdatesTabState extends State<UpdatesTab>
       builder: (context, mainState) {
         return BlocBuilder<ForumUpdatesCubit, ForumUpdatesState>(
           builder: (context, updatesState) {
-            final pinned = updatesState.messages.where((m) => m.isPinned).toList();
-            final hasPinned = pinned.isNotEmpty;
-            final headerHeight = 60.0 + (hasPinned ? 48.0 : 0.0);
-            
+            final pinned =
+                updatesState.messages.where((m) => m.isPinned).toList();
+
             return Column(
               children: [
                 Expanded(
-                  child: Stack(
-                    children: [
-                      RepaintBoundary(
-                        child: RefreshIndicator(
-                          onRefresh: () async => updatesCubit.refresh(),
-                          color: AppColors.primary,
-                          child: CustomScrollView(
-                            controller: widget.scrollController,
-                            reverse: false,
-                            slivers: [
-                              // Messages List with top padding for fixed header
-                              SliverPadding(
-                                padding: EdgeInsets.fromLTRB(16, headerHeight + 8, 16, 0),
-                                sliver: SliverList(
-                                  delegate: SliverChildBuilderDelegate(
+                  child: RepaintBoundary(
+                    child: RefreshIndicator(
+                      onRefresh: () async => updatesCubit.refresh(),
+                      color: AppColors.primary,
+                      child: CustomScrollView(
+                        controller: widget.scrollController,
+                        slivers: [
+                          // Category filter bar — pinned above the list
+                          SliverPersistentHeader(
+                            pinned: true,
+                            delegate: _PinnedHeaderDelegate(
+                              child: ColoredBox(
+                                color: AppColors.primaryBackground,
+                                child: CategoryFilterBar(
+                                  selectedCategory:
+                                      updatesState.selectedCategory,
+                                  onSelectionChanged: (cat) =>
+                                      updatesCubit.setCategory(cat),
+                                ),
+                              ),
+                              height: 52,
+                            ),
+                          ),
+
+                          // Pinned message banner
+                          if (pinned.isNotEmpty)
+                            SliverToBoxAdapter(
+                              child: Padding(
+                                padding:
+                                    const EdgeInsets.fromLTRB(16, 4, 16, 8),
+                                child: InfoBanner(
+                                  icon: Icons.push_pin,
+                                  text: pinned.first.message.length > 80
+                                      ? '${pinned.first.message.substring(0, 80)}…'
+                                      : pinned.first.message,
+                                ),
+                              ),
+                            ),
+
+                          // Messages
+                          SliverPadding(
+                            padding:
+                                const EdgeInsets.fromLTRB(16, 8, 16, 80),
+                            sliver: SliverList(
+                              delegate: SliverChildBuilderDelegate(
                                 (context, index) {
-                                  if (index == updatesState.messages.length) {
+                                  if (index ==
+                                      updatesState.messages.length) {
                                     return const Center(
                                       child: Padding(
                                         padding: EdgeInsets.all(8.0),
                                         child: CircularProgressIndicator(
-                                            strokeWidth: 2, color: AppColors.primary),
+                                            strokeWidth: 2,
+                                            color: AppColors.primary),
                                       ),
                                     );
                                   }
 
-                                  final message = updatesState.messages[index];
+                                  final message =
+                                      updatesState.messages[index];
                                   return ChatBubble(
                                     message: message,
                                     isOrganizer: mainState.isOrganizer,
-                                    onPin: (msg) => mainCubit.pinMessage(msg),
-                                    onDelete: (msg) => updatesCubit.deleteMessage(msg.id),
-                                    onReport: (msg) => updatesCubit.reportMessage(msg.id, 'Spam'),
-                                    onMute: (msg) => mainCubit.muteUser(msg.userId),
-                                    onBan: (msg) => mainCubit.banUser(msg.userId),
-                                    onReact: (msg, emoji) => mainCubit.reactToMessage(msg, emoji),
-                                    onReply: (msg) => updatesCubit.setReplyTo(msg),
+                                    onPin: (msg) =>
+                                        mainCubit.pinMessage(msg),
+                                    onDelete: (msg) =>
+                                        updatesCubit.deleteMessage(msg.id),
+                                    onReport: (msg) =>
+                                        updatesCubit.reportMessage(
+                                            msg.id, 'Spam'),
+                                    onMute: (msg) =>
+                                        mainCubit.muteUser(msg.userId),
+                                    onBan: (msg) =>
+                                        mainCubit.banUser(msg.userId),
+                                    onReact: (msg, emoji) =>
+                                        mainCubit.reactToMessage(
+                                            msg, emoji),
+                                    onReply: (msg) =>
+                                        updatesCubit.setReplyTo(msg),
                                     onMediaTap: widget.onMediaTap,
-                                    showActions: _selectedMessageId == message.id,
+                                    showActions:
+                                        _selectedMessageId == message.id,
                                     onLongPressBubble: () {
                                       setState(() {
-                                        if (_selectedMessageId == message.id) {
-                                          _selectedMessageId = null;
-                                        } else {
-                                          _selectedMessageId = message.id;
-                                        }
+                                        _selectedMessageId =
+                                            _selectedMessageId == message.id
+                                                ? null
+                                                : message.id;
                                       });
                                     },
-                                    onTapBubble: () => setState(() => _selectedMessageId = null),
+                                    onTapBubble: () => setState(
+                                        () => _selectedMessageId = null),
                                   );
                                 },
-                                childCount: updatesState.messages.length + (updatesState.isLoading ? 1 : 0),
+                                childCount: updatesState.messages.length +
+                                    (updatesState.isLoading ? 1 : 0),
                               ),
                             ),
                           ),
-
-                          // Bottom Spacer
-                          const SliverToBoxAdapter(child: SizedBox(height: 80)),
                         ],
                       ),
                     ),
                   ),
-
-                  // Fixed Header (Outside scrollable layer)
-                  Positioned(
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    child: Container(
-                      color: AppColors.primaryBackground,
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          CategoryFilterBar(
-                            selectedCategory: updatesState.selectedCategory,
-                            onSelectionChanged: (cat) => updatesCubit.setCategory(cat),
-                          ),
-                          if (hasPinned)
-                            Padding(
-                              padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-                              child: InfoBanner(
-                                icon: Icons.push_pin,
-                                text: pinned.first.message.length > 80
-                                    ? '${pinned.first.message.substring(0, 80)}…'
-                                    : pinned.first.message,
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
+                ),
                 if (mainState.isOrganizer)
                   MessageInput(
                     onSendMessage: (text, _) => updatesCubit.sendMessage(
@@ -159,7 +168,8 @@ class _UpdatesTabState extends State<UpdatesTab>
                     ),
                     onActionTap: widget.onActionTap,
                     mentionedMedia: updatesState.mentionedMedia,
-                    onCancelMention: () => updatesCubit.setMentionedMedia(null),
+                    onCancelMention: () =>
+                        updatesCubit.setMentionedMedia(null),
                     onChanged: (text) {},
                     members: mainState.members,
                     isOrganizer: true,
@@ -171,4 +181,25 @@ class _UpdatesTabState extends State<UpdatesTab>
       },
     );
   }
+}
+
+class _PinnedHeaderDelegate extends SliverPersistentHeaderDelegate {
+  final Widget child;
+  final double height;
+
+  const _PinnedHeaderDelegate({required this.child, required this.height});
+
+  @override
+  double get minExtent => height;
+  @override
+  double get maxExtent => height;
+
+  @override
+  Widget build(
+          BuildContext context, double shrinkOffset, bool overlapsContent) =>
+      child;
+
+  @override
+  bool shouldRebuild(_PinnedHeaderDelegate old) =>
+      child != old.child || height != old.height;
 }

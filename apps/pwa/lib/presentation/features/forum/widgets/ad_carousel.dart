@@ -53,7 +53,8 @@ class _AdCarouselState extends State<AdCarousel> {
           duration: const Duration(milliseconds: 500),
           curve: Curves.easeInOut,
         );
-        widget.onAdViewed?.call(widget.ads[_currentPage].id);
+        // Impression is logged via onPageChanged callback, not here,
+        // so it only fires when the page animation completes and is visible.
       }
     });
   }
@@ -74,7 +75,10 @@ class _AdCarouselState extends State<AdCarousel> {
       color: AppColors.surface,
       child: PageView.builder(
         controller: _pageController,
-        onPageChanged: (index) => setState(() => _currentPage = index),
+        onPageChanged: (index) {
+          setState(() => _currentPage = index);
+          widget.onAdViewed?.call(widget.ads[index].id);
+        },
         itemCount: widget.ads.length,
         itemBuilder: (context, index) {
           final ad = widget.ads[index];
