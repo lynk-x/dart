@@ -9,6 +9,7 @@ import 'router.dart';
 import 'package:lynk_x/presentation/features/notifications/cubit/notification_cubit.dart';
 import 'package:lynk_x/presentation/features/wallet/cubit/wallet_cubit.dart';
 import 'package:lynk_x/l10n/app_localizations.dart';
+import 'package:lynk_x/data/repositories/repository_providers.dart';
 import 'services/push_notification_service.dart';
 
 class LynkXAppWrapper extends StatefulWidget {
@@ -38,12 +39,12 @@ class _LynkXAppWrapperState extends State<LynkXAppWrapper> {
         BlocProvider(create: (context) => FeatureFlagCubit()..init()),
         BlocProvider(create: (context) => SystemConfigCubit()..init()),
         BlocProvider(create: (context) => BlockCubit()..init()),
-        BlocProvider(create: (context) => ProfileCubit()..loadProfile()),
+        BlocProvider(create: (context) => ProfileCubit(profileRepository)..loadProfile()),
         // NotificationCubit is NOT auto-loaded here — it force-unwraps
         // currentUser, which is null on a cold start before auth resolves.
         // loadNotifications() is triggered from the signedIn auth event instead.
-        BlocProvider(create: (context) => NotificationCubit()),
-        BlocProvider(create: (context) => WalletCubit()),
+        BlocProvider(create: (context) => NotificationCubit(notificationRepository)),
+        BlocProvider(create: (context) => WalletCubit(walletRepository)),
       ],
       child: LynkXApp(locale: _locale),
     );

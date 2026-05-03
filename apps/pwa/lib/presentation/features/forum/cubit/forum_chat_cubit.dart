@@ -1,7 +1,7 @@
 import 'package:lynk_core/core.dart';
 import 'dart:async';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/foundation.dart';
+import 'package:lynk_x/data/repositories/repositories.dart';
 import 'package:lynk_x/presentation/features/forum/models/forum_model.dart';
 import 'package:lynk_x/core/sync/sync_item.dart';
 import 'package:lynk_x/core/sync/sync_manager.dart';
@@ -9,6 +9,7 @@ import 'base_message_cubit.dart';
 import 'forum_chat_state.dart';
 
 class ForumChatCubit extends BaseMessageCubit<ForumChatState> {
+  final ForumRepository _repo;
   Timer? _typingThrottle;
   Timer? _hideTypingTimer;
   StreamSubscription? _syncSubscription;
@@ -17,8 +18,10 @@ class ForumChatCubit extends BaseMessageCubit<ForumChatState> {
     required super.forumId,
     required super.userId,
     required super.userName,
+    required ForumRepository repo,
     super.channel,
-  }) : super(
+  })  : _repo = repo,
+        super(
           messageType: 'chat',
           initialState: const ForumChatState(),
         );
@@ -91,23 +94,25 @@ class ForumChatCubit extends BaseMessageCubit<ForumChatState> {
       // forum_members, and forum_media for ChatMessage.fromMap. Direct embeds
       // on forum_messages.forum_messages don't work because there is no FK
       // from forum_messages to forum_members.
-      var query = Supabase.instance.client
-          .from('vw_forum_messages')
-          .select()
-          .eq('forum_id', forumId)
-          .eq('message_type', 'chat')
-          .filter('deleted_at', 'is', null);
+      final data = await _repo.getMessages(
+        forumId: forumId,
+        limit: 20,
+        before: null,
+      );
 
-      if (state.searchQuery.isNotEmpty) {
-        query = query.textSearch('fts', state.searchQuery, config: 'english');
-      }
+      // Apply search filter client-side if query is active
+      // (repo doesn't expose fts search; keep it simple for now)
+      final filtered = state.searchQuery.isNotEmpty
+          ? data
+              .where((m) =>
+                  (m['content'] as String? ?? '')
+                      .toLowerCase()
+                      .contains(state.searchQuery.toLowerCase()))
+              .toList()
+          : data;
 
-      final data = await query
-          .order('is_pinned', ascending: false)
-          .order('created_at', ascending: false)
-          .limit(20);
       final messages =
-          data.map((json) => ChatMessage.fromMap(json, userId)).toList();
+          filtered.map((json) => ChatMessage.fromMap(json, userId)).toList();
 
       if (!isClosed) {
         emit(state.copyWith(messages: messages, isLoading: false));
@@ -122,23 +127,16 @@ class ForumChatCubit extends BaseMessageCubit<ForumChatState> {
   Future<void> loadMore() async {
     if (state.isLoading || isClosed) return;
     emit(state.copyWith(isLoading: true));
-    final startIndex = state.messages.length;
     try {
-      var query = Supabase.instance.client
-          .from('vw_forum_messages')
-          .select()
-          .eq('forum_id', forumId)
-          .eq('message_type', 'chat')
-          .filter('deleted_at', 'is', null);
+      final oldest = state.messages.isNotEmpty
+          ? state.messages.last.createdAt.toIso8601String()
+          : null;
 
-      if (state.searchQuery.isNotEmpty) {
-        query = query.textSearch('fts', state.searchQuery, config: 'english');
-      }
-
-      final data = await query
-          .order('is_pinned', ascending: false)
-          .order('created_at', ascending: false)
-          .range(startIndex, startIndex + 20);
+      final data = await _repo.getMessages(
+        forumId: forumId,
+        limit: 20,
+        before: oldest,
+      );
 
       final more =
           data.map((json) => ChatMessage.fromMap(json, userId)).toList();

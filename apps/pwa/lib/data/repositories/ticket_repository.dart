@@ -1,0 +1,107 @@
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+class TicketRepository {
+  final SupabaseClient _client;
+  TicketRepository(this._client);
+
+  Future<List<Map<String, dynamic>>> getUserTickets(
+    String userId, {
+    int limit = 20,
+    int offset = 0,
+  }) async {
+    final data = await _client
+        .schema('api')
+        .from('v1_tickets')
+        .select('id, user_id, event_id, status, ticket_code, purchased_price, purchased_currency, tier_name, created_at')
+        .eq('user_id', userId)
+        .order('created_at', ascending: false)
+        .range(offset, offset + limit - 1);
+    return List<Map<String, dynamic>>.from(data);
+  }
+
+  Future<Map<String, dynamic>?> getTicketById(String ticketId) async {
+    return await _client
+        .schema('api')
+        .from('v1_tickets')
+        .select('id, user_id, event_id, status, ticket_code, purchased_price, purchased_currency, tier_name, created_at')
+        .eq('id', ticketId)
+        .maybeSingle();
+  }
+
+  Future<void> transferTicket(String ticketId, String toUserId) async {
+    await _client.rpc('transfer_ticket', params: {
+      'p_ticket_id': ticketId,
+      'p_to_user_id': toUserId,
+    });
+  }
+
+  Future<List<Map<String, dynamic>>> getTicketTiers(String eventId) async {
+    final data = await _client
+        .schema('api')
+        .from('v1_ticket_tiers')
+        .select('id, event_id, display_name, description, price, capacity, tickets_sold, tickets_available, min_per_order, max_per_order, sales_start, sales_end, info')
+        .eq('event_id', eventId)
+        .order('price', ascending: true);
+    return List<Map<String, dynamic>>.from(data);
+  }
+
+  /// Atomically reserves [quantity] tickets for [tierId].
+  /// Returns the reservation UUID — valid for 15 minutes.
+  Future<String> lockForCheckout(String tierId, int quantity) async {
+    final result = await _client.rpc('lock_tickets_for_checkout', params: {
+      'p_tier_id': tierId,
+      'p_quantity': quantity,
+    });
+    return result as String;
+  }
+
+  /// Purchases tickets using an existing reservation.
+  /// Returns the full RPC response: { ticket_ids, amount, currency }.
+  Future<Map<String, dynamic>> purchaseTickets({
+    required String eventId,
+    required String tierId,
+    required int quantity,
+    required String reservationId,
+    String provider = 'in-app',
+    String? promoCode,
+  }) async {
+    final result = await _client.rpc('purchase_tickets', params: {
+      'p_event_id': eventId,
+      'p_tier_id': tierId,
+      'p_quantity': quantity,
+      'p_provider': provider,
+      'p_reservation_id': reservationId,
+      if (promoCode != null) 'p_promo_code': promoCode,
+    });
+    return Map<String, dynamic>.from(result as Map);
+  }
+
+  Future<Map<String, dynamic>?> getActiveReservation(String userId, String tierId) async {
+    return await _client
+        .from('ticket_reservations')
+        .select('id, quantity, expires_at, ticket_tier_id')
+        .eq('user_id', userId)
+        .eq('ticket_tier_id', tierId)
+        .gt('expires_at', DateTime.now().toUtc().toIso8601String())
+        .maybeSingle();
+  }
+
+  RealtimeChannel subscribeToTicket(
+    String ticketId,
+    void Function(PostgresChangePayload) callback,
+  ) {
+    return _client
+        .channel('ticket_live_status_$ticketId')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.update,
+          schema: 'tickets',
+          table: 'tickets',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'id',
+            value: ticketId,
+          ),
+          callback: callback,
+        );
+  }
+}

@@ -28,6 +28,7 @@ import 'package:lynk_x/presentation/features/forum/widgets/tabs/media_tab.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/reaction_background.dart';
 
 import 'package:lynk_x/presentation/features/forum/widgets/welcome_banner.dart';
+import 'package:lynk_x/data/repositories/repository_providers.dart';
 
 class ForumPage extends StatelessWidget {
   /// The forum to display. Provided as a path parameter via `/forum/:id`.
@@ -38,7 +39,7 @@ class ForumPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (context) => ForumCubit(forumId: forumId)..init(),
+      create: (context) => ForumCubit(repo: forumRepository, forumId: forumId)..init(),
       child: BlocBuilder<ForumCubit, ForumState>(
         buildWhen: (p, c) =>
             p.isPremium != c.isPremium ||
@@ -92,6 +93,7 @@ class ForumPage extends StatelessWidget {
                   forumId: mainCubit.forumId,
                   userId: mainCubit.userId,
                   userName: mainCubit.userName,
+                  repo: forumRepository,
                   channel: mainCubit.channel,
                 )..init(),
               ),

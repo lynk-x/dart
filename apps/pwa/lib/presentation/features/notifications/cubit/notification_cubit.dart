@@ -1,11 +1,13 @@
 import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:lynk_x/data/repositories/repositories.dart';
 import 'notification_state.dart';
 import 'package:lynk_x/presentation/features/notifications/models/notification_model.dart';
 
 class NotificationCubit extends Cubit<NotificationState> {
-  NotificationCubit() : super(const NotificationInitial());
+  final NotificationRepository _repo;
+  NotificationCubit(this._repo) : super(const NotificationInitial());
 
   RealtimeChannel? _channel;
 
@@ -17,14 +19,7 @@ class NotificationCubit extends Cubit<NotificationState> {
     if (uid == null) return; // Auth not ready — called too early
     emit(const NotificationLoading());
     try {
-      final data = await Supabase.instance.client
-          .schema('api').from('v1_notifications')
-          .select()
-          .order('created_at', ascending: false);
-
-      final notifications = (data as List)
-          .map((json) => NotificationModel.fromMap(json))
-          .toList();
+      final notifications = await _repo.getNotifications();
 
       emit(NotificationLoaded(notifications: notifications));
       _subscribeToNotifications();
@@ -37,22 +32,8 @@ class NotificationCubit extends Cubit<NotificationState> {
     final uid = _userId;
     if (uid == null) return;
     _channel?.unsubscribe();
-    _channel = Supabase.instance.client
-        .channel('notifications_realtime:$uid')
-        .onPostgresChanges(
-          event: PostgresChangeEvent.all,
-          schema: 'notifications',
-          table: 'notifications',
-          filter: PostgresChangeFilter(
-            type: PostgresChangeFilterType.eq,
-            column: 'user_id',
-            value: uid,
-          ),
-          callback: (payload) {
-            _handleRealtimeUpdate(payload);
-          },
-        )
-        .subscribe();
+    _channel = _repo.subscribeToNotifications(uid, _handleRealtimeUpdate)
+      ..subscribe();
   }
 
   void _handleRealtimeUpdate(PostgresChangePayload payload) {
@@ -90,11 +71,7 @@ class NotificationCubit extends Cubit<NotificationState> {
       emit(currentState.copyWith(notifications: updated));
     }
     try {
-      await Supabase.instance.client
-          .schema('notifications').from('notifications')
-          .update({'is_read': true})
-          .eq('id', notification.id)
-          .eq('created_at', notification.createdAt.toIso8601String());
+      await _repo.markAsRead(notification.id, notification.createdAt);
     } catch (_) {
       // Best-effort — next load will reconcile
     }
@@ -110,11 +87,7 @@ class NotificationCubit extends Cubit<NotificationState> {
       if (uid == null) return;
       // user_id filter is required: without it, RLS prevents the UPDATE from
       // affecting any rows but it would otherwise scan the whole table.
-      await Supabase.instance.client
-          .schema('notifications').from('notifications')
-          .update({'is_read': true})
-          .eq('user_id', uid)
-          .eq('is_read', false);
+      await _repo.markAllAsRead(uid);
 
       final updatedList = currentState.notifications
           .map((n) => n.copyWith(isRead: true))
@@ -127,11 +100,7 @@ class NotificationCubit extends Cubit<NotificationState> {
 
   Future<void> deleteNotification(NotificationModel notification) async {
     try {
-      await Supabase.instance.client
-          .schema('notifications').from('notifications')
-          .delete()
-          .eq('id', notification.id)
-          .eq('created_at', notification.createdAt.toIso8601String());
+      await _repo.deleteNotification(notification.id, notification.createdAt);
       // Real-time listener will handle the UI update
     } catch (_) {
       // DB delete failed — reload to restore the dismissed item in the UI

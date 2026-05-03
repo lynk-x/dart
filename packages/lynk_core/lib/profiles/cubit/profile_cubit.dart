@@ -3,10 +3,11 @@ import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/foundation.dart';
 import 'profile_state.dart';
-import '../domain/models/profile_model.dart';
+import '../data/repositories/profile_repository.dart';
 
 class ProfileCubit extends Cubit<ProfileState> {
-  ProfileCubit() : super(const ProfileInitial());
+  final ProfileRepository _repo;
+  ProfileCubit(this._repo) : super(const ProfileInitial());
 
   String? get userId {
     try {
@@ -25,12 +26,8 @@ class ProfileCubit extends Cubit<ProfileState> {
 
     emit(const ProfileLoading());
     try {
-      final data = await Supabase.instance.client
-          .from('user_profile')
-          .select()
-          .eq('id', uid)
-          .single();
-      emit(ProfileLoaded(profile: ProfileModel.fromMap(data)));
+      final profile = await _repo.getProfile(uid);
+      emit(ProfileLoaded(profile: profile));
     } catch (e) {
       emit(ProfileError(e.toString()));
     }
@@ -66,19 +63,16 @@ class ProfileCubit extends Cubit<ProfileState> {
           countryCode != null ||
           infoPatch.isNotEmpty;
       if (hasRpcUpdate) {
-        await Supabase.instance.client.rpc('update_my_profile', params: {
-          if (fullName != null) 'p_full_name': fullName,
-          if (countryCode != null) 'p_country_code': countryCode,
-          if (infoPatch.isNotEmpty) 'p_info': infoPatch,
-        });
+        await _repo.updateProfile(
+          fullName: fullName,
+          countryCode: countryCode,
+          info: infoPatch.isNotEmpty ? infoPatch : null,
+        );
       }
 
-      // user_name is not covered by update_my_profile; direct UPDATE.
+      // user_name is not covered by update_my_profile; direct UPDATE via repo.
       if (userName != null) {
-        await Supabase.instance.client
-            .from('user_profile')
-            .update({'user_name': userName})
-            .eq('id', uid);
+        await _repo.updateUserName(uid, userName);
       }
 
       final updatedProfile = currentState.profile.copyWith(
@@ -105,26 +99,11 @@ class ProfileCubit extends Cubit<ProfileState> {
     try {
       final bytes = await imageFile.readAsBytes();
       final ext = imageFile.name.split('.').last.toLowerCase();
-      final fileName = '$uid-${DateTime.now().millisecondsSinceEpoch}.$ext';
-      final path = 'avatars/$fileName';
 
-      await Supabase.instance.client.storage
-          .from('avatars')
-          .uploadBinary(
-            path,
-            bytes,
-            fileOptions: FileOptions(contentType: 'image/$ext'),
-          );
-
-      final imageUrl =
-          Supabase.instance.client.storage.from('avatars').getPublicUrl(path);
+      final imageUrl = await _repo.uploadAvatar(uid, bytes, ext);
+      await _repo.updateAvatarUrl(uid, imageUrl);
 
       final updatedProfile = currentState.profile.copyWith(avatarUrl: imageUrl);
-
-      await Supabase.instance.client
-          .from('user_profile')
-          .update({'avatar_url': imageUrl}).eq('id', uid);
-
       emit(ProfileLoaded(profile: updatedProfile));
     } catch (e) {
       debugPrint('[ProfileCubit] uploadAvatar failed: $e');
@@ -139,12 +118,9 @@ class ProfileCubit extends Cubit<ProfileState> {
 
     emit(currentState.copyWith(isUpdating: true));
     try {
-      await Supabase.instance.client
-          .from('user_profile')
-          .update({'avatar_url': null}).eq('id', uid);
+      await _repo.updateAvatarUrl(uid, null);
 
       final updatedProfile = currentState.profile.copyWith(clearAvatarUrl: true);
-
       emit(ProfileLoaded(profile: updatedProfile));
     } catch (e) {
       debugPrint('[ProfileCubit] removeAvatar failed: $e');
@@ -158,7 +134,7 @@ class ProfileCubit extends Cubit<ProfileState> {
 
     emit(currentState.copyWith(isUpdating: true));
     try {
-      await Supabase.instance.client.rpc('delete_user_account');
+      await _repo.deleteAccount();
       await Supabase.instance.client.auth.signOut();
     } catch (e) {
       emit(currentState.copyWith(isUpdating: false, error: e.toString()));
@@ -177,10 +153,7 @@ class ProfileCubit extends Cubit<ProfileState> {
     final requestId = ++_usernameRequestId;
     emit(currentState.copyWith(isCheckingUsername: true, isUsernameAvailable: null));
     try {
-      final response = await Supabase.instance.client.rpc(
-        'is_username_available',
-        params: {'username_to_check': username},
-      );
+      final available = await _repo.isUsernameAvailable(username);
       // Discard stale responses.
       if (requestId != _usernameRequestId) return;
       // Re-read state in case it changed during the await.
@@ -188,7 +161,7 @@ class ProfileCubit extends Cubit<ProfileState> {
       if (next is! ProfileLoaded) return;
       emit(next.copyWith(
         isCheckingUsername: false,
-        isUsernameAvailable: response as bool,
+        isUsernameAvailable: available,
       ));
     } catch (e) {
       if (requestId != _usernameRequestId) return;

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:lynk_x/data/repositories/repositories.dart';
 import 'package:lynk_x/presentation/features/forum/models/forum_model.dart';
 import 'forum_state.dart';
 import 'package:flutter/foundation.dart';
@@ -8,6 +9,7 @@ import 'package:lynk_core/core.dart';
 
 /// The core ForumCubit handling global state, permissions, members, and coordination.
 class ForumCubit extends Cubit<ForumState> {
+  final ForumRepository _repo;
   final String forumId;
   late String userId;
   late String userName;
@@ -16,12 +18,15 @@ class ForumCubit extends Cubit<ForumState> {
   RealtimeChannel? get channel => _channel;
   Timer? _progressTimer;
 
-  ForumCubit({this.forumId = '00000000-0000-0000-0000-000000000000'})
-      : super(const ForumState()) {
-    final user = Supabase.instance.client.auth.currentUser;
+  ForumCubit({
+    required ForumRepository repo,
+    this.forumId = '00000000-0000-0000-0000-000000000000',
+  })  : _repo = repo,
+        super(const ForumState()) {
+    final user = Supabase.instance.client.auth.currentUser; // keep — auth, not data
     userId = user?.id ?? kGuestUserId;
     userName = 'A User';
-    _channel = Supabase.instance.client.channel('forum_$forumId');
+    _channel = Supabase.instance.client.channel('forum_$forumId'); // keep — broadcast channel, not data
     _channel?.subscribe();
     // userName is intentionally not emitted here — _syncUserStatus sets it
     // from user_profile.user_name which is the canonical display name.
@@ -43,10 +48,7 @@ class ForumCubit extends Cubit<ForumState> {
 
   Future<void> refreshMembers() async {
     try {
-      final data = await Supabase.instance.client
-          .from('forum_members')
-          .select('user_profile(id, user_name, avatar_url, is_premium)')
-          .eq('forum_id', forumId);
+      final data = await _repo.getForumMembers(forumId);
 
       final members = data
           .map((json) => json['user_profile'] as Map<String, dynamic>?)
@@ -65,36 +67,24 @@ class ForumCubit extends Cubit<ForumState> {
   void _setupUserStatusListener() {
     if (userId == kGuestUserId) return;
 
-    _statusChannel = Supabase.instance.client
-        .channel('user_status_$forumId')
-        .onPostgresChanges(
-          event: PostgresChangeEvent.all,
-          schema: 'public',
-          table: 'forum_members',
-          filter: PostgresChangeFilter(
-            type: PostgresChangeFilterType.eq,
-            column: 'user_id',
-            value: userId,
-          ),
-          callback: (payload) {
-            final data = payload.newRecord;
-            if (data['forum_id'] == forumId) {
-              final String? roleId = data['role_id'] as String?;
-              final bool isMuted = data['is_muted'] == true;
-              final bool hasMutedLiveChatsMedia =
-                  data['has_muted_live_chats_media'] == true;
+    _statusChannel = _repo.subscribeToMemberChanges(forumId, userId, (payload) {
+          final data = payload.newRecord;
+          if (data['forum_id'] == forumId) {
+            final String? roleId = data['role_id'] as String?;
+            final bool isMuted = data['is_muted'] == true;
+            final bool hasMutedLiveChatsMedia =
+                data['has_muted_live_chats_media'] == true;
 
-              if (!isClosed) {
-                emit(state.copyWith(
-                  isMuted: isMuted,
-                  hasMutedLiveChatsMedia: hasMutedLiveChatsMedia,
-                  isModerator: roleId == 'moderator' || roleId == 'organizer',
-                  isOrganizer: roleId == 'organizer',
-                ));
-              }
+            if (!isClosed) {
+              emit(state.copyWith(
+                isMuted: isMuted,
+                hasMutedLiveChatsMedia: hasMutedLiveChatsMedia,
+                isModerator: roleId == 'moderator' || roleId == 'organizer',
+                isOrganizer: roleId == 'organizer',
+              ));
             }
-          },
-        )
+          }
+        })
         .subscribe();
   }
 
@@ -142,31 +132,16 @@ class ForumCubit extends Cubit<ForumState> {
       String forumName = 'Community Forum';
       String? eventIdFromDb;
 
-      // 1. Fetch Forum Info
       try {
-        final forumData = await Supabase.instance.client
-            .from('forums')
-            .select('status, event_id, events(title)')
-            .eq('id', forumId)
-            .maybeSingle();
+        final result = await _repo.getForumWithMemberStatus(forumId, userId);
+        final forumData = result['forum'] as Map<String, dynamic>?;
+        final memberData = result['member'] as Map<String, dynamic>?;
 
         if (forumData != null) {
           forumStatus = forumData['status'] as String? ?? 'open';
           eventIdFromDb = forumData['event_id'] as String?;
           forumName = forumData['events']?['title'] as String? ?? 'Community Forum';
         }
-      } catch (e) {
-        debugPrint('[ForumCubit] Forum fetch error: $e');
-      }
-
-      // 2. Fetch specific member role and mutes
-      try {
-        final memberData = await Supabase.instance.client
-            .from('forum_members')
-            .select('is_muted, has_muted_live_chats_media, role_id')
-            .eq('forum_id', forumId)
-            .eq('user_id', userId)
-            .maybeSingle();
 
         if (memberData != null) {
           isMuted = memberData['is_muted'] == true;
@@ -176,7 +151,7 @@ class ForumCubit extends Cubit<ForumState> {
           isOrganizer = role == 'organizer';
         }
       } catch (e) {
-        debugPrint('[ForumCubit] Member sync error: $e');
+        debugPrint('[ForumCubit] Forum/member sync error: $e');
       }
 
       if (!isClosed) {
@@ -206,11 +181,11 @@ class ForumCubit extends Cubit<ForumState> {
     if (userId == kGuestUserId) return;
     emit(state.copyWith(hasMutedLiveChatsMedia: val));
     try {
-      await Supabase.instance.client
-          .from('forum_members')
-          .update({'has_muted_live_chats_media': val})
-          .eq('forum_id', forumId)
-          .eq('user_id', userId);
+      await _repo.updateMemberSettings(
+        forumId,
+        userId,
+        {'has_muted_live_chats_media': val},
+      );
     } catch (e, stack) {
       debugPrint('[ForumCubit] Error: $e\n$stack');
     }
@@ -233,9 +208,7 @@ class ForumCubit extends Cubit<ForumState> {
   Future<void> _markAsRead() async {
     if (userId == kGuestUserId) return;
     try {
-      await Supabase.instance.client.rpc('mark_forum_as_read', params: {
-        'p_forum_id': forumId,
-      });
+      await _repo.markForumAsRead(forumId);
     } catch (e, stack) {
       debugPrint('[ForumCubit] Error: $e\n$stack');
     }
@@ -249,12 +222,12 @@ class ForumCubit extends Cubit<ForumState> {
   Future<bool> muteUser(String targetUserId, {String? reason}) async {
     if (!state.isModerator) return false;
     try {
-      await Supabase.instance.client.rpc('moderate_user_safe', params: {
-        'p_target_user_id': targetUserId,
-        'p_action': 'mute',
-        'p_forum_id': forumId,
-        'p_reason': reason ?? 'Violated forum rules',
-      });
+      await _repo.moderateUser(
+        targetUserId: targetUserId,
+        action: 'mute',
+        forumId: forumId,
+        reason: reason,
+      );
       return true;
     } catch (e, stack) {
       debugPrint('[ForumCubit] muteUser error: $e\n$stack');
@@ -266,12 +239,12 @@ class ForumCubit extends Cubit<ForumState> {
   Future<bool> banUser(String targetUserId, {String? reason}) async {
     if (!state.isOrganizer) return false;
     try {
-      await Supabase.instance.client.rpc('moderate_user_safe', params: {
-        'p_target_user_id': targetUserId,
-        'p_action': 'ban',
-        'p_forum_id': forumId,
-        'p_reason': reason ?? 'Banned by organizer',
-      });
+      await _repo.moderateUser(
+        targetUserId: targetUserId,
+        action: 'ban',
+        forumId: forumId,
+        reason: reason ?? 'Banned by organizer',
+      );
       return true;
     } catch (e, stack) {
       debugPrint('[ForumCubit] banUser error: $e\n$stack');
@@ -281,11 +254,7 @@ class ForumCubit extends Cubit<ForumState> {
 
   Future<void> makeModerator(String userIdToPromote) async {
     try {
-      await Supabase.instance.client
-          .from('forum_members')
-          .update({'role_id': 'moderator'})
-          .eq('forum_id', forumId)
-          .eq('user_id', userIdToPromote);
+      await _repo.updateMemberRole(forumId, userIdToPromote, 'moderator');
     } catch (e, stack) {
       debugPrint('[ForumCubit] Error: $e\n$stack');
     }
@@ -294,12 +263,12 @@ class ForumCubit extends Cubit<ForumState> {
   Future<void> reportUser(String targetUserId, String reason,
       {String? messageId}) async {
     try {
-      await Supabase.instance.client.rpc('submit_report', params: {
-        'p_target_user_id': targetUserId,
-        'p_target_message_id': messageId,
-        'p_reason_id': 'general_abuse', // Standard reasoning
-        'p_description': reason,
-      });
+      await _repo.submitReport(
+        targetUserId: targetUserId,
+        messageId: messageId,
+        reasonId: 'general_abuse', // Standard reasoning
+        description: reason,
+      );
     } catch (e, stack) {
       debugPrint('[ForumCubit] Error: $e\n$stack');
     }
@@ -316,22 +285,16 @@ class ForumCubit extends Cubit<ForumState> {
   Future<void> pinMessage(ChatMessage message) async {
     if (!state.isModerator) return;
     try {
-      await Supabase.instance.client
-          .schema('forum_messages').from('forum_messages')
-          .update({'is_pinned': true}).eq('id', message.id);
+      await _repo.pinMessage(message.id);
     } catch (e, stack) {
       debugPrint('[ForumCubit] Error: $e\n$stack');
     }
   }
 
-
   Future<void> updateForumStatus(String status) async {
     if (!state.isOrganizer) return;
     try {
-      await Supabase.instance.client
-          .from('forums')
-          .update({'status': status})
-          .eq('id', forumId);
+      await _repo.updateForumStatus(forumId, status);
     } catch (e, stack) {
       debugPrint('[ForumCubit] Error: $e\n$stack');
     }
@@ -339,11 +302,7 @@ class ForumCubit extends Cubit<ForumState> {
 
   Future<void> _syncEventProgress(String eventId) async {
     try {
-      final sessions = await Supabase.instance.client
-          .from('event_sessions')
-          .select('starts_at, ends_at')
-          .eq('event_id', eventId)
-          .order('starts_at', ascending: true);
+      final sessions = await _repo.getEventSessions(eventId);
 
       if (sessions.isEmpty) return;
 
@@ -427,36 +386,12 @@ class ForumCubit extends Cubit<ForumState> {
   Future<void> _persistReaction(ChatMessage message, String emoji) async {
     if (userId == kGuestUserId) return;
     try {
-      final existing = await Supabase.instance.client
-          .schema('message_reactions')
-          .from('message_reactions')
-          .select('id')
-          .eq('message_id', message.id)
-          .eq('user_id', userId)
-          .eq('emoji_code', emoji)
-          .maybeSingle();
-
-      final isRemoving = existing != null;
-
-      if (isRemoving) {
-        await Supabase.instance.client
-            .schema('message_reactions')
-            .from('message_reactions')
-            .delete()
-            .eq('message_id', message.id)
-            .eq('user_id', userId)
-            .eq('emoji_code', emoji);
-      } else {
-        await Supabase.instance.client
-            .schema('message_reactions')
-            .from('message_reactions')
-            .insert({
-          'message_id': message.id,
-          'message_created_at': message.createdAt.toIso8601String(),
-          'user_id': userId,
-          'emoji_code': emoji,
-        });
-      }
+      await _repo.toggleReaction(
+        message.id,
+        message.createdAt.toIso8601String(),
+        userId,
+        emoji,
+      );
 
       _channel?.sendBroadcastMessage(
         event: 'message_reaction',
@@ -464,7 +399,7 @@ class ForumCubit extends Cubit<ForumState> {
           'message_id': message.id,
           'emoji_code': emoji,
           'user_id': userId,
-          'action': isRemoving ? 'removed' : 'added',
+          'action': 'toggled',
         },
       );
     } catch (e, stack) {
@@ -509,5 +444,4 @@ class ForumCubit extends Cubit<ForumState> {
       },
     );
   }
-
 }

@@ -1,12 +1,14 @@
 import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:lynk_x/data/repositories/repositories.dart';
 import 'package:lynk_x/presentation/features/ticket/models/ticket_model.dart';
 
 part 'ticket_state.dart';
 
 class TicketCubit extends Cubit<TicketState> {
-  TicketCubit() : super(const TicketState());
+  final TicketRepository _repo;
+  TicketCubit(this._repo) : super(const TicketState());
 
   RealtimeChannel? _subscription;
 
@@ -58,23 +60,11 @@ class TicketCubit extends Cubit<TicketState> {
     _subscription?.unsubscribe();
     // tickets.tickets is in the `tickets` schema, not `public`. The table must
     // also be on the supabase_realtime publication for this subscription to fire.
-    _subscription = Supabase.instance.client
-        .channel('ticket_live_status_$ticketId')
-        .onPostgresChanges(
-          event: PostgresChangeEvent.update,
-          schema: 'tickets',
-          table: 'tickets',
-          filter: PostgresChangeFilter(
-            type: PostgresChangeFilterType.eq,
-            column: 'id',
-            value: ticketId,
-          ),
-          callback: (payload) {
-            // When the steward scans the QR code, `redeemed_at` is updated.
-            // Re-fetch via the view to get the fresh status and nested event data.
-            loadTicket(ticketId, isSilent: true);
-          },
-        )
+    _subscription = _repo.subscribeToTicket(ticketId, (payload) {
+          // When the steward scans the QR code, `redeemed_at` is updated.
+          // Re-fetch via the view to get the fresh status and nested event data.
+          loadTicket(ticketId, isSilent: true);
+        })
         .subscribe();
   }
 

@@ -8,6 +8,7 @@ import 'package:lynk_x/core/utils/breakpoints.dart';
 import 'package:lynk_x/presentation/shared/widgets/empty_state.dart';
 import 'package:lynk_x/presentation/features/ticket/cubit/tickets_list_cubit.dart';
 import 'package:lynk_x/presentation/features/ticket/models/ticket_model.dart';
+import 'package:lynk_x/data/repositories/repository_providers.dart';
 
 class TicketsListScreen extends StatelessWidget {
   const TicketsListScreen({super.key});
@@ -15,7 +16,7 @@ class TicketsListScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (context) => TicketsListCubit()..loadTickets(),
+      create: (context) => TicketsListCubit(ticketRepository)..loadTickets(),
       child: const TicketsListView(),
     );
   }

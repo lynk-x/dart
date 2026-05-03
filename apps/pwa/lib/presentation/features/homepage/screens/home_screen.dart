@@ -15,6 +15,7 @@ import 'package:lynk_x/presentation/features/homepage/widgets/home_drawer.dart';
 import 'package:lynk_x/presentation/shared/widgets/empty_state.dart';
 import 'package:lynk_x/presentation/features/notifications/cubit/notification_cubit.dart';
 import 'package:lynk_x/presentation/features/notifications/cubit/notification_state.dart';
+import 'package:lynk_x/data/repositories/repository_providers.dart';
 
 /// Root entry point for the Home feature.
 ///
@@ -26,7 +27,7 @@ class HomePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (_) => HomeCubit()..init(),
+      create: (_) => HomeCubit(eventRepository)..init(),
       child: const HomeView(),
     );
   }

@@ -1,5 +1,6 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:lynk_x/data/repositories/repositories.dart';
 import 'package:lynk_x/presentation/features/ticket/models/ticket_model.dart';
 
 class TicketsListState {
@@ -35,7 +36,8 @@ class TicketsListState {
 }
 
 class TicketsListCubit extends Cubit<TicketsListState> {
-  TicketsListCubit() : super(const TicketsListState());
+  final TicketRepository _repo;
+  TicketsListCubit(this._repo) : super(const TicketsListState());
 
   /// Page size mirrors home_cubit and other paginated lists in the app.
   static const int _pageSize = 20;
@@ -55,16 +57,15 @@ class TicketsListCubit extends Cubit<TicketsListState> {
         return;
       }
 
-      // Use vw_user_tickets view which is pre-joined and RLS-protected.
-      final response = await Supabase.instance.client
-          .from('vw_user_tickets')
-          .select()
-          .order('purchased_at', ascending: false)
-          .range(0, _pageSize - 1);
+      final rawTickets = await _repo.getUserTickets(
+        user.id,
+        limit: _pageSize,
+        offset: 0,
+      );
 
-      final tickets = (response as List).map((data) {
-        return TicketModel.fromView(data as Map<String, dynamic>);
-      }).toList();
+      final tickets = rawTickets
+          .map((data) => TicketModel.fromView(data))
+          .toList();
 
       emit(state.copyWith(
         isLoading: false,
@@ -82,15 +83,20 @@ class TicketsListCubit extends Cubit<TicketsListState> {
     if (state.isLoading || state.isLoadingMore || !state.hasMore) return;
     emit(state.copyWith(isLoadingMore: true));
     try {
-      final from = state.tickets.length;
-      final response = await Supabase.instance.client
-          .from('vw_user_tickets')
-          .select()
-          .order('purchased_at', ascending: false)
-          .range(from, from + _pageSize - 1);
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user == null) {
+        emit(state.copyWith(isLoadingMore: false, error: 'User not logged in'));
+        return;
+      }
 
-      final more = (response as List)
-          .map((data) => TicketModel.fromView(data as Map<String, dynamic>))
+      final rawMore = await _repo.getUserTickets(
+        user.id,
+        limit: _pageSize,
+        offset: state.tickets.length,
+      );
+
+      final more = rawMore
+          .map((data) => TicketModel.fromView(data))
           .toList();
 
       emit(state.copyWith(

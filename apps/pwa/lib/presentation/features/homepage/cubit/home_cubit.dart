@@ -1,20 +1,19 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:lynk_core/core.dart';
+import 'package:lynk_x/data/repositories/repositories.dart';
 import 'home_state.dart';
 
 /// Business logic for the Home feed.
 ///
 /// Manages loading, pagination, sorting, and refreshing of [EventModel]s.
 /// The UI layer ([HomeView]) only calls methods here and reacts to [HomeState].
-///
-/// **Data source:** Mock data for now. Future work: swap [_generateMockEvents]
-/// for a real Supabase query once auth credentials are configured.
 class HomeCubit extends Cubit<HomeState> {
   /// How many items to load per page.
   static const int _pageSize = 15;
 
-  HomeCubit() : super(const HomeState());
+  final EventRepository _repo;
+  HomeCubit(this._repo) : super(const HomeState());
 
   // ── Lifecycle ───────────────────────────────────────────────────────────────
 
@@ -28,14 +27,7 @@ class HomeCubit extends Cubit<HomeState> {
         return;
       }
 
-      final data = await Supabase.instance.client
-          .from('vw_user_forums')
-          .select()
-          .eq('user_id', currentUserId)
-          .order('event_starts_at', ascending: true)
-          .limit(_pageSize);
-
-      final events = data.map((json) => EventModel.fromMap(json)).toList();
+      final events = await _repo.getUserForums(currentUserId, limit: _pageSize, offset: 0);
 
       emit(state.copyWith(
         events: _sort(events),
@@ -63,14 +55,7 @@ class HomeCubit extends Cubit<HomeState> {
       }
 
       final startIndex = state.events.length;
-      final data = await Supabase.instance.client
-          .from('vw_user_forums')
-          .select()
-          .eq('user_id', currentUserId)
-          .order('event_starts_at', ascending: true)
-          .range(startIndex, startIndex + _pageSize - 1);
-
-      final more = data.map((json) => EventModel.fromMap(json)).toList();
+      final more = await _repo.getUserForums(currentUserId, limit: _pageSize, offset: startIndex);
 
       if (more.isEmpty) {
         emit(state.copyWith(isLoadingMore: false, hasMore: false));

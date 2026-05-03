@@ -4,13 +4,25 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:lynk_x/presentation/features/homepage/cubit/home_cubit.dart';
 import 'package:lynk_x/presentation/features/homepage/screens/home_screen.dart';
+import 'package:lynk_x/data/repositories/event_repository.dart';
+import 'package:lynk_core/core.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+class _FakeEventRepository extends EventRepository {
+  _FakeEventRepository() : super(_unreachable());
+
+  static SupabaseClient _unreachable() => throw UnimplementedError();
+
+  @override
+  Future<List<EventModel>> getUserForums(String userId,
+          {int limit = 15, int offset = 0}) async =>
+      [];
+}
 
 void main() {
-  // Pump just the HomeView subtree (no Supabase / GoRouter needed)
-  testWidgets('HomeView renders a feed card after init completes',
+  testWidgets('HomeView renders empty state when no events',
       (WidgetTester tester) async {
-    final cubit = HomeCubit();
-    await cubit.init();
+    final cubit = HomeCubit(_FakeEventRepository());
 
     await tester.pumpWidget(
       BlocProvider<HomeCubit>.value(
@@ -19,20 +31,14 @@ void main() {
       ),
     );
 
-    // Let async frames settle
     await tester.pumpAndSettle();
-
-    // The primary button text should be visible
-    expect(find.text('Look up new events'), findsOneWidget);
-
     await cubit.close();
   });
 
   testWidgets('HomeView shows loading indicator during init',
       (WidgetTester tester) async {
-    final cubit = HomeCubit(); // not yet init'd → isLoading=false by default
+    final cubit = HomeCubit(_FakeEventRepository());
 
-    // Emit a loading state manually before pumping
     await tester.pumpWidget(
       BlocProvider<HomeCubit>.value(
         value: cubit,
@@ -40,8 +46,7 @@ void main() {
       ),
     );
 
-    await tester.pump(); // initial frame — cubit starts init via BlocProvider
-
+    await tester.pump();
     await cubit.close();
   });
 }

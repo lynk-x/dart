@@ -6,7 +6,7 @@ import 'dart:convert';
 import 'package:local_auth/local_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-
+import 'package:lynk_x/data/repositories/repositories.dart';
 import 'package:lynk_x/presentation/features/wallet/models/wallet_model.dart';
 import 'wallet_state.dart';
 
@@ -20,7 +20,8 @@ import 'wallet_state.dart';
 ///   opens it in an in-app browser / WebView and polls the status on resume.
 /// - Page size is 20 (matches delivery_queue batch size for consistency).
 class WalletCubit extends Cubit<WalletState> {
-  WalletCubit() : super(const WalletState());
+  final WalletRepository _repo;
+  WalletCubit(this._repo) : super(const WalletState());
 
   final _supabase = Supabase.instance.client;
   final _localAuth = LocalAuthentication();
@@ -69,17 +70,24 @@ class WalletCubit extends Cubit<WalletState> {
 
   Future<void> _fetchBalances() async {
     try {
-      // Fetch all wallets for the current user's account(s)
-      final response = await _supabase
-          .from('account_wallets')
-          .select('account_id, currency, balance, pending_balance:escrow_balance')
-          .order('currency', ascending: true);
+      final accountId = state.accountId ?? await _resolveAccountId();
+      if (accountId == null) {
+        emit(state.copyWith(isLoading: false));
+        return;
+      }
 
-      final balances = (response as List)
-          .map((row) => WalletBalance.fromMap(row as Map<String, dynamic>))
+      final currencies = ['KES', 'USD'];
+      final responses = await Future.wait(
+        currencies.map((c) => _repo.getWalletBalance(accountId, c)),
+      );
+
+      final balances = responses
+          .whereType<Map<String, dynamic>>()
+          .map((row) => WalletBalance.fromMap({
+                ...row,
+                'pending_balance': row['escrow_balance'],
+              }))
           .toList();
-
-      final accountId = balances.isNotEmpty ? (response[0]['account_id'] as String) : null;
 
       emit(state.copyWith(balances: balances, accountId: accountId, isLoading: false));
     } catch (e) {
@@ -88,6 +96,20 @@ class WalletCubit extends Cubit<WalletState> {
         error: 'Failed to load wallet balances: ${e.toString()}',
       ));
     }
+  }
+
+  Future<String?> _resolveAccountId() async {
+    final userId = _supabase.auth.currentUser?.id;
+    if (userId == null) return null;
+    final row = await _supabase
+        .from('account_members')
+        .select('account_id')
+        .eq('user_id', userId)
+        .eq('role_slug', 'owner')
+        .order('created_at', ascending: true)
+        .limit(1)
+        .maybeSingle();
+    return row?['account_id'] as String?;
   }
 
   Future<void> _fetchTransactions({bool reset = false}) async {
@@ -99,32 +121,28 @@ class WalletCubit extends Cubit<WalletState> {
     ));
 
     try {
-      final from = _currentPage * _pageSize;
-      final to   = from + _pageSize - 1;
-
-      // transactions.transactions has no `user_id` column. The wallet view
-      // shows both directions: payments the user initiated (initiated_by)
-      // and payments received as the counterparty (recipient_id). The
-      // .or() filter unions them server-side.
-      final uid = _supabase.auth.currentUser?.id ?? '';
-      var query = _supabase
-          .schema('transactions').from('transactions')
-          .select('id, category, reason, amount, currency, status, created_at, metadata, initiated_by, recipient_id, recipient_account_id')
-          .or('initiated_by.eq.$uid,recipient_id.eq.$uid');
-
-      if (state.selectedCurrency != null) {
-        query = query.eq('currency', state.selectedCurrency!);
+      final accountId = state.accountId;
+      if (accountId == null) {
+        emit(state.copyWith(isLoading: false, isLoadingMore: false));
+        return;
       }
 
-      final response = await query
-          .order('created_at', ascending: false)
-          .range(from, to);
+      final from = _currentPage * _pageSize;
+      final rows = await _repo.getTimeline(
+        accountId,
+        limit: _pageSize,
+        offset: from,
+      );
 
-      final rows = (response as List)
-          .map((row) => WalletTransaction.fromMap(row as Map<String, dynamic>))
+      final filtered = state.selectedCurrency != null
+          ? rows.where((r) => r['currency'] == state.selectedCurrency).toList()
+          : rows;
+
+      final typed = filtered
+          .map((row) => WalletTransaction.fromMap(row))
           .toList();
 
-      final updated = reset ? rows : [...state.transactions, ...rows];
+      final updated = reset ? typed : [...state.transactions, ...typed];
 
       emit(state.copyWith(
         transactions:  updated,
@@ -169,19 +187,7 @@ class WalletCubit extends Cubit<WalletState> {
     final accountId = state.accountId;
     if (accountId == null) return; // No account loaded yet — caller will retry.
 
-    _balanceChannel = _supabase
-        .channel('wallet_balance:$accountId')
-        .onPostgresChanges(
-          event:  PostgresChangeEvent.all,
-          schema: 'public',
-          table:  'account_wallets',
-          filter: PostgresChangeFilter(
-            type: PostgresChangeFilterType.eq,
-            column: 'account_id',
-            value: accountId,
-          ),
-          callback: (_) => _fetchBalances(),
-        )
+    _balanceChannel = _repo.subscribeToBalance(accountId, (_) => _fetchBalances())
         .subscribe((status, [error]) {
           if (status == RealtimeSubscribeStatus.channelError ||
               status == RealtimeSubscribeStatus.timedOut) {
@@ -481,7 +487,7 @@ class WalletCubit extends Cubit<WalletState> {
           .select('wallet_pin_hash')
           .eq('id', _supabase.auth.currentUser?.id ?? '')
           .single();
-      
+
       final hasPin = res['wallet_pin_hash'] != null;
       emit(state.copyWith(hasPinSet: hasPin));
     } catch (_) {}
@@ -541,7 +547,7 @@ class WalletCubit extends Cubit<WalletState> {
   void lockWallet() {
     emit(state.copyWith(isWalletUnlocked: false));
   }
-  
+
   Future<void> _loadBiometricPreference() async {
     final prefs = await SharedPreferences.getInstance();
     final useBio = prefs.getBool('wallet_use_biometrics_v1') ?? false;
@@ -556,9 +562,9 @@ class WalletCubit extends Cubit<WalletState> {
 
   /// PIN Recovery Strategy:
   /// Since the Wallet PIN is a second factor of authentication, recovery must
-  /// be tied to the primary account security. 
-  /// 
-  /// 1. A "Forgot PIN" action will trigger a server-side event that sends a 
+  /// be tied to the primary account security.
+  ///
+  /// 1. A "Forgot PIN" action will trigger a server-side event that sends a
   ///    secure one-time-link (OTL) to the user's registered email/phone.
   /// 2. Clicking the OTL will allow the user to set a new PIN.
   /// 3. As a safety measure, resetting the PIN will place a 24-48 hour "hold"

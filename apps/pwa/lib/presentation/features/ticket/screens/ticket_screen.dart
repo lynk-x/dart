@@ -12,6 +12,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:lynk_core/core.dart';
 import 'package:lynk_x/core/utils/breakpoints.dart';
 import 'package:lynk_x/presentation/features/ticket/cubit/ticket_cubit.dart';
+import 'package:lynk_x/data/repositories/repository_providers.dart';
 import 'package:lynk_x/presentation/features/ticket/models/ticket_model.dart';
 import 'package:lynk_x/core/network/lynk_cache_manager.dart';
 
@@ -24,7 +25,7 @@ class TicketPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (context) => TicketCubit()..loadTicket(ticketId ?? ''),
+      create: (context) => TicketCubit(ticketRepository)..loadTicket(ticketId ?? ''),
       child: const TicketView(),
     );
   }
@@ -608,7 +609,9 @@ class _TicketViewState extends State<TicketView> {
             ),
           ),
 
+          const SizedBox(height: 24),
           const _TicketSecuritySection(),
+          const SizedBox(height: 24),
 
           // Barcode Section
           Container(
@@ -1129,6 +1132,11 @@ class _TicketSecuritySectionState extends State<_TicketSecuritySection> {
     return Container(
       height: 60,
       margin: const EdgeInsets.symmetric(horizontal: 24),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.2), // Subtle dark contrast
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+      ),
       child: Stack(
         alignment: Alignment.center,
         children: [
@@ -1136,7 +1144,6 @@ class _TicketSecuritySectionState extends State<_TicketSecuritySection> {
           Container(
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(12),
-              color: Colors.white.withValues(alpha: 0.03),
             ),
           )
               .animate(onPlay: (controller) => controller.repeat())
@@ -1190,7 +1197,7 @@ class _TicketSecuritySectionState extends State<_TicketSecuritySection> {
                         style: AppTypography.inter(
                           fontSize: 10,
                           fontWeight: FontWeight.bold,
-                          color: Colors.white.withValues(alpha: 0.7),
+                          color: Colors.white, // Fully opaque
                           letterSpacing: 1.5,
                         ),
                       ),
@@ -1198,7 +1205,7 @@ class _TicketSecuritySectionState extends State<_TicketSecuritySection> {
                         'LYNK-X SECURITY PROTOCOL v2.1',
                         style: AppTypography.inter(
                           fontSize: 8,
-                          color: Colors.white.withValues(alpha: 0.4),
+                          color: Colors.white.withValues(alpha: 0.7), // Increased opacity
                           letterSpacing: 0.5,
                         ),
                       ),
@@ -1227,7 +1234,7 @@ class _TicketSecuritySectionState extends State<_TicketSecuritySection> {
                             style: AppTypography.inter(
                               fontSize: 10,
                               fontWeight: FontWeight.w400,
-                              color: Colors.white.withValues(alpha: 0.5),
+                              color: Colors.white.withValues(alpha: 0.8), // Increased opacity
                             ),
                           ),
                         ],
@@ -1238,7 +1245,7 @@ class _TicketSecuritySectionState extends State<_TicketSecuritySection> {
                       style: AppTypography.inter(
                         fontSize: 7,
                         fontWeight: FontWeight.bold,
-                        color: Colors.white.withValues(alpha: 0.3),
+                        color: Colors.white.withValues(alpha: 0.6), // Increased opacity
                       ),
                     ),
                   ],

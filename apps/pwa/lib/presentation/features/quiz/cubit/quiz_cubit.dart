@@ -2,28 +2,28 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:lynk_x/data/repositories/repositories.dart';
 import 'quiz_state.dart';
 
 class QuizCubit extends Cubit<QuizState> {
   final String questionnaireId;
   final String userId;
+  final QuizRepository _repo;
   RealtimeChannel? _channel;
   Timer? _timer;
 
   QuizCubit({
     required this.questionnaireId,
     required this.userId,
+    required QuizRepository repo,
     bool isHost = false,
-  }) : super(QuizState(isHost: isHost));
+  })  : _repo = repo,
+        super(QuizState(isHost: isHost));
 
   Future<void> init() async {
     try {
       // 1. Initial Fetch
-      final data = await Supabase.instance.client
-          .from('questionnaires')
-          .select('*, forum_channel_id')
-          .eq('id', questionnaireId)
-          .single();
+      final data = await _repo.getQuestionnaire(questionnaireId);
 
       emit(state.copyWith(
         status: _mapStatus(data['quiz_state']),
@@ -39,33 +39,19 @@ class QuizCubit extends Cubit<QuizState> {
         await _fetchCurrentQuestion(state.currentQuestionIndex);
         _startLocalTimer(data['state_expires_at']);
       }
-      
+
       if (state.status == QuizStatus.leaderboard || state.status == QuizStatus.podium) {
         await fetchLeaderboard();
       }
-
     } catch (e) {
       emit(state.copyWith(status: QuizStatus.error, errorMessage: e.toString()));
     }
   }
 
   void _setupRealtimeListener() {
-    _channel = Supabase.instance.client
-        .channel('quiz_live_$questionnaireId')
-        .onPostgresChanges(
-          event: PostgresChangeEvent.update,
-          schema: 'public',
-          table: 'questionnaires',
-          filter: PostgresChangeFilter(
-            type: PostgresChangeFilterType.eq,
-            column: 'id',
-            value: questionnaireId,
-          ),
-          callback: (payload) {
-            _handleUpdate(payload.newRecord);
-          },
-        )
-        .subscribe();
+    _channel = _repo.subscribeToQuestionnaire(questionnaireId, (payload) {
+      _handleUpdate(payload.newRecord);
+    }).subscribe();
   }
 
   Future<void> _handleUpdate(Map<String, dynamic> data) async {
@@ -74,7 +60,8 @@ class QuizCubit extends Cubit<QuizState> {
     final expiresAt = data['state_expires_at'] as String?;
 
     // If question index changed or state moved to playing, fetch question
-    if (newIndex != state.currentQuestionIndex || (newStatus == QuizStatus.playing && state.currentQuestion == null)) {
+    if (newIndex != state.currentQuestionIndex ||
+        (newStatus == QuizStatus.playing && state.currentQuestion == null)) {
       await _fetchCurrentQuestion(newIndex);
     }
 
@@ -94,14 +81,10 @@ class QuizCubit extends Cubit<QuizState> {
   Future<void> _fetchCurrentQuestion(int index) async {
     if (index < 0) return;
     try {
-      final data = await Supabase.instance.client
-          .from('questions')
-          .select('*')
-          .eq('questionnaire_id', questionnaireId)
-          .eq('order_index', index)
-          .single();
-      
-      emit(state.copyWith(currentQuestion: data));
+      final data = await _repo.getQuestion(questionnaireId, index);
+      if (data != null) {
+        emit(state.copyWith(currentQuestion: data));
+      }
     } catch (e) {
       debugPrint('Error fetching question: $e');
     }
@@ -112,11 +95,11 @@ class QuizCubit extends Cubit<QuizState> {
     if (expiresAtStr == null) return;
 
     final expiresAt = DateTime.parse(expiresAtStr);
-    
+
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       final now = DateTime.now().toUtc();
       final diff = expiresAt.difference(now).inSeconds;
-      
+
       if (diff <= 0) {
         emit(state.copyWith(timeLeft: 0));
         timer.cancel();
@@ -141,15 +124,12 @@ class QuizCubit extends Cubit<QuizState> {
 
       // responses.responses columns: question_id NOT NULL, selected_answer jsonb
       // (array of indices). The legacy 'answers' name was wrong.
-      await Supabase.instance.client
-          .schema('responses')
-          .from('responses')
-          .insert({
-        'questionnaire_id': questionnaireId,
-        'question_id': questionId,
-        'user_id': userId,
-        'selected_answer': [optionIndex],
-      });
+      await _repo.submitAnswer(
+        questionnaireId: questionnaireId,
+        questionId: questionId,
+        userId: userId,
+        selectedAnswer: [optionIndex],
+      );
     } catch (e) {
       // Revert if failed
       emit(state.copyWith(clearMyAnswer: true, errorMessage: "Failed to submit answer"));
@@ -159,11 +139,8 @@ class QuizCubit extends Cubit<QuizState> {
 
   Future<void> fetchLeaderboard() async {
     try {
-      // Assuming a view or RPC for leaderboard
-      final data = await Supabase.instance.client
-          .rpc('get_quiz_leaderboard', params: {'p_quiz_id': questionnaireId});
-      
-      emit(state.copyWith(leaderboard: List<Map<String, dynamic>>.from(data)));
+      final data = await _repo.getLeaderboard(questionnaireId);
+      emit(state.copyWith(leaderboard: data));
     } catch (e) {
       debugPrint('Error fetching leaderboard: $e');
     }
@@ -178,7 +155,7 @@ class QuizCubit extends Cubit<QuizState> {
 
   Future<void> nextQuestion() async {
     if (!state.isHost) return;
-    
+
     // Check if there are more questions
     final questionsCount = state.questionnaire?['info']?['questions_count'] as int? ?? 0;
     final nextIndex = state.currentQuestionIndex + 1;
@@ -206,18 +183,16 @@ class QuizCubit extends Cubit<QuizState> {
   }
 
   Future<void> _updateRemoteState(String quizState, int questionIndex, int seconds) async {
-    final expiresAt = seconds > 0 
+    final expiresAt = seconds > 0
         ? DateTime.now().toUtc().add(Duration(seconds: seconds)).toIso8601String()
         : null;
 
-    await Supabase.instance.client
-        .from('questionnaires')
-        .update({
-          'quiz_state': quizState,
-          'current_question_index': questionIndex,
-          'state_expires_at': expiresAt,
-        })
-        .eq('id', questionnaireId);
+    await _repo.updateQuizState(
+      questionnaireId: questionnaireId,
+      quizState: quizState,
+      questionIndex: questionIndex,
+      expiresAt: expiresAt,
+    );
   }
 
   QuizStatus _mapStatus(String? status) {
