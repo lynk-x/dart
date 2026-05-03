@@ -37,7 +37,7 @@ class TextField extends m.StatelessWidget {
           style: AppTypography.interTight(
             fontSize: 14,
             fontWeight: m.FontWeight.w600,
-            color: AppColors.primary,
+            color: context.accentColor,
           ),
         ),
         m.SizedBox(height: AppDimensions.spacingSm),
@@ -71,8 +71,8 @@ class TextField extends m.StatelessWidget {
             ),
             focusedBorder: m.OutlineInputBorder(
               borderRadius: AppDimensions.borderRadiusLg,
-              borderSide: const m.BorderSide(
-                color: AppColors.primary,
+              borderSide: m.BorderSide(
+                color: context.accentColor,
                 width: 1,
               ),
             ),

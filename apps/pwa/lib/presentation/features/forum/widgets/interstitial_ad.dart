@@ -136,8 +136,8 @@ class _InterstitialAdState extends State<InterstitialAd> {
                         imageUrl: widget.ad.imageUrl!,
                         cacheManager: LynkCacheManager.instance,
                         fit: BoxFit.cover,
-                        placeholder: (context, url) => const Center(
-                          child: CircularProgressIndicator(color: AppColors.primary),
+                        placeholder: (context, url) => Center(
+                          child: CircularProgressIndicator(color: context.accentColor),
                         ),
                         errorWidget: (context, url, error) => const EmptyState(
                             message: 'Ad content loading failed'),
@@ -152,7 +152,7 @@ class _InterstitialAdState extends State<InterstitialAd> {
                       child: ElevatedButton(
                         onPressed: _logClickAndNavigate,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primary,
+                          backgroundColor: context.accentColor,
                           padding: const EdgeInsets.symmetric(vertical: 16),
                         ),
                         child: Text(

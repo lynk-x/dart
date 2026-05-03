@@ -110,7 +110,7 @@ class _WalletSecurityGateState extends State<WalletSecurityGate> {
                     child: Column(
                       children: [
                         const Spacer(),
-                        const Icon(Icons.lock_outline, color: AppColors.primary, size: 48),
+                        Icon(Icons.lock_outline, color: context.accentColor, size: 48),
                         const SizedBox(height: 24),
                         Text(
                           'Wallet Locked',
@@ -134,8 +134,8 @@ class _WalletSecurityGateState extends State<WalletSecurityGate> {
                               height: 16,
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
-                                color: isFilled ? AppColors.primary : Colors.white10,
-                                border: Border.all(color: isFilled ? AppColors.primary : Colors.white24),
+                                color: isFilled ? context.accentColor : Colors.white10,
+                                border: Border.all(color: isFilled ? context.accentColor : Colors.white24),
                               ),
                             );
                           }),

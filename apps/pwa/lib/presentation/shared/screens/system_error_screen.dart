@@ -33,13 +33,13 @@ class SystemErrorScreen extends StatelessWidget {
                 width: 120,
                 height: 120,
                 decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.1),
+                  color: context.accentColor.withValues(alpha: 0.1),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
                   isMaintenance ? Icons.construction_rounded : Icons.terminal_rounded,
                   size: 60,
-                  color: AppColors.primary,
+                  color: context.accentColor,
                 ),
               ),
               const SizedBox(height: 48),
@@ -77,7 +77,7 @@ class SystemErrorScreen extends StatelessWidget {
                   child: ElevatedButton(
                     onPressed: onAction ?? () => context.go('/'),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
+                      backgroundColor: context.accentColor,
                       foregroundColor: Colors.black,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
@@ -103,8 +103,8 @@ class SystemErrorScreen extends StatelessWidget {
                       Container(
                         width: 8,
                         height: 8,
-                        decoration: const BoxDecoration(
-                          color: AppColors.primary,
+                        decoration: BoxDecoration(
+                          color: context.accentColor,
                           shape: BoxShape.circle,
                         ),
                       ),
@@ -112,7 +112,7 @@ class SystemErrorScreen extends StatelessWidget {
                       Text(
                         'SYSTEM UPGRADING',
                         style: TextStyle(
-                          color: AppColors.primary.withValues(alpha: 0.8),
+                          color: context.accentColor.withValues(alpha: 0.8),
                           fontSize: 12,
                           fontWeight: FontWeight.bold,
                           letterSpacing: 1,

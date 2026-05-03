@@ -48,8 +48,8 @@ class TicketsListView extends StatelessWidget {
       body: BlocBuilder<TicketsListCubit, TicketsListState>(
         builder: (context, state) {
           if (state.isLoading) {
-            return const Center(
-              child: CircularProgressIndicator(color: AppColors.primary),
+            return Center(
+              child: CircularProgressIndicator(color: context.accentColor),
             );
           }
 
@@ -86,7 +86,7 @@ class TicketsListView extends StatelessWidget {
 
           return RefreshIndicator(
             onRefresh: () => context.read<TicketsListCubit>().refresh(),
-            color: AppColors.primary,
+            color: context.accentColor,
             child: Breakpoints.constrain(
               ListView.separated(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
@@ -160,7 +160,7 @@ class _TicketListItem extends StatelessWidget {
                   Text(
                     '${dateFormat.format(ticket.startsAt)} • ${timeFormat.format(ticket.startsAt)}',
                     style: TextStyle(
-                      color: AppColors.primary.withValues(alpha: 0.8),
+                      color: context.accentColor.withValues(alpha: 0.8),
                       fontSize: 13,
                       fontWeight: FontWeight.w500,
                     ),

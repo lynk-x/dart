@@ -132,13 +132,10 @@ class WalletCubit extends Cubit<WalletState> {
         accountId,
         limit: _pageSize,
         offset: from,
+        currency: state.selectedCurrency,
       );
 
-      final filtered = state.selectedCurrency != null
-          ? rows.where((r) => r['currency'] == state.selectedCurrency).toList()
-          : rows;
-
-      final typed = filtered
+      final typed = rows
           .map((row) => WalletTransaction.fromMap(row))
           .toList();
 

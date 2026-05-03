@@ -1,5 +1,8 @@
 // ignore_for_file: public_member_api_docs
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:lynk_core/profiles/cubit/profile_cubit.dart';
+import 'package:lynk_core/profiles/cubit/profile_state.dart';
 
 /// Centralized color palette for the Lynk-X ecosystem.
 /// 
@@ -37,4 +40,28 @@ class AppColors {
   static const Color surface = Color(0xFF1E1E1E);
   /// Interface color: outline (#E0E0E0)
   static const Color outline = Color(0xFFE0E0E0);
+
+  /// Returns the accent colour for the given premium state:
+  /// - premium  → [secondary] (#f9c920 gold)
+  /// - free     → [primary]   (#20f928 green)
+  static Color accent({required bool isPremium}) =>
+      isPremium ? secondary : primary;
+}
+
+/// Convenience extension so any widget can write `context.accentColor`
+/// without manually reading ProfileCubit.
+extension AccentColorX on BuildContext {
+  /// The user's accent colour: gold for premium users, green for free users.
+  /// Falls back to [AppColors.primary] if the ProfileCubit is not yet loaded.
+  Color get accentColor {
+    final state = read<ProfileCubit>().state;
+    final isPremium = state is ProfileLoaded && state.profile.isPremium;
+    return AppColors.accent(isPremium: isPremium);
+  }
+
+  /// True when the currently loaded profile has an active premium subscription.
+  bool get isPremiumUser {
+    final state = read<ProfileCubit>().state;
+    return state is ProfileLoaded && state.profile.isPremium;
+  }
 }

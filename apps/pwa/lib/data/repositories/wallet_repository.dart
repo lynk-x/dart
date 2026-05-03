@@ -4,6 +4,16 @@ class WalletRepository {
   final SupabaseClient _client;
   WalletRepository(this._client);
 
+  Future<List<Map<String, dynamic>>> getBalances(String accountId) async {
+    final data = await _client
+        .schema('api')
+        .from('v1_wallet_balances')
+        .select('currency, balance, escrow_balance')
+        .eq('account_id', accountId)
+        .order('currency');
+    return List<Map<String, dynamic>>.from(data);
+  }
+
   Future<Map<String, dynamic>?> getWalletBalance(String accountId, String currency) async {
     return await _client
         .schema('api')
@@ -18,12 +28,17 @@ class WalletRepository {
     String accountId, {
     int limit = 30,
     int offset = 0,
+    String? currency,
   }) async {
-    final data = await _client
+    var query = _client
         .schema('api')
         .from('v1_wallet_timeline')
         .select('id, entry_type, category, reason, amount, currency, status, event_id, account_id, reference, created_at')
-        .eq('account_id', accountId)
+        .eq('account_id', accountId);
+
+    if (currency != null) query = query.eq('currency', currency);
+
+    final data = await query
         .order('created_at', ascending: false)
         .range(offset, offset + limit - 1);
     return List<Map<String, dynamic>>.from(data);

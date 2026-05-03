@@ -101,7 +101,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
             const SizedBox(height: 12),
             Row(
               children: [
-                const Icon(Icons.account_balance_wallet, color: AppColors.primary, size: 18),
+                Icon(Icons.account_balance_wallet, color: ctx.accentColor, size: 18),
                 const SizedBox(width: 8),
                 Text('$currency $price', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
               ],
@@ -123,7 +123,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
               Navigator.pop(ctx);
               await _respondToOffer(listingId, accept: true);
             },
-            child: const Text('Accept & Pay', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold)),
+            child: Text('Accept & Pay', style: TextStyle(color: ctx.accentColor, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -132,6 +132,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
 
   Future<void> _respondToOffer(String listingId, {required bool accept}) async {
     final messenger = ScaffoldMessenger.of(context);
+    final accentColor = context.accentColor;
     try {
       await Supabase.instance.client.rpc(
         accept ? 'accept_ticket_listing' : 'decline_ticket_listing',
@@ -139,7 +140,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
       );
       messenger.showSnackBar(SnackBar(
         content: Text(accept ? 'Ticket purchased! Check your tickets.' : 'Offer declined.'),
-        backgroundColor: accept ? AppColors.primary : Colors.grey[700],
+        backgroundColor: accept ? accentColor : Colors.grey[700],
       ));
       if (accept && mounted) context.push('/tickets');
     } catch (e) {
@@ -198,8 +199,8 @@ class _NotificationsPageState extends State<NotificationsPage> {
       body: BlocBuilder<NotificationCubit, NotificationState>(
         builder: (context, state) {
           if (state is NotificationLoading || state is NotificationInitial) {
-            return const Center(
-              child: CircularProgressIndicator(color: AppColors.primary),
+            return Center(
+              child: CircularProgressIndicator(color: context.accentColor),
             );
           }
 

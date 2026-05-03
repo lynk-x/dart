@@ -36,7 +36,7 @@ class WalletListPage extends StatelessWidget {
       body: BlocBuilder<WalletCubit, WalletState>(
         builder: (context, state) {
           if (state.isLoading && state.balances.isEmpty) {
-            return const Center(child: CircularProgressIndicator(color: AppColors.primary));
+            return Center(child: CircularProgressIndicator(color: context.accentColor));
           }
 
           if (state.balances.isEmpty) {
@@ -50,7 +50,7 @@ class WalletListPage extends StatelessWidget {
                   const SizedBox(height: 24),
                   ElevatedButton(
                     onPressed: () => _showAddWalletDialog(context),
-                    style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
+                    style: ElevatedButton.styleFrom(backgroundColor: context.accentColor),
                     child: const Text('Add your first wallet', style: TextStyle(color: Colors.white)),
                   ),
                 ],
@@ -136,10 +136,10 @@ class _WalletCard extends StatelessWidget {
               width: 48,
               height: 48,
               decoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: 0.1),
+                color: context.accentColor.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.account_balance_wallet, color: AppColors.primary, size: 24),
+              child: Icon(Icons.account_balance_wallet, color: context.accentColor, size: 24),
             ),
             const SizedBox(width: 16),
             Expanded(

@@ -53,7 +53,7 @@ class SessionsView extends StatelessWidget {
         actions: [
           if (isOrganizer)
             IconButton(
-              icon: const Icon(Icons.add, color: AppColors.primary),
+              icon: Icon(Icons.add, color: context.accentColor),
               onPressed: () => _showSessionEditor(context),
             ),
         ],
@@ -61,8 +61,8 @@ class SessionsView extends StatelessWidget {
       body: BlocBuilder<ForumSessionsCubit, ForumSessionsState>(
         builder: (context, state) {
           if (state.isLoading) {
-            return const Center(
-                child: CircularProgressIndicator(color: AppColors.primary));
+            return Center(
+                child: CircularProgressIndicator(color: context.accentColor));
           }
 
           if (state.errorMessage != null && state.sessions.isEmpty) {
@@ -91,7 +91,7 @@ class SessionsView extends StatelessWidget {
                     ElevatedButton(
                       onPressed: () => _showSessionEditor(context),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
+                        backgroundColor: context.accentColor,
                         foregroundColor: Colors.black,
                       ),
                       child: const Text('Add First Session'),
@@ -104,7 +104,7 @@ class SessionsView extends StatelessWidget {
 
           return RefreshIndicator(
             onRefresh: () => context.read<ForumSessionsCubit>().loadSessions(),
-            color: AppColors.primary,
+            color: context.accentColor,
             child: ListView.separated(
               padding: const EdgeInsets.all(16),
               itemCount: state.sessions.length,
@@ -163,13 +163,13 @@ class SessionsView extends StatelessWidget {
               TextField(
                 controller: titleController,
                 style: const TextStyle(color: Colors.white),
-                decoration: _inputDecoration('Session Title'),
+                decoration: _inputDecoration('Session Title', context),
               ),
               const SizedBox(height: 16),
               TextField(
                 controller: roomController,
                 style: const TextStyle(color: Colors.white),
-                decoration: _inputDecoration('Room / Location'),
+                decoration: _inputDecoration('Room / Location', context),
               ),
               const SizedBox(height: 16),
               Row(
@@ -230,7 +230,7 @@ class SessionsView extends StatelessWidget {
                     Navigator.pop(bottomContext);
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
+                    backgroundColor: context.accentColor,
                     foregroundColor: Colors.black,
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12)),
@@ -260,7 +260,7 @@ class SessionsView extends StatelessWidget {
     );
   }
 
-  InputDecoration _inputDecoration(String label) {
+  InputDecoration _inputDecoration(String label, BuildContext context) {
     return InputDecoration(
       labelText: label,
       labelStyle: const TextStyle(color: Colors.white38),
@@ -272,7 +272,7 @@ class SessionsView extends StatelessWidget {
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: AppColors.primary, width: 1),
+        borderSide: BorderSide(color: context.accentColor, width: 1),
       ),
     );
   }
@@ -299,11 +299,11 @@ class _SessionListItem extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: isActive
-            ? AppColors.primary.withValues(alpha: 0.1)
+            ? context.accentColor.withValues(alpha: 0.1)
             : const Color(0xFF1E1E1E),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: isActive ? AppColors.primary : Colors.white10,
+          color: isActive ? context.accentColor : Colors.white10,
           width: isActive ? 1.5 : 1,
         ),
       ),

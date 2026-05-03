@@ -47,7 +47,7 @@ class _ForumHeaderState extends State<ForumHeader> {
       padding: const EdgeInsets.symmetric(vertical: 4),
       margin: const EdgeInsets.symmetric(horizontal: 2),
       decoration: BoxDecoration(
-        color: AppColors.primary,
+        color: context.accentColor,
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(

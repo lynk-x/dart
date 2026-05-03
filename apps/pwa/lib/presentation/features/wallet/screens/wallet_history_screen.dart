@@ -88,7 +88,7 @@ class _WalletHistoryPageState extends State<WalletHistoryPage> {
       body: BlocBuilder<WalletCubit, WalletState>(
         builder: (context, state) {
           if (state.isLoading && state.transactions.isEmpty) {
-            return const Center(child: CircularProgressIndicator(color: AppColors.primary));
+            return Center(child: CircularProgressIndicator(color: context.accentColor));
           }
 
           if (state.transactions.isEmpty) {
@@ -108,7 +108,7 @@ class _WalletHistoryPageState extends State<WalletHistoryPage> {
           final sortedKeys = grouped.keys.toList();
 
           return RefreshIndicator(
-            color: AppColors.primary,
+            color: context.accentColor,
             onRefresh: () => context.read<WalletCubit>().refresh(),
             child: ListView.builder(
               controller: _scrollController,
@@ -117,9 +117,9 @@ class _WalletHistoryPageState extends State<WalletHistoryPage> {
               itemBuilder: (context, groupIndex) {
                 if (groupIndex == sortedKeys.length) {
                   return state.isLoadingMore
-                      ? const Padding(
-                          padding: EdgeInsets.all(16),
-                          child: Center(child: CircularProgressIndicator(color: AppColors.primary, strokeWidth: 2)),
+                      ? Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Center(child: CircularProgressIndicator(color: context.accentColor, strokeWidth: 2)),
                         )
                       : const SizedBox(height: 80);
                 }

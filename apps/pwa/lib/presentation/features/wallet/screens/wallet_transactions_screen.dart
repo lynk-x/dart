@@ -88,7 +88,7 @@ class _WalletTransactionsPageState extends State<WalletTransactionsPage> {
             ),
           ),
           body: RefreshIndicator(
-            color: AppColors.primary,
+            color: context.accentColor,
             onRefresh: () => context.read<WalletCubit>().refresh(),
             child: CustomScrollView(
               controller: _scrollController,
@@ -102,14 +102,14 @@ class _WalletTransactionsPageState extends State<WalletTransactionsPage> {
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         colors: [
-                          AppColors.primary.withValues(alpha: 0.15),
+                          context.accentColor.withValues(alpha: 0.15),
                           Colors.white.withValues(alpha: 0.02),
                         ],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),
                       borderRadius: BorderRadius.circular(24),
-                      border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
+                      border: Border.all(color: context.accentColor.withValues(alpha: 0.2)),
                     ),
                     child: Column(
                       children: [
@@ -134,7 +134,7 @@ class _WalletTransactionsPageState extends State<WalletTransactionsPage> {
                             state.isPrivacyModeEnabled
                               ? '+ •••••• pending'
                               : '+ ${balance.currency} ${balance.pendingBalance.toStringAsFixed(2)} pending',
-                            style: AppTypography.inter(fontSize: 12, color: AppColors.primary.withValues(alpha: 0.7)),
+                            style: AppTypography.inter(fontSize: 12, color: context.accentColor.withValues(alpha: 0.7)),
                           ),
                         ],
                       ],
@@ -159,8 +159,8 @@ class _WalletTransactionsPageState extends State<WalletTransactionsPage> {
 
                 // ── Transaction List ───────────────────────────────────────
                 if (state.isLoading && state.transactions.isEmpty)
-                  const SliverFillRemaining(
-                    child: Center(child: CircularProgressIndicator(color: AppColors.primary)),
+                  SliverFillRemaining(
+                    child: Center(child: CircularProgressIndicator(color: context.accentColor)),
                   )
                 else if (state.transactions.isEmpty)
                   const SliverFillRemaining(
@@ -178,9 +178,9 @@ class _WalletTransactionsPageState extends State<WalletTransactionsPage> {
                       (context, index) {
                         if (index == state.transactions.length) {
                           return state.isLoadingMore
-                              ? const Padding(
-                                  padding: EdgeInsets.all(16),
-                                  child: Center(child: CircularProgressIndicator(color: AppColors.primary, strokeWidth: 2)),
+                              ? Padding(
+                                  padding: const EdgeInsets.all(16),
+                                  child: Center(child: CircularProgressIndicator(color: context.accentColor, strokeWidth: 2)),
                                 )
                               : const SizedBox(height: 100);
                         }
@@ -286,7 +286,7 @@ class TransactionTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isIncoming = tx.category == 'incoming';
-    final color = isIncoming ? AppColors.primary : Colors.red.shade400;
+    final color = isIncoming ? context.accentColor : Colors.red.shade400;
     final sign  = isIncoming ? '+' : '-';
 
     return Padding(

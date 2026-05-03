@@ -31,10 +31,10 @@ class PermissionRequestSheet extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: AppColors.primary.withValues(alpha: 0.1),
+              color: context.accentColor.withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
-            child: Icon(icon, color: AppColors.primary, size: 40),
+            child: Icon(icon, color: context.accentColor, size: 40),
           ),
           const SizedBox(height: 24),
           Text(

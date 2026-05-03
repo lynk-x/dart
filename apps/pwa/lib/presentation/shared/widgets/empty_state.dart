@@ -35,8 +35,8 @@ class EmptyState extends StatelessWidget {
                 onPressed: onAction,
                 child: Text(
                   actionLabel!,
-                  style: const TextStyle(
-                    color: AppColors.primary,
+                  style: TextStyle(
+                    color: context.accentColor,
                     fontWeight: FontWeight.w600,
                     fontSize: 15,
                   ),

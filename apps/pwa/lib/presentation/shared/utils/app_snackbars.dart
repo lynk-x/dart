@@ -3,7 +3,7 @@ import 'package:lynk_core/core.dart';
 
 class AppSnackBars {
   static void showSuccess(BuildContext context, String message) {
-    _show(context, message, Icons.check_circle_outline, AppColors.primary);
+    _show(context, message, Icons.check_circle_outline, context.accentColor);
   }
 
   static void showError(BuildContext context, String message) {

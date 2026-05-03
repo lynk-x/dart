@@ -7,8 +7,9 @@ class ForumRepository {
   Future<Map<String, dynamic>> getForumWithMemberStatus(
       String forumId, String userId) async {
     final forumData = await _client
-        .from('forums')
-        .select('status, event_id, events(title)')
+        .schema('api')
+        .from('v1_forums')
+        .select('status, event_id, event_title')
         .eq('id', forumId)
         .maybeSingle();
 
@@ -141,6 +142,21 @@ class ForumRepository {
       'p_reason_id': reasonId,
       'p_description': description,
     });
+  }
+
+  Future<List<Map<String, dynamic>>> getThreadReplies({
+    required String rootMessageId,
+    required String rootCreatedAt,
+    int limit = 30,
+    int offset = 0,
+  }) async {
+    final data = await _client.rpc('get_thread_replies', params: {
+      'p_root_id': rootMessageId,
+      'p_root_created_at': rootCreatedAt,
+      'p_limit': limit,
+      'p_offset': offset,
+    });
+    return List<Map<String, dynamic>>.from(data as List);
   }
 
   Future<List<Map<String, dynamic>>> getMessages({

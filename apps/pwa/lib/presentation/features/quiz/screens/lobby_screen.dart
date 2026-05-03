@@ -42,7 +42,7 @@ class LobbyScreen extends StatelessWidget {
                         const TextSpan(text: 'Quiz '),
                         TextSpan(
                           text: 'Live!',
-                          style: TextStyle(color: AppColors.primary),
+                          style: TextStyle(color: context.accentColor),
                         ),
                       ],
                     ),
@@ -101,7 +101,7 @@ class LobbyScreen extends StatelessWidget {
                             child: ElevatedButton(
                               onPressed: onStart,
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: AppColors.primary,
+                                backgroundColor: context.accentColor,
                                 foregroundColor: Colors.black,
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(12),
@@ -119,11 +119,11 @@ class LobbyScreen extends StatelessWidget {
                         ),
                       )
                     else
-                      const SizedBox(
+                      SizedBox(
                         width: 40,
                         height: 40,
                         child: CircularProgressIndicator(
-                          color: AppColors.primary,
+                          color: context.accentColor,
                           strokeWidth: 3,
                         ),
                       ),

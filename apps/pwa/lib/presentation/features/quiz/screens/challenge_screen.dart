@@ -57,11 +57,11 @@ class _ChallengeScreenState extends State<ChallengeScreen> {
                     width: 70,
                     height: 70,
                     decoration: BoxDecoration(
-                      color: AppColors.primary,
+                      color: context.accentColor,
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
-                          color: AppColors.primary.withValues(alpha: 0.3),
+                          color: context.accentColor.withValues(alpha: 0.3),
                           blurRadius: 15,
                         )
                       ],
@@ -158,7 +158,7 @@ class _ChallengeScreenState extends State<ChallengeScreen> {
                   child: ElevatedButton(
                     onPressed: widget.onNext,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
+                      backgroundColor: context.accentColor,
                       foregroundColor: Colors.black,
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),

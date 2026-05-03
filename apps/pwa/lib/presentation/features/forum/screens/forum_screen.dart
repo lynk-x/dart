@@ -197,7 +197,7 @@ class _ForumViewState extends State<ForumView> {
                       ],
                     ),
                     behavior: SnackBarBehavior.floating,
-                    backgroundColor: AppColors.primary,
+                    backgroundColor: context.accentColor,
                     duration: const Duration(seconds: 4),
                   ),
                 );
@@ -478,7 +478,7 @@ class _ForumViewState extends State<ForumView> {
               height: 3,
               width: 40,
               decoration: BoxDecoration(
-                color: isActive ? AppColors.primary : Colors.transparent,
+                color: isActive ? context.accentColor : Colors.transparent,
                 borderRadius: const BorderRadius.vertical(top: Radius.circular(3)),
               ),
             ),

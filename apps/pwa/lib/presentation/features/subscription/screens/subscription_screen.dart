@@ -120,7 +120,8 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
 
         // Wallet balances across currencies — selector below picks the best match.
         _supabase
-            .from('account_wallets')
+            .schema('api')
+            .from('v1_wallet_balances')
             .select('currency, balance')
             .order('currency'),
       ]);

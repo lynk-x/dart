@@ -36,7 +36,7 @@ class LeaderboardScreen extends StatelessWidget {
               Text(
                 "STANDINGS",
                 style: AppTypography.labelLarge.copyWith(
-                  color: AppColors.primary,
+                  color: context.accentColor,
                   letterSpacing: 4,
                   fontWeight: FontWeight.bold,
                 ),
@@ -58,7 +58,7 @@ class LeaderboardScreen extends StatelessWidget {
               // Leaderboard List
               Expanded(
                 child: isLoading 
-                  ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
+                  ? Center(child: CircularProgressIndicator(color: context.accentColor))
                   : leaderboard.isEmpty
                     ? Center(
                         child: Text(
@@ -93,7 +93,7 @@ class LeaderboardScreen extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: AppColors.surface,
                   borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+                  border: Border.all(color: context.accentColor.withValues(alpha: 0.3)),
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -101,13 +101,13 @@ class LeaderboardScreen extends StatelessWidget {
                     _StatItem(
                       label: "YOUR RANK",
                       value: userRank != null ? "#$userRank" : "--",
-                      color: AppColors.primary,
+                      color: context.accentColor,
                     ),
                     Container(width: 1, height: 40, color: AppColors.outline),
                     _StatItem(
                       label: "TOTAL SCORE",
                       value: "$userScore",
-                      color: AppColors.primary,
+                      color: context.accentColor,
                     ),
                   ],
                 ),
@@ -125,7 +125,7 @@ class LeaderboardScreen extends StatelessWidget {
                       child: ElevatedButton(
                         onPressed: onNext,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primary,
+                          backgroundColor: context.accentColor,
                           foregroundColor: Colors.black,
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         ),
@@ -171,10 +171,10 @@ class _LeaderboardItem extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       decoration: BoxDecoration(
-        color: isUser ? AppColors.primary.withValues(alpha: 0.1) : AppColors.surface,
+        color: isUser ? context.accentColor.withValues(alpha: 0.1) : AppColors.surface,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: isUser ? AppColors.primary : AppColors.outline,
+          color: isUser ? context.accentColor : AppColors.outline,
           width: isUser ? 2 : 1,
         ),
       ),
@@ -185,7 +185,7 @@ class _LeaderboardItem extends StatelessWidget {
             child: Text(
               "#$rank",
               style: AppTypography.bodyMedium.copyWith(
-                color: isUser ? AppColors.primary : AppColors.alternate,
+                color: isUser ? context.accentColor : AppColors.alternate,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -203,7 +203,7 @@ class _LeaderboardItem extends StatelessWidget {
           Text(
             "$score",
             style: AppTypography.bodyLarge.copyWith(
-              color: AppColors.primary,
+              color: context.accentColor,
               fontWeight: FontWeight.w900,
             ),
           ),

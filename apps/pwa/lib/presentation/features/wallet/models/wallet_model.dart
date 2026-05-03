@@ -26,38 +26,45 @@ class WalletBalance extends Equatable {
   List<Object?> get props => [currency, balance, pendingBalance];
 }
 
-/// Represents a single wallet transaction for the activity feed.
+/// Represents a single entry in the unified wallet timeline feed.
+/// Sourced from api.v1_wallet_timeline (transactions + top-ups + payouts).
 class WalletTransaction extends Equatable {
   final String id;
-  final String category;
+  final String entryType;  // 'transaction' | 'top_up' | 'payout'
+  final String category;   // 'incoming' | 'outgoing'
   final String reason;
   final double amount;
   final String currency;
   final String status;
+  final String? eventId;
+  final String? reference;
   final DateTime createdAt;
-  final Map<String, dynamic> metadata;
 
   const WalletTransaction({
     required this.id,
+    required this.entryType,
     required this.category,
     required this.reason,
     required this.amount,
     required this.currency,
     required this.status,
+    this.eventId,
+    this.reference,
     required this.createdAt,
-    required this.metadata,
   });
 
   factory WalletTransaction.fromMap(Map<String, dynamic> map) {
     return WalletTransaction(
-      id:         map['id'] as String,
-      category:   map['category'] as String,
-      reason:     map['reason'] as String,
-      amount:     (map['amount'] as num).toDouble(),
-      currency:   map['currency'] as String,
-      status:     map['status'] as String,
-      createdAt:  DateTime.parse(map['created_at'] as String),
-      metadata:   (map['metadata'] as Map<String, dynamic>?) ?? {},
+      id:        map['id'] as String,
+      entryType: map['entry_type'] as String? ?? 'transaction',
+      category:  map['category'] as String,
+      reason:    map['reason'] as String,
+      amount:    (map['amount'] as num).toDouble(),
+      currency:  map['currency'] as String,
+      status:    map['status'] as String,
+      eventId:   map['event_id'] as String?,
+      reference: map['reference'] as String?,
+      createdAt: DateTime.parse(map['created_at'] as String),
     );
   }
 

@@ -108,25 +108,25 @@ class _TicketViewState extends State<TicketView> {
         listenWhen: (p, c) => p.ticket?.isRedeemed == false && c.ticket?.isRedeemed == true,
         listener: (context, state) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Row(
+            SnackBar(
+              content: const Row(
                 children: [
                   Icon(Icons.check_circle, color: Colors.white),
                   SizedBox(width: 12),
                   Text('Ticket Redeemed Safely — Enjoy the event!'),
                 ],
               ),
-              backgroundColor: AppColors.primary,
+              backgroundColor: context.accentColor,
               behavior: SnackBarBehavior.floating,
-              duration: Duration(seconds: 4),
+              duration: const Duration(seconds: 4),
             ),
           );
         },
         child: BlocBuilder<TicketCubit, TicketState>(
         builder: (context, state) {
           if (state.isLoading) {
-            return const Center(
-              child: CircularProgressIndicator(color: AppColors.primary),
+            return Center(
+              child: CircularProgressIndicator(color: context.accentColor),
             );
           }
 
@@ -144,8 +144,8 @@ class _TicketViewState extends State<TicketView> {
                   const SizedBox(height: 8),
                   TextButton(
                     onPressed: () => context.read<TicketCubit>().refresh(),
-                    child: const Text('Retry',
-                        style: TextStyle(color: AppColors.primary)),
+                    child: Text('Retry',
+                        style: TextStyle(color: context.accentColor)),
                   ),
                 ],
               ),
@@ -163,7 +163,7 @@ class _TicketViewState extends State<TicketView> {
 
           return RefreshIndicator(
             onRefresh: () => context.read<TicketCubit>().refresh(),
-            color: AppColors.primary,
+            color: context.accentColor,
             child: SingleChildScrollView(
               physics: const AlwaysScrollableScrollPhysics(),
               padding: const EdgeInsets.all(16.0),
@@ -296,10 +296,11 @@ class _TicketViewState extends State<TicketView> {
     final cubit = context.read<TicketCubit>();
     final messenger = ScaffoldMessenger.of(context);
     setState(() => _isCancellingResale = true);
+    final accentColor = context.accentColor;
     try {
       await cubit.cancelResaleListing(listingId);
       messenger.showSnackBar(
-        const SnackBar(content: Text('Resale offer cancelled.'), backgroundColor: AppColors.primary),
+        SnackBar(content: const Text('Resale offer cancelled.'), backgroundColor: accentColor),
       );
     } catch (e) {
       messenger.showSnackBar(
@@ -389,17 +390,17 @@ class _TicketViewState extends State<TicketView> {
     final dateFormat = DateFormat('dd/MM/yyyy');
     final timeFormat = DateFormat('HH:mm');
     final statusColor = ticket.status.toLowerCase() == 'valid'
-        ? AppColors.primary
+        ? context.accentColor
         : Colors.orange;
 
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
-        color: AppColors.primary,
+        color: context.accentColor,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: AppColors.primary.withValues(alpha: 0.3),
+            color: context.accentColor.withValues(alpha: 0.3),
             blurRadius: 20,
             offset: const Offset(0, 10),
           ),
@@ -733,9 +734,10 @@ class _TransferTicketDialogState extends State<_TransferTicketDialog> {
 
   Future<void> _doTransfer() async {
     final recipient = _controller.text.trim();
-    // Capture refs before closing the dialog
     final messenger = ScaffoldMessenger.of(widget.parentContext);
     final cubit = widget.parentContext.read<TicketCubit>();
+    final accentColor = context.accentColor;
+    
     Navigator.pop(context);
 
     try {
@@ -744,9 +746,9 @@ class _TransferTicketDialogState extends State<_TransferTicketDialog> {
         'p_recipient_username': recipient,
       });
       messenger.showSnackBar(
-        const SnackBar(
-          content: Text('Ticket transferred successfully!'),
-          backgroundColor: AppColors.primary,
+        SnackBar(
+          content: const Text('Ticket transferred successfully!'),
+          backgroundColor: accentColor,
         ),
       );
       await cubit.refresh();
@@ -772,7 +774,7 @@ class _TransferTicketDialogState extends State<_TransferTicketDialog> {
       );
     }
     if (_controller.text.contains('@')) return null;
-    if (_recipientFound == true) return const Icon(Icons.check_circle, color: AppColors.primary, size: 20);
+    if (_recipientFound == true) return Icon(Icons.check_circle, color: context.accentColor, size: 20);
     if (_recipientFound == false) return const Icon(Icons.error, color: Colors.redAccent, size: 20);
     return null;
   }
@@ -811,7 +813,7 @@ class _TransferTicketDialogState extends State<_TransferTicketDialog> {
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: AppColors.primary, width: 1),
+                borderSide: BorderSide(color: context.accentColor, width: 1),
               ),
               suffixIcon: _suffixIcon(),
             ),
@@ -827,7 +829,7 @@ class _TransferTicketDialogState extends State<_TransferTicketDialog> {
               Text(
                 'Recipient found.',
                 style: TextStyle(
-                  color: AppColors.primary.withValues(alpha: 0.8),
+                  color: context.accentColor.withValues(alpha: 0.8),
                   fontSize: 12,
                 ),
               ),
@@ -845,8 +847,8 @@ class _TransferTicketDialogState extends State<_TransferTicketDialog> {
             'Transfer',
             style: TextStyle(
               color: _canTransfer
-                  ? AppColors.primary
-                  : AppColors.primary.withValues(alpha: 0.3),
+                  ? context.accentColor
+                  : context.accentColor.withValues(alpha: 0.3),
               fontWeight: FontWeight.bold,
             ),
           ),
@@ -944,9 +946,9 @@ class _ResellTicketSheetState extends State<_ResellTicketSheet> {
       );
       if (mounted) Navigator.pop(context);
       messenger.showSnackBar(
-        const SnackBar(
-          content: Text('Resale offer sent! Buyer has 48 hours to accept.'),
-          backgroundColor: AppColors.primary,
+        SnackBar(
+          content: const Text('Resale offer sent! Buyer has 48 hours to accept.'),
+          backgroundColor: widget.parentContext.accentColor,
         ),
       );
     } catch (e) {
@@ -1000,11 +1002,11 @@ class _ResellTicketSheetState extends State<_ResellTicketSheet> {
               filled: true,
               fillColor: Colors.white.withValues(alpha: 0.06),
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.primary, width: 1)),
+              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: context.accentColor, width: 1)),
               suffixIcon: _isChecking
                   ? const SizedBox(width: 20, height: 20, child: Padding(padding: EdgeInsets.all(12), child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white24)))
                   : (_recipientFound == true
-                      ? const Icon(Icons.check_circle, color: AppColors.primary, size: 20)
+                      ? Icon(Icons.check_circle, color: context.accentColor, size: 20)
                       : (_recipientFound == false ? const Icon(Icons.error, color: Colors.redAccent, size: 20) : null)),
             ),
           ),
@@ -1013,7 +1015,7 @@ class _ResellTicketSheetState extends State<_ResellTicketSheet> {
             const Text('No user found with that username.', style: TextStyle(color: Colors.redAccent, fontSize: 12)),
           ] else if (_recipientFound == true) ...[
             const SizedBox(height: 6),
-            Text('Recipient found.', style: TextStyle(color: AppColors.primary.withValues(alpha: 0.8), fontSize: 12)),
+            Text('Recipient found.', style: TextStyle(color: context.accentColor.withValues(alpha: 0.8), fontSize: 12)),
           ],
           const SizedBox(height: 16),
           // Price
@@ -1032,7 +1034,7 @@ class _ResellTicketSheetState extends State<_ResellTicketSheet> {
               filled: true,
               fillColor: Colors.white.withValues(alpha: 0.06),
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.primary, width: 1)),
+              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: context.accentColor, width: 1)),
             ),
           ),
           if (_maxPrice != null && (double.tryParse(_priceController.text.trim()) ?? 0) > _maxPrice!) ...[
@@ -1050,7 +1052,7 @@ class _ResellTicketSheetState extends State<_ResellTicketSheet> {
           ],
           const SizedBox(height: 24),
           _isSubmitting
-              ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
+              ? Center(child: CircularProgressIndicator(color: context.accentColor))
               : PrimaryButton(
                   text: 'Send Resale Offer',
                   onPressed: _canSubmit ? _submit : null,

@@ -112,8 +112,8 @@ class _WalletPinSetupSheetState extends State<WalletPinSetupSheet> {
                         height: 16,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: isFilled ? AppColors.primary : Colors.white10,
-                          border: Border.all(color: isFilled ? AppColors.primary : Colors.white24),
+                          color: isFilled ? context.accentColor : Colors.white10,
+                          border: Border.all(color: isFilled ? context.accentColor : Colors.white24),
                         ),
                       );
                     }),

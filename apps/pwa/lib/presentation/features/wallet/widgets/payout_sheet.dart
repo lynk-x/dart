@@ -66,9 +66,9 @@ class _PayoutSheetState extends State<PayoutSheet> {
         if (state.withdrawStatus == WithdrawStatus.success) {
           Navigator.pop(ctx);
           ScaffoldMessenger.of(ctx).showSnackBar(
-            const SnackBar(
-              content: Text('Withdrawal submitted. Funds will be sent once processed.'),
-              backgroundColor: AppColors.primary,
+            SnackBar(
+              content: const Text('Withdrawal submitted. Funds will be sent once processed.'),
+              backgroundColor: ctx.accentColor,
               behavior: SnackBarBehavior.floating,
             ),
           );
@@ -128,17 +128,17 @@ class _PayoutSheetState extends State<PayoutSheet> {
                           padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
                           decoration: BoxDecoration(
                             color: selected
-                                ? AppColors.primary.withValues(alpha: 0.15)
+                                ? context.accentColor.withValues(alpha: 0.15)
                                 : Colors.white.withValues(alpha: 0.05),
                             borderRadius: BorderRadius.circular(20),
                             border: Border.all(
-                              color: selected ? AppColors.primary.withValues(alpha: 0.5) : Colors.white12,
+                              color: selected ? context.accentColor.withValues(alpha: 0.5) : Colors.white12,
                             ),
                           ),
                           child: Text(
                             c,
                             style: TextStyle(
-                              color: selected ? AppColors.primary : Colors.white54,
+                              color: selected ? context.accentColor : Colors.white54,
                               fontWeight: FontWeight.w600,
                               fontSize: 13,
                             ),
@@ -166,7 +166,7 @@ class _PayoutSheetState extends State<PayoutSheet> {
                     hintText: '0.00',
                     hintStyle: const TextStyle(color: Colors.white24),
                     prefixText: '$_selectedCurrency  ',
-                    prefixStyle: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600),
+                    prefixStyle: TextStyle(color: context.accentColor, fontWeight: FontWeight.w600),
                     filled: true,
                     fillColor: Colors.white.withValues(alpha: 0.05),
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
@@ -193,13 +193,13 @@ class _PayoutSheetState extends State<PayoutSheet> {
                         margin: const EdgeInsets.only(bottom: 8),
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: isSelected ? AppColors.primary.withValues(alpha: 0.1) : Colors.white.withValues(alpha: 0.03),
+                          color: isSelected ? context.accentColor.withValues(alpha: 0.1) : Colors.white.withValues(alpha: 0.03),
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: isSelected ? AppColors.primary.withValues(alpha: 0.4) : Colors.white12),
+                          border: Border.all(color: isSelected ? context.accentColor.withValues(alpha: 0.4) : Colors.white12),
                         ),
                         child: Row(
                           children: [
-                            Icon(Icons.account_balance_wallet, color: isSelected ? AppColors.primary : Colors.white38, size: 20),
+                            Icon(Icons.account_balance_wallet, color: isSelected ? context.accentColor : Colors.white38, size: 20),
                             const SizedBox(width: 12),
                             Expanded(
                               child: Column(
@@ -210,7 +210,7 @@ class _PayoutSheetState extends State<PayoutSheet> {
                                 ],
                               ),
                             ),
-                            if (isSelected) Icon(Icons.check_circle, color: AppColors.primary, size: 20),
+                            if (isSelected) Icon(Icons.check_circle, color: context.accentColor, size: 20),
                           ],
                         ),
                       ),
@@ -219,8 +219,8 @@ class _PayoutSheetState extends State<PayoutSheet> {
                   if (!_showAddMethod)
                     TextButton.icon(
                       onPressed: () => setState(() => _showAddMethod = true),
-                      icon: const Icon(Icons.add, size: 16, color: AppColors.primary),
-                      label: const Text('Add another method', style: TextStyle(color: AppColors.primary, fontSize: 13)),
+                      icon: Icon(Icons.add, size: 16, color: context.accentColor),
+                      label: Text('Add another method', style: TextStyle(color: context.accentColor, fontSize: 13)),
                     ),
                 ],
 
@@ -353,13 +353,13 @@ class _EmptyMethodCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: Colors.white.withValues(alpha: 0.04),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+          border: Border.all(color: context.accentColor.withValues(alpha: 0.3)),
         ),
         child: Row(
           children: [
-            Icon(Icons.add_circle_outline, color: AppColors.primary.withValues(alpha: 0.7), size: 20),
+            Icon(Icons.add_circle_outline, color: context.accentColor.withValues(alpha: 0.7), size: 20),
             const SizedBox(width: 10),
-            Text('Add M-Pesa number', style: TextStyle(color: AppColors.primary.withValues(alpha: 0.8), fontSize: 14, fontWeight: FontWeight.w500)),
+            Text('Add M-Pesa number', style: TextStyle(color: context.accentColor.withValues(alpha: 0.8), fontSize: 14, fontWeight: FontWeight.w500)),
           ],
         ),
       ),

@@ -155,18 +155,18 @@ class _TransferSheetState extends State<TransferSheet> {
                               padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
                               decoration: BoxDecoration(
                                 color: selected
-                                    ? AppColors.primary.withValues(alpha: 0.15)
+                                    ? context.accentColor.withValues(alpha: 0.15)
                                     : Colors.white.withValues(alpha: 0.05),
                                 borderRadius: BorderRadius.circular(20),
                                 border: Border.all(
                                   color: selected
-                                      ? AppColors.primary.withValues(alpha: 0.5)
+                                      ? context.accentColor.withValues(alpha: 0.5)
                                       : Colors.white12,
                                 ),
                               ),
                               child: Text(b.currency,
                                   style: TextStyle(
-                                      color: selected ? AppColors.primary : Colors.white54,
+                                      color: selected ? context.accentColor : Colors.white54,
                                       fontWeight: FontWeight.w600,
                                       fontSize: 13)),
                             ),
@@ -191,12 +191,12 @@ class _TransferSheetState extends State<TransferSheet> {
                             padding: const EdgeInsets.symmetric(vertical: 10),
                             decoration: BoxDecoration(
                               color: selected
-                                  ? AppColors.primary.withValues(alpha: 0.15)
+                                  ? context.accentColor.withValues(alpha: 0.15)
                                   : Colors.white.withValues(alpha: 0.05),
                               borderRadius: BorderRadius.circular(10),
                               border: Border.all(
                                 color: selected
-                                    ? AppColors.primary.withValues(alpha: 0.5)
+                                    ? context.accentColor.withValues(alpha: 0.5)
                                     : Colors.white12,
                               ),
                             ),
@@ -206,7 +206,7 @@ class _TransferSheetState extends State<TransferSheet> {
                                   : v.toStringAsFixed(0),
                               textAlign: TextAlign.center,
                               style: TextStyle(
-                                  color: selected ? AppColors.primary : Colors.white60,
+                                  color: selected ? context.accentColor : Colors.white60,
                                   fontSize: 13,
                                   fontWeight: FontWeight.w600),
                             ),
@@ -228,7 +228,7 @@ class _TransferSheetState extends State<TransferSheet> {
                     hintText: 'Enter amount',
                     hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.3)),
                     suffixText: _currency,
-                    suffixStyle: TextStyle(color: AppColors.primary),
+                    suffixStyle: TextStyle(color: context.accentColor),
                     filled: true,
                     fillColor: Colors.white.withValues(alpha: 0.05),
                     border: OutlineInputBorder(

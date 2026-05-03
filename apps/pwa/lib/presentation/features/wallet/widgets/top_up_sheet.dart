@@ -132,7 +132,7 @@ class _TopUpSheetState extends State<TopUpSheet> {
       children: [
         _handle(),
         const SizedBox(height: 28),
-        const CircularProgressIndicator(color: AppColors.primary),
+        CircularProgressIndicator(color: context.accentColor),
         const SizedBox(height: 24),
         Text('Waiting for M-Pesa...',
             style: AppTypography.inter(
@@ -148,7 +148,7 @@ class _TopUpSheetState extends State<TopUpSheet> {
           Text(
             '$_currency ${amount.toStringAsFixed(0)}',
             style: AppTypography.inter(
-                fontSize: 22, fontWeight: FontWeight.bold, color: AppColors.primary),
+                fontSize: 22, fontWeight: FontWeight.bold, color: context.accentColor),
           ),
         ],
         const SizedBox(height: 28),
@@ -197,18 +197,18 @@ class _TopUpSheetState extends State<TopUpSheet> {
                     padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
                     decoration: BoxDecoration(
                       color: selected
-                          ? AppColors.primary.withValues(alpha: 0.15)
+                          ? context.accentColor.withValues(alpha: 0.15)
                           : Colors.white.withValues(alpha: 0.05),
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(
                         color: selected
-                            ? AppColors.primary.withValues(alpha: 0.5)
+                            ? context.accentColor.withValues(alpha: 0.5)
                             : Colors.white12,
                       ),
                     ),
                     child: Text(c,
                         style: TextStyle(
-                            color: selected ? AppColors.primary : Colors.white54,
+                            color: selected ? context.accentColor : Colors.white54,
                             fontWeight: FontWeight.w600,
                             fontSize: 13)),
                   ),
@@ -233,12 +233,12 @@ class _TopUpSheetState extends State<TopUpSheet> {
                     padding: const EdgeInsets.symmetric(vertical: 10),
                     decoration: BoxDecoration(
                       color: selected
-                          ? AppColors.primary.withValues(alpha: 0.15)
+                          ? context.accentColor.withValues(alpha: 0.15)
                           : Colors.white.withValues(alpha: 0.05),
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(
                         color: selected
-                            ? AppColors.primary.withValues(alpha: 0.5)
+                            ? context.accentColor.withValues(alpha: 0.5)
                             : Colors.white12,
                       ),
                     ),
@@ -248,7 +248,7 @@ class _TopUpSheetState extends State<TopUpSheet> {
                           : v.toStringAsFixed(0),
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                          color: selected ? AppColors.primary : Colors.white60,
+                          color: selected ? context.accentColor : Colors.white60,
                           fontSize: 13,
                           fontWeight: FontWeight.w600),
                     ),
@@ -270,7 +270,7 @@ class _TopUpSheetState extends State<TopUpSheet> {
             hintText: 'Or enter amount',
             hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.3)),
             suffixText: _currency,
-            suffixStyle: TextStyle(color: AppColors.primary),
+            suffixStyle: TextStyle(color: context.accentColor),
             filled: true,
             fillColor: Colors.white.withValues(alpha: 0.05),
             border: OutlineInputBorder(

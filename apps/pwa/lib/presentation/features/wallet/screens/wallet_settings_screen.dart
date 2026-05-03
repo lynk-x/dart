@@ -167,12 +167,12 @@ class _WalletSettingsPageState extends State<WalletSettingsPage> {
                     : Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
-                          color: AppColors.primary.withValues(alpha: 0.1),
+                          color: context.accentColor.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(
                           'INCREASE',
-                          style: AppTypography.inter(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.primary),
+                          style: AppTypography.inter(fontSize: 10, fontWeight: FontWeight.bold, color: context.accentColor),
                         ),
                       ),
                 ),
@@ -252,7 +252,7 @@ class _WalletSettingsPageState extends State<WalletSettingsPage> {
       padding: const EdgeInsets.only(left: 4, bottom: 12),
       child: Text(
         title.toUpperCase(),
-        style: AppTypography.inter(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.primary, letterSpacing: 1),
+        style: AppTypography.inter(fontSize: 12, fontWeight: FontWeight.bold, color: context.accentColor, letterSpacing: 1),
       ),
     );
   }
@@ -318,7 +318,7 @@ class _WalletSettingsPageState extends State<WalletSettingsPage> {
         trailing: Switch.adaptive(
           value: value,
           onChanged: onChanged,
-          activeTrackColor: AppColors.primary,
+          activeTrackColor: context.accentColor,
         ),
       ),
     );

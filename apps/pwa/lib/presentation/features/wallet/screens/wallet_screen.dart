@@ -63,7 +63,7 @@ class _WalletPageState extends State<WalletPage> {
             },
             child: Text(
               'Get Started',
-              style: AppTypography.inter(fontWeight: FontWeight.bold, color: AppColors.primary),
+              style: AppTypography.inter(fontWeight: FontWeight.bold, color: context.accentColor),
             ),
           ),
         ],
@@ -153,7 +153,7 @@ class _WalletPageState extends State<WalletPage> {
       body: BlocBuilder<WalletCubit, WalletState>(
         builder: (context, state) {
           if (state.isLoading && state.accountId == null) {
-            return const Center(child: CircularProgressIndicator(color: AppColors.primary));
+            return Center(child: CircularProgressIndicator(color: context.accentColor));
           }
 
           final accountId = state.accountId ?? 'No account linked';
@@ -170,7 +170,7 @@ class _WalletPageState extends State<WalletPage> {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _showScanner(context),
-        backgroundColor: AppColors.primary,
+        backgroundColor: context.accentColor,
         shape: const CircleBorder(),
         child: const Icon(Icons.qr_code_scanner_rounded, color: Colors.black),
       ),
@@ -405,7 +405,7 @@ class _DesktopActionCard extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, color: AppColors.primary, size: 28),
+            Icon(icon, color: context.accentColor, size: 28),
             const SizedBox(height: 8),
             Text(
               label,
@@ -437,10 +437,10 @@ class _ActionIcon extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: AppColors.primary.withValues(alpha: 0.1),
+              color: context.accentColor.withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
-            child: Icon(icon, color: AppColors.primary, size: 28),
+            child: Icon(icon, color: context.accentColor, size: 28),
           ),
           const SizedBox(height: 8),
           Text(
@@ -508,12 +508,12 @@ class _WalletScannerSheetState extends State<_WalletScannerSheet> {
           ),
           Expanded(
             child: _isChecking 
-              ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
+              ? Center(child: CircularProgressIndicator(color: context.accentColor))
               : ValueListenableBuilder(
                   valueListenable: controller,
                   builder: (context, state, child) {
                     if (!state.isInitialized) {
-                      return const Center(child: CircularProgressIndicator(color: AppColors.primary));
+                      return Center(child: CircularProgressIndicator(color: context.accentColor));
                     }
                     
                     if (state.error != null) {
@@ -571,7 +571,7 @@ class _WalletScannerSheetState extends State<_WalletScannerSheet> {
                             width: 250,
                             height: 250,
                             decoration: BoxDecoration(
-                              border: Border.all(color: AppColors.primary, width: 2),
+                              border: Border.all(color: context.accentColor, width: 2),
                               borderRadius: BorderRadius.circular(24),
                             ),
                           ),
@@ -598,7 +598,7 @@ class _WalletScannerSheetState extends State<_WalletScannerSheet> {
                                   case TorchState.off:
                                     return const Icon(Icons.flash_off, color: Colors.white);
                                   case TorchState.on:
-                                    return const Icon(Icons.flash_on, color: AppColors.primary);
+                                    return Icon(Icons.flash_on, color: context.accentColor);
                                   case TorchState.auto:
                                     return const Icon(Icons.flash_auto, color: Colors.white70);
                                   case TorchState.unavailable:

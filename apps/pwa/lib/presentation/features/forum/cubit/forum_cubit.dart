@@ -140,7 +140,7 @@ class ForumCubit extends Cubit<ForumState> {
         if (forumData != null) {
           forumStatus = forumData['status'] as String? ?? 'open';
           eventIdFromDb = forumData['event_id'] as String?;
-          forumName = forumData['events']?['title'] as String? ?? 'Community Forum';
+          forumName = forumData['event_title'] as String? ?? 'Community Forum';
         }
 
         if (memberData != null) {

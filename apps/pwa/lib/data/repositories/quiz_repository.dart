@@ -25,10 +25,25 @@ class QuizRepository {
         .maybeSingle();
   }
 
-  Future<List<Map<String, dynamic>>> getLeaderboard(String quizId) async {
+  Future<List<Map<String, dynamic>>> getLeaderboard(String quizId, {int limit = 5}) async {
     final data = await _client
-        .rpc('get_quiz_leaderboard', params: {'p_quiz_id': quizId});
+        .rpc('get_quiz_leaderboard', params: {'p_quiz_id': quizId, 'p_limit': limit});
     return List<Map<String, dynamic>>.from(data as List);
+  }
+
+  Future<List<Map<String, dynamic>>> getLeaderboardLive(
+    String questionnaireId, {
+    int limit = 20,
+  }) async {
+    final data = await _client
+        .schema('api')
+        .from('v1_quiz_leaderboard')
+        .select('user_id, display_name, avatar_url, total_score, answers_count, last_answered_at')
+        .eq('questionnaire_id', questionnaireId)
+        .order('total_score', ascending: false)
+        .order('last_answered_at', ascending: true)
+        .limit(limit);
+    return List<Map<String, dynamic>>.from(data);
   }
 
   Future<void> submitAnswer({

@@ -137,7 +137,7 @@ class _PodiumItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bool isFirst = rank == 1;
-    final Color rankColor = isFirst ? const Color(0xFFFFD700) : AppColors.primary;
+    final Color rankColor = isFirst ? const Color(0xFFFFD700) : context.accentColor;
     
     return Container(
       padding: const EdgeInsets.all(24),

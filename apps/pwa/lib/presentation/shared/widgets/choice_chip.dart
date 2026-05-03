@@ -19,7 +19,7 @@ class ChoiceChip extends m.StatelessWidget {
       label: m.Text(label),
       selected: selected,
       onSelected: onSelected,
-      selectedColor: AppColors.primary,
+      selectedColor: context.accentColor,
       backgroundColor: AppColors.tertiary,
       showCheckmark: false, // No icon allowed
       labelStyle: AppTypography.inter(
