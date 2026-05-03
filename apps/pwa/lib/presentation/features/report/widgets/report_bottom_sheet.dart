@@ -94,37 +94,49 @@ class _ReportSheetState extends State<_ReportSheet> {
     final userId = Supabase.instance.client.auth.currentUser?.id;
     if (userId == null) return;
 
-    final row = <String, dynamic>{
-      'reporter_id': userId,
-      'reason_id': _selectedReasonId,
-      'info': {
-        if (_descriptionController.text.trim().isNotEmpty)
-          'description': _descriptionController.text.trim(),
-      },
-    };
-
-    // Set exactly one target field per the CHECK constraint
-    switch (widget.targetType) {
-      case ReportTargetType.user:
-        row['target_user_id'] = widget.targetId;
-        break;
-      case ReportTargetType.event:
-        row['target_event_id'] = widget.targetId;
-        break;
-      case ReportTargetType.message:
-        row['target_message_id'] = widget.targetId;
-        if (widget.messageCreatedAt != null) {
-          row['target_message_created_at'] =
-              widget.messageCreatedAt!.toUtc().toIso8601String();
-        }
-        break;
-      case ReportTargetType.adAsset:
-        row['target_variant_id'] = widget.targetId;
-        break;
-    }
+    final description = _descriptionController.text.trim();
 
     try {
-      await Supabase.instance.client.schema('reports').from('reports').insert(row);
+      // user / event / message reports route through the canonical
+      // `submit_report` RPC, which validates the CHECK constraint server-side
+      // and dispatches the report to the moderation queue. Ad-asset reports
+      // fall back to a direct INSERT because submit_report does not yet
+      // accept a target_variant_id.
+      switch (widget.targetType) {
+        case ReportTargetType.user:
+          await Supabase.instance.client.rpc('submit_report', params: {
+            'p_target_user_id': widget.targetId,
+            'p_reason_id': _selectedReasonId,
+            'p_description': description.isEmpty ? null : description,
+          });
+          break;
+        case ReportTargetType.event:
+          await Supabase.instance.client.rpc('submit_report', params: {
+            'p_target_event_id': widget.targetId,
+            'p_reason_id': _selectedReasonId,
+            'p_description': description.isEmpty ? null : description,
+          });
+          break;
+        case ReportTargetType.message:
+          await Supabase.instance.client.rpc('submit_report', params: {
+            'p_target_message_id': widget.targetId,
+            'p_target_message_created_at':
+                widget.messageCreatedAt?.toUtc().toIso8601String(),
+            'p_reason_id': _selectedReasonId,
+            'p_description': description.isEmpty ? null : description,
+          });
+          break;
+        case ReportTargetType.adAsset:
+          await Supabase.instance.client.schema('reports').from('reports').insert({
+            'reporter_id': userId,
+            'reason_id': _selectedReasonId,
+            'target_variant_id': widget.targetId,
+            'info': {
+              if (description.isNotEmpty) 'description': description,
+            },
+          });
+          break;
+      }
       if (mounted) {
         Navigator.of(context).pop();
         ScaffoldMessenger.of(context).showSnackBar(

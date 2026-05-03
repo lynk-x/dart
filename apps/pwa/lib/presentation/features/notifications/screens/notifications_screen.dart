@@ -29,7 +29,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
 
   void _handleNotificationTap(NotificationModel notification) {
     // 1. Mark as read immediately
-    context.read<NotificationCubit>().markAsRead(notification.id);
+    context.read<NotificationCubit>().markAsRead(notification);
 
     // 2. Extract deep-link data
     final data = notification.data ?? {};
@@ -236,7 +236,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
                 ),
                 onDismissed: (direction) {
                   final cubit = context.read<NotificationCubit>();
-                  cubit.deleteNotification(notification.id);
+                  cubit.deleteNotification(notification);
 
                   ScaffoldMessenger.of(context).clearSnackBars();
                   ScaffoldMessenger.of(context).showSnackBar(

@@ -139,16 +139,20 @@ abstract class BaseMessageCubit<T extends BaseMessageState> extends HydratedCubi
     });
   }
 
-  Future<void> deleteMessage(String messageId) async {
+  /// Soft-deletes a message. `forum_messages.forum_messages` is partitioned by
+  /// `created_at` with composite PK (id, created_at), so the message's
+  /// `createdAt` must be in the WHERE clause or the UPDATE matches no rows.
+  Future<void> deleteMessage(ChatMessage message) async {
     final originalMessages = List<ChatMessage>.from(state.messages);
-    if (!isClosed) emit(copyWithState(messages: state.messages.where((m) => m.id != messageId).toList()));
+    if (!isClosed) emit(copyWithState(messages: state.messages.where((m) => m.id != message.id).toList()));
 
     try {
       if (userId == kGuestUserId) return;
       await Supabase.instance.client
           .schema('forum_messages').from('forum_messages')
-          .update({'deleted_at': DateTime.now().toIso8601String()}).eq(
-              'id', messageId);
+          .update({'deleted_at': DateTime.now().toIso8601String()})
+          .eq('id', message.id)
+          .eq('created_at', message.createdAt.toIso8601String());
       await refresh();
     } catch (e, stack) {
       debugPrint('[BaseMessageCubit] Error deleting msg: $e\n$stack');
@@ -184,13 +188,15 @@ abstract class BaseMessageCubit<T extends BaseMessageState> extends HydratedCubi
     }
   }
 
-  Future<void> reportMessage(String messageId, String reason) async {
+  /// Reports a forum message via the canonical `submit_report` RPC.
+  /// `forum_messages.forum_messages` is partitioned, so the report row's FK
+  /// to the message uses the composite (target_message_id, target_message_created_at).
+  Future<void> reportMessage(ChatMessage message, String reason) async {
     try {
       if (userId == kGuestUserId) return;
-      await Supabase.instance.client.rpc('report_content', params: {
-        'p_content_type': 'message',
-        'p_content_id': messageId,
-        'p_reported_by': userId,
+      await Supabase.instance.client.rpc('submit_report', params: {
+        'p_target_message_id': message.id,
+        'p_target_message_created_at': message.createdAt.toIso8601String(),
         'p_reason_id': 'general_abuse',
         'p_description': reason,
       });

@@ -105,14 +105,21 @@ class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
             .from('forum_media')
             .getPublicUrl(path);
 
+        // forum_media has jsonb columns `media_url` and `metadata` rather than
+        // top-level url/mime_type/file_size. See schema PART 06.
         await Supabase.instance.client.schema('forum_media').from('forum_media').insert({
           'id': fileId,
           'forum_id': forumId,
           'uploader_id': userId,
-          'url': publicUrl,
           'media_type': type,
-          'mime_type': mimeType,
-          'file_size': bytes.length,
+          'media_url': {
+            'full_res': publicUrl,
+            'thumbnail': publicUrl,
+          },
+          'metadata': {
+            'mime_type': mimeType,
+            'file_size': bytes.length,
+          },
           'is_approved': isOrganizer,
         });
       }
@@ -137,12 +144,17 @@ class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
     await uploadMultipleMedia(files: [file], type: type);
   }
 
-  Future<void> approveMedia(String mediaId) async {
+  /// `forum_media.forum_media` is partitioned by `created_at` with composite
+  /// PK (id, created_at), so the row's `createdAt` must be in the WHERE clause
+  /// or the UPDATE/DELETE matches no rows.
+  Future<void> approveMedia(ForumMedia media) async {
     if (!isOrganizer) return;
     try {
       await Supabase.instance.client
           .schema('forum_media').from('forum_media')
-          .update({'is_approved': true}).eq('id', mediaId);
+          .update({'is_approved': true})
+          .eq('id', media.id)
+          .eq('created_at', media.createdAt.toIso8601String());
       await refreshMedia();
     } catch (e, stack) {
       debugPrint('[ForumMediaCubit] Error: $e\n$stack');
@@ -150,13 +162,14 @@ class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
     }
   }
 
-  Future<void> deleteMedia(String mediaId) async {
+  Future<void> deleteMedia(ForumMedia media) async {
     if (!isOrganizer) return;
     try {
       await Supabase.instance.client
           .schema('forum_media').from('forum_media')
           .delete()
-          .eq('id', mediaId);
+          .eq('id', media.id)
+          .eq('created_at', media.createdAt.toIso8601String());
       await refreshMedia();
     } catch (e, stack) {
       debugPrint('[ForumMediaCubit] Error: $e\n$stack');

@@ -77,19 +77,24 @@ class NotificationCubit extends Cubit<NotificationState> {
     emit(currentState.copyWith(notifications: updatedList));
   }
 
-  Future<void> markAsRead(String notificationId) async {
+  /// Marks a single notification read. notifications.notifications is partitioned
+  /// by created_at with composite PK (id, created_at), so the createdAt must be
+  /// in the WHERE clause or the UPDATE matches no rows.
+  Future<void> markAsRead(NotificationModel notification) async {
     // Optimistic update — real-time listener confirms; this prevents stale badge
     final currentState = state;
     if (currentState is NotificationLoaded) {
       final updated = currentState.notifications
-          .map((n) => n.id == notificationId ? n.copyWith(isRead: true) : n)
+          .map((n) => n.id == notification.id ? n.copyWith(isRead: true) : n)
           .toList();
       emit(currentState.copyWith(notifications: updated));
     }
     try {
       await Supabase.instance.client
-          .schema('api').from('v1_notifications')
-          .update({'is_read': true}).eq('id', notificationId);
+          .schema('notifications').from('notifications')
+          .update({'is_read': true})
+          .eq('id', notification.id)
+          .eq('created_at', notification.createdAt.toIso8601String());
     } catch (_) {
       // Best-effort — next load will reconcile
     }
@@ -103,9 +108,12 @@ class NotificationCubit extends Cubit<NotificationState> {
     try {
       final uid = _userId;
       if (uid == null) return;
+      // user_id filter is required: without it, RLS prevents the UPDATE from
+      // affecting any rows but it would otherwise scan the whole table.
       await Supabase.instance.client
-          .schema('api').from('v1_notifications')
+          .schema('notifications').from('notifications')
           .update({'is_read': true})
+          .eq('user_id', uid)
           .eq('is_read', false);
 
       final updatedList = currentState.notifications
@@ -117,12 +125,13 @@ class NotificationCubit extends Cubit<NotificationState> {
     }
   }
 
-  Future<void> deleteNotification(String notificationId) async {
+  Future<void> deleteNotification(NotificationModel notification) async {
     try {
       await Supabase.instance.client
-          .schema('api').from('v1_notifications')
+          .schema('notifications').from('notifications')
           .delete()
-          .eq('id', notificationId);
+          .eq('id', notification.id)
+          .eq('created_at', notification.createdAt.toIso8601String());
       // Real-time listener will handle the UI update
     } catch (_) {
       // DB delete failed — reload to restore the dismissed item in the UI

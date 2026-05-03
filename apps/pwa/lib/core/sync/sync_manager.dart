@@ -139,10 +139,21 @@ class SyncManager {
 
     switch (item.action) {
       case SyncAction.insert:
-        var query = client.from(item.table);
-        if (item.schema != null) query = client.schema(item.schema!).from(item.table);
-        await query.insert(item.payload);
-        return _ExecuteOutcome.success;
+        try {
+          var query = client.from(item.table);
+          if (item.schema != null) query = client.schema(item.schema!).from(item.table);
+          await query.insert(item.payload);
+          return _ExecuteOutcome.success;
+        } on PostgrestException catch (e) {
+          // 23505 = unique_violation. The row already exists — this is the
+          // expected outcome of an idempotent retry after a transient network
+          // failure. Treat as success so the optimistic UI is not reverted.
+          if (e.code == '23505') {
+            debugPrint('[SyncManager] Insert ${item.table}/${item.id} already present (23505); treating as success.');
+            return _ExecuteOutcome.success;
+          }
+          rethrow;
+        }
 
       case SyncAction.update:
         return await _executeUpdate(client, item);
@@ -151,7 +162,11 @@ class SyncManager {
         final id = item.payload['id'] as String;
         var query = client.from(item.table);
         if (item.schema != null) query = client.schema(item.schema!).from(item.table);
-        await query.delete().eq('id', id);
+        var del = query.delete().eq('id', id);
+        if (item.partitionKeyName != null && item.partitionKeyValue != null) {
+          del = del.eq(item.partitionKeyName!, item.partitionKeyValue!);
+        }
+        await del;
         return _ExecuteOutcome.success;
 
       case SyncAction.rpc:
@@ -171,18 +186,23 @@ class SyncManager {
         item.serverUpdatedAtBaseline == null) {
       var query = client.from(item.table);
       if (item.schema != null) query = client.schema(item.schema!).from(item.table);
-      await query.update(item.payload).eq('id', id);
+      var upd = query.update(item.payload).eq('id', id);
+      if (item.partitionKeyName != null && item.partitionKeyValue != null) {
+        upd = upd.eq(item.partitionKeyName!, item.partitionKeyValue!);
+      }
+      await upd;
       return _ExecuteOutcome.success;
     }
 
     // For serverWins and manual: fetch current updated_at to detect conflict.
     var selectQuery = client.from(item.table);
     if (item.schema != null) selectQuery = client.schema(item.schema!).from(item.table);
-    
-    final serverRows = await selectQuery
-        .select('updated_at')
-        .eq('id', id)
-        .limit(1);
+
+    var sel = selectQuery.select('updated_at').eq('id', id);
+    if (item.partitionKeyName != null && item.partitionKeyValue != null) {
+      sel = sel.eq(item.partitionKeyName!, item.partitionKeyValue!);
+    }
+    final serverRows = await sel.limit(1);
 
     if (serverRows.isEmpty) {
       // Row no longer exists — treat as conflict (server deleted it).
@@ -205,14 +225,22 @@ class SyncManager {
     if (!hasConflict) {
       var query = client.from(item.table);
       if (item.schema != null) query = client.schema(item.schema!).from(item.table);
-      await query.update(item.payload).eq('id', id);
+      var upd = query.update(item.payload).eq('id', id);
+      if (item.partitionKeyName != null && item.partitionKeyValue != null) {
+        upd = upd.eq(item.partitionKeyName!, item.partitionKeyValue!);
+      }
+      await upd;
       return _ExecuteOutcome.success;
     }
 
     // Conflict detected — fetch the full server row for the conflict event.
     var fullRowsQuery = client.from(item.table);
     if (item.schema != null) fullRowsQuery = client.schema(item.schema!).from(item.table);
-    final fullRows = await fullRowsQuery.select().eq('id', id).limit(1);
+    var full = fullRowsQuery.select().eq('id', id);
+    if (item.partitionKeyName != null && item.partitionKeyValue != null) {
+      full = full.eq(item.partitionKeyName!, item.partitionKeyValue!);
+    }
+    final fullRows = await full.limit(1);
     final serverVersion = fullRows.isNotEmpty
         ? Map<String, dynamic>.from(fullRows.first)
         : <String, dynamic>{};

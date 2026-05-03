@@ -153,7 +153,7 @@ class ForumAdsCubit extends Cubit<ForumAdsState> {
       _viewedAds.add(adId);
       _impressionTimers.remove(adId);
       try {
-        await Supabase.instance.client.from('ad_analytics').insert({
+        await Supabase.instance.client.schema('ad_analytics').from('ad_analytics').insert({
           'campaign_id': adId,
           'interaction_type': 'impression',
           'user_id': userId,
@@ -182,7 +182,7 @@ class ForumAdsCubit extends Cubit<ForumAdsState> {
     if (adId == 'default_lynk_upgrade') return;
     if (userId == kGuestUserId) return;
     try {
-      await Supabase.instance.client.from('ad_analytics').insert({
+      await Supabase.instance.client.schema('ad_analytics').from('ad_analytics').insert({
         'campaign_id': adId,
         'interaction_type': 'click',
         'user_id': userId,

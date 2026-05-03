@@ -56,11 +56,13 @@ class TicketCubit extends Cubit<TicketState> {
 
   void _subscribeToUpdates(String ticketId) {
     _subscription?.unsubscribe();
+    // tickets.tickets is in the `tickets` schema, not `public`. The table must
+    // also be on the supabase_realtime publication for this subscription to fire.
     _subscription = Supabase.instance.client
         .channel('ticket_live_status_$ticketId')
         .onPostgresChanges(
           event: PostgresChangeEvent.update,
-          schema: 'public',
+          schema: 'tickets',
           table: 'tickets',
           filter: PostgresChangeFilter(
             type: PostgresChangeFilterType.eq,
@@ -68,8 +70,8 @@ class TicketCubit extends Cubit<TicketState> {
             value: ticketId,
           ),
           callback: (payload) {
-            // When the steward scans the QR code, the 'redeemed_at' field is updated.
-            // We re-fetch to get the fresh status and nested event data.
+            // When the steward scans the QR code, `redeemed_at` is updated.
+            // Re-fetch via the view to get the fresh status and nested event data.
             loadTicket(ticketId, isSilent: true);
           },
         )

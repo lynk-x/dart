@@ -87,13 +87,16 @@ class ForumChatCubit extends BaseMessageCubit<ForumChatState> {
     if (isClosed) return;
     emit(state.copyWith(isLoading: true));
     try {
+      // Reads go through vw_forum_messages — it pre-shapes user_profile,
+      // forum_members, and forum_media for ChatMessage.fromMap. Direct embeds
+      // on forum_messages.forum_messages don't work because there is no FK
+      // from forum_messages to forum_members.
       var query = Supabase.instance.client
-          .schema('forum_messages')
-          .from('forum_messages')
-          .select(
-              '*, user_profile!author_id(user_name, is_premium), forum_members!inner(role_id)')
+          .from('vw_forum_messages')
+          .select()
           .eq('forum_id', forumId)
-          .eq('message_type', 'chat');
+          .eq('message_type', 'chat')
+          .filter('deleted_at', 'is', null);
 
       if (state.searchQuery.isNotEmpty) {
         query = query.textSearch('fts', state.searchQuery, config: 'english');
@@ -122,12 +125,11 @@ class ForumChatCubit extends BaseMessageCubit<ForumChatState> {
     final startIndex = state.messages.length;
     try {
       var query = Supabase.instance.client
-          .schema('forum_messages')
-          .from('forum_messages')
-          .select(
-              '*, user_profile!author_id(user_name, is_premium), forum_members!inner(role_id)')
+          .from('vw_forum_messages')
+          .select()
           .eq('forum_id', forumId)
-          .eq('message_type', 'chat');
+          .eq('message_type', 'chat')
+          .filter('deleted_at', 'is', null);
 
       if (state.searchQuery.isNotEmpty) {
         query = query.textSearch('fts', state.searchQuery, config: 'english');
@@ -183,20 +185,35 @@ class ForumChatCubit extends BaseMessageCubit<ForumChatState> {
     ));
 
     if (userId != kGuestUserId) {
+      // Send the explicit `created_at` we generated locally so:
+      //  (a) the broadcast and the DB row share the same timestamp (prevents
+      //      cross-client divergence on subsequent UPDATE/DELETE),
+      //  (b) the partition-keyed FKs to media_id and reply_to_id resolve.
+      // Both forum_media and forum_messages are partitioned by created_at and
+      // their FKs are composite (id, created_at) — partial keys never match.
+      final mediaCreatedAt = state.mentionedMedia?.createdAt.toIso8601String();
+      final replyCreatedAt = replyTo?.createdAt.toIso8601String();
+      final messageCreatedAt = now.toIso8601String();
+
       // Optimistic Sync Push
       SyncManager.instance.addWork(SyncItem(
         id: messageId,
         table: 'forum_messages',
         schema: 'forum_messages',
         action: SyncAction.insert,
+        partitionKeyName: 'created_at',
+        partitionKeyValue: messageCreatedAt,
         payload: {
           'id': messageId,
           'forum_id': forumId,
           'author_id': userId,
           'content': text,
           'message_type': 'chat',
+          'created_at': messageCreatedAt,
           if (mediaId != null) 'media_id': mediaId,
+          if (mediaCreatedAt != null) 'media_created_at': mediaCreatedAt,
           if (replyTo != null) 'reply_to_id': replyTo.id,
+          if (replyCreatedAt != null) 'reply_to_created_at': replyCreatedAt,
         },
       ));
 

@@ -37,7 +37,7 @@ class _InterstitialAdState extends State<InterstitialAd> {
   void _logClickAndNavigate() async {
     final userId = Supabase.instance.client.auth.currentUser?.id;
     if (userId != null) {
-      Supabase.instance.client.from('ad_analytics').insert({
+      Supabase.instance.client.schema('ad_analytics').from('ad_analytics').insert({
         'campaign_id': widget.ad.id,
         'interaction_type': 'click',
         'user_id': userId,

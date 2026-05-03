@@ -85,9 +85,9 @@ class _LiveChatTabState extends State<LiveChatTab>
                             isOrganizer: mainState.isOrganizer,
                             isPremium: mainState.isPremium,
                             onPin: (msg) => mainCubit.pinMessage(msg),
-                            onDelete: (msg) => chatCubit.deleteMessage(msg.id),
+                            onDelete: (msg) => chatCubit.deleteMessage(msg),
                             onReport: (msg) =>
-                                chatCubit.reportMessage(msg.id, 'Spam'),
+                                chatCubit.reportMessage(msg, 'Spam'),
                             onMute: (msg) => mainCubit.muteUser(msg.userId),
                             onBan: (msg) => mainCubit.banUser(msg.userId),
                             onReact: (msg, emoji) =>

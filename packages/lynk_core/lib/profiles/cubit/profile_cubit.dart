@@ -36,6 +36,13 @@ class ProfileCubit extends Cubit<ProfileState> {
     }
   }
 
+  /// Updates the authenticated user's profile.
+  ///
+  /// Routes editable fields through the `update_my_profile` RPC, which also
+  /// handles auth/admin checks and bio/tagline serialization into the `info`
+  /// jsonb column. `user_name` is updated separately because the RPC does not
+  /// expose it; the schema's `tr_user_profile_security` trigger does not
+  /// restrict user_name writes for the row owner.
   Future<void> updateProfile({
     String? fullName,
     String? userName,
@@ -50,6 +57,30 @@ class ProfileCubit extends Cubit<ProfileState> {
 
     emit(currentState.copyWith(isUpdating: true));
     try {
+      final infoPatch = <String, dynamic>{};
+      if (bio != null) infoPatch['bio'] = bio;
+      if (tagline != null) infoPatch['tagline'] = tagline;
+
+      // RPC: full_name + avatar_url + info (bio/tagline) + country_code
+      final hasRpcUpdate = fullName != null ||
+          countryCode != null ||
+          infoPatch.isNotEmpty;
+      if (hasRpcUpdate) {
+        await Supabase.instance.client.rpc('update_my_profile', params: {
+          if (fullName != null) 'p_full_name': fullName,
+          if (countryCode != null) 'p_country_code': countryCode,
+          if (infoPatch.isNotEmpty) 'p_info': infoPatch,
+        });
+      }
+
+      // user_name is not covered by update_my_profile; direct UPDATE.
+      if (userName != null) {
+        await Supabase.instance.client
+            .from('user_profile')
+            .update({'user_name': userName})
+            .eq('id', uid);
+      }
+
       final updatedProfile = currentState.profile.copyWith(
         fullName: fullName,
         userName: userName,
@@ -57,12 +88,6 @@ class ProfileCubit extends Cubit<ProfileState> {
         tagline: tagline,
         countryCode: countryCode,
       );
-
-      await Supabase.instance.client
-          .from('user_profile')
-          .update(updatedProfile.toMap())
-          .eq('id', uid);
-
       emit(ProfileLoaded(profile: updatedProfile));
     } catch (e) {
       emit(currentState.copyWith(isUpdating: false, error: e.toString()));

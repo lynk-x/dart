@@ -51,12 +51,11 @@ class ForumUpdatesCubit extends BaseMessageCubit<ForumUpdatesState> {
     emit(state.copyWith(isLoading: true));
     try {
       var query = Supabase.instance.client
-          .schema('forum_messages')
-          .from('forum_messages')
-          .select(
-              '*, user_profile(user_name, is_premium), forum_members!inner(role_id)')
+          .from('vw_forum_messages')
+          .select()
           .eq('forum_id', forumId)
-          .eq('message_type', 'announcement');
+          .eq('message_type', 'announcement')
+          .filter('deleted_at', 'is', null);
 
       if (state.selectedCategory != null) {
         query = query.eq('hashtag', state.selectedCategory!);
@@ -89,12 +88,11 @@ class ForumUpdatesCubit extends BaseMessageCubit<ForumUpdatesState> {
     final startIndex = state.messages.length;
     try {
       var query = Supabase.instance.client
-          .schema('forum_messages')
-          .from('forum_messages')
-          .select(
-              '*, user_profile(user_name, is_premium), forum_members!inner(role_id)')
+          .from('vw_forum_messages')
+          .select()
           .eq('forum_id', forumId)
-          .eq('message_type', 'announcement');
+          .eq('message_type', 'announcement')
+          .filter('deleted_at', 'is', null);
 
       if (state.selectedCategory != null) {
         query = query.eq('hashtag', state.selectedCategory!);
@@ -173,6 +171,11 @@ class ForumUpdatesCubit extends BaseMessageCubit<ForumUpdatesState> {
     ));
 
     try {
+      // forum_media is partitioned by created_at; the FK on forum_messages is
+      // composite (media_id, media_created_at) — both must be supplied or the
+      // FK will not resolve and media will not render in the message.
+      final mediaCreatedAt = state.mentionedMedia?.createdAt.toIso8601String();
+
       await Supabase.instance.client
           .schema('forum_messages')
           .from('forum_messages')
@@ -183,7 +186,9 @@ class ForumUpdatesCubit extends BaseMessageCubit<ForumUpdatesState> {
         'content': text,
         'message_type': 'announcement',
         'hashtag': category,
+        'created_at': now.toIso8601String(),
         if (mediaId != null) 'media_id': mediaId,
+        if (mediaCreatedAt != null) 'media_created_at': mediaCreatedAt,
       });
 
       // Broadcast

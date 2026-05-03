@@ -42,6 +42,24 @@ class SyncItem {
   /// If null, no conflict detection is performed (equivalent to [ConflictPolicy.clientWins]).
   final String? serverUpdatedAtBaseline;
 
+  /// Partition key column name for partitioned tables (e.g. `'created_at'`,
+  /// `'transferred_at'`, `'scanned_at'`). When set, UPDATE/DELETE operations
+  /// also filter by this column to satisfy the composite primary key required
+  /// by Postgres partitioned tables.
+  ///
+  /// Required for: `forum_messages.forum_messages`, `forum_media.forum_media`,
+  /// `message_reactions.message_reactions`, `notifications.notifications`,
+  /// `tickets.tickets`, `ticket_transfers.ticket_transfers`,
+  /// `refund_requests.refund_requests`, `transactions.transactions`,
+  /// `wallet_top_ups.wallet_top_ups`, `responses.responses`, `reports.reports`,
+  /// `ad_analytics.ad_analytics`, `ticket_scan_logs.ticket_scan_logs`.
+  final String? partitionKeyName;
+
+  /// Partition key value (typically an ISO 8601 timestamp). Must be the exact
+  /// value that was used at INSERT time — read it back from the row, do not
+  /// regenerate `DateTime.now()` here.
+  final String? partitionKeyValue;
+
   SyncItem({
     required this.id,
     required this.table,
@@ -52,6 +70,8 @@ class SyncItem {
     this.retryCount = 0,
     this.conflictPolicy = ConflictPolicy.serverWins,
     this.serverUpdatedAtBaseline,
+    this.partitionKeyName,
+    this.partitionKeyValue,
   }) : createdAt = createdAt ?? DateTime.now();
 
   SyncItem copyWith({int? retryCount}) => SyncItem(
@@ -64,6 +84,8 @@ class SyncItem {
         retryCount: retryCount ?? this.retryCount,
         conflictPolicy: conflictPolicy,
         serverUpdatedAtBaseline: serverUpdatedAtBaseline,
+        partitionKeyName: partitionKeyName,
+        partitionKeyValue: partitionKeyValue,
       );
 
   Map<String, dynamic> toMap() {
@@ -77,6 +99,8 @@ class SyncItem {
       'retryCount': retryCount,
       'conflictPolicy': conflictPolicy.name,
       'serverUpdatedAtBaseline': serverUpdatedAtBaseline,
+      'partitionKeyName': partitionKeyName,
+      'partitionKeyValue': partitionKeyValue,
     };
   }
 
@@ -93,6 +117,8 @@ class SyncItem {
         (map['conflictPolicy'] as String?) ?? ConflictPolicy.serverWins.name,
       ),
       serverUpdatedAtBaseline: map['serverUpdatedAtBaseline'] as String?,
+      partitionKeyName: map['partitionKeyName'] as String?,
+      partitionKeyValue: map['partitionKeyValue'] as String?,
     );
   }
 }

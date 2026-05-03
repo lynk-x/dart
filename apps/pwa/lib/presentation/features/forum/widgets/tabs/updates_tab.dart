@@ -132,10 +132,9 @@ class _UpdatesTabState extends State<UpdatesTab>
                                     onPin: (msg) =>
                                         mainCubit.pinMessage(msg),
                                     onDelete: (msg) =>
-                                        updatesCubit.deleteMessage(msg.id),
+                                        updatesCubit.deleteMessage(msg),
                                     onReport: (msg) =>
-                                        updatesCubit.reportMessage(
-                                            msg.id, 'Spam'),
+                                        updatesCubit.reportMessage(msg, 'Spam'),
                                     onMute: (msg) =>
                                         mainCubit.muteUser(msg.userId),
                                     onBan: (msg) =>

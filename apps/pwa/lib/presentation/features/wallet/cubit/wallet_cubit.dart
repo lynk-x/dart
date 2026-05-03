@@ -102,10 +102,15 @@ class WalletCubit extends Cubit<WalletState> {
       final from = _currentPage * _pageSize;
       final to   = from + _pageSize - 1;
 
+      // transactions.transactions has no `user_id` column. The wallet view
+      // shows both directions: payments the user initiated (initiated_by)
+      // and payments received as the counterparty (recipient_id). The
+      // .or() filter unions them server-side.
+      final uid = _supabase.auth.currentUser?.id ?? '';
       var query = _supabase
           .schema('transactions').from('transactions')
-          .select('id, category, reason, amount, currency, status, created_at, metadata')
-          .eq('user_id', _supabase.auth.currentUser?.id ?? '');
+          .select('id, category, reason, amount, currency, status, created_at, metadata, initiated_by, recipient_id, recipient_account_id')
+          .or('initiated_by.eq.$uid,recipient_id.eq.$uid');
 
       if (state.selectedCurrency != null) {
         query = query.eq('currency', state.selectedCurrency!);
