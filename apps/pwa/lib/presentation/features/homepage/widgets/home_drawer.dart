@@ -408,8 +408,11 @@ class _HomeDrawerState extends State<HomeDrawer> {
                   },
                 ),
                 const SizedBox(height: 16),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
+                Wrap(
+                  alignment: WrapAlignment.center,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 4,
+                  runSpacing: 4,
                   children: [
                     GestureDetector(
                       onTap: () {
