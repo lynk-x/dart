@@ -608,6 +608,8 @@ class _TicketViewState extends State<TicketView> {
             ),
           ),
 
+          const _TicketSecuritySection(),
+
           // Barcode Section
           Container(
             padding: const EdgeInsets.all(24),
@@ -1091,4 +1093,161 @@ class DashedLinePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+class _TicketSecuritySection extends StatefulWidget {
+  const _TicketSecuritySection();
+
+  @override
+  State<_TicketSecuritySection> createState() => _TicketSecuritySectionState();
+}
+
+class _TicketSecuritySectionState extends State<_TicketSecuritySection> {
+  late DateTime _now;
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _now = DateTime.now();
+    _timer = Timer.periodic(const Duration(milliseconds: 100), (timer) {
+      if (mounted) setState(() => _now = DateTime.now());
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final timeStr = DateFormat('HH:mm:ss').format(_now);
+    final msStr = (_now.millisecond / 10).floor().toString().padLeft(2, '0');
+
+    return Container(
+      height: 60,
+      margin: const EdgeInsets.symmetric(horizontal: 24),
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          // Holographic Shimmer Layer 1
+          Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              color: Colors.white.withValues(alpha: 0.03),
+            ),
+          )
+              .animate(onPlay: (controller) => controller.repeat())
+              .shimmer(
+                duration: 2500.ms,
+                color: Colors.white.withValues(alpha: 0.15),
+                angle: 0.5,
+              ),
+
+          // Holographic Shimmer Layer 2 (Opposite direction)
+          Container()
+              .animate(onPlay: (controller) => controller.repeat())
+              .shimmer(
+                duration: 3500.ms,
+                color: Colors.cyanAccent.withValues(alpha: 0.08),
+                angle: -0.8,
+              ),
+
+          // Content
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              children: [
+                // Live Pulse
+                Container(
+                  width: 8,
+                  height: 8,
+                  decoration: const BoxDecoration(
+                    color: Colors.greenAccent,
+                    shape: BoxShape.circle,
+                  ),
+                )
+                    .animate(onPlay: (controller) => controller.repeat())
+                    .scale(
+                      duration: 1000.ms,
+                      begin: const Offset(1, 1),
+                      end: const Offset(1.5, 1.5),
+                      curve: Curves.easeInOut,
+                    )
+                    .fadeOut(),
+                const SizedBox(width: 12),
+                
+                // Genuine Text
+                Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'VERIFIED GENUINE',
+                        style: AppTypography.inter(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white.withValues(alpha: 0.7),
+                          letterSpacing: 1.5,
+                        ),
+                      ),
+                      Text(
+                        'LYNK-X SECURITY PROTOCOL v2.1',
+                        style: AppTypography.inter(
+                          fontSize: 8,
+                          color: Colors.white.withValues(alpha: 0.4),
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Live Clock
+                Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    RichText(
+                      text: TextSpan(
+                        children: [
+                          TextSpan(
+                            text: timeStr,
+                            style: AppTypography.inter(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                          TextSpan(
+                            text: '.$msStr',
+                            style: AppTypography.inter(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w400,
+                              color: Colors.white.withValues(alpha: 0.5),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Text(
+                      'LIVE TIMESTAMP',
+                      style: AppTypography.inter(
+                        fontSize: 7,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white.withValues(alpha: 0.3),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
