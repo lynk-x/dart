@@ -101,11 +101,11 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
             .eq('is_active', true)
             .eq('product_type', 'attendee_premium'),
 
-        // User country (null-safe ternary — avoids type inference failure on if/else)
+        // User country + the country's local currency (joined from `countries`).
         uid != null
             ? _supabase
                 .from('user_profile')
-                .select('country_code')
+                .select('country_code, countries:country_code(currency)')
                 .eq('id', uid)
                 .maybeSingle()
             : Future<dynamic>.value(null),
@@ -118,7 +118,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
             .eq('is_latest', true)
             .maybeSingle(),
 
-        // Wallet balance (prefer KES, fall back to USD)
+        // Wallet balances across currencies — selector below picks the best match.
         _supabase
             .from('account_wallets')
             .select('currency, balance')
@@ -131,15 +131,20 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
       final walletsRaw = results[3] as List;
 
       final country = (profileRaw?['country_code'] as String?) ?? '';
+      // `countries.currency` is the local ISO-4217 code derived from the user's
+      // profile country. Used to pick the wallet that matches the user's
+      // home currency, falling back to USD when no local wallet exists.
+      final localCurrency =
+          (profileRaw?['countries']?['currency'] as String?) ?? '';
 
-      // Resolve wallet balance — prefer local currency
+      // Resolve wallet balance — prefer local-country currency, then USD.
       String walletCurrency = 'USD';
       double walletBalance = 0;
       for (final w in walletsRaw) {
         final c = w['currency'] as String;
         final b = (w['balance'] as num).toDouble();
-        if (c == 'KES' && country == 'KE') {
-          walletCurrency = 'KES';
+        if (localCurrency.isNotEmpty && c == localCurrency) {
+          walletCurrency = c;
           walletBalance = b;
           break;
         }

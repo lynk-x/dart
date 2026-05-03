@@ -35,6 +35,11 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   bool? _isUsernameAvailable;
   Timer? _debounceTimer;
 
+  /// Monotonic request id; in-flight RPCs check this against the latest
+  /// before applying their result, so a slow earlier response cannot
+  /// clobber a faster later one.
+  int _usernameRequestId = 0;
+
   // Security Fields
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
@@ -74,6 +79,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
       return;
     }
 
+    final requestId = ++_usernameRequestId;
     _debounceTimer = Timer(const Duration(milliseconds: 500), () async {
       if (!mounted) return;
       setState(() => _isCheckingUsername = true);
@@ -82,14 +88,16 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
           'is_username_available',
           params: {'username_to_check': name},
         );
-        if (mounted) {
-          setState(() {
-            _isUsernameAvailable = response as bool;
-            _isCheckingUsername = false;
-          });
-        }
+        // Discard stale responses: a faster later request may have already
+        // landed and updated the UI.
+        if (!mounted || requestId != _usernameRequestId) return;
+        setState(() {
+          _isUsernameAvailable = response as bool;
+          _isCheckingUsername = false;
+        });
       } catch (e) {
-        if (mounted) { setState(() => _isCheckingUsername = false); }
+        if (!mounted || requestId != _usernameRequestId) return;
+        setState(() => _isCheckingUsername = false);
       }
     });
   }

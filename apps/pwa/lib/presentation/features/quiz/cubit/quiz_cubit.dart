@@ -129,16 +129,26 @@ class QuizCubit extends Cubit<QuizState> {
   Future<void> submitAnswer(int optionIndex) async {
     if (state.status != QuizStatus.playing || state.myAnswerIndex != null) return;
 
+    final question = state.currentQuestion;
+    final questionId = question?['id'] as String?;
+    if (questionId == null) {
+      debugPrint('[QuizCubit] submitAnswer: no current question loaded');
+      return;
+    }
+
     try {
       emit(state.copyWith(myAnswerIndex: optionIndex));
 
+      // responses.responses columns: question_id NOT NULL, selected_answer jsonb
+      // (array of indices). The legacy 'answers' name was wrong.
       await Supabase.instance.client
           .schema('responses')
           .from('responses')
           .insert({
         'questionnaire_id': questionnaireId,
+        'question_id': questionId,
         'user_id': userId,
-        'answers': [optionIndex], // Store selected index in JSONB array
+        'selected_answer': [optionIndex],
       });
     } catch (e) {
       // Revert if failed

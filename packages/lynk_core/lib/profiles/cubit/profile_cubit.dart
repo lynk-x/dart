@@ -165,22 +165,36 @@ class ProfileCubit extends Cubit<ProfileState> {
     }
   }
 
+  /// Monotonic request id; in-flight RPCs check this against the latest
+  /// before applying their result, so a slow earlier response cannot
+  /// clobber a faster later one.
+  int _usernameRequestId = 0;
+
   Future<void> checkUsernameAvailability(String username) async {
     final currentState = state;
     if (currentState is! ProfileLoaded) return;
 
+    final requestId = ++_usernameRequestId;
     emit(currentState.copyWith(isCheckingUsername: true, isUsernameAvailable: null));
     try {
       final response = await Supabase.instance.client.rpc(
         'is_username_available',
         params: {'username_to_check': username},
       );
-      emit(currentState.copyWith(
+      // Discard stale responses.
+      if (requestId != _usernameRequestId) return;
+      // Re-read state in case it changed during the await.
+      final next = state;
+      if (next is! ProfileLoaded) return;
+      emit(next.copyWith(
         isCheckingUsername: false,
         isUsernameAvailable: response as bool,
       ));
     } catch (e) {
-      emit(currentState.copyWith(isCheckingUsername: false));
+      if (requestId != _usernameRequestId) return;
+      final next = state;
+      if (next is! ProfileLoaded) return;
+      emit(next.copyWith(isCheckingUsername: false));
     }
   }
 

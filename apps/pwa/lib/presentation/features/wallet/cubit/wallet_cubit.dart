@@ -159,16 +159,39 @@ class WalletCubit extends Cubit<WalletState> {
   /// Subscribe to INSERT/UPDATE events on account_wallets for live balance.
   /// When the payment webhook Edge Function credits the wallet, the UI tile
   /// updates without requiring a manual refresh.
+  ///
+  /// Filters by the user's account_id so the channel only emits relevant rows
+  /// (RLS already enforces this server-side, but client-side filtering avoids
+  /// waking the cubit on every other user's wallet update). On RLS denial,
+  /// the subscribe callback receives `RealtimeSubscribeStatus.channelError` —
+  /// surface it through state so the UI can show a stale-data hint.
   void _subscribeToBalanceUpdates() {
+    final accountId = state.accountId;
+    if (accountId == null) return; // No account loaded yet — caller will retry.
+
     _balanceChannel = _supabase
-        .channel('wallet_balance_updates')
+        .channel('wallet_balance:$accountId')
         .onPostgresChanges(
           event:  PostgresChangeEvent.all,
           schema: 'public',
           table:  'account_wallets',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'account_id',
+            value: accountId,
+          ),
           callback: (_) => _fetchBalances(),
         )
-        .subscribe();
+        .subscribe((status, [error]) {
+          if (status == RealtimeSubscribeStatus.channelError ||
+              status == RealtimeSubscribeStatus.timedOut) {
+            // Surface to state — most commonly an RLS denial or network blip.
+            // Keeps the UI honest about whether realtime is live.
+            emit(state.copyWith(
+              error: 'Realtime balance updates unavailable. Pull to refresh.',
+            ));
+          }
+        });
   }
 
   // ── Top-up Flow ────────────────────────────────────────────────────────────
