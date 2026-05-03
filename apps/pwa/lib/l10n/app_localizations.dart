@@ -189,6 +189,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Event Progress'**
   String get eventProgress;
+
+  /// Link text for community guidelines
+  ///
+  /// In en, this message translates to:
+  /// **'Community Guidelines'**
+  String get communityGuidelines;
 }
 
 class _AppLocalizationsDelegate

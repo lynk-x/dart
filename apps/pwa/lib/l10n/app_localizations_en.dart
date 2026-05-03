@@ -53,4 +53,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get eventProgress => 'Event Progress';
+
+  @override
+  String get communityGuidelines => 'Community Guidelines';
 }

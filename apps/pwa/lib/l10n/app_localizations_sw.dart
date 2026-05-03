@@ -53,4 +53,7 @@ class AppLocalizationsSw extends AppLocalizations {
 
   @override
   String get eventProgress => 'Maendeleo ya Tukio';
+
+  @override
+  String get communityGuidelines => 'Miongozo ya Jumuiya';
 }

@@ -456,6 +456,32 @@ class _HomeDrawerState extends State<HomeDrawer> {
                         ),
                       ),
                     ),
+                    const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 8.0),
+                      child: Text(
+                        '·',
+                        style: TextStyle(color: Colors.white24, fontSize: 12),
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: () {
+                        final url = context
+                            .read<SystemConfigCubit>()
+                            .state
+                            .getString('community_guidelines_url');
+                        if (url.isNotEmpty) {
+                          launchUrl(Uri.parse(url),
+                              mode: LaunchMode.inAppBrowserView);
+                        }
+                      },
+                      child: Text(
+                        l10n.communityGuidelines,
+                        style: const TextStyle(
+                          color: AppColors.tertiary,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 8),

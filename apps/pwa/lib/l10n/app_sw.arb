@@ -14,5 +14,9 @@
   "version": "Toleo",
   "today": "Leo",
   "yesterday": "Jana",
-  "eventProgress": "Maendeleo ya Tukio"
+  "eventProgress": "Maendeleo ya Tukio",
+  "communityGuidelines": "Miongozo ya Jumuiya",
+  "@communityGuidelines": {
+    "description": "Maandishi ya kiungo kwa miongozo ya jumuiya"
+  }
 }

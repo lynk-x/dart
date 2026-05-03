@@ -48,16 +48,20 @@
   "@version": {
     "description": "Label for the app version number"
   },
-  "today": "Today",
   "@today": {
     "description": "Relative date label for today"
   },
-  "yesterday": "Yesterday",
+  "today": "Today",
   "@yesterday": {
     "description": "Relative date label for yesterday"
   },
-  "eventProgress": "Event Progress",
+  "yesterday": "Yesterday",
   "@eventProgress": {
     "description": "Label for the event progress bar"
-  }
+  },
+  "eventProgress": "Event Progress",
+  "@communityGuidelines": {
+    "description": "Link text for community guidelines"
+  },
+  "communityGuidelines": "Community Guidelines"
 }

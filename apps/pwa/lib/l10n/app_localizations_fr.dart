@@ -46,11 +46,14 @@ class AppLocalizationsFr extends AppLocalizations {
   String get version => 'Version';
 
   @override
-  String get today => 'Today';
+  String get today => 'Aujourd\'hui';
 
   @override
-  String get yesterday => 'Yesterday';
+  String get yesterday => 'Hier';
 
   @override
-  String get eventProgress => 'Event Progress';
+  String get eventProgress => 'Progression de l\'événement';
+
+  @override
+  String get communityGuidelines => 'Règles de la Communauté';
 }
