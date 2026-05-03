@@ -151,7 +151,7 @@ class _ChatBubbleState extends State<ChatBubble> {
             ActionBarItem(
               label: 'Pin',
               onTap: () => widget.onPin?.call(widget.message),
-              color: AppColors.primary,
+              color: context.accentColor,
             ),
           if (widget.isOrganizer && !widget.message.isMe) ...[
             if (widget.onMute != null)
@@ -247,8 +247,8 @@ class _ChatBubbleState extends State<ChatBubble> {
                 const SizedBox(height: 4),
                 TextButton(
                   onPressed: () => setState(() => _revealed = true),
-                  child: const Text('Reveal',
-                      style: TextStyle(color: AppColors.primary, fontSize: 12)),
+                  child: Text('Reveal',
+                      style: TextStyle(color: context.accentColor, fontSize: 12)),
                 ),
               ],
             ),
@@ -270,7 +270,7 @@ class _ChatBubbleState extends State<ChatBubble> {
 
   Widget _buildBubble() {
     final bgColor = widget.message.isMe
-        ? AppColors.primary
+        ? context.accentColor
         : AppColors.tertiary;
     final textColor = widget.message.isMe ? Colors.black : Colors.white;
 
@@ -344,8 +344,8 @@ class _ChatBubbleState extends State<ChatBubble> {
           placeholder: (context, url) => Container(
             height: 120,
             color: Colors.grey[900],
-            child: const Center(
-              child: CircularProgressIndicator(strokeWidth: 1.5, color: AppColors.primary),
+            child: Center(
+              child: CircularProgressIndicator(strokeWidth: 1.5, color: context.accentColor),
             ),
           ),
           errorWidget: (context, url, err) => Container(
@@ -370,7 +370,7 @@ class _ChatBubbleState extends State<ChatBubble> {
 
   Widget _buildCategoryBadge() {
     final category = widget.message.category!;
-    final color = _categoryColors[category] ?? AppColors.primary;
+    final color = _categoryColors[category] ?? context.accentColor;
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
       child: Container(

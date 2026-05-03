@@ -75,10 +75,10 @@ class _MediaTabState extends State<MediaTab>
                   child: RepaintBoundary(
                     child: RefreshIndicator(
                       onRefresh: () async => mediaCubit.refreshMedia(),
-                      color: AppColors.primary,
+                      color: context.accentColor,
                       child: mediaState.isLoading && mediaState.mediaItems.isEmpty
-                          ? const Center(
-                              child: CircularProgressIndicator(color: AppColors.primary),
+                          ? Center(
+                              child: CircularProgressIndicator(color: context.accentColor),
                             )
                           : mediaState.mediaItems.isEmpty
                               ? const EmptyState(message: 'No media uploaded yet.')

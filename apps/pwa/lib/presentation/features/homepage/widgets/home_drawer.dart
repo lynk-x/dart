@@ -269,7 +269,7 @@ class _HomeDrawerState extends State<HomeDrawer> {
                     margin:
                         const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     decoration: BoxDecoration(
-                      color: AppColors.primary,
+                      color: context.accentColor,
                       borderRadius: BorderRadius.circular(16),
                     ),
                     child: Material(

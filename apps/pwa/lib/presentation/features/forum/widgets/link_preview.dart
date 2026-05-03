@@ -137,7 +137,7 @@ class _ChatLinkPreviewState extends State<ChatLinkPreview> {
                   widget.data!.title!,
                   style: widget.textStyle.copyWith(
                     fontWeight: FontWeight.bold,
-                    color: AppColors.primary,
+                    color: context.accentColor,
                   ),
                 ),
               if (widget.data!.description != null)

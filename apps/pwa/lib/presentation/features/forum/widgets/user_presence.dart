@@ -49,7 +49,7 @@ class _UserPresenceCardState extends State<UserPresenceCard> {
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: BoxDecoration(
               color: widget.isPrimary
-                  ? AppColors.primary
+                  ? context.accentColor
                   : const Color(0xFF1E1E1E),
               borderRadius: BorderRadius.circular(8),
               border: Border.all(
@@ -96,7 +96,7 @@ class _UserPresenceCardState extends State<UserPresenceCard> {
               _toggleActions();
               context.push('/profile');
             },
-            color: AppColors.primary,
+            color: context.accentColor,
           ),
         ],
 
@@ -161,7 +161,7 @@ class _UserPresenceCardState extends State<UserPresenceCard> {
                 SnackBar(content: Text('${widget.username} is now an admin.')),
               );
             },
-            color: AppColors.primary,
+            color: context.accentColor,
           ),
         ],
       ],

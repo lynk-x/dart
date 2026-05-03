@@ -4,7 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// PushNotificationService for PWA.
-/// 
+///
 /// Handles Firebase Cloud Messaging for Web Push.
 /// Local notifications plugin is removed as it is mobile-only.
 class PushNotificationService {
@@ -18,9 +18,11 @@ class PushNotificationService {
   /// Callback invoked when a user taps a notification.
   void Function(String route)? onNotificationTap;
 
+  /// Callback invoked when notification permission is denied.
+  /// The app can use this to show an explanatory prompt.
+  void Function()? onPermissionDenied;
+
   Future<void> init() async {
-    // Web push requires a service worker and VAPID key.
-    // If not configured, we gracefully exit.
     try {
       final settings = await _messaging.requestPermission(
         alert: true,
@@ -30,6 +32,7 @@ class PushNotificationService {
 
       if (settings.authorizationStatus == AuthorizationStatus.denied) {
         debugPrint('[Push] Permission denied');
+        onPermissionDenied?.call();
         return;
       }
 
@@ -40,8 +43,8 @@ class PushNotificationService {
       _openedSub =
           FirebaseMessaging.onMessageOpenedApp.listen(_handleNotificationTap);
 
-      // Register FCM token
-      await _registerToken();
+      // Register FCM token with retry
+      await _registerTokenWithRetry();
 
       // Listen for token refreshes
       _messaging.onTokenRefresh.listen((newToken) {
@@ -54,7 +57,6 @@ class PushNotificationService {
 
   void _handleForeground(RemoteMessage message) {
     debugPrint('[Push] Foreground message received: ${message.notification?.title}');
-    // On Web, browsers usually handle the display if the site is open.
   }
 
   void _handleNotificationTap(RemoteMessage message) {
@@ -63,22 +65,36 @@ class PushNotificationService {
     onNotificationTap?.call(route);
   }
 
-  Future<void> _registerToken() async {
-    try {
-      String? token;
-      if (kIsWeb) {
-        const vapidKey = String.fromEnvironment('FIREBASE_VAPID_KEY');
-        token = await _messaging.getToken(vapidKey: vapidKey.isNotEmpty ? vapidKey : null);
-      } else {
-        token = await _messaging.getToken();
-      }
+  /// Attempts to register the FCM token up to [maxAttempts] times with
+  /// exponential back-off. Silently gives up after exhausting retries so a
+  /// temporary FCM outage doesn't surface a noisy error to the user.
+  Future<void> _registerTokenWithRetry({int maxAttempts = 3}) async {
+    for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        String? token;
+        if (kIsWeb) {
+          const vapidKey = String.fromEnvironment('FIREBASE_VAPID_KEY');
+          if (vapidKey.isEmpty) {
+            debugPrint('[Push] FIREBASE_VAPID_KEY is not set — skipping web push registration');
+            return;
+          }
+          token = await _messaging.getToken(vapidKey: vapidKey);
+        } else {
+          token = await _messaging.getToken();
+        }
 
-      if (token != null) {
-        await _saveTokenToSupabase(token);
+        if (token != null) {
+          await _saveTokenToSupabase(token);
+          return;
+        }
+      } catch (e) {
+        debugPrint('[Push] Token registration attempt $attempt/$maxAttempts failed: $e');
+        if (attempt < maxAttempts) {
+          await Future.delayed(Duration(seconds: attempt * 2));
+        }
       }
-    } catch (e) {
-      debugPrint('[Push] Failed to get FCM token: $e');
     }
+    debugPrint('[Push] Token registration failed after $maxAttempts attempts');
   }
 
   Future<void> _saveTokenToSupabase(String token) async {

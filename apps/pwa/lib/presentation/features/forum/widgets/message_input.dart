@@ -202,7 +202,7 @@ class _MessageInputState extends State<MessageInput> {
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.1),
         border:
-            const Border(left: BorderSide(color: AppColors.primary, width: 3)),
+            Border(left: BorderSide(color: context.accentColor, width: 3)),
       ),
       child: Row(
         children: [
@@ -215,7 +215,7 @@ class _MessageInputState extends State<MessageInput> {
                   style: AppTypography.inter(
                       fontSize: 10,
                       fontWeight: FontWeight.bold,
-                      color: AppColors.primary),
+                      color: context.accentColor),
                 ),
                 Text(
                   widget.replyTo!.message,
@@ -244,7 +244,7 @@ class _MessageInputState extends State<MessageInput> {
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.1),
         border:
-            const Border(left: BorderSide(color: AppColors.primary, width: 3)),
+            Border(left: BorderSide(color: context.accentColor, width: 3)),
       ),
       child: Row(
         children: [
@@ -284,7 +284,7 @@ class _MessageInputState extends State<MessageInput> {
                   style: AppTypography.inter(
                       fontSize: 10,
                       fontWeight: FontWeight.bold,
-                      color: AppColors.primary),
+                      color: context.accentColor),
                 ),
                 Text(
                   widget.mentionedMedia!.mediaType.toUpperCase(),

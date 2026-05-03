@@ -10,11 +10,13 @@ class TicketCubit extends Cubit<TicketState> {
   final TicketRepository _repo;
   TicketCubit(this._repo) : super(const TicketState());
 
-  RealtimeChannel? _subscription;
+  RealtimeChannel? _ticketChannel;
+  RealtimeChannel? _listingChannel;
 
   @override
   Future<void> close() {
-    _subscription?.unsubscribe();
+    _ticketChannel?.unsubscribe();
+    _listingChannel?.unsubscribe();
     return super.close();
   }
 
@@ -48,7 +50,7 @@ class TicketCubit extends Cubit<TicketState> {
       ));
 
       // Subscribe to updates if not already listening for this ticket
-      if (_subscription == null) {
+      if (_ticketChannel == null) {
         _subscribeToUpdates(ticketId);
       }
     } catch (e) {
@@ -57,14 +59,32 @@ class TicketCubit extends Cubit<TicketState> {
   }
 
   void _subscribeToUpdates(String ticketId) {
-    _subscription?.unsubscribe();
+    _ticketChannel?.unsubscribe();
     // tickets.tickets is in the `tickets` schema, not `public`. The table must
     // also be on the supabase_realtime publication for this subscription to fire.
-    _subscription = _repo.subscribeToTicket(ticketId, (payload) {
+    _ticketChannel = _repo.subscribeToTicket(ticketId, (payload) {
           // When the steward scans the QR code, `redeemed_at` is updated.
           // Re-fetch via the view to get the fresh status and nested event data.
           loadTicket(ticketId, isSilent: true);
         })
+        .subscribe();
+
+    // Subscribe to ticket_listings so resale offer status updates reflect
+    // immediately without requiring a manual refresh.
+    _listingChannel?.unsubscribe();
+    _listingChannel = Supabase.instance.client
+        .channel('ticket_listings:$ticketId')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'ticket_listings',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'ticket_id',
+            value: ticketId,
+          ),
+          callback: (_) => loadTicket(ticketId, isSilent: true),
+        )
         .subscribe();
   }
 
@@ -72,6 +92,42 @@ class TicketCubit extends Cubit<TicketState> {
     if (state.ticket != null) {
       await loadTicket(state.ticket!.id);
     }
+  }
+
+  /// Purchase tickets via the `purchase_tickets` RPC and track the full
+  /// lifecycle through [PurchaseStatus] so screens can show a confirmation.
+  Future<void> purchaseTickets({
+    required String reservationId,
+    required String paymentMethod,
+  }) async {
+    emit(state.copyWith(
+      purchaseStatus: PurchaseStatus.submitting,
+      clearPurchaseError: true,
+    ));
+    try {
+      await Supabase.instance.client.rpc('purchase_tickets', params: {
+        'p_reservation_id': reservationId,
+        'p_payment_method': paymentMethod,
+      });
+      emit(state.copyWith(purchaseStatus: PurchaseStatus.success));
+      // Refresh ticket list so the newly purchased ticket appears immediately.
+      if (state.ticket != null) {
+        await loadTicket(state.ticket!.id, isSilent: true);
+      }
+    } catch (e) {
+      emit(state.copyWith(
+        purchaseStatus: PurchaseStatus.failure,
+        purchaseError: e.toString(),
+      ));
+    }
+  }
+
+  /// Reset purchase state — call when the checkout sheet is dismissed.
+  void resetPurchase() {
+    emit(state.copyWith(
+      purchaseStatus: PurchaseStatus.idle,
+      clearPurchaseError: true,
+    ));
   }
 
   Future<String> createResaleListing({

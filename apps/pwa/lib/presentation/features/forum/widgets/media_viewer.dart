@@ -147,7 +147,7 @@ class _MediaViewerState extends State<MediaViewer> {
                   _ActionButton(
                     icon: Icons.check_circle_outline,
                     label: 'Approve',
-                    color: AppColors.primary,
+                    color: context.accentColor,
                     onTap: () {
                       Navigator.pop(context);
                       widget.onApprove?.call();
@@ -167,8 +167,8 @@ class _MediaViewerState extends State<MediaViewer> {
 
     return PhotoView(
       imageProvider: NetworkImage(url),
-      loadingBuilder: (context, event) => const Center(
-        child: CircularProgressIndicator(color: AppColors.primary),
+      loadingBuilder: (context, event) => Center(
+        child: CircularProgressIndicator(color: context.accentColor),
       ),
       backgroundDecoration: const BoxDecoration(color: Colors.black),
       minScale: PhotoViewComputedScale.contained,
@@ -179,7 +179,7 @@ class _MediaViewerState extends State<MediaViewer> {
 
   Widget _buildVideoPlayer() {
     if (_videoController == null || !_videoController!.value.isInitialized) {
-      return const Center(child: CircularProgressIndicator(color: AppColors.primary));
+      return Center(child: CircularProgressIndicator(color: context.accentColor));
     }
 
     return AspectRatio(

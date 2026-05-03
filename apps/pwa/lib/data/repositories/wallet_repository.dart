@@ -40,6 +40,7 @@ class WalletRepository {
 
     final data = await query
         .order('created_at', ascending: false)
+        .order('id', ascending: false)
         .range(offset, offset + limit - 1);
     return List<Map<String, dynamic>>.from(data);
   }

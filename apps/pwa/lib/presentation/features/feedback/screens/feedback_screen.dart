@@ -97,8 +97,8 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
                   Navigator.pop(context);
                   context.pop();
                 },
-                child: const Text('Close',
-                    style: TextStyle(color: AppColors.primary)),
+                child: Text('Close',
+                    style: TextStyle(color: context.accentColor)),
               ),
             ],
           ),
@@ -178,11 +178,11 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
                   child: Container(
                     decoration: BoxDecoration(
                       color: isSelected
-                          ? AppColors.primary.withValues(alpha: 0.1)
+                          ? context.accentColor.withValues(alpha: 0.1)
                           : AppColors.surface,
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
-                        color: isSelected ? AppColors.primary : Colors.white12,
+                        color: isSelected ? context.accentColor : Colors.white12,
                         width: 1.5,
                       ),
                     ),
@@ -192,14 +192,14 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
                         Icon(
                           cat['icon'],
                           color:
-                              isSelected ? AppColors.primary : Colors.white60,
+                              isSelected ? context.accentColor : Colors.white60,
                         ),
                         const SizedBox(width: 8),
                         Text(
                           cat['name'],
                           style: TextStyle(
                             color:
-                                isSelected ? AppColors.primary : Colors.white60,
+                                isSelected ? context.accentColor : Colors.white60,
                             fontWeight: isSelected
                                 ? FontWeight.bold
                                 : FontWeight.normal,
@@ -245,7 +245,7 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
                     Checkbox(
                       value: _includeDeviceInfo,
                       onChanged: (v) => setState(() => _includeDeviceInfo = v ?? false),
-                      activeColor: AppColors.primary,
+                      activeColor: context.accentColor,
                       side: const BorderSide(color: Colors.white30),
                     ),
                     const Expanded(

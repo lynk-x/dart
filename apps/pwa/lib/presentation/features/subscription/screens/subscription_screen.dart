@@ -119,10 +119,12 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
             .maybeSingle(),
 
         // Wallet balances across currencies — selector below picks the best match.
+        // escrow_balance holds funds reserved for pending payouts; subtract it
+        // so users cannot spend money that is already earmarked.
         _supabase
             .schema('api')
             .from('v1_wallet_balances')
-            .select('currency, balance')
+            .select('currency, balance, escrow_balance')
             .order('currency'),
       ]);
 
@@ -138,20 +140,24 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
       final localCurrency =
           (profileRaw?['countries']?['currency'] as String?) ?? '';
 
-      // Resolve wallet balance — prefer local-country currency, then USD.
+      // Resolve spendable balance — prefer local-country currency, then USD.
+      // Subtract escrow_balance (funds reserved for pending payouts) so we never
+      // report funds that are already earmarked as available to spend.
       String walletCurrency = 'USD';
       double walletBalance = 0;
       for (final w in walletsRaw) {
         final c = w['currency'] as String;
-        final b = (w['balance'] as num).toDouble();
+        final raw = (w['balance'] as num).toDouble();
+        final escrow = (w['escrow_balance'] as num? ?? 0).toDouble();
+        final spendable = raw - escrow;
         if (localCurrency.isNotEmpty && c == localCurrency) {
           walletCurrency = c;
-          walletBalance = b;
+          walletBalance = spendable;
           break;
         }
         if (c == 'USD') {
           walletCurrency = 'USD';
-          walletBalance = b;
+          walletBalance = spendable;
         }
       }
 

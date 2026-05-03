@@ -152,6 +152,16 @@ class _TopUpSheetState extends State<TopUpSheet> {
           ),
         ],
         const SizedBox(height: 28),
+        OutlinedButton.icon(
+          onPressed: () => context.read<WalletCubit>().refresh(),
+          icon: const Icon(Icons.refresh, size: 16),
+          label: const Text('Check balance now'),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: Colors.white70,
+            side: const BorderSide(color: Colors.white24),
+          ),
+        ),
+        const SizedBox(height: 8),
         TextButton(
           onPressed: () => context.read<WalletCubit>().resetTopUp(),
           child: const Text('Cancel',

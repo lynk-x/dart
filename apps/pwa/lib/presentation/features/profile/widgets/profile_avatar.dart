@@ -50,8 +50,8 @@ class ProfileAvatar extends StatelessWidget {
             right: 0,
             child: Container(
               padding: const EdgeInsets.all(8),
-              decoration: const BoxDecoration(
-                color: AppColors.primary,
+              decoration: BoxDecoration(
+                color: context.accentColor,
                 shape: BoxShape.circle,
               ),
               child: (isUploading || isUpdating)

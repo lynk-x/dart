@@ -34,7 +34,7 @@ class ForumWidget extends StatelessWidget {
         content: event.chatCount.toString(),
         child: Container(
           decoration: BoxDecoration(
-            color: AppColors.primary,
+            color: context.accentColor,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(color: AppColors.primaryBackground, width: 2),
             boxShadow: [
@@ -118,7 +118,7 @@ class ForumWidget extends StatelessWidget {
       child: Container(
         margin: const EdgeInsets.only(bottom: 8),
         decoration: BoxDecoration(
-          color: AppColors.primary,
+          color: context.accentColor,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(color: AppColors.primaryBackground, width: 1.5),
         ),

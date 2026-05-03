@@ -25,6 +25,8 @@ class _NotificationsPageState extends State<NotificationsPage> {
     if (cubit.state is NotificationInitial) {
       cubit.loadNotifications();
     }
+    // Mark all as read immediately so the badge clears when the screen is opened.
+    cubit.markAllAsRead();
   }
 
   void _handleNotificationTap(NotificationModel notification) {

@@ -11,12 +11,12 @@ class TypingIndicator extends StatelessWidget {
       padding: const EdgeInsets.only(left: 16, bottom: 8),
       child: Row(
         children: [
-          const SizedBox(
+          SizedBox(
             width: 12,
             height: 12,
             child: CircularProgressIndicator(
               strokeWidth: 1.5,
-              color: AppColors.primary,
+              color: context.accentColor,
             ),
           ),
           const SizedBox(width: 8),

@@ -131,8 +131,8 @@ class PresenceDrawer extends StatelessWidget {
                             child: LinearProgressIndicator(
                               value: eventProgress,
                               backgroundColor: Colors.white10,
-                              valueColor: const AlwaysStoppedAnimation<Color>(
-                                  AppColors.primary),
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                  context.accentColor),
                               minHeight: 8,
                             ),
                           ),

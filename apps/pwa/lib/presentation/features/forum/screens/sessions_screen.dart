@@ -327,12 +327,12 @@ class _SessionListItem extends StatelessWidget {
                 children: [
                   Icon(Icons.access_time,
                       size: 14,
-                      color: isActive ? AppColors.primary : Colors.white38),
+                      color: isActive ? context.accentColor : Colors.white38),
                   const SizedBox(width: 4),
                   Text(
                     '${timeFormat.format(session.startsAt)} - ${timeFormat.format(session.endsAt)} (${dateFormat.format(session.startsAt)})',
                     style: TextStyle(
-                      color: isActive ? AppColors.primary : Colors.white60,
+                      color: isActive ? context.accentColor : Colors.white60,
                       fontSize: 13,
                     ),
                   ),

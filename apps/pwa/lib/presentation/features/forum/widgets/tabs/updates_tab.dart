@@ -59,7 +59,7 @@ class _UpdatesTabState extends State<UpdatesTab>
                   child: RepaintBoundary(
                     child: RefreshIndicator(
                       onRefresh: () async => updatesCubit.refresh(),
-                      color: AppColors.primary,
+                      color: context.accentColor,
                       child: CustomScrollView(
                         controller: widget.scrollController,
                         slivers: [
@@ -114,12 +114,12 @@ class _UpdatesTabState extends State<UpdatesTab>
                                 (context, index) {
                                   if (index ==
                                       updatesState.messages.length) {
-                                    return const Center(
+                                    return Center(
                                       child: Padding(
-                                        padding: EdgeInsets.all(8.0),
+                                        padding: const EdgeInsets.all(8.0),
                                         child: CircularProgressIndicator(
                                             strokeWidth: 2,
-                                            color: AppColors.primary),
+                                            color: context.accentColor),
                                       ),
                                     );
                                   }

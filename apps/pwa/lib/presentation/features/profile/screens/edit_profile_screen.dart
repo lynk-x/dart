@@ -200,7 +200,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                   return ListTile(
                     leading: _buildFlag(country.code, size: 20),
                     title: Text(country.name, style: const TextStyle(color: Colors.white)),
-                    trailing: isSelected ? const Icon(Icons.check_circle, color: AppColors.primary) : null,
+                    trailing: isSelected ? Icon(Icons.check_circle, color: context.accentColor) : null,
                     onTap: () {
                       setState(() => _selectedCountryCode = country.code);
                       Navigator.pop(context);
@@ -248,10 +248,10 @@ class _EditProfilePageState extends State<EditProfilePage> {
       },
       builder: (context, state) {
         if (state is ProfileLoading || state is ProfileInitial) {
-          return const Scaffold(
+          return Scaffold(
             backgroundColor: AppColors.primaryBackground,
             body: Center(
-                child: CircularProgressIndicator(color: AppColors.primary)),
+                child: CircularProgressIndicator(color: context.accentColor)),
           );
         }
 
@@ -366,8 +366,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
                                 ),
                               )
                             : (state.isUsernameAvailable == true
-                                ? const Icon(Icons.check_circle,
-                                    color: AppColors.primary, size: 20)
+                                ? Icon(Icons.check_circle,
+                                    color: context.accentColor, size: 20)
                                 : (state.isUsernameAvailable == false
                                     ? const Icon(Icons.error,
                                         color: Colors.redAccent, size: 20)

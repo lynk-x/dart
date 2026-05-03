@@ -382,7 +382,7 @@ class WalletCubit extends Cubit<WalletState> {
 
     try {
       final hash = _hashPin(pin);
-      await _supabase.rpc('request_attendee_withdrawal_v2', params: {
+      await _supabase.rpc('request_attendee_withdrawal', params: {
         'p_amount':            amount,
         'p_currency':          currency,
         'p_payout_method_id':  payoutMethodId,
@@ -421,7 +421,7 @@ class WalletCubit extends Cubit<WalletState> {
 
     try {
       final hash = _hashPin(pin);
-      await _supabase.rpc('transfer_funds_v2', params: {
+      await _supabase.rpc('transfer_funds', params: {
         'p_amount':               amount,
         'p_currency':             currency,
         'p_recipient_account_id': recipientAccountId,

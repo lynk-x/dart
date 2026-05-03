@@ -20,7 +20,7 @@ class ProfileListTile extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: AppColors.primary,
+        color: context.accentColor,
         borderRadius: BorderRadius.circular(8),
       ),
       child: ListTile(

@@ -149,8 +149,8 @@ class _HomeViewState extends State<HomeView>
         builder: (context, state) {
           // Full-screen loader on first load
           if (state.isLoading) {
-            return const Center(
-              child: CircularProgressIndicator(color: AppColors.primary),
+            return Center(
+              child: CircularProgressIndicator(color: context.accentColor),
             );
           }
 
@@ -180,7 +180,7 @@ class _HomeViewState extends State<HomeView>
                       icon: const Icon(Icons.refresh, size: 18),
                       label: const Text('Try again'),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
+                        backgroundColor: context.accentColor,
                         foregroundColor: Colors.black,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ),
@@ -205,7 +205,7 @@ class _HomeViewState extends State<HomeView>
               Expanded(
                 child: RefreshIndicator(
                   onRefresh: context.read<HomeCubit>().refresh,
-                  color: AppColors.primary,
+                  color: context.accentColor,
                   backgroundColor: AppColors.tertiary,
                   child: LayoutBuilder(
                     builder: (context, constraints) {
@@ -224,8 +224,8 @@ class _HomeViewState extends State<HomeView>
                           itemCount: state.events.length + (state.isLoadingMore ? 1 : 0),
                           itemBuilder: (context, index) {
                             if (index == state.events.length) {
-                              return const Center(
-                                child: CircularProgressIndicator(color: AppColors.primary),
+                              return Center(
+                                child: CircularProgressIndicator(color: context.accentColor),
                               );
                             }
                             return ForumWidget(event: state.events[index], isGrid: true);
@@ -241,11 +241,11 @@ class _HomeViewState extends State<HomeView>
                         itemBuilder: (context, index) {
                           // Bottom pagination spinner
                           if (index == state.events.length) {
-                            return const Padding(
-                              padding: EdgeInsets.all(16.0),
+                            return Padding(
+                              padding: const EdgeInsets.all(16.0),
                               child: Center(
                                 child: CircularProgressIndicator(
-                                  color: AppColors.primary,
+                                  color: context.accentColor,
                                 ),
                               ),
                             );
@@ -285,21 +285,21 @@ class _HomeViewState extends State<HomeView>
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            AppColors.primary.withValues(alpha: 0.15),
+            context.accentColor.withValues(alpha: 0.15),
             Colors.transparent,
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.primary.withValues(alpha: 0.25)),
+        border: Border.all(color: context.accentColor.withValues(alpha: 0.25)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const CircleAvatar(
+          CircleAvatar(
             radius: 18,
-            backgroundColor: AppColors.primary,
+            backgroundColor: context.accentColor,
             child: Icon(Icons.waving_hand, color: Colors.black, size: 18),
           ),
           const SizedBox(width: 12),

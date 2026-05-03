@@ -120,8 +120,6 @@ class QuizCubit extends Cubit<QuizState> {
     }
 
     try {
-      emit(state.copyWith(myAnswerIndex: optionIndex));
-
       // responses.responses columns: question_id NOT NULL, selected_answer jsonb
       // (array of indices). The legacy 'answers' name was wrong.
       await _repo.submitAnswer(
@@ -130,8 +128,10 @@ class QuizCubit extends Cubit<QuizState> {
         userId: userId,
         selectedAnswer: [optionIndex],
       );
+      // Only record the answer locally after the server confirms it, so the
+      // UI never shows an answer as submitted when the RPC failed.
+      emit(state.copyWith(myAnswerIndex: optionIndex));
     } catch (e) {
-      // Revert if failed
       emit(state.copyWith(clearMyAnswer: true, errorMessage: "Failed to submit answer"));
       debugPrint('Error submitting answer: $e');
     }

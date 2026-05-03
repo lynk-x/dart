@@ -88,11 +88,11 @@ class ChatMessageList extends StatelessWidget {
             delegate: SliverChildBuilderDelegate(
               (context, index) {
                 if (index == chatState.messages.length) {
-                  return const Center(
+                  return Center(
                     child: Padding(
-                      padding: EdgeInsets.all(8.0),
+                      padding: const EdgeInsets.all(8.0),
                       child: CircularProgressIndicator(
-                          strokeWidth: 2, color: AppColors.primary),
+                          strokeWidth: 2, color: context.accentColor),
                     ),
                   );
                 }

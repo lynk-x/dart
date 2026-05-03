@@ -78,7 +78,7 @@ class _LiveChatTabState extends State<LiveChatTab>
                       child: RepaintBoundary(
                         child: RefreshIndicator(
                           onRefresh: () async => chatCubit.refresh(),
-                          color: AppColors.primary,
+                          color: context.accentColor,
                           child: ChatMessageList(
                             scrollController: widget.scrollController,
                             chatState: chatState,

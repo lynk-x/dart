@@ -87,6 +87,20 @@ class _LynkXAppState extends State<LynkXApp> {
       _router.go(route);
     };
 
+    // Inform the user when notification permission is denied so they know
+    // why they won't receive alerts.
+    PushNotificationService.instance.onPermissionDenied = () {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Notifications are disabled. Enable them in your browser settings to receive alerts.',
+          ),
+          duration: Duration(seconds: 5),
+        ),
+      );
+    };
+
     // Auth state listener — handles sign-in, sign-out, and password recovery.
     try {
       _authSubscription = Supabase.instance.client.auth.onAuthStateChange.listen((data) {
@@ -95,6 +109,12 @@ class _LynkXAppState extends State<LynkXApp> {
           context.read<ProfileCubit>().loadProfile();
           context.read<NotificationCubit>().loadNotifications();
           PushNotificationService.instance.init();
+        } else if (data.event == AuthChangeEvent.tokenRefreshed) {
+          // Session token was silently refreshed (e.g. app foregrounded after
+          // expiry). Re-sync profile and wallet so they hold fresh data.
+          if (!mounted) return;
+          context.read<ProfileCubit>().loadProfile();
+          context.read<WalletCubit>().refresh();
         } else if (data.event == AuthChangeEvent.signedOut) {
           if (!mounted) return;
           context.read<ProfileCubit>().reset();
