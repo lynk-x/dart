@@ -44,7 +44,7 @@ class _AuthPageState extends State<AuthPage> {
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 40.0),
+            padding: const EdgeInsets.fromLTRB(24.0, 8.0, 24.0, 40.0),
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 400),
               child: Column(
@@ -59,7 +59,7 @@ class _AuthPageState extends State<AuthPage> {
                       width: 220,
                     ),
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 8),
 
                   // Title & Subtitle
                   Text(
