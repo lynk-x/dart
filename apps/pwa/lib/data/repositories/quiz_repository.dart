@@ -7,6 +7,7 @@ class QuizRepository {
   Future<Map<String, dynamic>> getQuestionnaire(
       String questionnaireId) async {
     return await _client
+        .schema('surveys')
         .from('questionnaires')
         .select('*, forum_channel_id')
         .eq('id', questionnaireId)
@@ -18,6 +19,7 @@ class QuizRepository {
     int orderIndex,
   ) async {
     return await _client
+        .schema('surveys')
         .from('questions')
         .select()
         .eq('questionnaire_id', questionnaireId)
@@ -52,7 +54,7 @@ class QuizRepository {
     required String userId,
     required List<int> selectedAnswer,
   }) async {
-    await _client.schema('responses').from('responses').insert({
+    await _client.schema('surveys').from('responses').insert({
       'questionnaire_id': questionnaireId,
       'question_id': questionId,
       'user_id': userId,
@@ -66,7 +68,7 @@ class QuizRepository {
     required int questionIndex,
     String? expiresAt,
   }) async {
-    await _client.from('questionnaires').update({
+    await _client.schema('surveys').from('questionnaires').update({
       'quiz_state': quizState,
       'current_question_index': questionIndex,
       'state_expires_at': expiresAt,
@@ -81,7 +83,7 @@ class QuizRepository {
         .channel('quiz_live_$questionnaireId')
         .onPostgresChanges(
           event: PostgresChangeEvent.update,
-          schema: 'public',
+          schema: 'surveys',
           table: 'questionnaires',
           filter: PostgresChangeFilter(
             type: PostgresChangeFilterType.eq,
@@ -90,5 +92,53 @@ class QuizRepository {
           ),
           callback: callback,
         );
+  }
+
+  Future<void> saveQuiz(Map<String, dynamic> quizData) async {
+    final questionsData = quizData.remove('questions') as List<dynamic>;
+    
+    // 1. Upsert Questionnaire
+    final response = await _client
+        .schema('surveys')
+        .from('questionnaires')
+        .upsert(quizData)
+        .select('id')
+        .single();
+    
+    final questionnaireId = response['id'];
+
+    // 2. Clear old questions to replace them
+    await _client
+        .schema('surveys')
+        .from('questions')
+        .delete()
+        .eq('questionnaire_id', questionnaireId);
+
+    // 3. Insert new questions
+    if (questionsData.isNotEmpty) {
+      final questionsToInsert = questionsData.asMap().entries.map((entry) {
+        final index = entry.key;
+        final q = entry.value as Map<String, dynamic>;
+        // Map correctIndices list to JSON object e.g. {"0": true, "1": true}
+        final correctIndices = q['correct'] as List<dynamic>;
+        final correctMap = {
+          for (var i in correctIndices) i.toString(): true
+        };
+        
+        return {
+          if (q['id'] != null) 'id': q['id'],
+          'questionnaire_id': questionnaireId,
+          'order_index': index,
+          'question_text': q['question_text'],
+          'options': q['options'],
+          'correct': correctMap,
+        };
+      }).toList();
+
+      await _client
+          .schema('surveys')
+          .from('questions')
+          .insert(questionsToInsert);
+    }
   }
 }

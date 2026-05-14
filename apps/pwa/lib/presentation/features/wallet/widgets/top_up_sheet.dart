@@ -95,7 +95,7 @@ class _TopUpSheetState extends State<TopUpSheet> {
         for (final cb in curr.balances) {
           final pb = widget.currentBalances.cast<WalletBalance?>()
               .firstWhere((b) => b?.currency == cb.currency, orElse: () => null);
-          if (pb != null && cb.balance > pb.balance) return true;
+          if (pb != null && cb.cashBalance > pb.cashBalance) return true;
         }
         return false;
       },

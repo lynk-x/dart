@@ -11,8 +11,8 @@ class TicketRepository {
   }) async {
     final data = await _client
         .schema('api')
-        .from('v1_tickets')
-        .select('id, user_id, event_id, status, ticket_code, purchased_price, purchased_currency, tier_name, created_at')
+        .from('v1_user_tickets')
+        .select()
         .eq('user_id', userId)
         .order('created_at', ascending: false)
         .range(offset, offset + limit - 1);
@@ -22,9 +22,9 @@ class TicketRepository {
   Future<Map<String, dynamic>?> getTicketById(String ticketId) async {
     return await _client
         .schema('api')
-        .from('v1_tickets')
-        .select('id, user_id, event_id, status, ticket_code, purchased_price, purchased_currency, tier_name, created_at')
-        .eq('id', ticketId)
+        .from('v1_user_tickets')
+        .select()
+        .eq('ticket_id', ticketId)
         .maybeSingle();
   }
 
@@ -78,8 +78,9 @@ class TicketRepository {
 
   Future<Map<String, dynamic>?> getActiveReservation(String userId, String tierId) async {
     return await _client
-        .from('ticket_reservations')
-        .select('id, quantity, expires_at, ticket_tier_id')
+        .schema('api')
+        .from('v1_ticket_reservations')
+        .select()
         .eq('user_id', userId)
         .eq('ticket_tier_id', tierId)
         .gt('expires_at', DateTime.now().toUtc().toIso8601String())
@@ -94,7 +95,7 @@ class TicketRepository {
         .channel('ticket_live_status_$ticketId')
         .onPostgresChanges(
           event: PostgresChangeEvent.update,
-          schema: 'tickets',
+          schema: 'ticketing',
           table: 'tickets',
           filter: PostgresChangeFilter(
             type: PostgresChangeFilterType.eq,

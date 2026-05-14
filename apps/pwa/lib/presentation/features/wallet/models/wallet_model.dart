@@ -5,25 +5,28 @@ import 'package:equatable/equatable.dart';
 /// Represents a single account wallet fetched from the database.
 class WalletBalance extends Equatable {
   final String currency;
-  final double balance;
+  final double cashBalance;
   final double pendingBalance;
+  final double creditBalance;
 
   const WalletBalance({
     required this.currency,
-    required this.balance,
+    required this.cashBalance,
     required this.pendingBalance,
+    required this.creditBalance,
   });
 
   factory WalletBalance.fromMap(Map<String, dynamic> map) {
     return WalletBalance(
       currency: map['currency'] as String,
-      balance: (map['balance'] as num).toDouble(),
-      pendingBalance: (map['pending_balance'] as num? ?? 0).toDouble(),
+      cashBalance: (map['cash_balance'] as num).toDouble(),
+      pendingBalance: (map['escrow_balance'] as num? ?? 0).toDouble(),
+      creditBalance: (map['credit_balance'] as num? ?? 0).toDouble(),
     );
   }
 
   @override
-  List<Object?> get props => [currency, balance, pendingBalance];
+  List<Object?> get props => [currency, cashBalance, pendingBalance, creditBalance];
 }
 
 /// Represents a single entry in the unified wallet timeline feed.

@@ -66,7 +66,7 @@ class _TransferSheetState extends State<TransferSheet> {
     final balance = widget.currentBalances.cast<WalletBalance?>()
         .firstWhere((b) => b?.currency == _currency, orElse: () => null);
     
-    if (balance == null || balance.balance < amount) {
+    if (balance == null || balance.cashBalance < amount) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Insufficient balance')),
       );

@@ -152,7 +152,7 @@ class _WalletCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Balance: ${balance.balance.toStringAsFixed(2)}',
+                    'Cash: ${balance.cashBalance.toStringAsFixed(2)}${balance.creditBalance > 0 ? ' • Credit: ${balance.creditBalance.toStringAsFixed(2)}' : ''}',
                     style: AppTypography.inter(fontSize: 13, color: Colors.white54),
                   ),
                 ],

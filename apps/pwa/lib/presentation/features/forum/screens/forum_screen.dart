@@ -141,7 +141,7 @@ class _ForumViewState extends State<ForumView> {
     final itemsToPrecache = mediaItems.take(9);
     for (final item in itemsToPrecache) {
       final url = item.thumbnailUrl ?? item.url;
-      if (!_precachedUrls.contains(url)) {
+      if (url.isNotEmpty && !_precachedUrls.contains(url)) {
         _precachedUrls.add(url);
         precacheImage(CachedNetworkImageProvider(url), context);
       }
@@ -508,24 +508,21 @@ class _ForumViewState extends State<ForumView> {
               physics: const NeverScrollableScrollPhysics(),
               onPageChanged: (index) => mainCubit.setTabIndex(index),
               children: [
-                if (showUpdates)
-                  UpdatesTab(
-                    scrollController: _updatesScrollController,
-                    onActionTap: () => _navigateToTab(2),
-                    onMediaTap: (url) => _viewMedia(url),
-                  ),
-                if (showChat)
-                  LiveChatTab(
-                    scrollController: _chatScrollController,
-                    selectedEmoji: state.selectedEmoji,
-                    emojiTrigger: state.emojiTrigger,
-                    onActionTap: () => _navigateToTab(2),
-                    onMediaTap: (url) => _viewMedia(url),
-                  ),
-                if (showMedia)
-                  MediaTab(
-                    onMediaTap: (item) => _viewMedia(item.url),
-                  ),
+                showUpdates ? UpdatesTab(
+                  scrollController: _updatesScrollController,
+                  onActionTap: () => _navigateToTab(2),
+                  onMediaTap: (url) => _viewMedia(url),
+                ) : const SizedBox.shrink(),
+                showChat ? LiveChatTab(
+                  scrollController: _chatScrollController,
+                  selectedEmoji: state.selectedEmoji,
+                  emojiTrigger: state.emojiTrigger,
+                  onActionTap: () => _navigateToTab(2),
+                  onMediaTap: (url) => _viewMedia(url),
+                ) : const SizedBox.shrink(),
+                showMedia ? MediaTab(
+                  onMediaTap: (item) => _viewMedia(item.url),
+                ) : const SizedBox.shrink(),
               ],
             );
           },

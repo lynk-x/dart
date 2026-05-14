@@ -60,6 +60,31 @@ class _AdCarouselState extends State<AdCarousel> {
   }
 
   @override
+  void didUpdateWidget(AdCarousel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.ads != oldWidget.ads) {
+      if (widget.ads.isEmpty) {
+        _timer?.cancel();
+        _timer = null;
+        _currentPage = 0;
+      } else {
+        if (_currentPage >= widget.ads.length) {
+          _currentPage = 0;
+          if (_pageController.hasClients) {
+            _pageController.jumpToPage(0);
+          }
+        }
+        if (widget.ads.length > 1 && _timer == null) {
+          _startTimer();
+        } else if (widget.ads.length <= 1) {
+          _timer?.cancel();
+          _timer = null;
+        }
+      }
+    }
+  }
+
+  @override
   void dispose() {
     _timer?.cancel();
     _pageController.dispose();

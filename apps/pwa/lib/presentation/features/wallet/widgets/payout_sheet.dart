@@ -49,7 +49,7 @@ class _PayoutSheetState extends State<PayoutSheet> {
       (b) => b?.currency == _selectedCurrency,
       orElse: () => null,
     );
-    return b?.balance;
+    return b?.cashBalance;
   }
 
   bool get _needsKyc {

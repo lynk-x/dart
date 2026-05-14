@@ -11,7 +11,8 @@ class EventRepository {
     int offset = 0,
   }) async {
     final data = await _client
-        .from('vw_user_forums')
+        .schema('api')
+        .from('v1_user_forums')
         .select()
         .eq('user_id', userId)
         .order('event_starts_at', ascending: true)

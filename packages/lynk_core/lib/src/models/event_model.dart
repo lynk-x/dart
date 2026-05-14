@@ -7,6 +7,8 @@ import 'package:equatable/equatable.dart';
 /// as start_datetime / end_datetime — both are handled in fromMap.
 class EventModel extends Equatable {
   final String id;
+  final String? accountId;
+  final String? reference;
   final String title;
   final String description;
   final DateTime startDatetime;
@@ -25,6 +27,8 @@ class EventModel extends Equatable {
 
   const EventModel({
     required this.id,
+    this.accountId,
+    this.reference,
     required this.title,
     required this.description,
     required this.startDatetime,
@@ -70,6 +74,8 @@ class EventModel extends Equatable {
 
     return EventModel(
       id: (map['event_id'] ?? map['id']) as String,
+      accountId: map['account_id'] as String?,
+      reference: map['reference'] as String?,
       title: (map['event_title'] ?? map['title']) as String,
       description: map['description'] as String? ?? '',
       startDatetime: DateTime.parse(startRaw as String),
@@ -92,6 +98,8 @@ class EventModel extends Equatable {
   @override
   List<Object?> get props => [
         id,
+        accountId,
+        reference,
         title,
         description,
         startDatetime,

@@ -14,6 +14,7 @@ class ForumRepository {
         .maybeSingle();
 
     final memberData = await _client
+        .schema('social')
         .from('forum_members')
         .select('is_muted, has_muted_live_chats_media, role_id')
         .eq('forum_id', forumId)
@@ -28,14 +29,24 @@ class ForumRepository {
 
   Future<List<Map<String, dynamic>>> getForumMembers(String forumId) async {
     final data = await _client
-        .from('forum_members')
-        .select('user_profile(id, user_name, avatar_url, is_premium)')
+        .schema('api')
+        .from('v1_forum_members')
+        .select('user_id, user_name, avatar_url, is_premium')
         .eq('forum_id', forumId);
-    return List<Map<String, dynamic>>.from(data);
+        
+    return data.map((item) => {
+      'user_profile': {
+        'id': item['user_id'],
+        'user_name': item['user_name'],
+        'avatar_url': item['avatar_url'],
+        'is_premium': item['is_premium'],
+      }
+    }).toList();
   }
 
   Future<List<Map<String, dynamic>>> getEventSessions(String eventId) async {
     final data = await _client
+        .schema('events')
         .from('event_sessions')
         .select('starts_at, ends_at')
         .eq('event_id', eventId)
@@ -46,6 +57,7 @@ class ForumRepository {
   Future<void> updateMemberSettings(
       String forumId, String userId, Map<String, dynamic> data) async {
     await _client
+        .schema('social')
         .from('forum_members')
         .update(data)
         .eq('forum_id', forumId)
@@ -54,6 +66,7 @@ class ForumRepository {
 
   Future<void> updateForumStatus(String forumId, String status) async {
     await _client
+        .schema('social')
         .from('forums')
         .update({'status': status})
         .eq('id', forumId);
@@ -62,6 +75,7 @@ class ForumRepository {
   Future<void> updateMemberRole(
       String forumId, String userId, String roleId) async {
     await _client
+        .schema('social')
         .from('forum_members')
         .update({'role_id': roleId})
         .eq('forum_id', forumId)
@@ -93,7 +107,7 @@ class ForumRepository {
     String emojiCode,
   ) async {
     final existing = await _client
-        .schema('message_reactions')
+        .schema('social')
         .from('message_reactions')
         .select('id')
         .eq('message_id', messageId)
@@ -103,7 +117,7 @@ class ForumRepository {
 
     if (existing != null) {
       await _client
-          .schema('message_reactions')
+          .schema('social')
           .from('message_reactions')
           .delete()
           .eq('message_id', messageId)
@@ -111,7 +125,7 @@ class ForumRepository {
           .eq('emoji_code', emojiCode);
     } else {
       await _client
-          .schema('message_reactions')
+          .schema('social')
           .from('message_reactions')
           .insert({
         'message_id': messageId,
@@ -124,7 +138,7 @@ class ForumRepository {
 
   Future<void> pinMessage(String messageId) async {
     await _client
-        .schema('forum_messages')
+        .schema('social')
         .from('forum_messages')
         .update({'is_pinned': true})
         .eq('id', messageId);

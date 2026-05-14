@@ -8,7 +8,7 @@ class WalletRepository {
     final data = await _client
         .schema('api')
         .from('v1_wallet_balances')
-        .select('currency, balance, escrow_balance')
+        .select('currency, cash_balance, escrow_balance, credit_balance')
         .eq('account_id', accountId)
         .order('currency');
     return List<Map<String, dynamic>>.from(data);
@@ -18,7 +18,7 @@ class WalletRepository {
     return await _client
         .schema('api')
         .from('v1_wallet_balances')
-        .select('account_id, currency, balance, escrow_balance, updated_at')
+        .select('account_id, currency, cash_balance, escrow_balance, credit_balance, updated_at')
         .eq('account_id', accountId)
         .eq('currency', currency)
         .maybeSingle();
@@ -85,7 +85,7 @@ class WalletRepository {
         .channel('wallet_balance:$accountId')
         .onPostgresChanges(
           event: PostgresChangeEvent.all,
-          schema: 'public',
+          schema: 'finance',
           table: 'account_wallets',
           filter: PostgresChangeFilter(
             type: PostgresChangeFilterType.eq,

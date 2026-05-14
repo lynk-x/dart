@@ -51,7 +51,7 @@ class _WalletTransactionsPageState extends State<WalletTransactionsPage> {
         if (prev.balances.isNotEmpty && curr.balances.isNotEmpty) {
           final pBal = prev.balances.cast<WalletBalance?>().firstWhere((b) => b?.currency == widget.currency, orElse: () => null);
           final cBal = curr.balances.cast<WalletBalance?>().firstWhere((b) => b?.currency == widget.currency, orElse: () => null);
-          if (pBal != null && cBal != null && cBal.balance > pBal.balance) return true;
+          if (pBal != null && cBal != null && cBal.cashBalance > pBal.cashBalance) return true;
         }
         // Redirect URL emitted
         return prev.topUpPaymentUrl != curr.topUpPaymentUrl && curr.topUpPaymentUrl != null;
@@ -69,7 +69,7 @@ class _WalletTransactionsPageState extends State<WalletTransactionsPage> {
       builder: (context, state) {
         final balance = state.balances.firstWhere(
           (b) => b.currency == widget.currency,
-          orElse: () => WalletBalance(currency: widget.currency, balance: 0, pendingBalance: 0),
+          orElse: () => WalletBalance(currency: widget.currency, cashBalance: 0, pendingBalance: 0, creditBalance: 0),
         );
 
         return Scaffold(
@@ -121,13 +121,22 @@ class _WalletTransactionsPageState extends State<WalletTransactionsPage> {
                         Text(
                           state.isPrivacyModeEnabled
                             ? '••••••'
-                            : '${balance.currency} ${balance.balance.toStringAsFixed(2)}',
+                            : '${balance.currency} ${balance.cashBalance.toStringAsFixed(2)}',
                           style: AppTypography.inter(
                             fontSize: 32,
                             fontWeight: FontWeight.bold,
                             color: Colors.white,
                           ),
                         ),
+                        if (balance.creditBalance > 0) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            state.isPrivacyModeEnabled
+                              ? 'Credit: ••••••'
+                              : 'Credit: ${balance.currency} ${balance.creditBalance.toStringAsFixed(2)}',
+                            style: AppTypography.inter(fontSize: 14, fontWeight: FontWeight.w500, color: Colors.greenAccent.shade400),
+                          ),
+                        ],
                         if (balance.pendingBalance > 0) ...[
                           const SizedBox(height: 4),
                           Text(

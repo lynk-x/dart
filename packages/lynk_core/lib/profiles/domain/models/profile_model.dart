@@ -35,7 +35,7 @@ class ProfileModel {
       tagline: info['tagline'] as String?,
       countryCode: map['country_code'] as String?,
       subscriptionTier: (map['is_premium'] == true) ? 'pro' : 'free',
-      verificationStatus: (map['is_verified'] == true) ? 'verified' : 'none',
+      verificationStatus: map['verification_status'] as String? ?? 'none',
     );
   }
 

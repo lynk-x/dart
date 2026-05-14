@@ -18,7 +18,7 @@ class NotificationRepository {
 
   Future<void> markAsRead(String id, DateTime createdAt) async {
     await _client
-        .schema('notifications')
+        .schema('comms')
         .from('notifications')
         .update({'is_read': true})
         .eq('id', id)
@@ -27,7 +27,7 @@ class NotificationRepository {
 
   Future<void> markAllAsRead(String userId) async {
     await _client
-        .schema('notifications')
+        .schema('comms')
         .from('notifications')
         .update({'is_read': true})
         .eq('user_id', userId)
@@ -36,7 +36,7 @@ class NotificationRepository {
 
   Future<void> deleteNotification(String id, DateTime createdAt) async {
     await _client
-        .schema('notifications')
+        .schema('comms')
         .from('notifications')
         .delete()
         .eq('id', id)
@@ -51,7 +51,7 @@ class NotificationRepository {
         .channel('notifications_realtime:$userId')
         .onPostgresChanges(
           event: PostgresChangeEvent.all,
-          schema: 'notifications',
+          schema: 'comms',
           table: 'notifications',
           filter: PostgresChangeFilter(
             type: PostgresChangeFilterType.eq,
