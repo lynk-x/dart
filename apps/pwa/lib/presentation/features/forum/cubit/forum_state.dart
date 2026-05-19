@@ -14,6 +14,7 @@ class ForumState extends Equatable {
 
   // ── Metadata/Permissions ───────────────────────────────────────────────────
   final String? eventId;
+  final DateTime? eventCreatedAt;
   final bool isOrganizer;
   final bool isModerator;
   final bool isMuted;
@@ -39,6 +40,7 @@ class ForumState extends Equatable {
     this.mentionedMedia,
     this.members = const [],
     this.eventId,
+    this.eventCreatedAt,
     this.isOrganizer = false,
     this.isModerator = false,
     this.isMuted = false,
@@ -62,6 +64,7 @@ class ForumState extends Equatable {
     bool clearMentionedMedia = false,
     List<Map<String, dynamic>>? members,
     String? eventId,
+    DateTime? eventCreatedAt,
     bool? isOrganizer,
     bool? isModerator,
     bool? isMuted,
@@ -85,6 +88,7 @@ class ForumState extends Equatable {
           : mentionedMedia ?? this.mentionedMedia,
       members: members ?? this.members,
       eventId: eventId ?? this.eventId,
+      eventCreatedAt: eventCreatedAt ?? this.eventCreatedAt,
       isOrganizer: isOrganizer ?? this.isOrganizer,
       isModerator: isModerator ?? this.isModerator,
       isMuted: isMuted ?? this.isMuted,
@@ -110,6 +114,7 @@ class ForumState extends Equatable {
     mentionedMedia,
     members,
     eventId,
+    eventCreatedAt,
     isOrganizer,
     isModerator,
     isMuted,

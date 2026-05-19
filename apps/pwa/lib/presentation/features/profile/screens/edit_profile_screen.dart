@@ -133,7 +133,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not access gallery: ${e.toString()}')),
+          SnackBar(content: Text('Could not access gallery: ${e.toFriendlyMessage()}')),
         );
       }
     } finally {

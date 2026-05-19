@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:lynk_x/data/repositories/repositories.dart';
 import 'package:lynk_x/presentation/features/wallet/models/wallet_model.dart';
+import 'package:lynk_core/core.dart';
 import 'wallet_state.dart';
 
 /// WalletCubit — owns wallet balance, transaction history, and top-up flow.
@@ -40,6 +41,9 @@ class WalletCubit extends Cubit<WalletState> {
 
   /// Fetch initial wallet data and subscribe to realtime balance updates.
   Future<void> init() async {
+    await _authSubscription?.cancel();
+    _balanceChannel?.unsubscribe();
+
     emit(state.copyWith(isLoading: true, clearError: true));
     await Future.wait([
       _fetchBalances(),
@@ -63,6 +67,7 @@ class WalletCubit extends Cubit<WalletState> {
   Future<void> close() {
     _authSubscription?.cancel();
     _balanceChannel?.unsubscribe();
+    _reconnectTimer?.cancel();
     return super.close();
   }
 
@@ -93,7 +98,7 @@ class WalletCubit extends Cubit<WalletState> {
     } catch (e) {
       emit(state.copyWith(
         isLoading: false,
-        error: 'Failed to load wallet balances: ${e.toString()}',
+        error: 'Failed to load wallet balances: ${e.toFriendlyMessage()}',
       ));
     }
   }
@@ -153,7 +158,7 @@ class WalletCubit extends Cubit<WalletState> {
       emit(state.copyWith(
         isLoading:     false,
         isLoadingMore: false,
-        error: 'Failed to load transactions: ${e.toString()}',
+        error: 'Failed to load transactions: ${e.toFriendlyMessage()}',
       ));
     }
   }
@@ -180,6 +185,9 @@ class WalletCubit extends Cubit<WalletState> {
   /// waking the cubit on every other user's wallet update). On RLS denial,
   /// the subscribe callback receives `RealtimeSubscribeStatus.channelError` —
   /// surface it through state so the UI can show a stale-data hint.
+  Timer? _reconnectTimer;
+  Duration _reconnectDelay = const Duration(seconds: 2);
+
   void _subscribeToBalanceUpdates() {
     final accountId = state.accountId;
     if (accountId == null) return; // No account loaded yet — caller will retry.
@@ -191,10 +199,28 @@ class WalletCubit extends Cubit<WalletState> {
             // Surface to state — most commonly an RLS denial or network blip.
             // Keeps the UI honest about whether realtime is live.
             emit(state.copyWith(
-              error: 'Realtime balance updates unavailable. Pull to refresh.',
+              error: 'Realtime balance updates unavailable. Reconnecting...',
             ));
+            _scheduleBalanceReconnect();
+          } else if (status == RealtimeSubscribeStatus.subscribed) {
+            emit(state.copyWith(clearError: true));
+            _reconnectTimer?.cancel();
+            _reconnectTimer = null;
+            _reconnectDelay = const Duration(seconds: 2);
           }
         });
+  }
+
+  void _scheduleBalanceReconnect() {
+    _reconnectTimer?.cancel();
+    _reconnectTimer = Timer(_reconnectDelay, () {
+      _reconnectDelay = _reconnectDelay * 2;
+      if (_reconnectDelay > const Duration(seconds: 30)) {
+        _reconnectDelay = const Duration(seconds: 30);
+      }
+      _balanceChannel?.unsubscribe();
+      _subscribeToBalanceUpdates();
+    });
   }
 
   // ── Top-up Flow ────────────────────────────────────────────────────────────
@@ -229,7 +255,7 @@ class WalletCubit extends Cubit<WalletState> {
     } catch (e) {
       emit(state.copyWith(
         topUpStatus: TopUpStatus.error,
-        topUpError:  'M-Pesa request failed: ${e.toString()}',
+        topUpError:  'M-Pesa request failed: ${e.toFriendlyMessage()}',
       ));
     }
   }
@@ -269,8 +295,42 @@ class WalletCubit extends Cubit<WalletState> {
     } catch (e) {
       emit(state.copyWith(
         topUpStatus: TopUpStatus.error,
-        topUpError:  'Top-up failed: ${e.toString()}',
+        topUpError:  'Top-up failed: ${e.toFriendlyMessage()}',
       ));
+    }
+  }
+
+  /// Check status of the latest top-up.
+  Future<void> checkTopUpStatus() async {
+    final accountId = state.accountId;
+    if (accountId == null) return;
+
+    try {
+      final row = await _supabase
+          .from('wallet_top_ups')
+          .select('status')
+          .eq('account_id', accountId)
+          .order('created_at', ascending: false)
+          .limit(1)
+          .maybeSingle();
+
+      if (row != null) {
+        final status = row['status'] as String?;
+        if (status == 'completed' || status == 'success') {
+          emit(state.copyWith(topUpStatus: TopUpStatus.success));
+          await refresh();
+        } else if (status == 'failed') {
+          emit(state.copyWith(
+            topUpStatus: TopUpStatus.error,
+            topUpError: 'Top-up transaction failed.',
+          ));
+        } else {
+          // Still pending, just fetch balance to check if updated
+          await _fetchBalances();
+        }
+      }
+    } catch (_) {
+      // Fail silently to let the periodic timer retry without distracting the user
     }
   }
 
@@ -354,7 +414,7 @@ class WalletCubit extends Cubit<WalletState> {
     } catch (e) {
       emit(state.copyWith(
         withdrawStatus: WithdrawStatus.error,
-        withdrawError:  'Could not add payout method: ${e.toString()}',
+        withdrawError:  'Could not add payout method: ${e.toFriendlyMessage()}',
       ));
     }
   }
@@ -394,7 +454,7 @@ class WalletCubit extends Cubit<WalletState> {
     } catch (e) {
       emit(state.copyWith(
         withdrawStatus: WithdrawStatus.error,
-        withdrawError:  'Withdrawal failed: ${e.toString()}',
+        withdrawError:  'Withdrawal failed: ${e.toFriendlyMessage()}',
       ));
     }
   }
@@ -433,7 +493,7 @@ class WalletCubit extends Cubit<WalletState> {
     } catch (e) {
       emit(state.copyWith(
         withdrawStatus: WithdrawStatus.error,
-        withdrawError:  'Transfer failed: ${e.toString()}',
+        withdrawError:  'Transfer failed: ${e.toFriendlyMessage()}',
       ));
     }
   }
@@ -447,8 +507,13 @@ class WalletCubit extends Cubit<WalletState> {
   }
 
   void reset() {
+    _authSubscription?.cancel();
+    _authSubscription = null;
     _balanceChannel?.unsubscribe();
     _balanceChannel = null;
+    _reconnectTimer?.cancel();
+    _reconnectTimer = null;
+    _reconnectDelay = const Duration(seconds: 2);
     emit(const WalletState());
   }
 
@@ -470,7 +535,7 @@ class WalletCubit extends Cubit<WalletState> {
     } catch (e) {
       emit(state.copyWith(
         isLoading: false,
-        error: 'Failed to create wallet: ${e.toString()}',
+        error: 'Failed to create wallet: ${e.toFriendlyMessage()}',
       ));
     }
   }
@@ -503,7 +568,7 @@ class WalletCubit extends Cubit<WalletState> {
       await _supabase.rpc('set_wallet_pin', params: {'p_pin_hash': hash});
       emit(state.copyWith(hasPinSet: true, isWalletUnlocked: true, isLoading: false));
     } catch (e) {
-      emit(state.copyWith(isLoading: false, error: 'Failed to set PIN: ${e.toString()}'));
+      emit(state.copyWith(isLoading: false, error: 'Failed to set PIN: ${e.toFriendlyMessage()}'));
     }
   }
 

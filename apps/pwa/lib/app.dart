@@ -38,7 +38,6 @@ class _LynkXAppWrapperState extends State<LynkXAppWrapper> {
       providers: [
         BlocProvider(create: (context) => FeatureFlagCubit()..init()),
         BlocProvider(create: (context) => SystemConfigCubit()..init()),
-        BlocProvider(create: (context) => BlockCubit()..init()),
         BlocProvider(create: (context) => ProfileCubit(profileRepository)..loadProfile()),
         // NotificationCubit is NOT auto-loaded here — it force-unwraps
         // currentUser, which is null on a cold start before auth resolves.

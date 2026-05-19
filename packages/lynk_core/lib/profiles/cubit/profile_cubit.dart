@@ -2,7 +2,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/foundation.dart';
-import 'profile_state.dart';
+import 'package:lynk_core/core.dart';
 import '../data/repositories/profile_repository.dart';
 
 class ProfileCubit extends Cubit<ProfileState> {
@@ -29,7 +29,7 @@ class ProfileCubit extends Cubit<ProfileState> {
       final profile = await _repo.getProfile(uid);
       emit(ProfileLoaded(profile: profile));
     } catch (e) {
-      emit(ProfileError(e.toString()));
+      emit(ProfileError(e.toFriendlyMessage()));
     }
   }
 
@@ -84,7 +84,7 @@ class ProfileCubit extends Cubit<ProfileState> {
       );
       emit(ProfileLoaded(profile: updatedProfile));
     } catch (e) {
-      emit(currentState.copyWith(isUpdating: false, error: e.toString()));
+      emit(currentState.copyWith(isUpdating: false, error: e.toFriendlyMessage()));
     }
   }
 
@@ -107,7 +107,7 @@ class ProfileCubit extends Cubit<ProfileState> {
       emit(ProfileLoaded(profile: updatedProfile));
     } catch (e) {
       debugPrint('[ProfileCubit] uploadAvatar failed: $e');
-      emit(currentState.copyWith(isUpdating: false, error: e.toString()));
+      emit(currentState.copyWith(isUpdating: false, error: e.toFriendlyMessage()));
     }
   }
 
@@ -124,7 +124,7 @@ class ProfileCubit extends Cubit<ProfileState> {
       emit(ProfileLoaded(profile: updatedProfile));
     } catch (e) {
       debugPrint('[ProfileCubit] removeAvatar failed: $e');
-      emit(currentState.copyWith(isUpdating: false, error: e.toString()));
+      emit(currentState.copyWith(isUpdating: false, error: e.toFriendlyMessage()));
     }
   }
 
@@ -137,7 +137,7 @@ class ProfileCubit extends Cubit<ProfileState> {
       await _repo.deleteAccount();
       await Supabase.instance.client.auth.signOut();
     } catch (e) {
-      emit(currentState.copyWith(isUpdating: false, error: e.toString()));
+      emit(currentState.copyWith(isUpdating: false, error: e.toFriendlyMessage()));
     }
   }
 

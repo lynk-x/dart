@@ -80,7 +80,7 @@ abstract class BaseMessageCubit<T extends BaseMessageState> extends HydratedCubi
 
     channel?.onPostgresChanges(
       event: PostgresChangeEvent.all,
-      schema: 'forum_messages',
+      schema: 'social',
       table: 'forum_messages',
       filter: PostgresChangeFilter(
         type: PostgresChangeFilterType.eq,
@@ -149,7 +149,7 @@ abstract class BaseMessageCubit<T extends BaseMessageState> extends HydratedCubi
     try {
       if (userId == kGuestUserId) return;
       await Supabase.instance.client
-          .schema('forum_messages').from('forum_messages')
+          .schema('social').from('forum_messages')
           .update({'deleted_at': DateTime.now().toIso8601String()})
           .eq('id', message.id)
           .eq('created_at', message.createdAt.toIso8601String());

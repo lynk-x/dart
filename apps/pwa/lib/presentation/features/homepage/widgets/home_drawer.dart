@@ -75,6 +75,7 @@ class _HomeDrawerState extends State<HomeDrawer> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final appVersion = context.watch<SystemConfigCubit>().state.getString('app_version', defaultValue: '1.0.0');
 
     return Drawer(
       backgroundColor: AppColors.primaryBackground,
@@ -489,7 +490,7 @@ class _HomeDrawerState extends State<HomeDrawer> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  '${l10n.version} 1.0.0',
+                  '${l10n.version} $appVersion',
                   style: const TextStyle(color: Colors.white38, fontSize: 12),
                 ),
               ],

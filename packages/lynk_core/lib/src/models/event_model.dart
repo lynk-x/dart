@@ -24,6 +24,7 @@ class EventModel extends Equatable {
   final String? currency;
   final int? totalCapacity;
   final int chatCount;
+  final DateTime? createdAt;
 
   const EventModel({
     required this.id,
@@ -44,6 +45,7 @@ class EventModel extends Equatable {
     this.currency,
     this.totalCapacity,
     this.chatCount = 0,
+    this.createdAt,
   });
 
   bool get isPassed => startDatetime.isBefore(DateTime.now());
@@ -72,6 +74,8 @@ class EventModel extends Equatable {
         ?? media?['thumbnail'] as String?
         ?? media?['poster'] as String?;
 
+    final createdAtRaw = map['created_at'] ?? map['event_created_at'];
+
     return EventModel(
       id: (map['event_id'] ?? map['id']) as String,
       accountId: map['account_id'] as String?,
@@ -92,6 +96,7 @@ class EventModel extends Equatable {
       totalCapacity: map['total_capacity'] as int?,
       chatCount: (map['chat_count'] as int?) ??
           (map['has_unread_activity'] == true ? 1 : 0),
+      createdAt: createdAtRaw != null ? DateTime.parse(createdAtRaw as String) : null,
     );
   }
 
@@ -115,5 +120,6 @@ class EventModel extends Equatable {
         currency,
         totalCapacity,
         chatCount,
+        createdAt,
       ];
 }

@@ -9,17 +9,22 @@ import '../cubit/forum_sessions_state.dart';
 class SessionsScreen extends StatelessWidget {
   final String eventId;
   final bool isOrganizer;
+  final DateTime? eventCreatedAt;
 
   const SessionsScreen({
     super.key,
     required this.eventId,
     this.isOrganizer = false,
+    this.eventCreatedAt,
   });
 
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (context) => ForumSessionsCubit(eventId: eventId)..loadSessions(),
+      create: (context) => ForumSessionsCubit(
+        eventId: eventId,
+        eventCreatedAt: eventCreatedAt,
+      )..loadSessions(),
       child: SessionsView(isOrganizer: isOrganizer),
     );
   }
@@ -220,6 +225,7 @@ class SessionsView extends StatelessWidget {
                       room: roomController.text.trim().isEmpty
                           ? null
                           : roomController.text.trim(),
+                      eventCreatedAt: session?.eventCreatedAt ?? cubit.eventCreatedAt,
                     );
 
                     if (session == null) {

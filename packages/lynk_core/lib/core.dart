@@ -22,6 +22,6 @@ export 'auth/widgets/custom_text_field.dart';
 export 'feature_flags/models/feature_flag.dart';
 export 'feature_flags/cubit/feature_flag_cubit.dart';
 export 'system_config/cubit/system_config_cubit.dart';
-export 'blocks/cubit/block_cubit.dart';
 export 'src/screens/update_required_page.dart';
 export 'src/constants.dart';
+export 'src/utils/friendly_error.dart';

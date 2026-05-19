@@ -108,20 +108,6 @@ class _UserPresenceCardState extends State<UserPresenceCard> {
               _showReportModal(context);
             },
           ),
-          ActionBarItem(
-            label: context.read<BlockCubit>().isBlocked(widget.userId)
-                ? 'Unblock'
-                : 'Block',
-            onTap: () {
-              _toggleActions();
-              final blockCubit = context.read<BlockCubit>();
-              if (blockCubit.isBlocked(widget.userId)) {
-                blockCubit.unblockUser(widget.userId);
-              } else {
-                blockCubit.blockUser(widget.userId);
-              }
-            },
-          ),
         ],
 
         if (!widget.isPrimary)

@@ -1,4 +1,3 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -60,14 +59,8 @@ class ChatBubble extends StatefulWidget {
 }
 
 class _ChatBubbleState extends State<ChatBubble> {
-  bool _revealed = false;
-
   @override
   Widget build(BuildContext context) {
-    final blockCubit = BlocProvider.of<BlockCubit>(context, listen: true);
-    final isBlocked = blockCubit.isBlocked(widget.message.userId);
-    final shouldBlur = isBlocked && !_revealed;
-
     return Align(
       alignment:
           widget.message.isMe ? Alignment.centerRight : Alignment.centerLeft,
@@ -88,7 +81,7 @@ class _ChatBubbleState extends State<ChatBubble> {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               if (widget.message.isMe) _buildStatusIndicator(),
-              if (shouldBlur) _buildBlurredBubble() else _buildBubble(),
+              _buildBubble(),
               if (widget.message.isMe) _buildMoreIcon(),
               if (!widget.message.isMe) _buildMoreIcon(),
             ],
@@ -137,9 +130,6 @@ class _ChatBubbleState extends State<ChatBubble> {
   }
 
   Widget _buildActions(BuildContext context) {
-    final blockCubit = context.read<BlockCubit>();
-    final isBlocked = blockCubit.isBlocked(widget.message.userId);
-
     return Padding(
       padding: const EdgeInsets.only(top: 4, left: 4, right: 4),
       child: ActionBar(
@@ -168,17 +158,6 @@ class _ChatBubbleState extends State<ChatBubble> {
               ),
           ],
           if (!widget.message.isMe) ...[
-            ActionBarItem(
-              label: isBlocked ? 'Unblock' : 'Block',
-              onTap: () {
-                if (isBlocked) {
-                  blockCubit.unblockUser(widget.message.userId);
-                } else {
-                  blockCubit.blockUser(widget.message.userId);
-                }
-              },
-              color: Colors.redAccent,
-            ),
             ActionBarItem(
               label: 'Report',
               onTap: () => widget.onReport?.call(widget.message),
@@ -215,45 +194,6 @@ class _ChatBubbleState extends State<ChatBubble> {
               },
             ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildBlurredBubble() {
-    return Container(
-      constraints:
-          BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: AppColors.tertiary,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(12),
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            ImageFiltered(
-              imageFilter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-              child: Opacity(
-                opacity: 0.5,
-                child: _buildBubble(),
-              ),
-            ),
-            Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.block, color: Colors.white60, size: 20),
-                const SizedBox(height: 4),
-                TextButton(
-                  onPressed: () => setState(() => _revealed = true),
-                  child: Text('Reveal',
-                      style: TextStyle(color: context.accentColor, fontSize: 12)),
-                ),
-              ],
-            ),
-          ],
-        ),
       ),
     );
   }

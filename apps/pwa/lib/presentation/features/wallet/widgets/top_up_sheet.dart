@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -38,8 +39,12 @@ class _TopUpSheetState extends State<TopUpSheet> {
     _currency = widget.initialCurrency ?? 'KES';
   }
 
+  Timer? _pollingTimer;
+  int _pollCount = 0;
+
   @override
   void dispose() {
+    _pollingTimer?.cancel();
     _amountController.dispose();
     _phoneController.dispose();
     super.dispose();
@@ -86,11 +91,32 @@ class _TopUpSheetState extends State<TopUpSheet> {
     }
   }
 
+  void _startPolling() {
+    if (_pollingTimer != null) return;
+    _pollCount = 0;
+    _pollingTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
+      _pollCount++;
+      if (_pollCount > 12) { // 60 seconds maximum (standard M-Pesa timeout)
+        _stopPolling();
+        return;
+      }
+      if (mounted) {
+        context.read<WalletCubit>().checkTopUpStatus();
+      }
+    });
+  }
+
+  void _stopPolling() {
+    _pollingTimer?.cancel();
+    _pollingTimer = null;
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocConsumer<WalletCubit, WalletState>(
-      // Close the sheet as soon as the balance increases after STK was sent
+      // Close the sheet as soon as the balance increases or status is marked success
       listenWhen: (prev, curr) {
+        if (curr.topUpStatus == TopUpStatus.success) return true;
         if (curr.topUpStatus != TopUpStatus.waitingMpesa) return false;
         for (final cb in curr.balances) {
           final pb = widget.currentBalances.cast<WalletBalance?>()
@@ -99,7 +125,16 @@ class _TopUpSheetState extends State<TopUpSheet> {
         }
         return false;
       },
-      listener: (ctx, _) => Navigator.pop(ctx),
+      listener: (ctx, state) {
+        if (state.topUpStatus == TopUpStatus.waitingMpesa) {
+          _startPolling();
+        } else {
+          _stopPolling();
+        }
+        if (state.topUpStatus == TopUpStatus.success) {
+          Navigator.pop(ctx);
+        }
+      },
       builder: (context, state) {
         final isWaiting  = state.topUpStatus == TopUpStatus.waitingMpesa;
         final isSubmitting = state.topUpStatus == TopUpStatus.submitting;

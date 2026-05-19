@@ -125,6 +125,12 @@ GoRouter createRouter(
               final extras = state.extra as Map<String, dynamic>?;
               final eventId = extras?['eventId'] as String?;
               final isOrganizer = extras?['isOrganizer'] as bool? ?? false;
+              final eventCreatedAtRaw = extras?['eventCreatedAt'];
+              final eventCreatedAt = eventCreatedAtRaw != null
+                  ? (eventCreatedAtRaw is DateTime
+                      ? eventCreatedAtRaw
+                      : DateTime.parse(eventCreatedAtRaw.toString()))
+                  : null;
 
               if (eventId == null || eventId.isEmpty) {
                 return const Scaffold(
@@ -138,6 +144,7 @@ GoRouter createRouter(
               return SessionsScreen(
                 eventId: eventId,
                 isOrganizer: isOrganizer,
+                eventCreatedAt: eventCreatedAt,
               );
             },
           ),

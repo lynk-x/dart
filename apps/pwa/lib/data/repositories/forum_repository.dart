@@ -9,7 +9,7 @@ class ForumRepository {
     final forumData = await _client
         .schema('api')
         .from('v1_forums')
-        .select('status, event_id, event_title')
+        .select('status, event_id, event_created_at, event_title')
         .eq('id', forumId)
         .maybeSingle();
 
@@ -44,13 +44,21 @@ class ForumRepository {
     }).toList();
   }
 
-  Future<List<Map<String, dynamic>>> getEventSessions(String eventId) async {
-    final data = await _client
+  Future<List<Map<String, dynamic>>> getEventSessions(
+    String eventId, {
+    DateTime? eventCreatedAt,
+  }) async {
+    var query = _client
         .schema('events')
         .from('event_sessions')
         .select('starts_at, ends_at')
-        .eq('event_id', eventId)
-        .order('starts_at', ascending: true);
+        .eq('event_id', eventId);
+
+    if (eventCreatedAt != null) {
+      query = query.eq('event_created_at', eventCreatedAt.toIso8601String());
+    }
+
+    final data = await query.order('starts_at', ascending: true);
     return List<Map<String, dynamic>>.from(data);
   }
 
@@ -106,13 +114,15 @@ class ForumRepository {
     String userId,
     String emojiCode,
   ) async {
+    // Partition pruning: Reaction's created_at must be >= message_created_at.
     final existing = await _client
         .schema('social')
         .from('message_reactions')
-        .select('id')
+        .select('id, created_at')
         .eq('message_id', messageId)
         .eq('user_id', userId)
         .eq('emoji_code', emojiCode)
+        .gte('created_at', messageCreatedAt)
         .maybeSingle();
 
     if (existing != null) {
@@ -120,9 +130,8 @@ class ForumRepository {
           .schema('social')
           .from('message_reactions')
           .delete()
-          .eq('message_id', messageId)
-          .eq('user_id', userId)
-          .eq('emoji_code', emojiCode);
+          .eq('id', existing['id'] as String)
+          .eq('created_at', existing['created_at'] as String);
     } else {
       await _client
           .schema('social')
@@ -199,7 +208,7 @@ class ForumRepository {
   Future<Map<String, dynamic>> sendMessage(
       Map<String, dynamic> payload) async {
     final data = await _client
-        .schema('forum_messages')
+        .schema('social')
         .from('forum_messages')
         .insert(payload)
         .select()
@@ -209,7 +218,7 @@ class ForumRepository {
 
   Future<void> deleteMessage(String messageId, String createdAt) async {
     await _client
-        .schema('forum_messages')
+        .schema('social')
         .from('forum_messages')
         .update({'deleted_at': DateTime.now().toIso8601String()})
         .eq('id', messageId)
@@ -224,7 +233,7 @@ class ForumRepository {
         .channel('forum_messages_$forumId')
         .onPostgresChanges(
           event: PostgresChangeEvent.all,
-          schema: 'forum_messages',
+          schema: 'social',
           table: 'forum_messages',
           filter: PostgresChangeFilter(
             type: PostgresChangeFilterType.eq,
@@ -243,7 +252,7 @@ class ForumRepository {
         .channel('forum_status_$forumId')
         .onPostgresChanges(
           event: PostgresChangeEvent.update,
-          schema: 'public',
+          schema: 'social',
           table: 'forums',
           filter: PostgresChangeFilter(
             type: PostgresChangeFilterType.eq,
@@ -263,7 +272,7 @@ class ForumRepository {
         .channel('forum_member_${forumId}_$userId')
         .onPostgresChanges(
           event: PostgresChangeEvent.all,
-          schema: 'public',
+          schema: 'social',
           table: 'forum_members',
           filter: PostgresChangeFilter(
             type: PostgresChangeFilterType.eq,

@@ -18,6 +18,10 @@ Future<void> showReportSheet(
   required String targetId,
   // For forum messages which use a composite PK
   DateTime? messageCreatedAt,
+  // For events which use a composite PK due to partitioning
+  DateTime? eventCreatedAt,
+  // For ad-asset variants which use a composite PK due to partitioning
+  DateTime? variantCreatedAt,
 }) {
   return showModalBottomSheet(
     context: context,
@@ -27,6 +31,8 @@ Future<void> showReportSheet(
       targetType: targetType,
       targetId: targetId,
       messageCreatedAt: messageCreatedAt,
+      eventCreatedAt: eventCreatedAt,
+      variantCreatedAt: variantCreatedAt,
     ),
   );
 }
@@ -35,11 +41,15 @@ class _ReportSheet extends StatefulWidget {
   final ReportTargetType targetType;
   final String targetId;
   final DateTime? messageCreatedAt;
+  final DateTime? eventCreatedAt;
+  final DateTime? variantCreatedAt;
 
   const _ReportSheet({
     required this.targetType,
     required this.targetId,
     this.messageCreatedAt,
+    this.eventCreatedAt,
+    this.variantCreatedAt,
   });
 
   @override
@@ -70,9 +80,9 @@ class _ReportSheetState extends State<_ReportSheet> {
     try {
       final data = await Supabase.instance.client
           .from('report_reasons')
-          .select('id, category, description')
+          .select('id, category, display_name, description')
           .eq('is_active', true)
-          .order('category');
+          .order('display_name');
 
       setState(() {
         _reasons = List<Map<String, dynamic>>.from(data);
@@ -97,11 +107,9 @@ class _ReportSheetState extends State<_ReportSheet> {
     final description = _descriptionController.text.trim();
 
     try {
-      // user / event / message reports route through the canonical
-      // `submit_report` RPC, which validates the CHECK constraint server-side
-      // and dispatches the report to the moderation queue. Ad-asset reports
-      // fall back to a direct INSERT because submit_report does not yet
-      // accept a target_variant_id.
+      // All report types route through the canonical secure `submit_report` RPC.
+      // Partitioned targets (events, messages, ad-variants) pass their respective
+      // created_at values to satisfy database foreign keys.
       switch (widget.targetType) {
         case ReportTargetType.user:
           await Supabase.instance.client.rpc('submit_report', params: {
@@ -113,6 +121,8 @@ class _ReportSheetState extends State<_ReportSheet> {
         case ReportTargetType.event:
           await Supabase.instance.client.rpc('submit_report', params: {
             'p_target_event_id': widget.targetId,
+            'p_target_event_created_at':
+                widget.eventCreatedAt?.toUtc().toIso8601String(),
             'p_reason_id': _selectedReasonId,
             'p_description': description.isEmpty ? null : description,
           });
@@ -127,13 +137,12 @@ class _ReportSheetState extends State<_ReportSheet> {
           });
           break;
         case ReportTargetType.adAsset:
-          await Supabase.instance.client.schema('reports').from('reports').insert({
-            'reporter_id': userId,
-            'reason_id': _selectedReasonId,
-            'target_variant_id': widget.targetId,
-            'info': {
-              if (description.isNotEmpty) 'description': description,
-            },
+          await Supabase.instance.client.rpc('submit_report', params: {
+            'p_target_variant_id': widget.targetId,
+            'p_target_variant_created_at':
+                widget.variantCreatedAt?.toUtc().toIso8601String(),
+            'p_reason_id': _selectedReasonId,
+            'p_description': description.isEmpty ? null : description,
           });
           break;
       }
@@ -302,7 +311,7 @@ class _ReportSheetState extends State<_ReportSheet> {
                                                         .start,
                                                 children: [
                                                   Text(
-                                                    reason['category']
+                                                    reason['display_name']
                                                         as String,
                                                     style: TextStyle(
                                                       color: isSelected

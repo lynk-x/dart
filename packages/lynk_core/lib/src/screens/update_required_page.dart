@@ -3,7 +3,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:lynk_core/src/theme/app_colors.dart';
 import 'package:lynk_core/system_config/cubit/system_config_cubit.dart';
-import 'dart:io' show Platform;
 
 class UpdateRequiredPage extends StatelessWidget {
   const UpdateRequiredPage({super.key});
@@ -46,10 +45,7 @@ class UpdateRequiredPage extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(vertical: 16),
                     ),
                     onPressed: () async {
-                      final urlKey = Platform.isAndroid
-                          ? 'store_url_android'
-                          : 'store_url_ios';
-                      final urlString = state.getString(urlKey);
+                      final urlString = state.getString('store_url_web');
 
                       if (urlString.isNotEmpty) {
                         final url = Uri.parse(urlString);

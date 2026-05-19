@@ -11,6 +11,7 @@ class SessionModel extends Equatable {
   final List<String> speakers;
   final String? room;
   final int? capacity;
+  final DateTime? eventCreatedAt;
 
   const SessionModel({
     required this.id,
@@ -22,6 +23,7 @@ class SessionModel extends Equatable {
     this.speakers = const [],
     this.room,
     this.capacity,
+    this.eventCreatedAt,
   });
 
   factory SessionModel.fromMap(Map<String, dynamic> map) {
@@ -31,6 +33,8 @@ class SessionModel extends Equatable {
     if (speakersRaw is List) {
       speakers = speakersRaw.map((e) => e.toString()).toList();
     }
+
+    final eventCreatedAtRaw = map['event_created_at'];
 
     return SessionModel(
       id: map['id'] as String,
@@ -42,12 +46,14 @@ class SessionModel extends Equatable {
       speakers: speakers,
       room: info['room'] as String?,
       capacity: info['capacity'] as int?,
+      eventCreatedAt: eventCreatedAtRaw != null ? DateTime.parse(eventCreatedAtRaw as String) : null,
     );
   }
 
   Map<String, dynamic> toMap() {
     return {
       'event_id': eventId,
+      'event_created_at': eventCreatedAt?.toIso8601String(),
       'starts_at': startsAt.toIso8601String(),
       'ends_at': endsAt.toIso8601String(),
       'sort_order': sortOrder,
@@ -71,5 +77,6 @@ class SessionModel extends Equatable {
         speakers,
         room,
         capacity,
+        eventCreatedAt,
       ];
 }

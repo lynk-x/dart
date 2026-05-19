@@ -105,4 +105,55 @@ class TicketRepository {
           callback: callback,
         );
   }
+
+  RealtimeChannel subscribeToTicketListing(
+    String ticketId,
+    void Function(PostgresChangePayload) callback,
+  ) {
+    return _client
+        .channel('ticket_listings:$ticketId')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'ticket_listings',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'ticket_id',
+            value: ticketId,
+          ),
+          callback: callback,
+        );
+  }
+
+  Future<Map<String, dynamic>?> getPendingListing(String ticketId) async {
+    final listingsResponse = await _client
+        .from('ticket_listings')
+        .select('id, status, asking_price, currency, buyer_id, expires_at')
+        .eq('ticket_id', ticketId)
+        .eq('status', 'pending');
+    return (listingsResponse as List).cast<Map<String, dynamic>>().firstOrNull;
+  }
+
+  Future<String> createResaleListing({
+    required String ticketId,
+    required String recipientUsername,
+    required double askingPrice,
+  }) async {
+    final result = await _client.rpc(
+      'create_ticket_listing',
+      params: {
+        'p_ticket_id': ticketId,
+        'p_recipient_username': recipientUsername,
+        'p_asking_price': askingPrice,
+      },
+    );
+    return result as String;
+  }
+
+  Future<void> cancelResaleListing(String listingId) async {
+    await _client.rpc(
+      'cancel_ticket_listing',
+      params: {'p_listing_id': listingId},
+    );
+  }
 }

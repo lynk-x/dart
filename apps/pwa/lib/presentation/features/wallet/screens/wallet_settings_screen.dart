@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:lynk_core/core.dart';
 import 'package:lynk_x/presentation/features/wallet/widgets/wallet_pin_setup_sheet.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter/foundation.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:lynk_x/presentation/shared/widgets/permission_request_sheet.dart';
@@ -28,6 +29,20 @@ class _WalletSettingsPageState extends State<WalletSettingsPage> {
   }
 
   Future<void> _checkBiometrics() async {
+    // Web clients: Check secure origin requirements (HTTPS or localhost)
+    if (kIsWeb) {
+      final secure = Uri.base.scheme == 'https' ||
+          Uri.base.host == 'localhost' ||
+          Uri.base.host == '127.0.0.1';
+      if (!secure) {
+        setState(() {
+          _canCheckBiometrics = false;
+          _biometricLabel = 'Biometrics (Requires HTTPS)';
+        });
+        return;
+      }
+    }
+
     final canCheck = await auth.canCheckBiometrics || await auth.isDeviceSupported();
     final available = await auth.getAvailableBiometrics();
 

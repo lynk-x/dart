@@ -184,24 +184,20 @@ class _ForumViewState extends State<ForumView> {
           listenWhen: (p, c) => p.waveTrigger != c.waveTrigger,
           listener: (context, state) {
             if (!context.read<FeatureFlagCubit>().isEnabled('enable_social_actions')) return;
-            // Guard against blocked users
             if (state.waveFromName != null && state.waveFromUserId != null) {
-              final isBlocked = context.read<BlockCubit>().isBlocked(state.waveFromUserId!);
-              if (!isBlocked) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Row(
-                      children: [
-                        const Text('👋 ', style: TextStyle(fontSize: 24)),
-                        Text('${state.waveFromName} waved at you!'),
-                      ],
-                    ),
-                    behavior: SnackBarBehavior.floating,
-                    backgroundColor: context.accentColor,
-                    duration: const Duration(seconds: 4),
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Row(
+                    children: [
+                      const Text('👋 ', style: TextStyle(fontSize: 24)),
+                      Text('${state.waveFromName} waved at you!'),
+                    ],
                   ),
-                );
-              }
+                  behavior: SnackBarBehavior.floating,
+                  backgroundColor: context.accentColor,
+                  duration: const Duration(seconds: 4),
+                ),
+              );
             }
           },
         ),
@@ -227,6 +223,7 @@ class _ForumViewState extends State<ForumView> {
                 p.eventProgress != c.eventProgress ||
                 p.showAds != c.showAds ||
                 p.eventId != c.eventId ||
+                p.eventCreatedAt != c.eventCreatedAt ||
                 p.isOrganizer != c.isOrganizer,
             builder: (context, state) => PresenceDrawer(
               onlineUsers: presenceState.onlineUsers,
@@ -235,6 +232,7 @@ class _ForumViewState extends State<ForumView> {
               isOrganizer: state.isOrganizer,
               eventId: state.eventId,
               forumId: cubit.forumId,
+              eventCreatedAt: state.eventCreatedAt,
             ),
           ),
         ),

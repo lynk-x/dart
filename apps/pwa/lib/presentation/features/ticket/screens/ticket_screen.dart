@@ -755,7 +755,7 @@ class _TransferTicketDialogState extends State<_TransferTicketDialog> {
     } catch (e) {
       messenger.showSnackBar(
         SnackBar(
-          content: Text('Transfer failed: ${e.toString()}'),
+          content: Text('Transfer failed: ${e.toFriendlyMessage()}'),
           backgroundColor: Colors.red,
         ),
       );
@@ -954,7 +954,7 @@ class _ResellTicketSheetState extends State<_ResellTicketSheet> {
     } catch (e) {
       if (mounted) setState(() => _isSubmitting = false);
       messenger.showSnackBar(
-        SnackBar(content: Text('Failed: $e'), backgroundColor: Colors.red),
+        SnackBar(content: Text('Failed: ${e.toFriendlyMessage()}'), backgroundColor: Colors.red),
       );
     }
   }

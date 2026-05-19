@@ -20,6 +20,7 @@ class PresenceDrawer extends StatelessWidget {
   final bool isOrganizer;
   final String? eventId;
   final String forumId;
+  final DateTime? eventCreatedAt;
 
   const PresenceDrawer({
     super.key,
@@ -29,6 +30,7 @@ class PresenceDrawer extends StatelessWidget {
     required this.isOrganizer,
     required this.forumId,
     this.eventId,
+    this.eventCreatedAt,
   });
 
   @override
@@ -104,6 +106,7 @@ class PresenceDrawer extends StatelessWidget {
                           extra: {
                             'eventId': eventId,
                             'isOrganizer': isOrganizer,
+                            'eventCreatedAt': eventCreatedAt,
                           },
                         );
                       }

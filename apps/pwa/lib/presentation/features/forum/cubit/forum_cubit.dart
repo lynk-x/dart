@@ -132,6 +132,8 @@ class ForumCubit extends Cubit<ForumState> {
       String forumName = 'Community Forum';
       String? eventIdFromDb;
 
+      DateTime? eventCreatedAtFromDb;
+
       try {
         final result = await _repo.getForumWithMemberStatus(forumId, userId);
         final forumData = result['forum'] as Map<String, dynamic>?;
@@ -140,6 +142,10 @@ class ForumCubit extends Cubit<ForumState> {
         if (forumData != null) {
           forumStatus = forumData['status'] as String? ?? 'open';
           eventIdFromDb = forumData['event_id'] as String?;
+          final eventCreatedAtRaw = forumData['event_created_at'];
+          eventCreatedAtFromDb = eventCreatedAtRaw != null
+              ? DateTime.parse(eventCreatedAtRaw as String)
+              : null;
           forumName = forumData['event_title'] as String? ?? 'Community Forum';
         }
 
@@ -166,10 +172,11 @@ class ForumCubit extends Cubit<ForumState> {
           forumStatus: forumStatus,
           forumName: forumName,
           eventId: eventIdFromDb,
+          eventCreatedAt: eventCreatedAtFromDb,
         ));
 
         if (eventIdFromDb != null) {
-          _syncEventProgress(eventIdFromDb);
+          _syncEventProgress(eventIdFromDb, eventCreatedAtFromDb);
         }
       }
     } catch (e, stack) {
@@ -300,9 +307,9 @@ class ForumCubit extends Cubit<ForumState> {
     }
   }
 
-  Future<void> _syncEventProgress(String eventId) async {
+  Future<void> _syncEventProgress(String eventId, DateTime? eventCreatedAt) async {
     try {
-      final sessions = await _repo.getEventSessions(eventId);
+      final sessions = await _repo.getEventSessions(eventId, eventCreatedAt: eventCreatedAt);
 
       if (sessions.isEmpty) return;
 

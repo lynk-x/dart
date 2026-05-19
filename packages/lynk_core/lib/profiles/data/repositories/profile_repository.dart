@@ -20,7 +20,7 @@ class ProfileRepository {
     String? countryCode,
     Map<String, dynamic>? info,
   }) async {
-    await _client.rpc('update_my_profile', params: {
+    await _client.rpc('update_profile', params: {
       if (fullName != null) 'p_full_name': fullName,
       if (countryCode != null) 'p_country_code': countryCode,
       if (info != null) 'p_info': info,

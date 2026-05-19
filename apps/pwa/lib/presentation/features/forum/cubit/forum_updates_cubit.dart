@@ -177,7 +177,7 @@ class ForumUpdatesCubit extends BaseMessageCubit<ForumUpdatesState> {
       final mediaCreatedAt = state.mentionedMedia?.createdAt.toIso8601String();
 
       await Supabase.instance.client
-          .schema('forum_messages')
+          .schema('social')
           .from('forum_messages')
           .insert({
         'id': messageId,
