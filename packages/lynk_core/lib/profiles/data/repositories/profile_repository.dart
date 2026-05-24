@@ -56,7 +56,7 @@ class ProfileRepository {
   }
 
   Future<void> deleteAccount() async {
-    await _client.rpc('delete_user_account');
+    await _client.rpc('shred_user_data');
   }
 
   Future<bool> isUsernameAvailable(String username) async {

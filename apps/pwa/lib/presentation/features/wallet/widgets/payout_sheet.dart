@@ -225,17 +225,18 @@ class _PayoutSheetState extends State<PayoutSheet> {
                 ],
 
                 if (_showAddMethod)
-                  _AddMpesaForm(
+                  _AddMethodForm(
                     controller: _phoneController,
                     isLoading: isAddingMethod,
-                    onAdd: () {
-                      final raw = _phoneController.text.trim();
-                      if (raw.isEmpty) return;
-                      final phone = raw.startsWith('+') ? raw : '+254${raw.replaceFirst(RegExp(r'^0'), '')}';
+                    onAdd: (provider, identity) {
+                      final label = provider == 'mpesa_daraja' 
+                        ? 'M-Pesa $identity' 
+                        : (provider == 'bank_transfer' ? 'Bank Account' : 'Gateway');
+                        
                       context.read<WalletCubit>().addPayoutMethod(
-                        providerName: 'mpesa_daraja',
-                        identity:     phone,
-                        label:        'M-Pesa $phone',
+                        providerName: provider,
+                        identity:     identity,
+                        label:        label,
                       );
                       setState(() => _showAddMethod = false);
                     },
@@ -359,7 +360,7 @@ class _EmptyMethodCard extends StatelessWidget {
           children: [
             Icon(Icons.add_circle_outline, color: context.accentColor.withValues(alpha: 0.7), size: 20),
             const SizedBox(width: 10),
-            Text('Add M-Pesa number', style: TextStyle(color: context.accentColor.withValues(alpha: 0.8), fontSize: 14, fontWeight: FontWeight.w500)),
+            Text('Add payout destination', style: TextStyle(color: context.accentColor.withValues(alpha: 0.8), fontSize: 14, fontWeight: FontWeight.w500)),
           ],
         ),
       ),
@@ -367,13 +368,13 @@ class _EmptyMethodCard extends StatelessWidget {
   }
 }
 
-class _AddMpesaForm extends StatelessWidget {
+class _AddMethodForm extends StatefulWidget {
   final TextEditingController controller;
   final bool isLoading;
-  final VoidCallback onAdd;
+  final void Function(String provider, String identity) onAdd;
   final VoidCallback onCancel;
 
-  const _AddMpesaForm({
+  const _AddMethodForm({
     required this.controller,
     required this.isLoading,
     required this.onAdd,
@@ -381,19 +382,48 @@ class _AddMpesaForm extends StatelessWidget {
   });
 
   @override
+  State<_AddMethodForm> createState() => _AddMethodFormState();
+}
+
+class _AddMethodFormState extends State<_AddMethodForm> {
+  String _provider = 'mpesa_daraja';
+
+  @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const SizedBox(height: 16),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.05),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<String>(
+              value: _provider,
+              isExpanded: true,
+              dropdownColor: AppColors.tertiary,
+              style: const TextStyle(color: Colors.white),
+              items: const [
+                DropdownMenuItem(value: 'mpesa_daraja', child: Text('M-Pesa Mobile Money')),
+                DropdownMenuItem(value: 'bank_transfer', child: Text('Bank Transfer (SWIFT/IBAN)')),
+                DropdownMenuItem(value: 'stripe_connect', child: Text('Stripe Connect')),
+              ],
+              onChanged: (v) => setState(() => _provider = v!),
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
         TextField(
-          controller: controller,
-          keyboardType: TextInputType.phone,
+          controller: widget.controller,
+          keyboardType: _provider == 'mpesa_daraja' ? TextInputType.phone : TextInputType.text,
           style: const TextStyle(color: Colors.white),
           decoration: InputDecoration(
-            hintText: '07XXXXXXXX',
+            hintText: _provider == 'mpesa_daraja' ? '07XXXXXXXX' : 'Enter account number or email',
             hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.3)),
-            prefixText: '+254  ',
+            prefixText: _provider == 'mpesa_daraja' ? '+254  ' : '',
             prefixStyle: const TextStyle(color: Colors.white60),
             filled: true,
             fillColor: Colors.white.withValues(alpha: 0.05),
@@ -403,9 +433,20 @@ class _AddMpesaForm extends StatelessWidget {
         const SizedBox(height: 12),
         Row(
           children: [
-            Expanded(child: TextButton(onPressed: onCancel, child: const Text('Cancel', style: TextStyle(color: Colors.white38)))),
+            Expanded(child: TextButton(onPressed: widget.onCancel, child: const Text('Cancel', style: TextStyle(color: Colors.white38)))),
             const SizedBox(width: 12),
-            Expanded(child: PrimaryButton(text: 'Save', isLoading: isLoading, onPressed: onAdd)),
+            Expanded(child: PrimaryButton(
+              text: 'Save', 
+              isLoading: widget.isLoading, 
+              onPressed: () {
+                final raw = widget.controller.text.trim();
+                if (raw.isEmpty) return;
+                final identity = _provider == 'mpesa_daraja' 
+                  ? (raw.startsWith('+') ? raw : '+254${raw.replaceFirst(RegExp(r'^0'), '')}')
+                  : raw;
+                widget.onAdd(_provider, identity);
+              }
+            )),
           ],
         ),
       ],

@@ -2,7 +2,7 @@ import 'package:equatable/equatable.dart';
 import 'package:lynk_x/presentation/features/wallet/models/wallet_model.dart';
 
 /// Status of a wallet top-up submission.
-enum TopUpStatus { idle, submitting, waitingMpesa, success, error }
+enum TopUpStatus { idle, submitting, waitingPayment, success, error }
 
 /// Status of a wallet withdrawal submission.
 enum WithdrawStatus { idle, submitting, addingMethod, success, error }

@@ -81,13 +81,19 @@ class _TopUpSheetState extends State<TopUpSheet> {
         );
         return;
       }
-      cubit.initiateTopUpMpesa(
+      cubit.initiateTopUp(
         amount: amount,
         currency: _currency,
-        phone: '+254${phone.replaceFirst(RegExp(r'^0'), '')}',
+        providerName: 'mpesa_daraja',
+        payerIdentity: '+254${phone.replaceFirst(RegExp(r'^0'), '')}',
       );
     } else {
-      cubit.initiateTopUpCard(amount: amount, currency: _currency);
+      cubit.initiateTopUp(
+        amount: amount,
+        currency: _currency,
+        providerName: 'stripe',
+        payerIdentity: 'card_checkout',
+      );
     }
   }
 
@@ -117,7 +123,7 @@ class _TopUpSheetState extends State<TopUpSheet> {
       // Close the sheet as soon as the balance increases or status is marked success
       listenWhen: (prev, curr) {
         if (curr.topUpStatus == TopUpStatus.success) return true;
-        if (curr.topUpStatus != TopUpStatus.waitingMpesa) return false;
+        if (curr.topUpStatus != TopUpStatus.waitingPayment) return false;
         for (final cb in curr.balances) {
           final pb = widget.currentBalances.cast<WalletBalance?>()
               .firstWhere((b) => b?.currency == cb.currency, orElse: () => null);
@@ -126,7 +132,7 @@ class _TopUpSheetState extends State<TopUpSheet> {
         return false;
       },
       listener: (ctx, state) {
-        if (state.topUpStatus == TopUpStatus.waitingMpesa) {
+        if (state.topUpStatus == TopUpStatus.waitingPayment) {
           _startPolling();
         } else {
           _stopPolling();
@@ -136,7 +142,7 @@ class _TopUpSheetState extends State<TopUpSheet> {
         }
       },
       builder: (context, state) {
-        final isWaiting  = state.topUpStatus == TopUpStatus.waitingMpesa;
+        final isWaiting  = state.topUpStatus == TopUpStatus.waitingPayment;
         final isSubmitting = state.topUpStatus == TopUpStatus.submitting;
 
         return AnimatedSize(

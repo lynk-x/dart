@@ -225,15 +225,15 @@ class WalletCubit extends Cubit<WalletState> {
 
   // ── Top-up Flow ────────────────────────────────────────────────────────────
 
-  /// Initiate an M-Pesa STK push top-up.
-  ///
-  /// Calls the `initiate-mpesa-topup` Edge Function, which sends an STK push
-  /// to [phone]. The wallet balance update arrives asynchronously via the
-  /// M-Pesa webhook → the Realtime subscription detects the increase.
-  Future<void> initiateTopUpMpesa({
+  /// Initiate a wallet top-up using any supported provider.
+  /// Calls the `initiate_wallet_topup` RPC. If the backend returns a payment_url,
+  /// it will be surfaced to the UI to open in a browser. For M-Pesa STK push,
+  /// the URL might be null if the STK push was dispatched directly by the webhook.
+  Future<void> initiateTopUp({
     required double amount,
     required String currency,
-    required String phone,
+    required String providerName,
+    required String payerIdentity,
   }) async {
     if (amount <= 0) {
       emit(state.copyWith(
@@ -246,52 +246,22 @@ class WalletCubit extends Cubit<WalletState> {
     emit(state.copyWith(topUpStatus: TopUpStatus.submitting, clearTopUpError: true));
 
     try {
-      await _supabase.functions.invoke(
-        'initiate-mpesa-topup',
-        body: {'amount': amount, 'currency': currency, 'phone': phone},
-      );
-      // Transition to waiting — Realtime will detect the balance change.
-      emit(state.copyWith(topUpStatus: TopUpStatus.waitingMpesa));
-    } catch (e) {
-      emit(state.copyWith(
-        topUpStatus: TopUpStatus.error,
-        topUpError:  'M-Pesa request failed: ${e.toFriendlyMessage()}',
-      ));
-    }
-  }
+      final response = await _supabase.rpc('initiate_wallet_topup', params: {
+        'p_account_id': state.accountId,
+        'p_amount': amount,
+        'p_currency': currency,
+        'p_provider_name': providerName,
+        'p_payer_identity': payerIdentity,
+      });
 
-  /// Initiate a card top-up via an external gateway (Stripe / Flutterwave).
-  /// Returns a redirect URL that the calling screen opens in a browser.
-  Future<void> initiateTopUpCard({
-    required double amount,
-    required String currency,
-  }) async {
-    if (amount <= 0) {
-      emit(state.copyWith(
-        topUpStatus: TopUpStatus.error,
-        topUpError:  'Amount must be greater than zero.',
-      ));
-      return;
-    }
-
-    emit(state.copyWith(topUpStatus: TopUpStatus.submitting, clearTopUpError: true));
-
-    try {
-      final response = await _supabase.functions.invoke(
-        'initiate-card-topup',
-        body: {'amount': amount, 'currency': currency},
-      );
-
-      final paymentUrl = (response.data as Map<String, dynamic>?)?['payment_url'] as String?;
+      final paymentUrl = (response as Map<String, dynamic>?)?['payment_url'] as String?;
+      
+      // If it's M-Pesa or a direct push provider, we might just wait for realtime.
       if (paymentUrl == null || paymentUrl.isEmpty) {
-        emit(state.copyWith(
-          topUpStatus: TopUpStatus.error,
-          topUpError:  'Payment gateway did not return a redirect URL.',
-        ));
-        return;
+        emit(state.copyWith(topUpStatus: TopUpStatus.waitingPayment));
+      } else {
+        emit(state.copyWith(topUpStatus: TopUpStatus.success, topUpPaymentUrl: paymentUrl));
       }
-
-      emit(state.copyWith(topUpStatus: TopUpStatus.success, topUpPaymentUrl: paymentUrl));
     } catch (e) {
       emit(state.copyWith(
         topUpStatus: TopUpStatus.error,
@@ -415,6 +385,23 @@ class WalletCubit extends Cubit<WalletState> {
       emit(state.copyWith(
         withdrawStatus: WithdrawStatus.error,
         withdrawError:  'Could not add payout method: ${e.toFriendlyMessage()}',
+      ));
+    }
+  }
+
+  /// Delete a saved payout method.
+  Future<void> deletePayoutMethod(String methodId) async {
+    try {
+      await _supabase
+          .from('account_payment_methods')
+          .delete()
+          .eq('id', methodId)
+          .eq('account_id', state.accountId!);
+      await loadPayoutMethods();
+    } catch (e) {
+      emit(state.copyWith(
+        withdrawStatus: WithdrawStatus.error,
+        withdrawError: 'Failed to delete method: ${e.toFriendlyMessage()}'
       ));
     }
   }

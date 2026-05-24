@@ -164,10 +164,10 @@ class _WalletSettingsPageState extends State<WalletSettingsPage> {
               children: [
                 _buildSectionHeader('Accounts'),
                 _buildSettingTile(
-                  title: 'Linked Accounts',
+                  title: 'Saved Payment Methods',
                   subtitle: 'Manage external bank or card links',
                   icon: Icons.link_rounded,
-                  onTap: () {},
+                  onTap: () => context.push('/wallet/payment-methods'),
                 ),
 
                 const SizedBox(height: 32),

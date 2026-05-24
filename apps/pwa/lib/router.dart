@@ -21,6 +21,7 @@ import 'package:lynk_x/presentation/features/wallet/screens/wallet_list_screen.d
 import 'package:lynk_x/presentation/features/wallet/screens/wallet_transactions_screen.dart';
 import 'package:lynk_x/presentation/features/wallet/screens/wallet_history_screen.dart';
 import 'package:lynk_x/presentation/features/wallet/screens/wallet_settings_screen.dart';
+import 'package:lynk_x/presentation/features/wallet/screens/payment_methods_screen.dart';
 import 'package:lynk_x/presentation/features/wallet/widgets/wallet_security_gate.dart';
 import 'package:lynk_x/presentation/features/kyc/screens/kyc_verification_screen.dart';
 import 'package:lynk_x/presentation/features/subscription/screens/subscription_screen.dart';
@@ -200,6 +201,10 @@ GoRouter createRouter(
               GoRoute(
                 path: 'settings',
                 builder: (_, __) => const WalletSettingsPage(),
+              ),
+              GoRoute(
+                path: 'payment-methods',
+                builder: (_, __) => const PaymentMethodsScreen(),
               ),
             ],
           ),
