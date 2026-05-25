@@ -155,6 +155,19 @@ class _WalletCard extends StatelessWidget {
                     'Cash: ${balance.cashBalance.toStringAsFixed(2)}${balance.creditBalance > 0 ? ' • Credit: ${balance.creditBalance.toStringAsFixed(2)}' : ''}',
                     style: AppTypography.inter(fontSize: 13, color: Colors.white54),
                   ),
+                  if (balance.pendingBalance > 0) ...[
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        const Icon(Icons.lock_clock, size: 12, color: Colors.amber),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Pending / Held: ${balance.pendingBalance.toStringAsFixed(2)}',
+                          style: AppTypography.inter(fontSize: 12, color: Colors.amber, fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                  ],
                 ],
               ),
             ),

@@ -99,12 +99,22 @@ class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
                 child: Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.all(12),
+                      width: 48,
+                      height: 48,
+                      padding: provider?['logo_url'] != null ? EdgeInsets.zero : const EdgeInsets.all(12),
                       decoration: BoxDecoration(
                         color: Colors.white.withValues(alpha: 0.05),
                         shape: BoxShape.circle,
+                        image: provider?['logo_url'] != null
+                            ? DecorationImage(
+                                image: NetworkImage(provider!['logo_url'] as String),
+                                fit: BoxFit.cover,
+                              )
+                            : null,
                       ),
-                      child: Icon(Icons.account_balance, color: context.accentColor, size: 24),
+                      child: provider?['logo_url'] == null
+                          ? Icon(Icons.account_balance, color: context.accentColor, size: 24)
+                          : null,
                     ),
                     const SizedBox(width: 16),
                     Expanded(

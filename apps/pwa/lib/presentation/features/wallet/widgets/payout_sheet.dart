@@ -34,6 +34,7 @@ class _PayoutSheetState extends State<PayoutSheet> {
   void initState() {
     super.initState();
     _selectedCurrency = widget.initialCurrency ?? 'KES';
+    _amountController.addListener(() => setState(() {}));
   }
 
   @override
@@ -242,6 +243,44 @@ class _PayoutSheetState extends State<PayoutSheet> {
                     },
                     onCancel: () => setState(() => _showAddMethod = false),
                   ),
+
+                if (_selectedMethodId != null && _amountController.text.isNotEmpty && (double.tryParse(_amountController.text) ?? 0) > 0)
+                  Builder(builder: (context) {
+                    final m = state.payoutMethods.firstWhere((e) => e['id'] == _selectedMethodId, orElse: () => {});
+                    final p = m['platform_payment_providers'] as Map<String, dynamic>?;
+                    final base = (p?['base_fee_usd'] as num?)?.toDouble() ?? 0.0;
+                    final pct = (p?['fee_percent'] as num?)?.toDouble() ?? 0.0;
+                    final amt = double.tryParse(_amountController.text) ?? 0.0;
+                    final fee = base + (amt * (pct / 100));
+                    final total = amt + fee;
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 24, top: 16),
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.03),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.white10),
+                      ),
+                      child: Column(
+                        children: [
+                          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                            const Text('Withdrawal Amount', style: TextStyle(color: Colors.white70, fontSize: 13)),
+                            Text('$_selectedCurrency ${amt.toStringAsFixed(2)}', style: const TextStyle(color: Colors.white, fontSize: 13)),
+                          ]),
+                          const SizedBox(height: 8),
+                          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                            const Text('Est. Processing Fee', style: TextStyle(color: Colors.white70, fontSize: 13)),
+                            Text('$_selectedCurrency ${fee.toStringAsFixed(2)}', style: const TextStyle(color: Colors.white, fontSize: 13)),
+                          ]),
+                          const Divider(color: Colors.white10, height: 24),
+                          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                            const Text('Total Deducted', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)),
+                            Text('$_selectedCurrency ${total.toStringAsFixed(2)}', style: TextStyle(color: context.accentColor, fontSize: 14, fontWeight: FontWeight.bold)),
+                          ]),
+                        ],
+                      ),
+                    );
+                  }),
 
                 Text(
                    'Confirm with PIN',

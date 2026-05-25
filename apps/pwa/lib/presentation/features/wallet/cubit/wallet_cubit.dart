@@ -45,6 +45,7 @@ class WalletCubit extends Cubit<WalletState> {
     _balanceChannel?.unsubscribe();
 
     emit(state.copyWith(isLoading: true, clearError: true));
+    await _loadCachedData();
     await Future.wait([
       _fetchBalances(),
       _fetchTransactions(reset: true),
@@ -61,6 +62,59 @@ class WalletCubit extends Cubit<WalletState> {
         _fetchBalances();
       }
     });
+  }
+
+  Future<void> _loadCachedData() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      
+      final balancesStr = prefs.getString('cached_balances');
+      if (balancesStr != null) {
+        final decoded = jsonDecode(balancesStr) as List;
+        final balances = decoded.map((e) => WalletBalance.fromMap(Map<String, dynamic>.from(e))).toList();
+        emit(state.copyWith(balances: balances));
+      }
+
+      final txStr = prefs.getString('cached_transactions');
+      if (txStr != null) {
+        final decoded = jsonDecode(txStr) as List;
+        final txs = decoded.map((e) => WalletTransaction.fromMap(Map<String, dynamic>.from(e))).toList();
+        emit(state.copyWith(transactions: txs));
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _saveCachedBalances(List<WalletBalance> balances) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final encoded = jsonEncode(balances.map((b) => {
+        'currency': b.currency,
+        'cash_balance': b.cashBalance,
+        'escrow_balance': b.pendingBalance,
+        'credit_balance': b.creditBalance,
+      }).toList());
+      await prefs.setString('cached_balances', encoded);
+    } catch (_) {}
+  }
+
+  Future<void> _saveCachedTransactions(List<WalletTransaction> txs) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final topTxs = txs.take(20).toList(); // Only cache latest 20
+      final encoded = jsonEncode(topTxs.map((t) => {
+        'id': t.id,
+        'entry_type': t.entryType,
+        'category': t.category,
+        'reason': t.reason,
+        'amount': t.amount,
+        'currency': t.currency,
+        'status': t.status,
+        'event_id': t.eventId,
+        'reference': t.reference,
+        'created_at': t.createdAt.toIso8601String(),
+      }).toList());
+      await prefs.setString('cached_transactions', encoded);
+    } catch (_) {}
   }
 
   @override
@@ -90,11 +144,12 @@ class WalletCubit extends Cubit<WalletState> {
           .whereType<Map<String, dynamic>>()
           .map((row) => WalletBalance.fromMap({
                 ...row,
-                'pending_balance': row['escrow_balance'],
+                'escrow_balance': row['escrow_balance'], // Fix to properly use escrow_balance in fromMap
               }))
           .toList();
 
       emit(state.copyWith(balances: balances, accountId: accountId, isLoading: false));
+      _saveCachedBalances(balances);
     } catch (e) {
       emit(state.copyWith(
         isLoading: false,
@@ -152,6 +207,10 @@ class WalletCubit extends Cubit<WalletState> {
         isLoadingMore: false,
         isLoading:     false,
       ));
+
+      if (reset) {
+        _saveCachedTransactions(updated);
+      }
 
       if (rows.isNotEmpty) _currentPage++;
     } catch (e) {
@@ -339,7 +398,7 @@ class WalletCubit extends Cubit<WalletState> {
       // Fetch methods + provider metadata in one query via FK traversal
       final methodRows = await _supabase
           .from('account_payment_methods')
-          .select('id, provider_identity, metadata, platform_payment_providers(provider_name, display_name)')
+          .select('id, provider_identity, metadata, platform_payment_providers(provider_name, display_name, logo_url, base_fee_usd, fee_percent)')
           .eq('account_id', accountId);
 
       // Fetch latest KYC verification for this account

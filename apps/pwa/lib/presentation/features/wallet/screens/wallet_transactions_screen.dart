@@ -20,6 +20,8 @@ class WalletTransactionsPage extends StatefulWidget {
 
 class _WalletTransactionsPageState extends State<WalletTransactionsPage> {
   final _scrollController = ScrollController();
+  String _selectedFilter = 'All';
+  final List<String> _filters = ['All', 'Top-ups', 'Withdrawals', 'Purchases', 'Transfers'];
 
   @override
   void initState() {
@@ -155,49 +157,107 @@ class _WalletTransactionsPageState extends State<WalletTransactionsPage> {
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-                    child: Text(
-                      'Recent Activity',
-                      style: AppTypography.inter(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white70,
-                      ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Recent Activity',
+                          style: AppTypography.inter(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white70,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        SizedBox(
+                          height: 36,
+                          child: ListView.separated(
+                            scrollDirection: Axis.horizontal,
+                            itemCount: _filters.length,
+                            separatorBuilder: (context, index) => const SizedBox(width: 8),
+                            itemBuilder: (context, index) {
+                              final f = _filters[index];
+                              final isSelected = f == _selectedFilter;
+                              return GestureDetector(
+                                onTap: () => setState(() => _selectedFilter = f),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                  decoration: BoxDecoration(
+                                    color: isSelected ? context.accentColor : Colors.white.withValues(alpha: 0.05),
+                                    borderRadius: BorderRadius.circular(20),
+                                    border: Border.all(color: isSelected ? context.accentColor : Colors.white10),
+                                  ),
+                                  child: Center(
+                                    child: Text(
+                                      f,
+                                      style: TextStyle(
+                                        color: isSelected ? Colors.black : Colors.white70,
+                                        fontSize: 13,
+                                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                      ],
                     ),
                   ),
                 ),
 
                 // ── Transaction List ───────────────────────────────────────
-                if (state.isLoading && state.transactions.isEmpty)
-                  SliverFillRemaining(
-                    child: Center(child: CircularProgressIndicator(color: context.accentColor)),
-                  )
-                else if (state.transactions.isEmpty)
-                  const SliverFillRemaining(
-                    hasScrollBody: false,
-                    child: Center(
-                      child: Text(
-                        'No transactions yet.',
-                        style: TextStyle(color: Colors.white38),
+                Builder(
+                  builder: (context) {
+                    List<WalletTransaction> filteredTx = state.transactions;
+                    if (_selectedFilter == 'Top-ups') {
+                      filteredTx = filteredTx.where((t) => t.entryType == 'top_up' || t.reason.startsWith('top_up')).toList();
+                    } else if (_selectedFilter == 'Withdrawals') {
+                      filteredTx = filteredTx.where((t) => t.entryType == 'payout' || t.reason.startsWith('withdrawal')).toList();
+                    } else if (_selectedFilter == 'Purchases') {
+                      filteredTx = filteredTx.where((t) => t.reason.contains('purchase') || t.reason.contains('subscription')).toList();
+                    } else if (_selectedFilter == 'Transfers') {
+                      filteredTx = filteredTx.where((t) => t.reason.contains('transfer')).toList();
+                    }
+
+                    if (state.isLoading && state.transactions.isEmpty) {
+                      return SliverFillRemaining(
+                        child: Center(child: CircularProgressIndicator(color: context.accentColor)),
+                      );
+                    }
+                    if (filteredTx.isEmpty) {
+                      return SliverFillRemaining(
+                        hasScrollBody: false,
+                        child: Center(
+                          child: Text(
+                            'No $_selectedFilter transactions found.',
+                            style: const TextStyle(color: Colors.white38),
+                          ),
+                        ),
+                      );
+                    }
+                    
+                    return SliverList(
+                      delegate: SliverChildBuilderDelegate(
+                        (context, index) {
+                          if (index == filteredTx.length) {
+                            return state.isLoadingMore
+                                ? Padding(
+                                    padding: const EdgeInsets.all(16),
+                                    child: Center(child: CircularProgressIndicator(color: context.accentColor, strokeWidth: 2)),
+                                  )
+                                : const SizedBox(height: 100);
+                          }
+                          return TransactionTile(tx: filteredTx[index]);
+                        },
+                        childCount: filteredTx.length + 1,
                       ),
-                    ),
-                  )
-                else
-                  SliverList(
-                    delegate: SliverChildBuilderDelegate(
-                      (context, index) {
-                        if (index == state.transactions.length) {
-                          return state.isLoadingMore
-                              ? Padding(
-                                  padding: const EdgeInsets.all(16),
-                                  child: Center(child: CircularProgressIndicator(color: context.accentColor, strokeWidth: 2)),
-                                )
-                              : const SizedBox(height: 100);
-                        }
-                        return TransactionTile(tx: state.transactions[index]);
-                      },
-                      childCount: state.transactions.length + 1,
-                    ),
-                  ),
+                    );
+                  },
+                ),
+
               ],
             ),
           ),
