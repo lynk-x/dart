@@ -119,9 +119,29 @@ class PushNotificationService {
     }
   }
 
-  /// Remove the current device token on sign-out (Stub for PWA).
+  /// Remove the current device token on sign-out to prevent cross-user leakage.
   Future<void> removeToken() async {
-    // Web push token removal logic can be added here if needed.
+    try {
+      String? token;
+      if (kIsWeb) {
+        const vapidKey = String.fromEnvironment('FIREBASE_VAPID_KEY');
+        if (vapidKey.isNotEmpty) {
+          token = await _messaging.getToken(vapidKey: vapidKey);
+        }
+      } else {
+        token = await _messaging.getToken();
+      }
+
+      if (token != null) {
+        await Supabase.instance.client
+            .from('user_devices')
+            .delete()
+            .eq('fcm_token', token);
+        debugPrint('[Push] FCM token removed successfully on sign-out');
+      }
+    } catch (e) {
+      debugPrint('[Push] Failed to remove FCM token: $e');
+    }
   }
 
   void dispose() {

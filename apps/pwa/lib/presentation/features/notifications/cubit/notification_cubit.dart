@@ -31,7 +31,9 @@ class NotificationCubit extends Cubit<NotificationState> {
   void _subscribeToNotifications() {
     final uid = _userId;
     if (uid == null) return;
-    _channel?.unsubscribe();
+    if (_channel != null) {
+      _repo.unsubscribe(_channel!);
+    }
     _channel = _repo.subscribeToNotifications(uid, _handleRealtimeUpdate)
       ..subscribe();
   }
@@ -109,14 +111,19 @@ class NotificationCubit extends Cubit<NotificationState> {
   }
 
   void reset() {
-    _channel?.unsubscribe();
-    _channel = null;
+    if (_channel != null) {
+      _repo.unsubscribe(_channel!);
+      _channel = null;
+    }
     emit(const NotificationInitial());
   }
 
   @override
   Future<void> close() {
-    _channel?.unsubscribe();
+    if (_channel != null) {
+      _repo.unsubscribe(_channel!);
+      _channel = null;
+    }
     return super.close();
   }
 }

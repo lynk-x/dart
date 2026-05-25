@@ -56,4 +56,8 @@ class NotificationRepository {
           callback: callback,
         );
   }
+
+  void unsubscribe(RealtimeChannel channel) {
+    _client.removeChannel(channel);
+  }
 }
