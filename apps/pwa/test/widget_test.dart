@@ -8,10 +8,10 @@ import 'package:lynk_x/data/repositories/event_repository.dart';
 import 'package:lynk_core/core.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-class _FakeEventRepository extends EventRepository {
-  _FakeEventRepository() : super(_unreachable());
+class _FakeSupabaseClient extends Fake implements SupabaseClient {}
 
-  static SupabaseClient _unreachable() => throw UnimplementedError();
+class _FakeEventRepository extends EventRepository {
+  _FakeEventRepository() : super(_FakeSupabaseClient());
 
   @override
   Future<List<EventModel>> getUserForums(String userId,

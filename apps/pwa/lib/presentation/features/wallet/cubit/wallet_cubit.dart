@@ -5,6 +5,9 @@ import 'package:crypto/crypto.dart';
 import 'dart:convert';
 import 'package:local_auth/local_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import '../utils/web_authn_helper.dart';
+import '../utils/connectivity_helper.dart';
 
 import 'package:lynk_x/data/repositories/repositories.dart';
 import 'package:lynk_x/presentation/features/wallet/models/wallet_model.dart';
@@ -32,6 +35,9 @@ class WalletCubit extends Cubit<WalletState> {
 
   // Auth state subscription — re-subscribes balance channel on session recovery
   StreamSubscription<AuthState>? _authSubscription;
+  
+  // Connectivity subscription — instantly restores realtime connection when returning online
+  StreamSubscription<bool>? _connectivitySubscription;
 
   // Pagination
   static const int _pageSize = 20;
@@ -46,6 +52,13 @@ class WalletCubit extends Cubit<WalletState> {
 
     emit(state.copyWith(isLoading: true, clearError: true));
     await _loadCachedData();
+
+    // Resolve Account ID first to ensure downstream concurrent methods are initialized correctly
+    final accountId = state.accountId ?? await _resolveAccountId();
+    if (accountId != null) {
+      emit(state.copyWith(accountId: accountId));
+    }
+
     await Future.wait([
       _fetchBalances(),
       _fetchTransactions(reset: true),
@@ -54,6 +67,18 @@ class WalletCubit extends Cubit<WalletState> {
       _loadPrivacyPreference(),
     ]);
     _subscribeToBalanceUpdates();
+
+    await _connectivitySubscription?.cancel();
+    _connectivitySubscription = ConnectivityHelper.onConnectivityChanged.listen((isOnline) {
+      if (isOnline) {
+        _reconnectTimer?.cancel();
+        _reconnectTimer = null;
+        _reconnectDelay = const Duration(seconds: 2);
+        
+        _balanceChannel?.unsubscribe();
+        _subscribeToBalanceUpdates();
+      }
+    });
     _authSubscription = _supabase.auth.onAuthStateChange.listen((event) {
       if (event.event == AuthChangeEvent.tokenRefreshed ||
           event.event == AuthChangeEvent.signedIn) {
@@ -120,6 +145,7 @@ class WalletCubit extends Cubit<WalletState> {
   @override
   Future<void> close() {
     _authSubscription?.cancel();
+    _connectivitySubscription?.cancel();
     _balanceChannel?.unsubscribe();
     _reconnectTimer?.cancel();
     return super.close();
@@ -224,6 +250,10 @@ class WalletCubit extends Cubit<WalletState> {
 
   /// Pull-to-refresh — resets and refetches everything.
   Future<void> refresh() async {
+    final accountId = state.accountId ?? await _resolveAccountId();
+    if (accountId != null) {
+      emit(state.copyWith(accountId: accountId));
+    }
     await Future.wait([_fetchBalances(), _fetchTransactions(reset: true)]);
   }
 
@@ -634,19 +664,32 @@ class WalletCubit extends Cubit<WalletState> {
 
   Future<bool> unlockWithBiometrics() async {
     try {
-      final canCheck = await _localAuth.canCheckBiometrics;
-      if (!canCheck) return false;
+      if (kIsWeb) {
+        final prefs = await SharedPreferences.getInstance();
+        final hexId = prefs.getString('wallet_webauthn_credential_id');
+        if (hexId == null) return false;
 
-      final didAuth = await _localAuth.authenticate(
-        localizedReason: 'Unlock your Lynk-X Wallet',
-        options: const AuthenticationOptions(stickyAuth: true, biometricOnly: true),
-      );
+        final didAuth = await WebAuthnHelper.authenticateLocalCredential(hexId);
+        if (didAuth) {
+          emit(state.copyWith(isWalletUnlocked: true));
+          return true;
+        }
+        return false;
+      } else {
+        final canCheck = await _localAuth.canCheckBiometrics;
+        if (!canCheck) return false;
 
-      if (didAuth) {
-        emit(state.copyWith(isWalletUnlocked: true));
-        return true;
+        final didAuth = await _localAuth.authenticate(
+          localizedReason: 'Unlock your Lynk-X Wallet',
+          options: const AuthenticationOptions(stickyAuth: true, biometricOnly: true),
+        );
+
+        if (didAuth) {
+          emit(state.copyWith(isWalletUnlocked: true));
+          return true;
+        }
+        return false;
       }
-      return false;
     } catch (_) {
       return false;
     }
@@ -659,13 +702,37 @@ class WalletCubit extends Cubit<WalletState> {
   Future<void> _loadBiometricPreference() async {
     final prefs = await SharedPreferences.getInstance();
     final useBio = prefs.getBool('wallet_use_biometrics_v1') ?? false;
+    if (useBio && kIsWeb) {
+      final hexId = prefs.getString('wallet_webauthn_credential_id');
+      if (hexId == null) {
+        emit(state.copyWith(useBiometrics: false));
+        return;
+      }
+    }
     emit(state.copyWith(useBiometrics: useBio));
   }
 
   Future<void> toggleBiometrics(bool enable) async {
     final prefs = await SharedPreferences.getInstance();
+    if (enable) {
+      if (kIsWeb) {
+        final email = _supabase.auth.currentUser?.email ?? 'user@lynk-x';
+        final hexId = await WebAuthnHelper.registerLocalCredential(email);
+        if (hexId == null) {
+          emit(state.copyWith(useBiometrics: false, error: 'WebAuthn registration failed or was cancelled.'));
+          return;
+        }
+        await prefs.setString('wallet_webauthn_credential_id', hexId);
+      } else {
+        final canCheck = await _localAuth.canCheckBiometrics;
+        if (!canCheck) {
+          emit(state.copyWith(useBiometrics: false, error: 'Biometrics not available on this device.'));
+          return;
+        }
+      }
+    }
     await prefs.setBool('wallet_use_biometrics_v1', enable);
-    emit(state.copyWith(useBiometrics: enable));
+    emit(state.copyWith(useBiometrics: enable, clearError: true));
   }
 
   /// PIN Recovery Strategy:

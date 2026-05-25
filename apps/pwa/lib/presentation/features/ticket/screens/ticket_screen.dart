@@ -705,22 +705,25 @@ class _TransferTicketDialogState extends State<_TransferTicketDialog> {
     if (_debounceTimer?.isActive ?? false) _debounceTimer?.cancel();
     setState(() => _isChecking = true);
 
+    final checkedValue = value;
     _debounceTimer = Timer(const Duration(milliseconds: 500), () async {
       if (!mounted) return;
       try {
         final data = await Supabase.instance.client
             .from('user_profile')
             .select('user_name')
-            .eq('user_name', value)
+            .eq('user_name', checkedValue)
             .maybeSingle();
-        if (mounted) {
+        if (mounted && _controller.text.trim() == checkedValue) {
           setState(() {
             _recipientFound = data != null;
             _isChecking = false;
           });
         }
       } catch (_) {
-        if (mounted) setState(() => _isChecking = false);
+        if (mounted && _controller.text.trim() == checkedValue) {
+          setState(() => _isChecking = false);
+        }
       }
     });
   }
@@ -736,7 +739,8 @@ class _TransferTicketDialogState extends State<_TransferTicketDialog> {
     final recipient = _controller.text.trim();
     final messenger = ScaffoldMessenger.of(widget.parentContext);
     final cubit = widget.parentContext.read<TicketCubit>();
-    final accentColor = context.accentColor;
+    final accentColor = widget.parentContext.accentColor;
+    final parentMounted = widget.parentContext.mounted;
     
     Navigator.pop(context);
 
@@ -751,7 +755,9 @@ class _TransferTicketDialogState extends State<_TransferTicketDialog> {
           backgroundColor: accentColor,
         ),
       );
-      await cubit.refresh();
+      if (parentMounted) {
+        await cubit.refresh();
+      }
     } catch (e) {
       messenger.showSnackBar(
         SnackBar(
@@ -907,17 +913,25 @@ class _ResellTicketSheetState extends State<_ResellTicketSheet> {
     }
     if (_debounceTimer?.isActive ?? false) _debounceTimer?.cancel();
     setState(() => _isChecking = true);
+    final checkedValue = value;
     _debounceTimer = Timer(const Duration(milliseconds: 500), () async {
       if (!mounted) return;
       try {
         final data = await Supabase.instance.client
             .from('user_profile')
             .select('user_name')
-            .eq('user_name', value)
+            .eq('user_name', checkedValue)
             .maybeSingle();
-        if (mounted) setState(() { _recipientFound = data != null; _isChecking = false; });
+        if (mounted && _usernameController.text.trim() == checkedValue) {
+          setState(() {
+            _recipientFound = data != null;
+            _isChecking = false;
+          });
+        }
       } catch (_) {
-        if (mounted) setState(() => _isChecking = false);
+        if (mounted && _usernameController.text.trim() == checkedValue) {
+          setState(() => _isChecking = false);
+        }
       }
     });
   }
@@ -937,6 +951,7 @@ class _ResellTicketSheetState extends State<_ResellTicketSheet> {
 
     final messenger = ScaffoldMessenger.of(widget.parentContext);
     final cubit = widget.parentContext.read<TicketCubit>();
+    final accentColor = widget.parentContext.accentColor;
     setState(() => _isSubmitting = true);
 
     try {
@@ -948,7 +963,7 @@ class _ResellTicketSheetState extends State<_ResellTicketSheet> {
       messenger.showSnackBar(
         SnackBar(
           content: const Text('Resale offer sent! Buyer has 48 hours to accept.'),
-          backgroundColor: widget.parentContext.accentColor,
+          backgroundColor: accentColor,
         ),
       );
     } catch (e) {

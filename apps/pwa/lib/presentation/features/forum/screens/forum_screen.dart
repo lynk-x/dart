@@ -216,26 +216,7 @@ class _ForumViewState extends State<ForumView> {
       ],
       child: Scaffold(
         backgroundColor: AppColors.primaryBackground,
-        endDrawer: BlocBuilder<ForumPresenceCubit, ForumPresenceState>(
-          builder: (context, presenceState) =>
-              BlocBuilder<ForumCubit, ForumState>(
-            buildWhen: (p, c) =>
-                p.eventProgress != c.eventProgress ||
-                p.showAds != c.showAds ||
-                p.eventId != c.eventId ||
-                p.eventCreatedAt != c.eventCreatedAt ||
-                p.isOrganizer != c.isOrganizer,
-            builder: (context, state) => PresenceDrawer(
-              onlineUsers: presenceState.onlineUsers,
-              eventProgress: state.eventProgress,
-              isPremium: state.isPremium,
-              isOrganizer: state.isOrganizer,
-              eventId: state.eventId,
-              forumId: cubit.forumId,
-              eventCreatedAt: state.eventCreatedAt,
-            ),
-          ),
-        ),
+        endDrawer: _ForumPresenceDrawerWrapper(forumId: cubit.forumId),
         appBar: _buildAppBar(),
         body: Stack(
           children: [
@@ -572,5 +553,34 @@ class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
   @override
   bool shouldRebuild(_SliverAppBarDelegate oldDelegate) {
     return child != oldDelegate.child || height != oldDelegate.height;
+  }
+}
+
+class _ForumPresenceDrawerWrapper extends StatelessWidget {
+  final String forumId;
+  const _ForumPresenceDrawerWrapper({required this.forumId});
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<ForumPresenceCubit, ForumPresenceState>(
+      builder: (context, presenceState) =>
+          BlocBuilder<ForumCubit, ForumState>(
+        buildWhen: (p, c) =>
+            p.eventProgress != c.eventProgress ||
+            p.showAds != c.showAds ||
+            p.eventId != c.eventId ||
+            p.eventCreatedAt != c.eventCreatedAt ||
+            p.isOrganizer != c.isOrganizer,
+        builder: (context, state) => PresenceDrawer(
+          onlineUsers: presenceState.onlineUsers,
+          eventProgress: state.eventProgress,
+          isPremium: state.isPremium,
+          isOrganizer: state.isOrganizer,
+          eventId: state.eventId,
+          forumId: forumId,
+          eventCreatedAt: state.eventCreatedAt,
+        ),
+      ),
+    );
   }
 }

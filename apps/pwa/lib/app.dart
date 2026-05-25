@@ -59,14 +59,31 @@ class LynkXApp extends StatefulWidget {
 }
 
 class _LynkXAppState extends State<LynkXApp> {
-  late final GoRouter _router;
+  late GoRouter _router;
   StreamSubscription<AuthState>? _authSubscription;
+  bool _isSupabaseInitialized = true;
+  bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
-    // Initialize the router with combined refresh streams. 
-    // We protect against Supabase.instance access if not initialized.
+    _checkSupabaseInitialization();
+  }
+
+  void _checkSupabaseInitialization() {
+    try {
+      Supabase.instance.client;
+      _isSupabaseInitialized = true;
+    } catch (_) {
+      _isSupabaseInitialized = false;
+    }
+
+    if (_isSupabaseInitialized) {
+      _initApp();
+    }
+  }
+
+  void _initApp() {
     Stream<AuthState> authStream;
     try {
       authStream = Supabase.instance.client.auth.onAuthStateChange;
@@ -83,7 +100,9 @@ class _LynkXAppState extends State<LynkXApp> {
 
     // Wire push notification taps to GoRouter
     PushNotificationService.instance.onNotificationTap = (route) {
-      _router.go(route);
+      if (_isSupabaseInitialized) {
+        _router.go(route);
+      }
     };
 
     // Inform the user when notification permission is denied so they know
@@ -129,14 +148,132 @@ class _LynkXAppState extends State<LynkXApp> {
     }
   }
 
+  Future<void> _retryInitialization() async {
+    if (_isLoading) return;
+    setState(() {
+      _isLoading = true;
+    });
+
+    // Re-check or re-attempt Supabase initialization
+    try {
+      Supabase.instance.client;
+      _isSupabaseInitialized = true;
+    } catch (_) {
+      const supabaseUrl = String.fromEnvironment('SUPABASE_URL');
+      const supabaseAnonKey = String.fromEnvironment('SUPABASE_ANON_KEY');
+      if (supabaseUrl.isNotEmpty && supabaseAnonKey.isNotEmpty) {
+        try {
+          await Supabase.initialize(url: supabaseUrl, anonKey: supabaseAnonKey);
+          _isSupabaseInitialized = true;
+        } catch (_) {
+          _isSupabaseInitialized = false;
+        }
+      } else {
+        _isSupabaseInitialized = false;
+      }
+    }
+
+    if (_isSupabaseInitialized) {
+      _initApp();
+    } else {
+      await Future.delayed(const Duration(seconds: 1));
+    }
+
+    if (mounted) {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
   @override
   void dispose() {
     _authSubscription?.cancel();
     super.dispose();
   }
 
+  Widget _buildDegradedAppScreen() {
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      theme: AppTheme.darkTheme,
+      home: Scaffold(
+        backgroundColor: const Color(0xFF000000),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 32.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: const Color(0x1120F928),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: const Color(0x3320F928)),
+                  ),
+                  child: const Icon(
+                    Icons.wifi_off_rounded,
+                    color: Color(0xFF20F928),
+                    size: 64,
+                  ),
+                ),
+                const SizedBox(height: 32),
+                const Text(
+                  'Connection Issues',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  'We are having trouble connecting to our services. The server might be temporarily offline or your network connection might be unstable.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 14,
+                    color: Colors.white54,
+                    height: 1.5,
+                  ),
+                ),
+                const SizedBox(height: 40),
+                if (_isLoading)
+                  const CircularProgressIndicator(
+                    valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF20F928)),
+                  )
+                else
+                  ElevatedButton.icon(
+                    onPressed: _retryInitialization,
+                    icon: const Icon(Icons.refresh_rounded, color: Colors.black),
+                    label: const Text(
+                      'Retry Connection',
+                      style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF20F928),
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(30),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (!_isSupabaseInitialized) {
+      return _buildDegradedAppScreen();
+    }
+
     return MaterialApp.router(
       routerConfig: _router,
       title: 'Lynk-X',

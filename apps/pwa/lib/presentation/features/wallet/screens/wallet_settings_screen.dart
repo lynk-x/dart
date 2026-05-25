@@ -9,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:lynk_x/presentation/shared/widgets/permission_request_sheet.dart';
 import '../cubit/wallet_cubit.dart';
 import '../cubit/wallet_state.dart';
+import '../utils/web_authn_helper.dart';
 
 class WalletSettingsPage extends StatefulWidget {
   const WalletSettingsPage({super.key});
@@ -41,6 +42,13 @@ class _WalletSettingsPageState extends State<WalletSettingsPage> {
         });
         return;
       }
+
+      final supported = await WebAuthnHelper.isSupported();
+      setState(() {
+        _canCheckBiometrics = supported;
+        _biometricLabel = 'Biometric Unlock';
+      });
+      return;
     }
 
     final canCheck = await auth.canCheckBiometrics || await auth.isDeviceSupported();
@@ -95,7 +103,7 @@ class _WalletSettingsPageState extends State<WalletSettingsPage> {
 
   Future<void> _actuallyToggleBiometrics(bool value) async {
     // If enabling, verify with biometrics first to ensure it works
-    if (value) {
+    if (value && !kIsWeb) {
       try {
         final didAuth = await auth.authenticate(
           localizedReason: 'Confirm biometrics for wallet access',

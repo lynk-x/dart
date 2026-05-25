@@ -98,6 +98,93 @@
   </div>
   <script src="flutter_bootstrap.js" async></script>
   <script>
+    window.lynkWebAuthn = {
+      isSupported: async function() {
+        try {
+          return window.PublicKeyCredential && 
+            await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
+        } catch (e) {
+          return false;
+        }
+      },
+
+      registerLocalCredential: async function(username) {
+        try {
+          const isAvailable = await this.isSupported();
+          if (!isAvailable) throw new Error("Platform authenticator not available");
+
+          const challenge = new Uint8Array(32);
+          window.crypto.getRandomValues(challenge);
+          const userId = new Uint8Array(16);
+          window.crypto.getRandomValues(userId);
+
+          const options = {
+            publicKey: {
+              challenge: challenge,
+              rp: {
+                name: "Lynk-X PWA",
+                id: window.location.hostname
+              },
+              user: {
+                id: userId,
+                name: username || "user@lynk-x",
+                displayName: username || "Lynk-X User"
+              },
+              pubKeyCredParams: [
+                { alg: -7, type: "public-key" },
+                { alg: -257, type: "public-key" }
+              ],
+              authenticatorSelection: {
+                authenticatorAttachment: "platform",
+                userVerification: "required"
+              },
+              timeout: 60000
+            }
+          };
+
+          const credential = await navigator.credentials.create(options);
+          if (!credential) throw new Error("Credential creation failed");
+
+          const rawId = new Uint8Array(credential.rawId);
+          const hexId = Array.from(rawId).map(b => b.toString(16).padStart(2, '0')).join('');
+          return hexId;
+        } catch (e) {
+          console.error("[WebAuthn Register Error]:", e);
+          return null;
+        }
+      },
+
+      authenticateLocalCredential: async function(hexId) {
+        try {
+          const isAvailable = await this.isSupported();
+          if (!isAvailable) throw new Error("Platform authenticator not available");
+
+          const rawId = new Uint8Array(hexId.match(/.{1,2}/g).map(byte => parseInt(byte, 16)));
+          const challenge = new Uint8Array(32);
+          window.crypto.getRandomValues(challenge);
+
+          const options = {
+            publicKey: {
+              challenge: challenge,
+              allowCredentials: [{
+                id: rawId,
+                type: "public-key"
+              }],
+              userVerification: "required",
+              timeout: 60000
+            }
+          };
+
+          const assertion = await navigator.credentials.get(options);
+          if (!assertion) throw new Error("Assertion failed");
+          return true;
+        } catch (e) {
+          console.error("[WebAuthn Auth Error]:", e);
+          return false;
+        }
+      }
+    };
+
     const loading = document.getElementById('loading');
     
     function removeLoader() {
