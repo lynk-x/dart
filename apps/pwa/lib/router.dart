@@ -95,29 +95,66 @@ GoRouter createRouter(
       return null;
     },
     routes: [
-      GoRoute(path: '/auth', builder: (_, __) => const AuthPage()),
+      GoRoute(
+        path: '/auth',
+        builder: (_, __) => Title(
+          title: 'Access Account',
+          color: Colors.black,
+          child: const AuthPage(),
+        ),
+      ),
       GoRoute(
         path: '/verify-email',
         builder: (_, state) {
           final email = state.uri.queryParameters['email'] ?? '';
-          return VerifyEmailPage(email: email);
+          return Title(
+            title: 'Verify Email',
+            color: Colors.black,
+            child: VerifyEmailPage(email: email),
+          );
         },
       ),
       GoRoute(
         path: '/forgot-password',
-        builder: (_, __) => const ForgotPasswordPage(),
+        builder: (_, __) => Title(
+          title: 'Forgot Password',
+          color: Colors.black,
+          child: const ForgotPasswordPage(),
+        ),
       ),
       GoRoute(
         path: '/reset-password',
-        builder: (_, __) => const ResetPasswordPage(),
+        builder: (_, __) => Title(
+          title: 'Reset Password',
+          color: Colors.black,
+          child: const ResetPasswordPage(),
+        ),
       ),
-      GoRoute(path: '/', builder: (_, __) => const HomePage()),
-      GoRoute(path: '/profile', builder: (_, __) => const ProfilePage()),
+      GoRoute(
+        path: '/',
+        builder: (_, __) => Title(
+          title: 'Home',
+          color: Colors.black,
+          child: const HomePage(),
+        ),
+      ),
+      GoRoute(
+        path: '/profile',
+        builder: (_, __) => Title(
+          title: 'My Profile',
+          color: Colors.black,
+          child: const ProfilePage(),
+        ),
+      ),
       GoRoute(
         path: '/forum/:id',
         builder: (_, state) {
           final forumId = state.pathParameters['id']!;
-          return ForumPage(forumId: forumId);
+          return Title(
+            title: 'Forum',
+            color: Colors.black,
+            child: ForumPage(forumId: forumId),
+          );
         },
         routes: [
           GoRoute(
@@ -134,18 +171,28 @@ GoRouter createRouter(
                   : null;
 
               if (eventId == null || eventId.isEmpty) {
-                return const Scaffold(
-                  body: Center(
-                    child: Text('Missing event ID.',
-                        style: TextStyle(color: Colors.white)),
+                return Title(
+                  title: 'Error',
+                  color: Colors.black,
+                  child: const Scaffold(
+                    body: Center(
+                      child: Text(
+                        'Missing event ID.',
+                        style: TextStyle(color: Colors.white),
+                      ),
+                    ),
                   ),
                 );
               }
 
-              return SessionsScreen(
-                eventId: eventId,
-                isOrganizer: isOrganizer,
-                eventCreatedAt: eventCreatedAt,
+              return Title(
+                title: 'Sessions',
+                color: Colors.black,
+                child: SessionsScreen(
+                  eventId: eventId,
+                  isOrganizer: isOrganizer,
+                  eventCreatedAt: eventCreatedAt,
+                ),
               );
             },
           ),
@@ -153,25 +200,41 @@ GoRouter createRouter(
       ),
       GoRoute(
         path: '/notifications',
-        builder: (_, __) => const NotificationsPage(),
+        builder: (_, __) => Title(
+          title: 'Notifications',
+          color: Colors.black,
+          child: const NotificationsPage(),
+        ),
       ),
       GoRoute(
         path: '/ticket/:id',
         builder: (_, state) {
           final ticketId = state.pathParameters['id']!;
-          return TicketPage(ticketId: ticketId);
+          return Title(
+            title: 'Ticket Details',
+            color: Colors.black,
+            child: TicketPage(ticketId: ticketId),
+          );
         },
       ),
       GoRoute(
         path: '/tickets',
-        builder: (_, __) => const TicketsListScreen(),
+        builder: (_, __) => Title(
+          title: 'My Tickets',
+          color: Colors.black,
+          child: const TicketsListScreen(),
+        ),
       ),
       ShellRoute(
         builder: (context, state, child) {
           if (!context.read<FeatureFlagCubit>().isEnabled('enable_wallet')) {
-            return const SystemErrorScreen(
+            return Title(
               title: 'Feature Unavailable',
-              message: 'The wallet is not available in your region yet.',
+              color: Colors.black,
+              child: const SystemErrorScreen(
+                title: 'Feature Unavailable',
+                message: 'The wallet is not available in your region yet.',
+              ),
             );
           }
           return WalletSecurityGate(child: child);
@@ -179,114 +242,188 @@ GoRouter createRouter(
         routes: [
           GoRoute(
             path: '/wallet',
-            builder: (context, __) => const WalletPage(),
+            builder: (context, __) => Title(
+              title: 'My Wallet',
+              color: Colors.black,
+              child: const WalletPage(),
+            ),
             routes: [
               GoRoute(
                 path: 'list',
-                builder: (_, __) => const WalletListPage(),
+                builder: (_, __) => Title(
+                  title: 'Currencies',
+                  color: Colors.black,
+                  child: const WalletListPage(),
+                ),
                 routes: [
                   GoRoute(
                     path: ':currency',
                     builder: (context, state) {
                       final currency = state.pathParameters['currency']!;
-                      return WalletTransactionsPage(currency: currency);
+                      return Title(
+                        title: '${currency.toUpperCase()} Transactions',
+                        color: Colors.black,
+                        child: WalletTransactionsPage(currency: currency),
+                      );
                     },
                   ),
                 ],
               ),
               GoRoute(
                 path: 'history',
-                builder: (_, __) => const WalletHistoryPage(),
+                builder: (_, __) => Title(
+                  title: 'Transaction History',
+                  color: Colors.black,
+                  child: const WalletHistoryPage(),
+                ),
               ),
               GoRoute(
                 path: 'settings',
-                builder: (_, __) => const WalletSettingsPage(),
+                builder: (_, __) => Title(
+                  title: 'Wallet Settings',
+                  color: Colors.black,
+                  child: const WalletSettingsPage(),
+                ),
               ),
               GoRoute(
                 path: 'payment-methods',
-                builder: (_, __) => const PaymentMethodsScreen(),
+                builder: (_, __) => Title(
+                  title: 'Payment Methods',
+                  color: Colors.black,
+                  child: const PaymentMethodsScreen(),
+                ),
               ),
             ],
           ),
         ],
       ),
       GoRoute(
-          path: '/edit-profile', builder: (_, __) => const EditProfilePage()),
-      GoRoute(path: '/feedback', builder: (_, __) => const FeedbackScreen()),
+        path: '/edit-profile',
+        builder: (_, __) => Title(
+          title: 'Edit Profile',
+          color: Colors.black,
+          child: const EditProfilePage(),
+        ),
+      ),
+      GoRoute(
+        path: '/feedback',
+        builder: (_, __) => Title(
+          title: 'Feedback',
+          color: Colors.black,
+          child: const FeedbackScreen(),
+        ),
+      ),
       GoRoute(
         path: '/update-required',
-        builder: (_, __) => const UpdateRequiredPage(),
+        builder: (_, __) => Title(
+          title: 'App Update Required',
+          color: Colors.black,
+          child: const UpdateRequiredPage(),
+        ),
       ),
       GoRoute(
         path: '/profile-setup',
-        builder: (_, __) => const ProfileSetupScreen(),
+        builder: (_, __) => Title(
+          title: 'Profile Onboarding',
+          color: Colors.black,
+          child: const ProfileSetupScreen(),
+        ),
       ),
       GoRoute(
         path: '/kyc',
         builder: (context, __) {
           if (!context.read<FeatureFlagCubit>().isEnabled('enable_kyc')) {
-            return const SystemErrorScreen(
+            return Title(
               title: 'Feature Unavailable',
-              message: 'Identity verification is not available in your region yet.',
+              color: Colors.black,
+              child: const SystemErrorScreen(
+                title: 'Feature Unavailable',
+                message: 'Identity verification is not available in your region yet.',
+              ),
             );
           }
-          return const KycVerificationScreen();
+          return Title(
+            title: 'Identity Verification',
+            color: Colors.black,
+            child: const KycVerificationScreen(),
+          );
         },
       ),
       GoRoute(
         path: '/upgrade',
         builder: (context, __) {
           if (!context.read<FeatureFlagCubit>().isEnabled('enable_premium_subscriptions')) {
-            return const SystemErrorScreen(
+            return Title(
               title: 'Feature Unavailable',
-              message: 'Premium subscriptions are not available yet.',
+              color: Colors.black,
+              child: const SystemErrorScreen(
+                title: 'Feature Unavailable',
+                message: 'Premium subscriptions are not available yet.',
+              ),
             );
           }
-          return const SubscriptionScreen();
+          return Title(
+            title: 'Upgrade',
+            color: Colors.black,
+            child: const SubscriptionScreen(),
+          );
         },
       ),
       GoRoute(
         path: '/maintenance',
-        builder: (_, __) => const SystemErrorScreen(
+        builder: (_, __) => Title(
           title: 'Under Maintenance',
-          message: 'Lynk-X is currently undergoing scheduled maintenance to improve our systems. We\'ll be back online shortly.',
-          isMaintenance: true,
+          color: Colors.black,
+          child: const SystemErrorScreen(
+            title: 'Under Maintenance',
+            message: 'Lynk-X is currently undergoing scheduled maintenance to improve our systems. We\'ll be back online shortly.',
+            isMaintenance: true,
+          ),
         ),
       ),
       GoRoute(
         path: '/error',
         builder: (_, state) {
           final extras = state.extra as Map<String, dynamic>?;
-          return SystemErrorScreen(
-            title: extras?['title'] ?? 'Something went wrong',
-            message: extras?['message'] ?? 'We are currently experiencing some technical difficulties.',
+          final titleStr = extras?['title'] ?? 'Something went wrong';
+          return Title(
+            title: titleStr,
+            color: Colors.black,
+            child: SystemErrorScreen(
+              title: titleStr,
+              message: extras?['message'] ?? 'We are currently experiencing some technical difficulties.',
+            ),
           );
         },
       ),
     ],
-    errorBuilder: (context, state) => Scaffold(
-      backgroundColor: Colors.black,
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.link_off, color: Colors.white24, size: 64),
-            const SizedBox(height: 24),
-            const Text(
-              'Page not found',
-              style: TextStyle(color: Colors.white70, fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              state.uri.toString(),
-              style: const TextStyle(color: Colors.white30, fontSize: 13),
-            ),
-            const SizedBox(height: 32),
-            TextButton(
-              onPressed: () => context.go('/'),
-              child: const Text('Go home', style: TextStyle(color: Color(0xFF00FF00))),
-            ),
-          ],
+    errorBuilder: (context, state) => Title(
+      title: 'Page Not Found',
+      color: Colors.black,
+      child: Scaffold(
+        backgroundColor: Colors.black,
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.link_off, color: Colors.white24, size: 64),
+              const SizedBox(height: 24),
+              const Text(
+                'Page not found',
+                style: TextStyle(color: Colors.white70, fontSize: 20, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                state.uri.toString(),
+                style: const TextStyle(color: Colors.white30, fontSize: 13),
+              ),
+              const SizedBox(height: 32),
+              TextButton(
+                onPressed: () => context.go('/'),
+                child: const Text('Go home', style: TextStyle(color: Color(0xFF00FF00))),
+              ),
+            ],
+          ),
         ),
       ),
     ),

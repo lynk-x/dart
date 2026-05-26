@@ -123,12 +123,7 @@ class _AuthPageState extends State<AuthPage> {
                     icon: Icons.g_mobiledata,
                     onPressed: () => _signInWithProvider(context, OAuthProvider.google),
                   ),
-                  const SizedBox(height: 16),
-                  SocialButton(
-                    text: 'Continue with Apple',
-                    icon: Icons.apple,
-                    onPressed: () => _signInWithProvider(context, OAuthProvider.apple),
-                  ),
+
 
                   if (_isLogin) ...[
                     const SizedBox(height: 16),
