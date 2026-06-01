@@ -78,7 +78,9 @@ GoRouter createRouter(
           }
         } catch (_) {}
 
-        if (user == null && !isPublic) return '/auth';
+        if (user == null && !isPublic) {
+          return '/auth';
+        }
         if (user != null && path == '/auth') return '/';
 
         // ── Onboarding / Profile Setup Redirection ──

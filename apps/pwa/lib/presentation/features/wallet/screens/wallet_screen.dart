@@ -210,11 +210,29 @@ class _WalletPageState extends State<WalletPage> {
         padding: const EdgeInsets.all(32),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Left: QR Code
             SizedBox(
               width: 380,
-              child: _QRCard(accountId: accountId),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Invisible placeholder to match the right side title height exactly
+                  Text(
+                    ' ',
+                    style: AppTypography.inter(fontSize: 24, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    ' ',
+                    style: AppTypography.inter(fontSize: 14),
+                  ),
+                  const SizedBox(height: 32),
+                  _QRCard(accountId: accountId),
+                ],
+              ),
             ),
             const SizedBox(width: 64),
             // Right: Quick Actions Grid (Replacing Wallets/Activity)
@@ -261,6 +279,17 @@ class _QRCard extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
+          // Lanyard Hole
+          Container(
+            width: 64,
+            height: 14,
+            decoration: BoxDecoration(
+              color: AppColors.primaryBackground, // Matches background to look like a hole
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.black38, width: 2), // Gives it depth
+            ),
+          ),
+          const SizedBox(height: 24),
           Text(
             'My QR Code',
             style: AppTypography.inter(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
@@ -277,18 +306,39 @@ class _QRCard extends StatelessWidget {
               color: Colors.white,
               borderRadius: BorderRadius.circular(24),
             ),
-            child: QrImageView(
-              data: accountId,
-              version: QrVersions.auto,
-              size: 200.0,
-              eyeStyle: const QrEyeStyle(
-                eyeShape: QrEyeShape.circle,
-                color: Colors.black,
-              ),
-              dataModuleStyle: const QrDataModuleStyle(
-                dataModuleShape: QrDataModuleShape.square,
-                color: Colors.black,
-              ),
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                QrImageView(
+                  data: accountId,
+                  version: QrVersions.auto,
+                  size: 200.0,
+                  errorCorrectionLevel: QrErrorCorrectLevel.H,
+                  eyeStyle: const QrEyeStyle(
+                    eyeShape: QrEyeShape.circle,
+                    color: Colors.black,
+                  ),
+                  dataModuleStyle: const QrDataModuleStyle(
+                    dataModuleShape: QrDataModuleShape.square,
+                    color: Colors.black,
+                  ),
+                ),
+                // Custom Logo Overlay with Background
+                Container(
+                  width: 52,
+                  height: 52,
+                  padding: const EdgeInsets.all(2), // Reduced padding to zoom in
+                  decoration: BoxDecoration(
+                    color: AppColors.primaryBackground, // Dark background
+                    borderRadius: BorderRadius.circular(12), // Rounded square
+                    border: Border.all(color: Colors.white, width: 3),
+                  ),
+                  child: Image.asset(
+                    'assets/images/lynk-x_logo.png',
+                    fit: BoxFit.contain, // Logo will now take up much more space
+                  ),
+                ),
+              ],
             ),
           ),
           const SizedBox(height: 24),

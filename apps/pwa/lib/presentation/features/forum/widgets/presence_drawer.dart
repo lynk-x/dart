@@ -78,8 +78,7 @@ class PresenceDrawer extends StatelessWidget {
                       status: (user['status'] ?? 'Online').toString(),
                       isOrganizer: user['is_organizer'] == true,
                       isPremium: user['is_premium'] == true,
-                      isPrimary: userId ==
-                          Supabase.instance.client.auth.currentUser?.id,
+                      isPrimary: userId == Supabase.instance.client.auth.currentUser?.id,
                     );
                   } catch (e) {
                     debugPrint('[PresenceDrawer] Error building user card: $e');

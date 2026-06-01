@@ -16,6 +16,8 @@ const String kGuestUserId = 'guest_user';
 /// Returns `true` if [userId] represents an unauthenticated guest session.
 bool isGuestUser(String userId) => userId == kGuestUserId;
 
+const String kSupabaseUrl = const String.fromEnvironment('SUPABASE_URL');
+
 // ── Web App ──────────────────────────────────────────────────────────────────
 
 /// Base URL for the Lynk-X web application.
@@ -23,7 +25,7 @@ bool isGuestUser(String userId) => userId == kGuestUserId;
 /// Organizer/advertiser workflows (event creation, ad campaigns, KYC, payouts,
 /// analytics) are handled on the web app. The PWA redirects to these URLs
 /// via [url_launcher] when users need those features.
-const String kWebAppBaseUrl = String.fromEnvironment(
+const String kWebAppBaseUrl = const String.fromEnvironment(
   'WEB_APP_URL',
   defaultValue: 'https://lynk-x.app',
 );

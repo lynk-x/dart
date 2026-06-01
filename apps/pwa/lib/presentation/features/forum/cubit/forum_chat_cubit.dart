@@ -182,6 +182,8 @@ class ForumChatCubit extends BaseMessageCubit<ForumChatState> {
       clearMentionedMedia: true,
     ));
 
+
+
     if (userId != kGuestUserId) {
       // Send the explicit `created_at` we generated locally so:
       //  (a) the broadcast and the DB row share the same timestamp (prevents

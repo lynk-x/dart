@@ -53,7 +53,7 @@ class _UserPresenceCardState extends State<UserPresenceCard> {
                   : const Color(0xFF1E1E1E),
               borderRadius: BorderRadius.circular(8),
               border: Border.all(
-                color: widget.isPremium ? AppColors.secondary : Colors.white12,
+                color: widget.isPremium ? AppColors.primary : Colors.white12,
               ),
             ),
             child: Column(
@@ -100,16 +100,6 @@ class _UserPresenceCardState extends State<UserPresenceCard> {
           ),
         ],
 
-        if (!widget.isPrimary) ...[
-          ActionBarItem(
-            label: 'Report',
-            onTap: () {
-              _toggleActions();
-              _showReportModal(context);
-            },
-          ),
-        ],
-
         if (!widget.isPrimary)
           ActionBarItem(
             label: 'Wave 👋',
@@ -125,19 +115,9 @@ class _UserPresenceCardState extends State<UserPresenceCard> {
               );
             },
           ),
+          
         if (context.read<ForumCubit>().state.isOrganizer &&
             !widget.isPrimary) ...[
-          ActionBarItem(
-            label: 'Mute',
-            onTap: () {
-              _toggleActions();
-              context.read<ForumCubit>().muteUser(widget.userId);
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('${widget.username} has been muted.')),
-              );
-            },
-            color: Colors.redAccent,
-          ),
           ActionBarItem(
             label: 'Make Admin',
             onTap: () {
@@ -148,6 +128,28 @@ class _UserPresenceCardState extends State<UserPresenceCard> {
               );
             },
             color: context.accentColor,
+          ),
+          ActionBarItem(
+            label: 'Mute',
+            onTap: () {
+              _toggleActions();
+              context.read<ForumCubit>().muteUser(widget.userId);
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('${widget.username} has been muted.')),
+              );
+            },
+            color: Colors.red,
+          ),
+        ],
+
+        if (!widget.isPrimary) ...[
+          ActionBarItem(
+            label: 'Report',
+            color: Colors.red,
+            onTap: () {
+              _toggleActions();
+              _showReportModal(context);
+            },
           ),
         ],
       ],

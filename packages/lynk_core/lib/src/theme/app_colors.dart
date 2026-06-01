@@ -44,8 +44,7 @@ class AppColors {
   /// Returns the accent colour for the given premium state:
   /// - premium  → [secondary] (#f9c920 gold)
   /// - free     → [primary]   (#20f928 green)
-  static Color accent({required bool isPremium}) =>
-      isPremium ? secondary : primary;
+  static Color accent({required bool isPremium}) => primary;
 }
 
 /// Convenience extension so any widget can write `context.accentColor`
@@ -54,9 +53,7 @@ extension AccentColorX on BuildContext {
   /// The user's accent colour: gold for premium users, green for free users.
   /// Falls back to [AppColors.primary] if the ProfileCubit is not yet loaded.
   Color get accentColor {
-    final state = read<ProfileCubit>().state;
-    final isPremium = state is ProfileLoaded && state.profile.isPremium;
-    return AppColors.accent(isPremium: isPremium);
+    return AppColors.primary;
   }
 
   /// True when the currently loaded profile has an active premium subscription.

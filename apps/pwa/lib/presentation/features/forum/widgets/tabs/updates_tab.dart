@@ -5,10 +5,8 @@ import 'package:lynk_x/presentation/features/forum/cubit/forum_cubit.dart';
 import 'package:lynk_x/presentation/features/forum/cubit/forum_state.dart';
 import 'package:lynk_x/presentation/features/forum/cubit/forum_updates_cubit.dart';
 import 'package:lynk_x/presentation/features/forum/cubit/forum_updates_state.dart';
-import 'package:lynk_x/presentation/features/forum/widgets/info_banner.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/message_input.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/chat_bubble.dart';
-import 'package:lynk_x/presentation/features/forum/widgets/category_filter_bar.dart';
 import 'package:lynk_x/presentation/shared/widgets/empty_state.dart';
 
 /// The 'Updates' tab content for the Forum.
@@ -50,9 +48,6 @@ class _UpdatesTabState extends State<UpdatesTab>
       builder: (context, mainState) {
         return BlocBuilder<ForumUpdatesCubit, ForumUpdatesState>(
           builder: (context, updatesState) {
-            final pinned =
-                updatesState.messages.where((m) => m.isPinned).toList();
-
             return Column(
               children: [
                 Expanded(
@@ -62,42 +57,10 @@ class _UpdatesTabState extends State<UpdatesTab>
                       color: context.accentColor,
                       child: CustomScrollView(
                         controller: widget.scrollController,
+                        reverse: true,
                         slivers: [
-                          // Category filter bar — pinned above the list
-                          SliverPersistentHeader(
-                            pinned: true,
-                            delegate: _PinnedHeaderDelegate(
-                              child: ColoredBox(
-                                color: AppColors.primaryBackground,
-                                child: CategoryFilterBar(
-                                  selectedCategory:
-                                      updatesState.selectedCategory,
-                                  onSelectionChanged: (cat) =>
-                                      updatesCubit.setCategory(cat),
-                                ),
-                              ),
-                              height: 52,
-                            ),
-                          ),
-
-                          // Pinned message banner
-                          if (pinned.isNotEmpty)
-                            SliverToBoxAdapter(
-                              child: Padding(
-                                padding:
-                                    const EdgeInsets.fromLTRB(16, 4, 16, 8),
-                                child: InfoBanner(
-                                  icon: Icons.push_pin,
-                                  text: pinned.first.message.length > 80
-                                      ? '${pinned.first.message.substring(0, 80)}…'
-                                      : pinned.first.message,
-                                ),
-                              ),
-                            ),
-
                           // Empty state
-                          if (updatesState.messages.isEmpty &&
-                              !updatesState.isLoading)
+                          if (updatesState.messages.isEmpty && !updatesState.isLoading)
                             const SliverFillRemaining(
                               hasScrollBody: false,
                               child: EmptyState(
@@ -107,8 +70,7 @@ class _UpdatesTabState extends State<UpdatesTab>
 
                           // Messages
                           SliverPadding(
-                            padding:
-                                const EdgeInsets.fromLTRB(16, 8, 16, 80),
+                            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
                             sliver: SliverList(
                               delegate: SliverChildBuilderDelegate(
                                 (context, index) {
@@ -191,25 +153,4 @@ class _UpdatesTabState extends State<UpdatesTab>
       },
     );
   }
-}
-
-class _PinnedHeaderDelegate extends SliverPersistentHeaderDelegate {
-  final Widget child;
-  final double height;
-
-  const _PinnedHeaderDelegate({required this.child, required this.height});
-
-  @override
-  double get minExtent => height;
-  @override
-  double get maxExtent => height;
-
-  @override
-  Widget build(
-          BuildContext context, double shrinkOffset, bool overlapsContent) =>
-      child;
-
-  @override
-  bool shouldRebuild(_PinnedHeaderDelegate old) =>
-      child != old.child || height != old.height;
 }

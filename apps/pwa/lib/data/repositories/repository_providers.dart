@@ -13,3 +13,4 @@ WalletRepository get walletRepository => WalletRepository(_db);
 TicketRepository get ticketRepository => TicketRepository(_db);
 QuizRepository get quizRepository => QuizRepository(_db);
 ProfileRepository get profileRepository => ProfileRepository(_db);
+SupportRepository get supportRepository => SupportRepository(client: _db);

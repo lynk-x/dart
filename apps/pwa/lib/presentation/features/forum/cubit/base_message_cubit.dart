@@ -42,6 +42,7 @@ abstract class BaseMessageCubit<T extends BaseMessageState> extends HydratedCubi
 
   /// Base listeners.
   void setupBaseListeners() {
+    if (channel == null) return;
     channel?.onBroadcast(
       event: 'new_message',
       callback: (payload) {

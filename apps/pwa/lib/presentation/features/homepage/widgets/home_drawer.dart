@@ -7,6 +7,7 @@ import 'package:lynk_core/core.dart';
 
 import 'package:lynk_x/l10n/app_localizations.dart';
 import 'package:lynk_x/app.dart';
+import 'package:lynk_x/presentation/features/support/screens/support_screen.dart';
 
 class HomeDrawer extends StatefulWidget {
   const HomeDrawer({super.key});
@@ -247,6 +248,19 @@ class _HomeDrawerState extends State<HomeDrawer> {
                   onTap: () {
                     context.pop();
                     context.push('/feedback');
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.support_agent_rounded, color: Colors.white),
+                  title: const Text('Support', style: TextStyle(color: Colors.white)),
+                  onTap: () {
+                    context.pop();
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const SupportScreen(supportContext: SupportContext.general),
+                      ),
+                    );
                   },
                 ),
                 ListTile(

@@ -118,29 +118,39 @@ class ForumWidget extends StatelessWidget {
       child: Container(
         margin: const EdgeInsets.only(bottom: 8),
         decoration: BoxDecoration(
-          color: context.accentColor,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: AppColors.primaryBackground, width: 1.5),
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: context.accentColor.withValues(alpha: 0.35),
+            width: 1.5,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: context.accentColor.withValues(alpha: 0.05),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(7),
+          borderRadius: BorderRadius.circular(11),
           child: Material(
             color: Colors.transparent,
             child: InkWell(
               onTap: () => context.push('/forum/${event.id}'),
               child: Padding(
-                padding: const EdgeInsets.all(4),
+                padding: const EdgeInsets.all(8),
                 child: Row(
                   children: [
                     ClipRRect(
                       borderRadius: BorderRadius.circular(8),
                       child: SizedBox(
-                        width: 60,
-                        height: 60,
+                        width: 54,
+                        height: 54,
                         child: _buildImage(context),
                       ),
                     ),
-                    const SizedBox(width: 16),
+                    const SizedBox(width: 14),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -150,22 +160,23 @@ class ForumWidget extends StatelessWidget {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: AppTypography.interTight(
-                              fontSize: 18,
+                              fontSize: 16,
                               fontWeight: FontWeight.bold,
-                              color: AppColors.secondaryText,
+                              color: Colors.white,
                             ).copyWith(
                               decoration: event.isPassed
                                   ? TextDecoration.lineThrough
                                   : null,
                               decorationColor:
-                                  event.isPassed ? AppColors.primaryText : null,
+                                  event.isPassed ? Colors.white60 : null,
                             ),
                           ),
+                          const SizedBox(height: 2),
                           Text(
                             formattedDate,
                             style: AppTypography.inter(
-                              fontSize: 14,
-                              color: AppColors.secondaryText,
+                              fontSize: 12,
+                              color: Colors.white.withValues(alpha: 0.6),
                             ),
                           ),
                         ],
@@ -183,6 +194,13 @@ class ForumWidget extends StatelessWidget {
 
   Widget _buildImage(BuildContext context) {
     if (event.thumbnailUrl != null) {
+      if (event.thumbnailUrl!.startsWith('assets/')) {
+        return Image.asset(
+          event.thumbnailUrl!,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => _buildPlaceholder(isError: true),
+        );
+      }
       return CachedNetworkImage(
         imageUrl: event.thumbnailUrl!,
         cacheManager: LynkCacheManager.instance,

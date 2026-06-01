@@ -29,6 +29,7 @@ class TicketCubit extends Cubit<TicketState> {
     if (!isSilent) emit(state.copyWith(isLoading: true, error: null));
 
     try {
+
       // 1. Fetch ticket data from the secure API proxy view via repository
       final response = await _repo.getTicketById(ticketId);
       if (response == null) {

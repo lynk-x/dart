@@ -82,15 +82,7 @@ class _ForumHeaderState extends State<ForumHeader> {
                     ),
                   ),
           ),
-          if (widget.isOrganizer)
-            IconButton(
-              tooltip: widget.isReadOnly ? 'Unlock chat' : 'Lock chat',
-              icon: Icon(
-                widget.isReadOnly ? Icons.lock_open_rounded : Icons.lock_rounded,
-                color: Colors.black,
-              ),
-              onPressed: widget.onLockToggle,
-            ),
+
           IconButton(
             icon: Icon(
               _isSearching ? Icons.close : Icons.search,

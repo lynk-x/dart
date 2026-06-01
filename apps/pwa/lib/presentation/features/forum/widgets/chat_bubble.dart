@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:lynk_core/core.dart';
@@ -137,32 +139,25 @@ class _ChatBubbleState extends State<ChatBubble> {
             ? MainAxisAlignment.end
             : MainAxisAlignment.start,
         items: [
+          if (widget.message.message.isNotEmpty)
+            ActionBarItem(
+              label: 'Copy',
+              onTap: () {
+                Clipboard.setData(ClipboardData(text: widget.message.message));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Message copied to clipboard'), duration: Duration(seconds: 2)),
+                );
+              },
+              color: Colors.white70,
+            ),
+            
           if (widget.onPin != null)
             ActionBarItem(
               label: 'Pin',
               onTap: () => widget.onPin?.call(widget.message),
               color: context.accentColor,
             ),
-          if (widget.isOrganizer && !widget.message.isMe) ...[
-            if (widget.onMute != null)
-              ActionBarItem(
-                label: 'Mute',
-                onTap: () => widget.onMute?.call(widget.message),
-                color: Colors.orangeAccent,
-              ),
-            if (widget.onBan != null)
-              ActionBarItem(
-                label: 'Ban',
-                onTap: () => widget.onBan?.call(widget.message),
-                color: Colors.red,
-              ),
-          ],
-          if (!widget.message.isMe) ...[
-            ActionBarItem(
-              label: 'Report',
-              onTap: () => widget.onReport?.call(widget.message),
-            ),
-          ],
+
           if (widget.message.isMe && widget.onDelete != null)
             ActionBarItem(
               label: 'Delete',
@@ -193,6 +188,13 @@ class _ChatBubbleState extends State<ChatBubble> {
                 if (confirmed == true) widget.onDelete?.call(widget.message);
               },
             ),
+          if (!widget.message.isMe) ...[
+            ActionBarItem(
+              label: 'Report',
+              color: Colors.red,
+              onTap: () => widget.onReport?.call(widget.message),
+            ),
+          ],
         ],
       ),
     );
@@ -355,6 +357,12 @@ class _ChatBubbleState extends State<ChatBubble> {
       );
     }
 
-    return Text(widget.message.message, style: textStyle);
+    Widget textWidget = Text(widget.message.message, style: textStyle);
+    
+    if (kIsWeb || defaultTargetPlatform == TargetPlatform.macOS || defaultTargetPlatform == TargetPlatform.windows || defaultTargetPlatform == TargetPlatform.linux) {
+      textWidget = SelectionArea(child: textWidget);
+    }
+    
+    return textWidget;
   }
 }

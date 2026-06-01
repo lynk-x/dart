@@ -155,6 +155,8 @@ class WalletCubit extends Cubit<WalletState> {
 
   Future<void> _fetchBalances() async {
     try {
+
+
       final accountId = state.accountId ?? await _resolveAccountId();
       if (accountId == null) {
         emit(state.copyWith(isLoading: false));
@@ -207,6 +209,8 @@ class WalletCubit extends Cubit<WalletState> {
     ));
 
     try {
+
+
       final accountId = state.accountId;
       if (accountId == null) {
         emit(state.copyWith(isLoading: false, isLoadingMore: false));

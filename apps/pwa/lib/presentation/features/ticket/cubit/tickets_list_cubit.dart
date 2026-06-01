@@ -51,6 +51,8 @@ class TicketsListCubit extends Cubit<TicketsListState> {
       error: null,
     ));
     try {
+
+
       final user = Supabase.instance.client.auth.currentUser;
       if (user == null) {
         emit(state.copyWith(isLoading: false, error: 'User not logged in'));
@@ -83,6 +85,8 @@ class TicketsListCubit extends Cubit<TicketsListState> {
     if (state.isLoading || state.isLoadingMore || !state.hasMore) return;
     emit(state.copyWith(isLoadingMore: true));
     try {
+
+
       final user = Supabase.instance.client.auth.currentUser;
       if (user == null) {
         emit(state.copyWith(isLoadingMore: false, error: 'User not logged in'));

@@ -5,6 +5,8 @@ import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:lynk_x/presentation/features/forum/widgets/info_banner.dart';
+import 'package:lynk_x/presentation/features/forum/widgets/category_filter_bar.dart';
 import 'package:lynk_core/core.dart';
 
 import 'package:lynk_x/presentation/features/forum/cubit/forum_cubit.dart';
@@ -39,7 +41,10 @@ class ForumPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (context) => ForumCubit(repo: forumRepository, forumId: forumId)..init(),
+      create: (context) => ForumCubit(
+        repo: forumRepository,
+        forumId: forumId,
+      )..init(),
       child: BlocBuilder<ForumCubit, ForumState>(
         buildWhen: (p, c) =>
             p.isPremium != c.isPremium ||
@@ -248,60 +253,105 @@ class _ForumViewState extends State<ForumView> {
                           
                           final adsHeight = hasAds ? 50.0 : 0.0;
                           
-                          return SliverPersistentHeader(
-                            pinned: true,
-                            delegate: _SliverAppBarDelegate(
-                              height: 102.0 + adsHeight, 
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  ForumHeader(
-                                    isOrganizer: forumState.isOrganizer,
-                                    isReadOnly: forumState.isReadOnly,
-                                    forumName: forumState.forumName,
-                                    onLockToggle: () {
-                                      final messenger = ScaffoldMessenger.of(context);
-                                      final nextStatus = forumState.isReadOnly ? 'open' : 'read_only';
-                                      cubit.updateForumStatus(nextStatus);
-                                      messenger.showSnackBar(SnackBar(
-                                        content: Text(forumState.isReadOnly ? 'Chat unlocked' : 'Chat locked'),
-                                        behavior: SnackBarBehavior.floating,
-                                      ));
-                                    },
-                                    onSearch: (q) {
-                                      context.read<ForumUpdatesCubit>().setSearchQuery(q);
-                                      context.read<ForumChatCubit>().setSearchQuery(q);
-                                    },
-                                    onSearchToggle: () {
-                                      final updatesCubit = context.read<ForumUpdatesCubit>();
-                                      final chatCubit = context.read<ForumChatCubit>();
-                                      if (updatesCubit.state.searchQuery.isNotEmpty || 
-                                          chatCubit.state.searchQuery.isNotEmpty) {
-                                        updatesCubit.setSearchQuery('');
-                                        chatCubit.setSearchQuery('');
-                                      }
-                                    },
+                          double extraHeight = 0;
+                          Widget? extraHeaderWidgets;
+                          
+                          if (forumState.currentTabIndex == 0) {
+                            final updatesState = context.watch<ForumUpdatesCubit>().state;
+                            final updatesCubit = context.read<ForumUpdatesCubit>();
+                            final pinned = updatesState.messages.where((m) => m.isPinned).toList();
+                            
+                            extraHeight += 52.0; // CategoryFilterBar
+                            if (pinned.isNotEmpty) {
+                              extraHeight += 48.0; // InfoBanner exact calculated height for 2 lines
+                            }
+                            
+                            extraHeaderWidgets = Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                ColoredBox(
+                                  color: AppColors.primaryBackground,
+                                  child: CategoryFilterBar(
+                                    selectedCategory: updatesState.selectedCategory,
+                                    onSelectionChanged: (cat) => updatesCubit.setCategory(cat),
                                   ),
-                                  if (hasAds) RepaintBoundary(
-                                    child: AdCarousel(
-                                      ads: adsState.ads,
-                                      onAdViewed: (adId) =>
-                                          context.read<ForumAdsCubit>().logAdImpression(adId),
-                                      onAdClicked: (ad) async {
-                                        context.read<ForumAdsCubit>().logAdClick(ad.id);
-                                        if (ad.targetUrl != null) {
-                                          final uri = Uri.parse(ad.targetUrl!);
-                                          if (await canLaunchUrl(uri)) {
-                                            await launchUrl(uri);
-                                          }
-                                        } else if (ad.targetEventId != null) {
-                                          context.push('/events/${ad.targetEventId}');
+                                ),
+                                if (pinned.isNotEmpty)
+                                  Padding(
+                                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+                                    child: InfoBanner(
+                                      icon: Icons.push_pin,
+                                      text: pinned.first.message.length > 80
+                                          ? '${pinned.first.message.substring(0, 80)}…'
+                                          : pinned.first.message,
+                                    ),
+                                  ),
+                              ],
+                            );
+                          }
+
+                          final totalHeaderHeight = 115.0 + adsHeight + extraHeight;
+                          return SliverOverlapAbsorber(
+                            handle: NestedScrollView.sliverOverlapAbsorberHandleFor(context),
+                            sliver: SliverPersistentHeader(
+                              pinned: true,
+                              delegate: _SliverAppBarDelegate(
+                                height: totalHeaderHeight, 
+                                child: SizedBox(
+                                  height: totalHeaderHeight,
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                    ForumHeader(
+                                      isOrganizer: forumState.isOrganizer,
+                                      isReadOnly: forumState.isReadOnly,
+                                      forumName: forumState.forumName,
+                                      onLockToggle: () {
+                                        final messenger = ScaffoldMessenger.of(context);
+                                        final nextStatus = forumState.isReadOnly ? 'open' : 'read_only';
+                                        cubit.updateForumStatus(nextStatus);
+                                        messenger.showSnackBar(SnackBar(
+                                          content: Text(forumState.isReadOnly ? 'Chat unlocked' : 'Chat locked'),
+                                          behavior: SnackBarBehavior.floating,
+                                        ));
+                                      },
+                                      onSearch: (q) {
+                                        context.read<ForumUpdatesCubit>().setSearchQuery(q);
+                                        context.read<ForumChatCubit>().setSearchQuery(q);
+                                      },
+                                      onSearchToggle: () {
+                                        final updatesCubit = context.read<ForumUpdatesCubit>();
+                                        final chatCubit = context.read<ForumChatCubit>();
+                                        if (updatesCubit.state.searchQuery.isNotEmpty || 
+                                            chatCubit.state.searchQuery.isNotEmpty) {
+                                          updatesCubit.setSearchQuery('');
+                                          chatCubit.setSearchQuery('');
                                         }
                                       },
                                     ),
-                                  ),
-                                  _buildTabs(),
-                                ],
+                                    if (hasAds) RepaintBoundary(
+                                      child: AdCarousel(
+                                        ads: adsState.ads,
+                                        onAdViewed: (adId) =>
+                                            context.read<ForumAdsCubit>().logAdImpression(adId),
+                                        onAdClicked: (ad) async {
+                                          context.read<ForumAdsCubit>().logAdClick(ad.id);
+                                          if (ad.targetUrl != null) {
+                                            final uri = Uri.parse(ad.targetUrl!);
+                                            if (await canLaunchUrl(uri)) {
+                                              await launchUrl(uri);
+                                            }
+                                          } else if (ad.targetEventId != null) {
+                                            context.push('/events/${ad.targetEventId}');
+                                          }
+                                        },
+                                      ),
+                                    ),
+                                    _buildTabs(),
+                                    if (extraHeaderWidgets != null) extraHeaderWidgets,
+                                  ],
+                                ),
+                              ),
                               ),
                             ),
                           );
@@ -521,12 +571,7 @@ class _ForumViewState extends State<ForumView> {
 
   void _viewMedia(String? url) {
     if (url == null) return;
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => MediaViewer(imageUrl: url),
-    );
+    MediaViewer.show(context, imageUrl: url);
   }
 }
 

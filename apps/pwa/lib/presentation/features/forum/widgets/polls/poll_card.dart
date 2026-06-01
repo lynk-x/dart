@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+
 /// Displays a single poll question with live-updating results.
 ///
 /// Polls are attached to forum messages via `questionnaire_id`. When the user
@@ -27,7 +28,7 @@ class PollCard extends StatefulWidget {
 }
 
 class _PollCardState extends State<PollCard> {
-  final _supabase = Supabase.instance.client;
+  SupabaseClient get _supabase => Supabase.instance.client;
   int? _selectedIndex;
   bool _hasVoted = false;
   bool _isSubmitting = false;

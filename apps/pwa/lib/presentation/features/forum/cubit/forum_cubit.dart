@@ -113,14 +113,17 @@ class ForumCubit extends Cubit<ForumState> {
       return;
     }
     try {
+      String handle = 'User';
+      bool isPremium = true;
+
       final data = await Supabase.instance.client
           .from('user_profile')
           .select('user_name, is_premium')
           .eq('id', userId)
           .single();
 
-      final handle = data['user_name'] as String? ?? 'A User';
-      final isPremium = data['is_premium'] == true;
+      handle = data['user_name'] as String? ?? 'A User';
+      isPremium = data['is_premium'] == true;
       userName = handle;
 
       bool isMuted = false;

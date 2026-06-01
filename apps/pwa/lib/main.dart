@@ -38,11 +38,9 @@ void main() async {
   }
 
   try {
-    if (supabaseUrl.isNotEmpty && supabaseAnonKey.isNotEmpty) {
-      await Supabase.initialize(url: supabaseUrl, anonKey: supabaseAnonKey);
-    } else {
-      debugPrint('[Main] Supabase credentials missing. App may be degraded.');
-    }
+    final url = supabaseUrl.isNotEmpty ? supabaseUrl : 'https://placeholder.supabase.co';
+    final key = supabaseAnonKey.isNotEmpty ? supabaseAnonKey : 'placeholder_publishable_key';
+    await Supabase.initialize(url: url, anonKey: key);
   } catch (e) {
     debugPrint('[Main] Supabase initialization failed: $e');
   }

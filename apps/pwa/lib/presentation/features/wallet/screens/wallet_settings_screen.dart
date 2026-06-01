@@ -10,6 +10,7 @@ import 'package:lynk_x/presentation/shared/widgets/permission_request_sheet.dart
 import '../cubit/wallet_cubit.dart';
 import '../cubit/wallet_state.dart';
 import '../utils/web_authn_helper.dart';
+import 'package:lynk_x/presentation/features/support/screens/support_screen.dart';
 
 class WalletSettingsPage extends StatefulWidget {
   const WalletSettingsPage({super.key});
@@ -164,6 +165,18 @@ class _WalletSettingsPageState extends State<WalletSettingsPage> {
               'Wallet Settings',
               style: AppTypography.inter(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
             ),
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.support_agent_rounded, color: Colors.white70),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const SupportScreen(supportContext: SupportContext.wallet)),
+                  );
+                },
+              ),
+              const SizedBox(width: 8),
+            ],
           ),
           body: SingleChildScrollView(
             padding: const EdgeInsets.all(20),
@@ -207,16 +220,6 @@ class _WalletSettingsPageState extends State<WalletSettingsPage> {
                 ),
 
                 const SizedBox(height: 32),
-                _buildSectionHeader('Security'),
-                _buildSettingTile(
-                  title: 'Change Wallet PIN',
-                  subtitle: 'Update your 6-digit security code',
-                  icon: Icons.lock_outline_rounded,
-                  onTap: () => _showChangePin(),
-                ),
-                _buildBiometricTile(state),
-                
-                const SizedBox(height: 32),
                 _buildSectionHeader('Privacy'),
                 _buildSwitchTile(
                   title: 'Privacy Mode',
@@ -225,6 +228,16 @@ class _WalletSettingsPageState extends State<WalletSettingsPage> {
                   value: state.isPrivacyModeEnabled,
                   onChanged: (val) => context.read<WalletCubit>().togglePrivacyMode(val),
                 ),
+
+                const SizedBox(height: 32),
+                _buildSectionHeader('Security'),
+                _buildSettingTile(
+                  title: 'Change Wallet PIN',
+                  subtitle: 'Update your 6-digit security code',
+                  icon: Icons.lock_outline_rounded,
+                  onTap: () => _showChangePin(),
+                ),
+                _buildBiometricTile(state),
 
                 const SizedBox(height: 40),
                 Center(

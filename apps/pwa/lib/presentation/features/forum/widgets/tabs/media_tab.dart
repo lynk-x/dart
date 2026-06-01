@@ -85,13 +85,17 @@ class _MediaTabState extends State<MediaTab>
                               : CustomScrollView(
                                   controller: _scrollController,
                                   slivers: [
+                                    SliverOverlapInjector(
+                                      handle: NestedScrollView.sliverOverlapAbsorberHandleFor(context),
+                                    ),
                                     SliverPadding(
                                       padding: const EdgeInsets.all(16),
                                       sliver: SliverGrid(
-                                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                                          crossAxisCount: 3,
+                                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                                          crossAxisCount: MediaQuery.of(context).size.width < 600 ? 3 : 4,
                                           mainAxisSpacing: 8,
                                           crossAxisSpacing: 8,
+                                          childAspectRatio: 1.3,
                                         ),
                                         delegate: SliverChildBuilderDelegate(
                                           (context, index) {

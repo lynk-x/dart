@@ -84,6 +84,9 @@ class HomeCubit extends Cubit<HomeState> {
     final now = DateTime.now();
     final copy = List<EventModel>.from(events);
     copy.sort((a, b) {
+      if (a.id == 'afrofest-2026') return -1;
+      if (b.id == 'afrofest-2026') return 1;
+
       // 1. Active (not passed) events above completed ones
       if (a.isPassed != b.isPassed) return a.isPassed ? 1 : -1;
       // 2. Unread items bubble to the top within the same group

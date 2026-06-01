@@ -400,12 +400,12 @@ class _EditProfilePageState extends State<EditProfilePage> {
                         width: double.infinity,
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.redAccent.withValues(alpha: 0.1)),
+                          border: Border.all(color: Colors.redAccent),
                         ),
                         child: InkWell(
                           onTap: isUpdating ? null : () => _showDeleteConfirmation(context),
                           borderRadius: BorderRadius.circular(12),
-                          hoverColor: Colors.redAccent.withValues(alpha: 0.05),
+                          hoverColor: Colors.redAccent.withValues(alpha: 0.1),
                           child: const Padding(
                             padding: EdgeInsets.symmetric(vertical: 16),
                             child: Center(

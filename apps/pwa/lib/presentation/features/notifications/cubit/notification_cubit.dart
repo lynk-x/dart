@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
 import 'package:lynk_x/data/repositories/repositories.dart';
 import 'notification_state.dart';
 import 'package:lynk_x/presentation/features/notifications/models/notification_model.dart';
@@ -12,13 +13,16 @@ class NotificationCubit extends Cubit<NotificationState> {
   RealtimeChannel? _channel;
 
   /// Returns the current user's ID, or null if auth has not resolved yet.
-  String? get _userId => Supabase.instance.client.auth.currentUser?.id;
+  String? get _userId {
+    return Supabase.instance.client.auth.currentUser?.id;
+  }
 
   Future<void> loadNotifications() async {
     final uid = _userId;
     if (uid == null) return; // Auth not ready — called too early
     emit(const NotificationLoading());
     try {
+
       final notifications = await _repo.getNotifications();
 
       emit(NotificationLoaded(notifications: notifications));

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
 import 'poll_card.dart';
 
 /// Loads and renders a poll/quiz attached to a forum message.
@@ -17,7 +18,7 @@ class PollAttachment extends StatefulWidget {
 }
 
 class _PollAttachmentState extends State<PollAttachment> {
-  final _supabase = Supabase.instance.client;
+  SupabaseClient get _supabase => Supabase.instance.client;
   bool _isLoading = true;
   String? _title;
   String _type = 'poll';

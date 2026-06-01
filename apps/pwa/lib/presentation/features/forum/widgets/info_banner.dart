@@ -28,10 +28,13 @@ class InfoBanner extends StatelessWidget {
             Expanded(
               child: Text(
                 text,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
                 style: AppTypography.inter(
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
                   color: Colors.black,
+                  height: 1.2,
                 ),
               ),
             ),

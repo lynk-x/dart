@@ -1,6 +1,6 @@
 import 'dart:typed_data';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../../domain/models/profile_model.dart';
+import 'package:lynk_core/core.dart';
 
 class ProfileRepository {
   final SupabaseClient _client;

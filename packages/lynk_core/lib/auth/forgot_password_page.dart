@@ -28,7 +28,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
     try {
       // Set PASSWORD_RESET_URL via --dart-define at build time, e.g.:
       //   flutter build web --dart-define=PASSWORD_RESET_URL=https://lynk-x.com/update-password
-      const resetUrl = String.fromEnvironment(
+      const resetUrl = const String.fromEnvironment(
         'PASSWORD_RESET_URL',
         defaultValue: 'http://localhost:3000/update-password',
       );

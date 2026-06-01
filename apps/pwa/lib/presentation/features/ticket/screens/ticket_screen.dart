@@ -169,6 +169,7 @@ class _TicketViewState extends State<TicketView> {
               padding: const EdgeInsets.all(16.0),
               child: Column(
                 children: [
+                  const SizedBox(height: 24), // Top spacer to push everything down
                   // Constrain card width on tablets/desktops (max 500px)
                   Breakpoints.constrain(
                     _buildTicketCard(state.ticket!)
@@ -556,7 +557,7 @@ class _TicketViewState extends State<TicketView> {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 12, vertical: 4),
                       decoration: BoxDecoration(
-                        color: AppColors.secondaryText.withValues(alpha: 0.1),
+                        color: AppColors.primaryBackground,
                         borderRadius: BorderRadius.circular(20),
                         border: Border.all(color: statusColor),
                       ),
@@ -610,8 +611,8 @@ class _TicketViewState extends State<TicketView> {
             ),
           ),
 
-          const SizedBox(height: 24),
-          const _TicketSecuritySection(),
+          const SizedBox(height: 200),
+          const TicketCutoutSeparator(),
           const SizedBox(height: 24),
 
           // Barcode Section
@@ -1115,159 +1116,57 @@ class DashedLinePainter extends CustomPainter {
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
-class _TicketSecuritySection extends StatefulWidget {
-  const _TicketSecuritySection();
+class TicketCutoutSeparator extends StatelessWidget {
+  final Color cutoutColor;
 
-  @override
-  State<_TicketSecuritySection> createState() => _TicketSecuritySectionState();
-}
-
-class _TicketSecuritySectionState extends State<_TicketSecuritySection> {
-  late DateTime _now;
-  Timer? _timer;
-
-  @override
-  void initState() {
-    super.initState();
-    _now = DateTime.now();
-    _timer = Timer.periodic(const Duration(milliseconds: 100), (timer) {
-      if (mounted) setState(() => _now = DateTime.now());
-    });
-  }
-
-  @override
-  void dispose() {
-    _timer?.cancel();
-    super.dispose();
-  }
+  const TicketCutoutSeparator({
+    super.key,
+    this.cutoutColor = AppColors.primaryBackground,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final timeStr = DateFormat('HH:mm:ss').format(_now);
-    final msStr = (_now.millisecond / 10).floor().toString().padLeft(2, '0');
-
-    return Container(
-      height: 60,
-      margin: const EdgeInsets.symmetric(horizontal: 24),
-      decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.2), // Subtle dark contrast
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
-      ),
+    return SizedBox(
+      height: 30,
       child: Stack(
-        alignment: Alignment.center,
         children: [
-          // Holographic Shimmer Layer 1
-          Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24.0),
+              child: CustomPaint(
+                size: const Size(double.infinity, 1),
+                painter: DashedLinePainter(
+                  color: AppColors.secondaryText.withValues(alpha: 0.3),
+                  dashWidth: 6,
+                  dashSpace: 4,
+                ),
+              ),
             ),
-          )
-              .animate(onPlay: (controller) => controller.repeat())
-              .shimmer(
-                duration: 2500.ms,
-                color: Colors.white.withValues(alpha: 0.15),
-                angle: 0.5,
+          ),
+          // Left cutout
+          Positioned(
+            left: -15,
+            top: 0,
+            bottom: 0,
+            child: Container(
+              width: 30,
+              decoration: BoxDecoration(
+                color: cutoutColor,
+                shape: BoxShape.circle,
               ),
-
-          // Holographic Shimmer Layer 2 (Opposite direction)
-          Container()
-              .animate(onPlay: (controller) => controller.repeat())
-              .shimmer(
-                duration: 3500.ms,
-                color: Colors.cyanAccent.withValues(alpha: 0.08),
-                angle: -0.8,
+            ),
+          ),
+          // Right cutout
+          Positioned(
+            right: -15,
+            top: 0,
+            bottom: 0,
+            child: Container(
+              width: 30,
+              decoration: BoxDecoration(
+                color: cutoutColor,
+                shape: BoxShape.circle,
               ),
-
-          // Content
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              children: [
-                // Live Pulse
-                Container(
-                  width: 8,
-                  height: 8,
-                  decoration: const BoxDecoration(
-                    color: Colors.greenAccent,
-                    shape: BoxShape.circle,
-                  ),
-                )
-                    .animate(onPlay: (controller) => controller.repeat())
-                    .scale(
-                      duration: 1000.ms,
-                      begin: const Offset(1, 1),
-                      end: const Offset(1.5, 1.5),
-                      curve: Curves.easeInOut,
-                    )
-                    .fadeOut(),
-                const SizedBox(width: 12),
-                
-                // Genuine Text
-                Expanded(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'VERIFIED GENUINE',
-                        style: AppTypography.inter(
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white, // Fully opaque
-                          letterSpacing: 1.5,
-                        ),
-                      ),
-                      Text(
-                        'LYNK-X SECURITY PROTOCOL v2.1',
-                        style: AppTypography.inter(
-                          fontSize: 8,
-                          color: Colors.white.withValues(alpha: 0.7), // Increased opacity
-                          letterSpacing: 0.5,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                // Live Clock
-                Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    RichText(
-                      text: TextSpan(
-                        children: [
-                          TextSpan(
-                            text: timeStr,
-                            style: AppTypography.inter(
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
-                          ),
-                          TextSpan(
-                            text: '.$msStr',
-                            style: AppTypography.inter(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w400,
-                              color: Colors.white.withValues(alpha: 0.8), // Increased opacity
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Text(
-                      'LIVE TIMESTAMP',
-                      style: AppTypography.inter(
-                        fontSize: 7,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white.withValues(alpha: 0.6), // Increased opacity
-                      ),
-                    ),
-                  ],
-                ),
-              ],
             ),
           ),
         ],
@@ -1275,3 +1174,4 @@ class _TicketSecuritySectionState extends State<_TicketSecuritySection> {
     );
   }
 }
+
