@@ -27,14 +27,22 @@ void main() async {
   const supabaseAnonKey = String.fromEnvironment('SUPABASE_ANON_KEY');
   const sentryDsn = String.fromEnvironment('SENTRY_DSN');
 
-  // Firebase web requires explicit options (apiKey, projectId, etc.) which
-  // aren't configured — skip it on web to avoid the null check crash.
-  if (!kIsWeb) {
-    try {
+  try {
+    if (kIsWeb) {
+      // Provide explicit options for the web client to match the service worker
+      await Firebase.initializeApp(
+        options: const FirebaseOptions(
+          apiKey: 'AIzaSyDju1jIcIjZMvW31gxMlaMkYVxxrhftQFY',
+          appId: '1:632799565510:web:78327f319b4f3be791e9c7',
+          messagingSenderId: '632799565510',
+          projectId: 'lynk-x-firebase',
+        ),
+      );
+    } else {
       await Firebase.initializeApp();
-    } catch (e) {
-      debugPrint('[Main] Firebase initialization skipped/failed: $e');
     }
+  } catch (e) {
+    debugPrint('[Main] Firebase initialization skipped/failed: $e');
   }
 
   try {

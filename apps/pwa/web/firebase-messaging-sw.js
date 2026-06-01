@@ -30,12 +30,10 @@ try {
   // Attempt to read config from a global set by the build pipeline.
   // Fallback: messaging won't work in background, but the SW won't crash.
   const firebaseConfig = {
-    // These values should be replaced by CI/CD or kept in sync manually.
-    // They are NOT secrets — they are the same values used in the web client.
-    apiKey: '',
-    projectId: '',
-    messagingSenderId: '',
-    appId: '',
+    apiKey: 'AIzaSyDju1jIcIjZMvW31gxMlaMkYVxxrhftQFY',
+    projectId: 'lynk-x-firebase',
+    messagingSenderId: '632799565510',
+    appId: '1:632799565510:web:78327f319b4f3be791e9c7',
   };
 
   // Only initialise if we have a real config
