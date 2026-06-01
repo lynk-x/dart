@@ -255,6 +255,66 @@
           console.log('[FCM SW] Registered:', reg.scope);
         }).catch((err) => console.warn('[FCM SW] Registration failed:', err));
       });
+    // ── Aggressive Install Prompt ──────────────────────────────────────────
+    let deferredInstallPrompt = null;
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+
+    if (!isStandalone) {
+      window.addEventListener('beforeinstallprompt', (e) => {
+        // Prevent the browser's default mini-infobar from appearing
+        e.preventDefault();
+        deferredInstallPrompt = e;
+
+        // Create an aggressive, full-screen takeover modal
+        const installBanner = document.createElement('div');
+        installBanner.id = 'aggressive-install-banner';
+        installBanner.innerHTML = `
+          <div style="
+            position:fixed; top:0; left:0; right:0; bottom:0;
+            background:rgba(0,0,0,0.85); backdrop-filter:blur(8px);
+            z-index:999999; display:flex; flex-direction:column;
+            align-items:center; justify-content:center; color:#fff;
+            font-family:Inter,sans-serif; text-align:center; padding:24px;
+          ">
+            <div style="
+              background:#111; padding:32px; border-radius:24px;
+              border:1px solid #333; max-width:400px; width:100%;
+              box-shadow:0 24px 48px rgba(0,0,0,0.5);
+            ">
+              <img src="/icons/Icon-192.png" style="width:80px; height:80px; border-radius:16px; margin-bottom:24px;">
+              <h2 style="margin:0 0 12px 0; font-size:24px; font-weight:700;">Install Lynk-X</h2>
+              <p style="margin:0 0 24px 0; font-size:16px; color:#aaa; line-height:1.5;">
+                For the best experience, including real-time notifications and offline access, please install the app to your home screen.
+              </p>
+              <button id="install-btn" style="
+                background:#20F928; color:#000; width:100%; padding:16px;
+                border:none; border-radius:12px; font-size:18px; font-weight:700;
+                cursor:pointer; margin-bottom:12px; transition:transform 0.1s;
+              " onactive="this.style.transform='scale(0.98)'">Install App</button>
+              <button id="install-dismiss-btn" style="
+                background:transparent; color:#888; width:100%; padding:12px;
+                border:none; font-size:14px; font-weight:500; cursor:pointer;
+              ">Continue in Browser</button>
+            </div>
+          </div>
+        `;
+        document.body.appendChild(installBanner);
+
+        document.getElementById('install-btn').addEventListener('click', async () => {
+          if (!deferredInstallPrompt) return;
+          deferredInstallPrompt.prompt();
+          const { outcome } = await deferredInstallPrompt.userChoice;
+          console.log(\`[PWA Install] User choice: \${outcome}\`);
+          deferredInstallPrompt = null;
+          if (outcome === 'accepted') {
+            installBanner.remove();
+          }
+        });
+
+        document.getElementById('install-dismiss-btn').addEventListener('click', () => {
+          installBanner.remove();
+        });
+      });
     }
   </script>
 </body>
