@@ -38,8 +38,12 @@ echo "--- Fetching dependencies... ---"
 flutter pub get
 
 echo "--- Building Web (Release) ---"
-flutter build web --release --wasm --pwa-strategy=offline-first --dart-define=SUPABASE_URL="${NEXT_PUBLIC_SUPABASE_URL:-${SUPABASE_URL:-}}" --dart-define=SUPABASE_ANON_KEY="${NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:-${SUPABASE_ANON_KEY:-}}" --dart-define=SENTRY_DSN="${SENTRY_DSN:-}" --dart-define=FIREBASE_VAPID_KEY="${FIREBASE_VAPID_KEY:-}"
+flutter build web --release --wasm --dart-define=SUPABASE_URL="${NEXT_PUBLIC_SUPABASE_URL:-${SUPABASE_URL:-}}" --dart-define=SUPABASE_ANON_KEY="${NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:-${SUPABASE_ANON_KEY:-}}" --dart-define=SENTRY_DSN="${SENTRY_DSN:-}" --dart-define=FIREBASE_VAPID_KEY="${FIREBASE_VAPID_KEY:-}"
 
+echo "--- Generating Service Worker (Workbox) ---"
+# Workbox scans build/web/, hashes every file, and generates a production
+# service worker with automatic precaching and cache invalidation.
+npx -y workbox-cli generateSW workbox-config.js
 
 echo "--- Build complete! Output located at: build/web ---"
 chmod -R 755 build/web

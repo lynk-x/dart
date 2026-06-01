@@ -209,6 +209,53 @@
 
     // 3. Fallback: If everything else fails (e.g. script error), clear it
     setTimeout(removeLoader, 8000);
+
+    // ── Service Worker Registration ──────────────────────────────────────────
+    // Registers the Workbox-generated service-worker.js for offline caching
+    // and the firebase-messaging-sw.js for background push notifications.
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        // 1. Main SW (Workbox — handles offline caching & app shell)
+        navigator.serviceWorker.register('/service-worker.js').then((reg) => {
+          console.log('[SW] Registered:', reg.scope);
+
+          // Detect when a new service worker is available (new deploy)
+          reg.addEventListener('updatefound', () => {
+            const newWorker = reg.installing;
+            if (!newWorker) return;
+
+            newWorker.addEventListener('statechange', () => {
+              if (newWorker.state === 'activated' && navigator.serviceWorker.controller) {
+                // New version is ready — show a non-intrusive update prompt.
+                // We don't force-reload because the user might be mid-chat.
+                const banner = document.createElement('div');
+                banner.id = 'sw-update-banner';
+                banner.innerHTML = `
+                  <div style="
+                    position:fixed; bottom:20px; left:50%; transform:translateX(-50%);
+                    background:#20F928; color:#000; padding:12px 24px;
+                    border-radius:12px; font-family:Inter,sans-serif; font-size:14px;
+                    font-weight:600; z-index:99999; cursor:pointer;
+                    box-shadow:0 4px 20px rgba(32,249,40,0.3);
+                    display:flex; align-items:center; gap:8px;
+                  " onclick="window.location.reload()">
+                    ✨ New version available — tap to update
+                  </div>
+                `;
+                document.body.appendChild(banner);
+              }
+            });
+          });
+        }).catch((err) => console.warn('[SW] Registration failed:', err));
+
+        // 2. Firebase Messaging SW (background push notifications)
+        navigator.serviceWorker.register('/firebase-messaging-sw.js', {
+          scope: '/firebase-cloud-messaging-push-scope',
+        }).then((reg) => {
+          console.log('[FCM SW] Registered:', reg.scope);
+        }).catch((err) => console.warn('[FCM SW] Registration failed:', err));
+      });
+    }
   </script>
 </body>
 </html>
