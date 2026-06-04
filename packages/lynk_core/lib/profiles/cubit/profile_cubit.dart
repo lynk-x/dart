@@ -35,7 +35,7 @@ class ProfileCubit extends Cubit<ProfileState> {
 
   /// Updates the authenticated user's profile.
   ///
-  /// Routes editable fields through the `update_my_profile` RPC, which also
+  /// Routes editable fields through the `update_profile` RPC, which also
   /// handles auth/admin checks and bio/tagline serialization into the `info`
   /// jsonb column. `user_name` is updated separately because the RPC does not
   /// expose it; the schema's `tr_user_profile_security` trigger does not

@@ -69,7 +69,7 @@ GoRouter createRouter(
         try {
           final flagCubit = context.read<FeatureFlagCubit>();
           if (!flagCubit.state.isLoading && flagCubit.state.flags.isNotEmpty) {
-            if (flagCubit.isEnabled('maintenance_mode') && path != '/maintenance') {
+            if (flagCubit.isEnabled('app_maintenance_mode') && path != '/maintenance') {
               return '/maintenance';
             }
             if (flagCubit.isEnabled('force_app_update') && path != '/update-required') {

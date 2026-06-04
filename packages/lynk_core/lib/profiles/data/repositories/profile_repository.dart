@@ -6,10 +6,14 @@ class ProfileRepository {
   final SupabaseClient _client;
   ProfileRepository(this._client);
 
+  /// Fetches the user's profile by their auth UID.
+  ///
+  /// Only selects columns consumed by [ProfileModel.fromMap]; avoids
+  /// pulling sensitive fields (embedding, fts, strikes, etc.).
   Future<ProfileModel> getProfile(String userId) async {
     final data = await _client
         .from('user_profile')
-        .select()
+        .select('id, email, avatar_url, user_name, full_name, country_code, is_premium, info')
         .eq('id', userId)
         .single();
     return ProfileModel.fromMap(data);
@@ -34,15 +38,18 @@ class ProfileRepository {
         .eq('id', userId);
   }
 
+  /// Uploads an avatar image to the user-scoped folder in the `avatars` bucket.
+  ///
+  /// Path convention: `{user_id}/avatar.{ext}` — must match the RLS policy
+  /// on the `avatars` storage bucket which restricts writes to `{uid}/*`.
   Future<String> uploadAvatar(
       String userId, Uint8List bytes, String ext) async {
-    final fileName = '$userId-${DateTime.now().millisecondsSinceEpoch}.$ext';
-    final path = 'avatars/$fileName';
+    final path = '$userId/avatar.$ext';
 
     await _client.storage.from('avatars').uploadBinary(
           path,
           bytes,
-          fileOptions: FileOptions(contentType: 'image/$ext'),
+          fileOptions: FileOptions(contentType: 'image/$ext', upsert: true),
         );
 
     return _client.storage.from('avatars').getPublicUrl(path);
