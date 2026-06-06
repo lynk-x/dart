@@ -27,7 +27,7 @@ class FeatureFlag extends Equatable {
       key: map['key'] as String,
       isEnabled: map['is_enabled'] as bool? ?? false,
       description: map['description'] as String?,
-      platforms: List<String>.from(map['platforms'] ?? []),
+      platforms: map['platforms'] != null ? List<String>.from(map['platforms']) : const ['all'],
       exclusionRules: map['exclusion_rules'] as Map<String, dynamic>? ?? {},
       rolloutPercent: map['rollout_percent'] as int? ?? 100,
       allowedRegions: List<String>.from(map['allowed_regions'] ?? []),
