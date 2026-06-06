@@ -84,8 +84,9 @@ class ForumAdsCubit extends Cubit<ForumAdsState> {
       final now = DateTime.now().toIso8601String();
       final results = await Future.wait([
         Supabase.instance.client
-            .from('ad_campaigns')
-            .select('*, ad_media(*)')
+            .schema('api')
+            .from('v1_ad_campaigns')
+            .select('*')
             .eq('status', 'active')
             .eq('type', 'banner')
             .lte('start_at', now)
@@ -93,8 +94,9 @@ class ForumAdsCubit extends Cubit<ForumAdsState> {
             .order('created_at', ascending: false)
             .limit(8),
         Supabase.instance.client
-            .from('ad_campaigns')
-            .select('*, ad_media(*)')
+            .schema('api')
+            .from('v1_ad_campaigns')
+            .select('*')
             .eq('status', 'active')
             .eq('type', 'interstitial')
             .lte('start_at', now)
