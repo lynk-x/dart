@@ -199,7 +199,7 @@ class ForumChatCubit extends BaseMessageCubit<ForumChatState> {
       SyncManager.instance.addWork(SyncItem(
         id: messageId,
         table: 'forum_messages',
-        schema: 'forum_messages',
+        schema: 'social',
         action: SyncAction.insert,
         partitionKeyName: 'created_at',
         partitionKeyValue: messageCreatedAt,
