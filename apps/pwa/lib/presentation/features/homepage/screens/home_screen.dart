@@ -15,6 +15,7 @@ import 'package:lynk_x/presentation/features/homepage/widgets/home_drawer.dart';
 import 'package:lynk_x/presentation/shared/widgets/empty_state.dart';
 import 'package:lynk_x/presentation/features/notifications/cubit/notification_cubit.dart';
 import 'package:lynk_x/presentation/features/notifications/cubit/notification_state.dart';
+import 'package:lynk_x/presentation/features/notifications/widgets/device_notification_modal.dart';
 import 'package:lynk_x/data/repositories/repository_providers.dart';
 
 /// Root entry point for the Home feature.
@@ -66,6 +67,9 @@ class _HomeViewState extends State<HomeView>
       }
     });
     _loadWelcomeBanner();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      DeviceNotificationModal.checkAndShow(context);
+    });
   }
 
   Future<void> _loadWelcomeBanner() async {

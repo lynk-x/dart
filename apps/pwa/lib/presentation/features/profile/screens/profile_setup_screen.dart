@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 import 'package:lynk_core/core.dart';
 import 'package:lynk_x/services/push_notification_service.dart';
+import '../models/country.dart';
 
 enum SetupStep { identity, security, notifications }
 
@@ -27,6 +28,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   // Identity Fields
   final _fullNameController = TextEditingController();
   final _userNameController = TextEditingController();
+  String? _selectedCountryCode = '';
   XFile? _imageFile;
   Uint8List? _imageBytes;
 
@@ -129,6 +131,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
       await cubit.updateProfile(
         fullName: _fullNameController.text.trim(),
         userName: _userNameController.text.trim(),
+        countryCode: _selectedCountryCode,
       );
       if (mounted) {
         setState(() {
@@ -154,6 +157,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
       await cubit.updateProfile(
         fullName: _fullNameController.text.trim(),
         userName: _userNameController.text.trim(),
+        countryCode: _selectedCountryCode,
       );
       await sb.Supabase.instance.client.auth.updateUser(
         sb.UserAttributes(password: _passwordController.text.trim()),
@@ -256,6 +260,84 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
     }
   }
 
+  void _showCountryPicker(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.tertiary,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) => Container(
+        padding: const EdgeInsets.symmetric(vertical: 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('Select Country', 
+              style: AppTypography.interTight(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
+            const SizedBox(height: 16),
+            Flexible(
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: kSupportedCountries.length,
+                itemBuilder: (context, index) {
+                  final country = kSupportedCountries[index];
+                  final isSelected = _selectedCountryCode == country.code;
+                  return ListTile(
+                    title: Text(country.name, style: const TextStyle(color: Colors.white)),
+                    trailing: isSelected ? Icon(Icons.check_circle, color: context.accentColor) : null,
+                    onTap: () {
+                      setState(() => _selectedCountryCode = country.code);
+                      Navigator.pop(context);
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCountrySelector() {
+    final country = _selectedCountryCode != null 
+        ? kSupportedCountries.firstWhere((c) => c.code == _selectedCountryCode, orElse: () => const Country(name: 'Global', code: 'GL'))
+        : null;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Padding(
+          padding: EdgeInsets.only(left: 4, bottom: 8),
+          child: Text('Country', style: TextStyle(color: Colors.white54, fontSize: 12, fontWeight: FontWeight.bold)),
+        ),
+        InkWell(
+          onTap: () => _showCountryPicker(context),
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.05),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.white12),
+            ),
+            child: Row(
+              children: [
+                if (country != null) ...[
+                  Text(country.name, style: const TextStyle(color: Colors.white, fontSize: 16)),
+                ] else ...[
+                  const Text('Select Country', style: TextStyle(color: Colors.white54, fontSize: 16)),
+                ],
+                const Spacer(),
+                const Icon(Icons.arrow_drop_down, color: Colors.white54),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildIdentityStep() {
     return SingleChildScrollView(
       key: const ValueKey('identity'),
@@ -292,6 +374,8 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                         : null)),
               validator: (v) => v == null || v.isEmpty ? 'Required' : (_isUsernameAvailable == false ? 'Username already taken' : null),
             ).animate().slideX(begin: -0.1).fadeIn(delay: 200.ms),
+            const SizedBox(height: 24),
+            _buildCountrySelector().animate().slideX(begin: -0.1).fadeIn(delay: 300.ms),
             const SizedBox(height: 60),
             _isSubmitting
                 ? Center(child: CircularProgressIndicator(color: context.accentColor))
