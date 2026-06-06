@@ -27,7 +27,7 @@ class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
     emit(state.copyWith(isLoading: true));
     try {
       var query = Supabase.instance.client
-          .schema('forum_media').from('forum_media')
+          .schema('social').from('forum_media')
           .select()
           .eq('forum_id', forumId);
 
@@ -55,7 +55,7 @@ class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
     final startIndex = state.mediaItems.length;
     try {
       var query = Supabase.instance.client
-          .schema('forum_media').from('forum_media')
+          .schema('social').from('forum_media')
           .select()
           .eq('forum_id', forumId);
 
@@ -107,7 +107,7 @@ class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
 
         // forum_media has jsonb columns `media_url` and `metadata` rather than
         // top-level url/mime_type/file_size. See schema PART 06.
-        await Supabase.instance.client.schema('forum_media').from('forum_media').insert({
+        await Supabase.instance.client.schema('social').from('forum_media').insert({
           'id': fileId,
           'forum_id': forumId,
           'uploader_id': userId,
@@ -151,7 +151,7 @@ class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
     if (!isOrganizer) return;
     try {
       await Supabase.instance.client
-          .schema('forum_media').from('forum_media')
+          .schema('social').from('forum_media')
           .update({'is_approved': true})
           .eq('id', media.id)
           .eq('created_at', media.createdAt.toIso8601String());
@@ -166,7 +166,7 @@ class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
     if (!isOrganizer) return;
     try {
       await Supabase.instance.client
-          .schema('forum_media').from('forum_media')
+          .schema('social').from('forum_media')
           .delete()
           .eq('id', media.id)
           .eq('created_at', media.createdAt.toIso8601String());
