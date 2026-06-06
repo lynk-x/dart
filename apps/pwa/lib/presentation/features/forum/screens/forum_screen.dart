@@ -290,7 +290,7 @@ class _ForumViewState extends State<ForumView> {
                             );
                           }
 
-                          final totalHeaderHeight = 115.0 + adsHeight + extraHeight;
+                          final totalHeaderHeight = 104.0 + adsHeight + extraHeight;
                           return SliverOverlapAbsorber(
                             handle: NestedScrollView.sliverOverlapAbsorberHandleFor(context),
                             sliver: SliverPersistentHeader(
@@ -300,7 +300,7 @@ class _ForumViewState extends State<ForumView> {
                                 child: SizedBox(
                                   height: totalHeaderHeight,
                                   child: Column(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    mainAxisAlignment: MainAxisAlignment.start,
                                     children: [
                                     ForumHeader(
                                       isOrganizer: forumState.isOrganizer,
@@ -435,6 +435,7 @@ class _ForumViewState extends State<ForumView> {
 
             int displayedIndex = 0;
             return Container(
+              height: 48,
               decoration: const BoxDecoration(
                 border: Border(
                   bottom: BorderSide(
