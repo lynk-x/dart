@@ -35,15 +35,15 @@ class ForumAdsCubit extends Cubit<ForumAdsState> {
     emit(state.copyWith(isLoading: true));
 
     try {
-      // Priority: Recommendation-based ads (based on event embedding)
       final forumData = await Supabase.instance.client
+          .schema('social')
           .from('forums')
           .select('events(embedding)')
           .eq('id', forumId)
-          .single();
+          .maybeSingle();
 
       final List<dynamic>? embeddingData =
-          forumData['events']?['embedding'] as List<dynamic>?;
+          forumData?['events']?['embedding'] as List<dynamic>?;
 
       if (embeddingData != null) {
         final results = await Future.wait([
@@ -63,7 +63,8 @@ class ForumAdsCubit extends Cubit<ForumAdsState> {
         final interstitialResults = results[1] as List<dynamic>;
 
         if (!isClosed) {
-          final ads = bannerResults.map((json) => AdModel.fromMap(json)).toList();
+          final ads =
+              bannerResults.map((json) => AdModel.fromMap(json)).toList();
           emit(state.copyWith(
             ads: ads.isEmpty ? _defaultAds : ads,
             interstitialAd: interstitialResults.isNotEmpty
@@ -155,10 +156,9 @@ class ForumAdsCubit extends Cubit<ForumAdsState> {
       _viewedAds.add(adId);
       _impressionTimers.remove(adId);
       try {
-        await Supabase.instance.client.schema('ad_analytics').from('ad_analytics').insert({
-          'campaign_id': adId,
-          'interaction_type': 'impression',
-          'user_id': userId,
+        await Supabase.instance.client.rpc('log_ad_interaction', params: {
+          'p_campaign_id': adId,
+          'p_interaction_type': 'impression',
         });
       } catch (e, stack) {
         debugPrint('[ForumAdsCubit] Error logging impression: $e\n$stack');
@@ -184,10 +184,9 @@ class ForumAdsCubit extends Cubit<ForumAdsState> {
     if (adId == 'default_lynk_upgrade') return;
     if (userId == kGuestUserId) return;
     try {
-      await Supabase.instance.client.schema('ad_analytics').from('ad_analytics').insert({
-        'campaign_id': adId,
-        'interaction_type': 'click',
-        'user_id': userId,
+      await Supabase.instance.client.rpc('log_ad_interaction', params: {
+        'p_campaign_id': adId,
+        'p_interaction_type': 'click',
       });
     } catch (e, stack) {
       debugPrint('[ForumAdsCubit] Error logging click: $e\n$stack');
