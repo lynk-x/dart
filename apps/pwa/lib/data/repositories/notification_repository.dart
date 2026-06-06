@@ -18,8 +18,8 @@ class NotificationRepository {
 
   Future<void> markAsRead(String id, DateTime createdAt) async {
     await _client
-        .schema('comms')
-        .from('notifications')
+        .schema('api')
+        .from('v1_notifications')
         .update({'is_read': true})
         .eq('id', id)
         .eq('created_at', createdAt.toIso8601String());
@@ -31,8 +31,8 @@ class NotificationRepository {
 
   Future<void> deleteNotification(String id, DateTime createdAt) async {
     await _client
-        .schema('comms')
-        .from('notifications')
+        .schema('api')
+        .from('v1_notifications')
         .delete()
         .eq('id', id)
         .eq('created_at', createdAt.toIso8601String());

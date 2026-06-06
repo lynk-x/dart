@@ -102,17 +102,12 @@ class PushNotificationService {
     if (user == null) return;
 
     try {
-      await Supabase.instance.client.from('user_devices').upsert(
-        {
-          'user_id': user.id,
-          'fcm_token': token,
-          'info': {
-            'platform': kIsWeb ? 'web' : 'other',
-          },
-          'last_active_at': DateTime.now().toUtc().toIso8601String(),
+      await Supabase.instance.client.rpc('register_user_device', params: {
+        'p_fcm_token': token,
+        'p_info': {
+          'platform': kIsWeb ? 'web' : 'other',
         },
-        onConflict: 'fcm_token',
-      );
+      });
       debugPrint('[Push] FCM token saved');
     } catch (e) {
       debugPrint('[Push] Failed to save FCM token: $e');
