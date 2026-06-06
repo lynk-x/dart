@@ -21,21 +21,22 @@ class ProfileRepository {
 
   Future<void> updateProfile({
     String? fullName,
+    String? userName,
     String? countryCode,
     Map<String, dynamic>? info,
   }) async {
     await _client.rpc('update_profile', params: {
       if (fullName != null) 'p_full_name': fullName,
+      if (userName != null) 'p_user_name': userName,
       if (countryCode != null) 'p_country_code': countryCode,
       if (info != null) 'p_info': info,
     });
   }
 
   Future<void> updateUserName(String userId, String userName) async {
-    await _client
-        .from('user_profile')
-        .update({'user_name': userName})
-        .eq('id', userId);
+    await _client.rpc('update_profile', params: {
+      'p_user_name': userName,
+    });
   }
 
   /// Uploads an avatar image to the user-scoped folder in the `avatars` bucket.
@@ -56,10 +57,9 @@ class ProfileRepository {
   }
 
   Future<void> updateAvatarUrl(String userId, String? avatarUrl) async {
-    await _client
-        .from('user_profile')
-        .update({'avatar_url': avatarUrl})
-        .eq('id', userId);
+    await _client.rpc('update_profile', params: {
+      'p_avatar_url': avatarUrl,
+    });
   }
 
   Future<void> deleteAccount() async {
