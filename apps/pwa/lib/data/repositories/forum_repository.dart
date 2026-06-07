@@ -9,7 +9,7 @@ class ForumRepository {
     final forumData = await _client
         .schema('api')
         .from('v1_forums')
-        .select('status, event_id, event_created_at, event_title')
+        .select('status, event_id, event_created_at, event_title, created_at')
         .eq('id', forumId)
         .maybeSingle();
 

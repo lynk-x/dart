@@ -13,11 +13,13 @@ class ForumChatCubit extends BaseMessageCubit<ForumChatState> {
   Timer? _typingThrottle;
   Timer? _hideTypingTimer;
   StreamSubscription? _syncSubscription;
+  final DateTime? forumCreatedAt;
 
   ForumChatCubit({
     required super.forumId,
     required super.userId,
     required super.userName,
+    required this.forumCreatedAt,
     required ForumRepository repo,
     super.channel,
   })  : _repo = repo,
@@ -194,8 +196,8 @@ class ForumChatCubit extends BaseMessageCubit<ForumChatState> {
       final mediaCreatedAt = state.mentionedMedia?.createdAt.toIso8601String();
       final replyCreatedAt = replyTo?.createdAt.toIso8601String();
       final messageCreatedAt = now.toIso8601String();
+      final forumCreatedAtStr = forumCreatedAt?.toIso8601String();
 
-      // Optimistic Sync Push
       SyncManager.instance.addWork(SyncItem(
         id: messageId,
         table: 'forum_messages',
@@ -206,6 +208,7 @@ class ForumChatCubit extends BaseMessageCubit<ForumChatState> {
         payload: {
           'id': messageId,
           'forum_id': forumId,
+          'forum_created_at': forumCreatedAt?.toIso8601String(),
           'author_id': userId,
           'content': text,
           'message_type': 'chat',

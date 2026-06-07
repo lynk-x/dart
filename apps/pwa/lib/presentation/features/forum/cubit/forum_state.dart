@@ -1,20 +1,18 @@
 import 'package:equatable/equatable.dart';
 import 'package:lynk_x/presentation/features/forum/models/forum_model.dart';
 
-/// Represents the global state of the Forum feature.
 class ForumState extends Equatable {
   final String forumStatus;
   final String forumName;
   final String userName;
   final int currentTabIndex;
 
-  // ── Shared Content ─────────────────────────────────────────────────────────
   final ForumMedia? mentionedMedia;
   final List<Map<String, dynamic>> members;
 
-  // ── Metadata/Permissions ───────────────────────────────────────────────────
   final String? eventId;
   final DateTime? eventCreatedAt;
+  final DateTime? forumCreatedAt;
   final bool isOrganizer;
   final bool isModerator;
   final bool isMuted;
@@ -22,7 +20,6 @@ class ForumState extends Equatable {
   final bool hasMutedLiveChatsMedia;
   final bool showAds;
 
-  // ── Reactions & Global Animations ──────────────────────────────────────────
   final String selectedEmoji;
   final int emojiTrigger;
   final double eventProgress;
@@ -41,6 +38,7 @@ class ForumState extends Equatable {
     this.members = const [],
     this.eventId,
     this.eventCreatedAt,
+    this.forumCreatedAt,
     this.isOrganizer = false,
     this.isModerator = false,
     this.isMuted = false,
@@ -65,6 +63,7 @@ class ForumState extends Equatable {
     List<Map<String, dynamic>>? members,
     String? eventId,
     DateTime? eventCreatedAt,
+    DateTime? forumCreatedAt,
     bool? isOrganizer,
     bool? isModerator,
     bool? isMuted,
@@ -89,6 +88,7 @@ class ForumState extends Equatable {
       members: members ?? this.members,
       eventId: eventId ?? this.eventId,
       eventCreatedAt: eventCreatedAt ?? this.eventCreatedAt,
+      forumCreatedAt: forumCreatedAt ?? this.forumCreatedAt,
       isOrganizer: isOrganizer ?? this.isOrganizer,
       isModerator: isModerator ?? this.isModerator,
       isMuted: isMuted ?? this.isMuted,
@@ -107,25 +107,26 @@ class ForumState extends Equatable {
 
   @override
   List<Object?> get props => [
-    forumStatus,
-    forumName,
-    userName,
-    currentTabIndex,
-    mentionedMedia,
-    members,
-    eventId,
-    eventCreatedAt,
-    isOrganizer,
-    isModerator,
-    isMuted,
-    isPremium,
-    hasMutedLiveChatsMedia,
-    showAds,
-    selectedEmoji,
-    emojiTrigger,
-    eventProgress,
-    waveFromName,
-    waveFromUserId,
-    waveTrigger,
-  ];
+        forumStatus,
+        forumName,
+        userName,
+        currentTabIndex,
+        mentionedMedia,
+        members,
+        eventId,
+        eventCreatedAt,
+        forumCreatedAt,
+        isOrganizer,
+        isModerator,
+        isMuted,
+        isPremium,
+        hasMutedLiveChatsMedia,
+        showAds,
+        selectedEmoji,
+        emojiTrigger,
+        eventProgress,
+        waveFromName,
+        waveFromUserId,
+        waveTrigger,
+      ];
 }

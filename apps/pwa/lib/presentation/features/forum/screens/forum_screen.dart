@@ -98,6 +98,7 @@ class ForumPage extends StatelessWidget {
                   forumId: mainCubit.forumId,
                   userId: mainCubit.userId,
                   userName: mainCubit.userName,
+                  forumCreatedAt: mainCubit.state.forumCreatedAt,
                   repo: forumRepository,
                   channel: mainCubit.channel,
                 )..init(),

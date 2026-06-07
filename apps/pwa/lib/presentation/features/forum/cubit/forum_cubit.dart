@@ -136,6 +136,7 @@ class ForumCubit extends Cubit<ForumState> {
       String? eventIdFromDb;
 
       DateTime? eventCreatedAtFromDb;
+      DateTime? forumCreatedAtFromDb;
 
       try {
         final result = await _repo.getForumWithMemberStatus(forumId, userId);
@@ -148,6 +149,10 @@ class ForumCubit extends Cubit<ForumState> {
           final eventCreatedAtRaw = forumData['event_created_at'];
           eventCreatedAtFromDb = eventCreatedAtRaw != null
               ? DateTime.parse(eventCreatedAtRaw as String)
+              : null;
+          final forumCreatedAtRaw = forumData['created_at'];
+          forumCreatedAtFromDb = forumCreatedAtRaw != null
+              ? DateTime.parse(forumCreatedAtRaw as String)
               : null;
           forumName = forumData['event_title'] as String? ?? 'Community Forum';
         }
@@ -176,6 +181,7 @@ class ForumCubit extends Cubit<ForumState> {
           forumName: forumName,
           eventId: eventIdFromDb,
           eventCreatedAt: eventCreatedAtFromDb,
+          forumCreatedAt: forumCreatedAtFromDb,
         ));
 
         if (eventIdFromDb != null) {
