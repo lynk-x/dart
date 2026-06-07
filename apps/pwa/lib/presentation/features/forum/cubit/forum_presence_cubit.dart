@@ -34,33 +34,18 @@ class ForumPresenceCubit extends Cubit<ForumPresenceState> {
   Future<void> _setupPresenceListeners() async {
     debugPrint('[ForumPresenceCubit] Setting up presence listeners for $forumId');
 
-    channel?.onPresenceSync((payload) {
-      debugPrint('[ForumPresenceCubit] Presence sync received');
-      _updatePresence();
-    });
-
-    channel?.onPresenceJoin((payload) {
-      debugPrint('[ForumPresenceCubit] User joined');
-      _updatePresence();
-    });
-
-    channel?.onPresenceLeave((payload) {
-      debugPrint('[ForumPresenceCubit] User left');
-      _updatePresence();
-    });
-
     await _trackUser();
-    _updatePresence();
 
+    _updatePresenceFromChannel();
     Future.delayed(const Duration(milliseconds: 500), () {
-      if (!isClosed) _updatePresence();
+      if (!isClosed) _updatePresenceFromChannel();
     });
     Future.delayed(const Duration(seconds: 2), () {
-      if (!isClosed) _updatePresence();
+      if (!isClosed) _updatePresenceFromChannel();
     });
   }
 
-  void _updatePresence() {
+  void _updatePresenceFromChannel() {
     final presenceStates = channel?.presenceState();
     if (presenceStates == null) return;
 
@@ -71,11 +56,10 @@ class ForumPresenceCubit extends Cubit<ForumPresenceState> {
       for (final p in presence.presences) {
         final data = Map<String, dynamic>.from(p.payload);
         final uid = data['user_id'] as String? ?? data['id'] as String?;
-        // Support both naming conventions for robustness during migration
         if (data['user_name'] == null && data['full_name'] != null) {
           data['user_name'] = data['full_name'];
         }
-        
+
         if (uid != null && !uniqueUserIds.contains(uid)) {
           uniqueUserIds.add(uid);
           users.add(data);

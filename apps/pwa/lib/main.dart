@@ -48,7 +48,7 @@ void main() async {
   try {
     final url = supabaseUrl.isNotEmpty ? supabaseUrl : 'https://placeholder.supabase.co';
     final key = supabaseAnonKey.isNotEmpty ? supabaseAnonKey : 'placeholder_publishable_key';
-    await Supabase.initialize(url: url, anonKey: key);
+    await Supabase.initialize(url: url, publishableKey: key);
   } catch (e) {
     debugPrint('[Main] Supabase initialization failed: $e');
   }
