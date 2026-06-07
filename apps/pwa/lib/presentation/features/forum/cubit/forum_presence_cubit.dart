@@ -34,15 +34,23 @@ class ForumPresenceCubit extends Cubit<ForumPresenceState> {
   Future<void> _setupPresenceListeners() async {
     debugPrint('[ForumPresenceCubit] Setting up presence listeners for $forumId');
 
+    // Register the sync callback BEFORE tracking so the initial sync is caught.
+    channel?.onPresenceSync((_) {
+      if (!isClosed) _updatePresenceFromChannel();
+    });
+
+    channel?.onPresenceJoin((_) {
+      if (!isClosed) _updatePresenceFromChannel();
+    });
+
+    channel?.onPresenceLeave((_) {
+      if (!isClosed) _updatePresenceFromChannel();
+    });
+
     await _trackUser();
 
+    // Immediate read in case the channel already has state.
     _updatePresenceFromChannel();
-    Future.delayed(const Duration(milliseconds: 500), () {
-      if (!isClosed) _updatePresenceFromChannel();
-    });
-    Future.delayed(const Duration(seconds: 2), () {
-      if (!isClosed) _updatePresenceFromChannel();
-    });
   }
 
   void _updatePresenceFromChannel() {

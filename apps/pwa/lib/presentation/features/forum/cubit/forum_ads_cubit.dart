@@ -35,15 +35,26 @@ class ForumAdsCubit extends Cubit<ForumAdsState> {
     emit(state.copyWith(isLoading: true));
 
     try {
-      final forumData = await Supabase.instance.client
+      // Composite FK (event_id, event_created_at) can't be auto-embedded by
+      // PostgREST, so we fetch the event reference first, then the embedding.
+      final forumRow = await Supabase.instance.client
           .schema('social')
           .from('forums')
-          .select('events(embedding)')
+          .select('event_id, event_created_at')
           .eq('id', forumId)
           .maybeSingle();
 
-      final List<dynamic>? embeddingData =
-          forumData?['events']?['embedding'] as List<dynamic>?;
+      List<dynamic>? embeddingData;
+      if (forumRow != null && forumRow['event_id'] != null) {
+        final eventRow = await Supabase.instance.client
+            .schema('events')
+            .from('events')
+            .select('embedding')
+            .eq('id', forumRow['event_id'] as String)
+            .eq('created_at', forumRow['event_created_at'] as String)
+            .maybeSingle();
+        embeddingData = eventRow?['embedding'] as List<dynamic>?;
+      }
 
       if (embeddingData != null) {
         final results = await Future.wait([

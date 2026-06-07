@@ -134,6 +134,7 @@ class ForumCubit extends Cubit<ForumState> {
       String forumStatus = 'open';
       String forumName = 'Community Forum';
       String? eventIdFromDb;
+      String? accountIdFromDb;
 
       DateTime? eventCreatedAtFromDb;
       DateTime? forumCreatedAtFromDb;
@@ -146,6 +147,7 @@ class ForumCubit extends Cubit<ForumState> {
         if (forumData != null) {
           forumStatus = forumData['status'] as String? ?? 'open';
           eventIdFromDb = forumData['event_id'] as String?;
+          accountIdFromDb = forumData['account_id'] as String?;
           final eventCreatedAtRaw = forumData['event_created_at'];
           eventCreatedAtFromDb = eventCreatedAtRaw != null
               ? DateTime.parse(eventCreatedAtRaw as String)
@@ -180,6 +182,7 @@ class ForumCubit extends Cubit<ForumState> {
           forumStatus: forumStatus,
           forumName: forumName,
           eventId: eventIdFromDb,
+          accountId: accountIdFromDb,
           eventCreatedAt: eventCreatedAtFromDb,
           forumCreatedAt: forumCreatedAtFromDb,
         ));

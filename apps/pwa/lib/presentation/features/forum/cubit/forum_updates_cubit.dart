@@ -6,10 +6,15 @@ import 'base_message_cubit.dart';
 import 'forum_updates_state.dart';
 
 class ForumUpdatesCubit extends BaseMessageCubit<ForumUpdatesState> {
+  final String? accountId;
+  final DateTime? forumCreatedAt;
+
   ForumUpdatesCubit({
     required super.forumId,
     required super.userId,
     required super.userName,
+    this.accountId,
+    this.forumCreatedAt,
     super.channel,
   }) : super(
           messageType: 'announcement',
@@ -183,6 +188,8 @@ class ForumUpdatesCubit extends BaseMessageCubit<ForumUpdatesState> {
           .insert({
         'id': messageId,
         'forum_id': forumId,
+        'forum_created_at': forumCreatedAt?.toIso8601String(),
+        if (accountId != null) 'account_id': accountId,
         'author_id': userId,
         'content': text,
         'message_type': 'announcement',

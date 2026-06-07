@@ -14,12 +14,14 @@ class ForumChatCubit extends BaseMessageCubit<ForumChatState> {
   Timer? _hideTypingTimer;
   StreamSubscription? _syncSubscription;
   final DateTime? forumCreatedAt;
+  final String? accountId;
 
   ForumChatCubit({
     required super.forumId,
     required super.userId,
     required super.userName,
     required this.forumCreatedAt,
+    this.accountId,
     required ForumRepository repo,
     super.channel,
   })  : _repo = repo,
@@ -209,6 +211,7 @@ class ForumChatCubit extends BaseMessageCubit<ForumChatState> {
           'id': messageId,
           'forum_id': forumId,
           'forum_created_at': forumCreatedAt?.toIso8601String(),
+          if (accountId != null) 'account_id': accountId,
           'author_id': userId,
           'content': text,
           'message_type': 'chat',
