@@ -98,9 +98,8 @@ class PresenceDrawer extends StatelessWidget {
                   InkWell(
                     onTap: () {
                       if (eventId != null && eventId!.isNotEmpty) {
-                        final router = GoRouter.of(context);
-                        Navigator.pop(context); // Close the drawer
-                        router.push(
+                        Navigator.of(context).pop();
+                        context.go(
                           '/forum/$forumId/sessions',
                           extra: {
                             'eventId': eventId,

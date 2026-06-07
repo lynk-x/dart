@@ -27,24 +27,37 @@ class ForumPresenceCubit extends Cubit<ForumPresenceState> {
     }
   }
 
-  void init() {
-    _setupPresenceListeners();
+  Future<void> init() async {
+    await _setupPresenceListeners();
   }
 
-  void _setupPresenceListeners() {
+  Future<void> _setupPresenceListeners() async {
     debugPrint('[ForumPresenceCubit] Setting up presence listeners for $forumId');
-    
+
     channel?.onPresenceSync((payload) {
       debugPrint('[ForumPresenceCubit] Presence sync received');
       _updatePresence();
     });
 
-    _trackUser();
+    channel?.onPresenceJoin((payload) {
+      debugPrint('[ForumPresenceCubit] User joined');
+      _updatePresence();
+    });
 
-    // Initial sync checks with small delays to allow local track to propagate
+    channel?.onPresenceLeave((payload) {
+      debugPrint('[ForumPresenceCubit] User left');
+      _updatePresence();
+    });
+
+    await _trackUser();
     _updatePresence();
-    Future.delayed(const Duration(milliseconds: 500), () { if (!isClosed) _updatePresence(); });
-    Future.delayed(const Duration(seconds: 2), () { if (!isClosed) _updatePresence(); });
+
+    Future.delayed(const Duration(milliseconds: 500), () {
+      if (!isClosed) _updatePresence();
+    });
+    Future.delayed(const Duration(seconds: 2), () {
+      if (!isClosed) _updatePresence();
+    });
   }
 
   void _updatePresence() {

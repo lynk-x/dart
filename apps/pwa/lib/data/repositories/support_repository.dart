@@ -53,11 +53,13 @@ class SupportRepository {
 
   /// Sends a new message to a support ticket
   Future<void> sendMessage(String ticketId, String userId, String message) async {
+    final createdAt = DateTime.now().toIso8601String();
     await _client.from('support_ticket_messages').insert({
       'ticket_id': ticketId,
       'sender_id': userId,
       'message': message,
       'is_read': false,
+      'created_at': createdAt,
     });
   }
 
