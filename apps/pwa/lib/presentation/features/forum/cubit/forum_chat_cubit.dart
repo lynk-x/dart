@@ -198,7 +198,6 @@ class ForumChatCubit extends BaseMessageCubit<ForumChatState> {
       final mediaCreatedAt = state.mentionedMedia?.createdAt.toIso8601String();
       final replyCreatedAt = replyTo?.createdAt.toIso8601String();
       final messageCreatedAt = now.toIso8601String();
-      final forumCreatedAtStr = forumCreatedAt?.toIso8601String();
 
       SyncManager.instance.addWork(SyncItem(
         id: messageId,
