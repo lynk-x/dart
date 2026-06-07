@@ -99,7 +99,7 @@ class PresenceDrawer extends StatelessWidget {
                     onTap: () {
                       if (eventId != null && eventId!.isNotEmpty) {
                         Navigator.of(context).pop();
-                        context.go(
+                        context.push(
                           '/forum/$forumId/sessions',
                           extra: {
                             'eventId': eventId,
