@@ -47,9 +47,7 @@ class ForumPresenceCubit extends Cubit<ForumPresenceState> {
       if (!isClosed) _updatePresenceFromChannel();
     });
 
-    _trackUser().catchError((e, stack) {
-      debugPrint('[ForumPresenceCubit] Error in _trackUser: $e\n$stack');
-    });
+    await _trackUser();
 
     _updatePresenceFromChannel();
   }
