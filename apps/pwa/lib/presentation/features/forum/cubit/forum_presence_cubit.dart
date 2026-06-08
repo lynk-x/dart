@@ -61,9 +61,6 @@ class ForumPresenceCubit extends Cubit<ForumPresenceState> {
     }
 
     debugPrint('[ForumPresenceCubit] presenceState() type: ${presenceStates.runtimeType}, length: ${presenceStates.length}');
-    for (int i = 0; i < presenceStates.length; i++) {
-      debugPrint('[ForumPresenceCubit] presenceStates[$i] type: ${presenceStates[i].runtimeType}');
-    }
 
     final List<Map<String, dynamic>> users = [];
     final Set<String> uniqueUserIds = {};
@@ -83,6 +80,21 @@ class ForumPresenceCubit extends Cubit<ForumPresenceState> {
           users.add(data);
         }
       }
+    }
+
+    if (state.isTracking && !uniqueUserIds.contains(userId)) {
+      final me = <String, dynamic>{
+        'user_id': userId,
+        'id': userId,
+        'user_name': userName,
+        'full_name': userName,
+        'is_organizer': isOrganizer,
+        'is_premium': isPremium,
+        'status': 'Online',
+      };
+      uniqueUserIds.add(userId);
+      users.add(me);
+      debugPrint('[ForumPresenceCubit] Added current user to list (server sync delayed)');
     }
 
     debugPrint('[ForumPresenceCubit] Sync complete. Online users: ${users.length}');
