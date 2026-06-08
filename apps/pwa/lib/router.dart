@@ -32,11 +32,9 @@ import 'package:lynk_x/presentation/shared/screens/system_error_screen.dart';
 GoRouter createRouter(
   Stream<AuthState> authStream,
   Stream<ProfileState> profileStream,
-  Stream<dynamic> featureFlagStream, {
-  GlobalKey<NavigatorState>? navigatorKey,
-}) {
+  Stream<dynamic> featureFlagStream,
+) {
   return GoRouter(
-    navigatorKey: navigatorKey,
     initialLocation: '/',
     refreshListenable:
         GoRouterRefreshStream([authStream, profileStream, featureFlagStream]),
