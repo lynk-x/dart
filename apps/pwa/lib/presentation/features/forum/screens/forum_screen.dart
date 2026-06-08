@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:lynk_x/app.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/info_banner.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/category_filter_bar.dart';
 import 'package:lynk_core/core.dart';
@@ -228,7 +229,7 @@ class _ForumViewState extends State<ForumView> {
         backgroundColor: AppColors.primaryBackground,
         endDrawer: _ForumPresenceDrawerWrapper(
           forumId: cubit.forumId,
-          onEventProgressTap: () {
+          onEventProgressTap: () async {
             final state = cubit.state;
             if (state.eventId == null || state.eventId!.isEmpty) {
               ScaffoldMessenger.of(context).showSnackBar(
@@ -239,14 +240,18 @@ class _ForumViewState extends State<ForumView> {
               );
               return;
             }
-            context.push(
-              '/forum/${cubit.forumId}/sessions',
-              extra: {
-                'eventId': state.eventId,
-                'isOrganizer': state.isOrganizer,
-                'eventCreatedAt': state.eventCreatedAt,
-              },
-            );
+            Navigator.of(context).pop();
+            final navContext = LynkXApp.navigatorKey.currentContext;
+            if (navContext != null) {
+              navContext.push(
+                '/forum/${cubit.forumId}/sessions',
+                extra: {
+                  'eventId': state.eventId,
+                  'isOrganizer': state.isOrganizer,
+                  'eventCreatedAt': state.eventCreatedAt,
+                },
+              );
+            }
           },
         ),
         appBar: _buildAppBar(),

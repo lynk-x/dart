@@ -57,6 +57,8 @@ class LynkXApp extends StatefulWidget {
   final Locale? locale;
   const LynkXApp({super.key, this.locale});
 
+  static final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
   @override
   State<LynkXApp> createState() => _LynkXAppState();
 }
@@ -99,6 +101,7 @@ class _LynkXAppState extends State<LynkXApp> {
       authStream,
       context.read<ProfileCubit>().stream,
       context.read<FeatureFlagCubit>().stream,
+      navigatorKey: LynkXApp.navigatorKey,
     );
 
     // Wire push notification taps to GoRouter

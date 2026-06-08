@@ -55,13 +55,23 @@ class ForumPresenceCubit extends Cubit<ForumPresenceState> {
 
   void _updatePresenceFromChannel() {
     final presenceStates = channel?.presenceState();
-    if (presenceStates == null) return;
+    if (presenceStates == null) {
+      debugPrint('[ForumPresenceCubit] presenceState() returned null');
+      return;
+    }
+
+    debugPrint('[ForumPresenceCubit] presenceState() type: ${presenceStates.runtimeType}, length: ${presenceStates.length}');
+    for (int i = 0; i < presenceStates.length; i++) {
+      debugPrint('[ForumPresenceCubit] presenceStates[$i] type: ${presenceStates[i].runtimeType}');
+    }
 
     final List<Map<String, dynamic>> users = [];
     final Set<String> uniqueUserIds = {};
 
     for (final presence in presenceStates) {
-      for (final p in presence.presences) {
+      final presences = presence.presences;
+      debugPrint('[ForumPresenceCubit] presences type: ${presences.runtimeType}, length: ${presences.length}');
+      for (final p in presences) {
         final data = Map<String, dynamic>.from(p.payload);
         final uid = data['user_id'] as String? ?? data['id'] as String?;
         if (data['user_name'] == null && data['full_name'] != null) {
