@@ -7,7 +7,8 @@ import 'package:lynk_x/presentation/features/forum/cubit/base_message_state.dart
 
 final _urlRegExp = RegExp(r'(?:(?:https?|ftp)://)?[\w/\-?=%.]+\.[\w/\-?=%.]+');
 
-LinkPreviewData? _linkPreviewFor(String messageText, Map<String, LinkPreviewData> previews) {
+LinkPreviewData? _linkPreviewFor(
+    String messageText, Map<String, LinkPreviewData> previews) {
   final match = _urlRegExp.firstMatch(messageText);
   if (match == null) return null;
   final raw = messageText.substring(match.start, match.end);
@@ -78,6 +79,21 @@ class ChatMessageList extends StatelessWidget {
       );
     }
 
+    if (chatState.messages.isEmpty && chatState.isLoading) {
+      return CustomScrollView(
+        controller: scrollController,
+        physics: const AlwaysScrollableScrollPhysics(),
+        slivers: const [
+          SliverFillRemaining(
+            hasScrollBody: false,
+            child: Center(
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+          ),
+        ],
+      );
+    }
+
     return CustomScrollView(
       controller: scrollController,
       reverse: true,
@@ -130,13 +146,15 @@ class ChatMessageList extends StatelessWidget {
                   onLongPressBubble: onLongPressBubble ??
                       () => onMessageLongPress?.call(message),
                   showActions: selectedMessageId == message.id,
-                  linkPreviewData: _linkPreviewFor(message.message, chatState.linkPreviews),
+                  linkPreviewData:
+                      _linkPreviewFor(message.message, chatState.linkPreviews),
                   onLinkPreviewDataFetched: onLinkPreviewDataFetched,
                   onMediaTap: onMediaTap,
                 );
               },
-              childCount:
-                  chatState.messages.length + (chatState.isLoading ? 1 : 0),
+              childCount: chatState.messages.isNotEmpty
+                  ? chatState.messages.length + (chatState.isLoading ? 1 : 0)
+                  : 0,
             ),
           ),
         ),

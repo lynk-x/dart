@@ -98,7 +98,6 @@ class PresenceDrawer extends StatelessWidget {
                   InkWell(
                     onTap: () {
                       if (eventId != null && eventId!.isNotEmpty) {
-                        Navigator.of(context).pop();
                         context.push(
                           '/forum/$forumId/sessions',
                           extra: {
@@ -107,6 +106,7 @@ class PresenceDrawer extends StatelessWidget {
                             'eventCreatedAt': eventCreatedAt,
                           },
                         );
+                        Navigator.of(context).pop();
                       }
                     },
                     child: Padding(

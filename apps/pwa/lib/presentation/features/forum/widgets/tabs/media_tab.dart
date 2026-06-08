@@ -65,7 +65,8 @@ class _MediaTabState extends State<MediaTab>
     final mediaCubit = context.read<ForumMediaCubit>();
 
     return BlocBuilder<ForumCubit, ForumState>(
-      buildWhen: (p, c) => p.isMuted != c.isMuted || p.isReadOnly != c.isReadOnly,
+      buildWhen: (p, c) =>
+          p.isMuted != c.isMuted || p.isReadOnly != c.isReadOnly,
       builder: (context, mainState) {
         return BlocBuilder<ForumMediaCubit, ForumMediaState>(
           builder: (context, mediaState) {
@@ -76,110 +77,174 @@ class _MediaTabState extends State<MediaTab>
                     child: RefreshIndicator(
                       onRefresh: () async => mediaCubit.refreshMedia(),
                       color: context.accentColor,
-                      child: mediaState.isLoading && mediaState.mediaItems.isEmpty
-                          ? Center(
-                              child: CircularProgressIndicator(color: context.accentColor),
+                      child: mediaState.isLoading &&
+                              mediaState.mediaItems.isEmpty
+                          ? CustomScrollView(
+                              physics: const AlwaysScrollableScrollPhysics(),
+                              slivers: [
+                                SliverFillRemaining(
+                                  hasScrollBody: false,
+                                  child: Center(
+                                    child: CircularProgressIndicator(
+                                        color: context.accentColor),
+                                  ),
+                                ),
+                              ],
                             )
                           : mediaState.mediaItems.isEmpty
-                              ? const EmptyState(message: 'No media uploaded yet.')
+                              ? const EmptyState(
+                                  message: 'No media uploaded yet.')
                               : CustomScrollView(
                                   controller: _scrollController,
                                   slivers: [
                                     SliverOverlapInjector(
-                                      handle: NestedScrollView.sliverOverlapAbsorberHandleFor(context),
+                                      handle: NestedScrollView
+                                          .sliverOverlapAbsorberHandleFor(
+                                              context),
                                     ),
                                     SliverPadding(
                                       padding: const EdgeInsets.all(16),
                                       sliver: SliverGrid(
-                                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                                          crossAxisCount: MediaQuery.of(context).size.width < 600 ? 3 : 4,
+                                        gridDelegate:
+                                            SliverGridDelegateWithFixedCrossAxisCount(
+                                          crossAxisCount: MediaQuery.of(context)
+                                                      .size
+                                                      .width <
+                                                  600
+                                              ? 3
+                                              : 4,
                                           mainAxisSpacing: 8,
                                           crossAxisSpacing: 8,
                                           childAspectRatio: 1.3,
                                         ),
                                         delegate: SliverChildBuilderDelegate(
                                           (context, index) {
-                                    if (index == mediaState.mediaItems.length) {
-                                      return const Center(child: CircularProgressIndicator(strokeWidth: 2));
-                                    }
-                                    final item = mediaState.mediaItems[index];
-                                    final isVideo = item.mediaType == 'video';
-                                    final displayUrl = item.thumbnailUrl ?? item.url;
+                                            if (index ==
+                                                mediaState.mediaItems.length) {
+                                              return const Center(
+                                                  child:
+                                                      CircularProgressIndicator(
+                                                          strokeWidth: 2));
+                                            }
+                                            final item =
+                                                mediaState.mediaItems[index];
+                                            final isVideo =
+                                                item.mediaType == 'video';
+                                            final displayUrl =
+                                                item.thumbnailUrl ?? item.url;
 
-                                    return RepaintBoundary(
-                                      child: GestureDetector(
-                                        onTap: () => widget.onMediaTap(item),
-                                        child: Stack(
-                                          fit: StackFit.expand,
-                                          children: [
-                                            ClipRRect(
-                                              borderRadius: BorderRadius.circular(8),
-                                              child: isVideo
-                                                  ? const _VideoThumbnailPreview()
-                                                  : CachedNetworkImage(
-                                                      imageUrl: displayUrl,
-                                                      cacheManager: LynkCacheManager.instance,
-                                                      fit: BoxFit.cover,
-                                                      memCacheWidth: 300,
-                                                      placeholder: (context, url) => Container(
-                                                        color: Colors.grey[900],
-                                                        child: const Center(
-                                                          child: SizedBox(
-                                                            width: 16,
-                                                            height: 16,
-                                                            child: CircularProgressIndicator(
-                                                              strokeWidth: 1.5,
-                                                              color: AppColors.tertiary,
+                                            return RepaintBoundary(
+                                              child: GestureDetector(
+                                                onTap: () =>
+                                                    widget.onMediaTap(item),
+                                                child: Stack(
+                                                  fit: StackFit.expand,
+                                                  children: [
+                                                    ClipRRect(
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                              8),
+                                                      child: isVideo
+                                                          ? const _VideoThumbnailPreview()
+                                                          : CachedNetworkImage(
+                                                              imageUrl:
+                                                                  displayUrl,
+                                                              cacheManager:
+                                                                  LynkCacheManager
+                                                                      .instance,
+                                                              fit: BoxFit.cover,
+                                                              memCacheWidth:
+                                                                  300,
+                                                              placeholder:
+                                                                  (context,
+                                                                          url) =>
+                                                                      Container(
+                                                                color: Colors
+                                                                    .grey[900],
+                                                                child:
+                                                                    const Center(
+                                                                  child:
+                                                                      SizedBox(
+                                                                    width: 16,
+                                                                    height: 16,
+                                                                    child:
+                                                                        CircularProgressIndicator(
+                                                                      strokeWidth:
+                                                                          1.5,
+                                                                      color: AppColors
+                                                                          .tertiary,
+                                                                    ),
+                                                                  ),
+                                                                ),
+                                                              ),
+                                                              errorWidget:
+                                                                  (context, url,
+                                                                          error) =>
+                                                                      Container(
+                                                                color: Colors
+                                                                    .grey[900],
+                                                                child: const Icon(
+                                                                    Icons
+                                                                        .broken_image,
+                                                                    color: Colors
+                                                                        .white10),
+                                                              ),
                                                             ),
+                                                    ),
+                                                    if (!item.isApproved)
+                                                      Container(
+                                                        decoration:
+                                                            BoxDecoration(
+                                                          color: Colors.black54,
+                                                          borderRadius:
+                                                              BorderRadius
+                                                                  .circular(8),
+                                                        ),
+                                                        child: const Center(
+                                                          child: Column(
+                                                            mainAxisSize:
+                                                                MainAxisSize
+                                                                    .min,
+                                                            children: [
+                                                              Icon(
+                                                                  Icons
+                                                                      .pending_actions,
+                                                                  color: Colors
+                                                                      .white,
+                                                                  size: 24),
+                                                              SizedBox(
+                                                                  height: 4),
+                                                              Text('Pending',
+                                                                  style: TextStyle(
+                                                                      color: Colors
+                                                                          .white,
+                                                                      fontSize:
+                                                                          10,
+                                                                      fontWeight:
+                                                                          FontWeight
+                                                                              .bold)),
+                                                            ],
                                                           ),
                                                         ),
                                                       ),
-                                                      errorWidget: (context, url, error) => Container(
-                                                        color: Colors.grey[900],
-                                                        child: const Icon(Icons.broken_image,
-                                                            color: Colors.white10),
-                                                      ),
-                                                    ),
-                                            ),
-                                            if (!item.isApproved)
-                                              Container(
-                                                decoration: BoxDecoration(
-                                                  color: Colors.black54,
-                                                  borderRadius: BorderRadius.circular(8),
-                                                ),
-                                                child: const Center(
-                                                  child: Column(
-                                                    mainAxisSize: MainAxisSize.min,
-                                                    children: [
-                                                      Icon(Icons.pending_actions,
-                                                          color: Colors.white,
-                                                          size: 24),
-                                                      SizedBox(height: 4),
-                                                      Text('Pending',
-                                                          style: TextStyle(
-                                                              color: Colors.white,
-                                                              fontSize: 10,
-                                                              fontWeight: FontWeight.bold)),
-                                                    ],
-                                                  ),
+                                                  ],
                                                 ),
                                               ),
-                                          ],
+                                            );
+                                          },
+                                          childCount: mediaState
+                                                  .mediaItems.length +
+                                              (mediaState.isLoading ? 1 : 0),
                                         ),
                                       ),
-                                    );
-                                  },
-                                  childCount: mediaState.mediaItems.length +
-                                      (mediaState.isLoading ? 1 : 0),
+                                    ),
+                                  ],
                                 ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
                     ),
                   ),
-                if (!mainState.isMuted && (!mainState.isReadOnly || mainState.isOrganizer))
+                ),
+                if (!mainState.isMuted &&
+                    (!mainState.isReadOnly || mainState.isOrganizer))
                   _buildUploadActions(context, mediaState.isUploading),
               ],
             );
@@ -202,7 +267,9 @@ class _MediaTabState extends State<MediaTab>
             child: PrimaryButton(
               icon: isUploading ? null : Icons.image,
               text: isUploading ? 'Uploading...' : 'Upload images',
-              onPressed: isUploading ? null : () => _pickAndUpload(context, ImageSource.gallery, false),
+              onPressed: isUploading
+                  ? null
+                  : () => _pickAndUpload(context, ImageSource.gallery, false),
             ),
           ),
           const SizedBox(width: 8),
@@ -210,7 +277,9 @@ class _MediaTabState extends State<MediaTab>
             child: PrimaryButton(
               icon: isUploading ? null : Icons.video_collection,
               text: isUploading ? 'Uploading...' : 'Upload videos',
-              onPressed: isUploading ? null : () => _pickAndUpload(context, ImageSource.gallery, true),
+              onPressed: isUploading
+                  ? null
+                  : () => _pickAndUpload(context, ImageSource.gallery, true),
             ),
           ),
         ],
@@ -218,9 +287,11 @@ class _MediaTabState extends State<MediaTab>
     );
   }
 
-  Future<void> _pickAndUpload(BuildContext context, ImageSource source, bool isVideo) async {
+  Future<void> _pickAndUpload(
+      BuildContext context, ImageSource source, bool isVideo) async {
     final prefs = await SharedPreferences.getInstance();
-    final hasAcknowledged = prefs.getBool('media_permission_acknowledged') ?? false;
+    final hasAcknowledged =
+        prefs.getBool('media_permission_acknowledged') ?? false;
 
     if (!hasAcknowledged && context.mounted) {
       showModalBottomSheet(
@@ -228,7 +299,8 @@ class _MediaTabState extends State<MediaTab>
         backgroundColor: Colors.transparent,
         builder: (context) => PermissionRequestSheet(
           title: 'Access your Media',
-          description: 'To share photos and videos with the forum, we need access to your device library.',
+          description:
+              'To share photos and videos with the forum, we need access to your device library.',
           icon: Icons.perm_media_rounded,
           actionLabel: 'Allow Access',
           onGranted: () async {
@@ -245,7 +317,8 @@ class _MediaTabState extends State<MediaTab>
     _actuallyPickAndUpload(context, source, isVideo);
   }
 
-  Future<void> _actuallyPickAndUpload(BuildContext context, ImageSource source, bool isVideo) async {
+  Future<void> _actuallyPickAndUpload(
+      BuildContext context, ImageSource source, bool isVideo) async {
     final mediaCubit = context.read<ForumMediaCubit>();
     try {
       final List<XFile> pickedFiles = [];
@@ -256,7 +329,7 @@ class _MediaTabState extends State<MediaTab>
           type: isVideo ? FileType.video : FileType.image,
           allowMultiple: true,
         );
-        
+
         if (result != null && result.files.isNotEmpty) {
           for (final file in result.files) {
             if (file.bytes != null) {
@@ -275,17 +348,16 @@ class _MediaTabState extends State<MediaTab>
           final XFile? file = await picker.pickVideo(source: source);
           if (file != null) pickedFiles.add(file);
         } else {
-          final XFile? file = await picker.pickImage(source: source, imageQuality: 70);
+          final XFile? file =
+              await picker.pickImage(source: source, imageQuality: 70);
           if (file != null) pickedFiles.add(file);
         }
       }
 
       if (pickedFiles.isNotEmpty && context.mounted) {
         final count = pickedFiles.length;
-        AppSnackBars.showInfo(
-          context, 
-          'Uploading $count ${isVideo ? (count > 1 ? 'videos' : 'video') : (count > 1 ? 'images' : 'image')}...'
-        );
+        AppSnackBars.showInfo(context,
+            'Uploading $count ${isVideo ? (count > 1 ? 'videos' : 'video') : (count > 1 ? 'images' : 'image')}...');
 
         await mediaCubit.uploadMultipleMedia(
           files: pickedFiles,
@@ -293,10 +365,8 @@ class _MediaTabState extends State<MediaTab>
         );
 
         if (context.mounted) {
-          AppSnackBars.showSuccess(
-            context, 
-            'Upload successful! ${count > 1 ? 'Items are' : 'Media is'} being processed.'
-          );
+          AppSnackBars.showSuccess(context,
+              'Upload successful! ${count > 1 ? 'Items are' : 'Media is'} being processed.');
         }
       }
     } catch (e) {

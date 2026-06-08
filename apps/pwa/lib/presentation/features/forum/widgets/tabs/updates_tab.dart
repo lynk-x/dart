@@ -59,73 +59,81 @@ class _UpdatesTabState extends State<UpdatesTab>
                         controller: widget.scrollController,
                         reverse: true,
                         slivers: [
-                          // Empty state
-                          if (updatesState.messages.isEmpty && !updatesState.isLoading)
+                          if (updatesState.messages.isEmpty &&
+                              updatesState.isLoading)
+                            SliverFillRemaining(
+                              hasScrollBody: false,
+                              child: Center(
+                                child: CircularProgressIndicator(
+                                    strokeWidth: 2, color: context.accentColor),
+                              ),
+                            ),
+                          if (updatesState.messages.isEmpty &&
+                              !updatesState.isLoading)
                             const SliverFillRemaining(
                               hasScrollBody: false,
                               child: EmptyState(
-                                message: 'No messages yet. Start the conversation!',
+                                message:
+                                    'No messages yet. Start the conversation!',
                               ),
                             ),
+                          if (updatesState.messages.isNotEmpty)
+                            SliverPadding(
+                              padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                              sliver: SliverList(
+                                delegate: SliverChildBuilderDelegate(
+                                  (context, index) {
+                                    if (index == updatesState.messages.length) {
+                                      return Center(
+                                        child: Padding(
+                                          padding: const EdgeInsets.all(8.0),
+                                          child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                              color: context.accentColor),
+                                        ),
+                                      );
+                                    }
 
-                          // Messages
-                          SliverPadding(
-                            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-                            sliver: SliverList(
-                              delegate: SliverChildBuilderDelegate(
-                                (context, index) {
-                                  if (index ==
-                                      updatesState.messages.length) {
-                                    return Center(
-                                      child: Padding(
-                                        padding: const EdgeInsets.all(8.0),
-                                        child: CircularProgressIndicator(
-                                            strokeWidth: 2,
-                                            color: context.accentColor),
-                                      ),
+                                    final message =
+                                        updatesState.messages[index];
+                                    return ChatBubble(
+                                      message: message,
+                                      isOrganizer: mainState.isOrganizer,
+                                      onPin: (msg) => mainCubit.pinMessage(msg),
+                                      onDelete: (msg) =>
+                                          updatesCubit.deleteMessage(msg),
+                                      onReport: (msg) => updatesCubit
+                                          .reportMessage(msg, 'Spam'),
+                                      onMute: (msg) =>
+                                          mainCubit.muteUser(msg.userId),
+                                      onBan: (msg) =>
+                                          mainCubit.banUser(msg.userId),
+                                      onReact: (msg, emoji) =>
+                                          mainCubit.reactToMessage(msg, emoji),
+                                      onReply: (msg) =>
+                                          updatesCubit.setReplyTo(msg),
+                                      onMediaTap: widget.onMediaTap,
+                                      showActions:
+                                          _selectedMessageId == message.id,
+                                      onLongPressBubble: () {
+                                        setState(() {
+                                          _selectedMessageId =
+                                              _selectedMessageId == message.id
+                                                  ? null
+                                                  : message.id;
+                                        });
+                                      },
+                                      onTapBubble: () => setState(
+                                          () => _selectedMessageId = null),
                                     );
-                                  }
-
-                                  final message =
-                                      updatesState.messages[index];
-                                  return ChatBubble(
-                                    message: message,
-                                    isOrganizer: mainState.isOrganizer,
-                                    onPin: (msg) =>
-                                        mainCubit.pinMessage(msg),
-                                    onDelete: (msg) =>
-                                        updatesCubit.deleteMessage(msg),
-                                    onReport: (msg) =>
-                                        updatesCubit.reportMessage(msg, 'Spam'),
-                                    onMute: (msg) =>
-                                        mainCubit.muteUser(msg.userId),
-                                    onBan: (msg) =>
-                                        mainCubit.banUser(msg.userId),
-                                    onReact: (msg, emoji) =>
-                                        mainCubit.reactToMessage(
-                                            msg, emoji),
-                                    onReply: (msg) =>
-                                        updatesCubit.setReplyTo(msg),
-                                    onMediaTap: widget.onMediaTap,
-                                    showActions:
-                                        _selectedMessageId == message.id,
-                                    onLongPressBubble: () {
-                                      setState(() {
-                                        _selectedMessageId =
-                                            _selectedMessageId == message.id
-                                                ? null
-                                                : message.id;
-                                      });
-                                    },
-                                    onTapBubble: () => setState(
-                                        () => _selectedMessageId = null),
-                                  );
-                                },
-                                childCount: updatesState.messages.length +
-                                    (updatesState.isLoading ? 1 : 0),
+                                  },
+                                  childCount: updatesState.messages.isNotEmpty
+                                      ? updatesState.messages.length +
+                                          (updatesState.isLoading ? 1 : 0)
+                                      : 0,
+                                ),
                               ),
                             ),
-                          ),
                         ],
                       ),
                     ),
@@ -140,8 +148,7 @@ class _UpdatesTabState extends State<UpdatesTab>
                     ),
                     onActionTap: widget.onActionTap,
                     mentionedMedia: updatesState.mentionedMedia,
-                    onCancelMention: () =>
-                        updatesCubit.setMentionedMedia(null),
+                    onCancelMention: () => updatesCubit.setMentionedMedia(null),
                     onChanged: (text) {},
                     members: mainState.members,
                     isOrganizer: true,
