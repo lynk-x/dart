@@ -142,16 +142,18 @@ class SyncManager {
         try {
           var query = client.from(item.table);
           if (item.schema != null) query = client.schema(item.schema!).from(item.table);
+          debugPrint('[SyncManager] INSERT ${item.schema ?? ''}.${item.table} payload: ${item.payload}');
           await query.insert(item.payload);
           return _ExecuteOutcome.success;
         } on PostgrestException catch (e) {
-          // 23505 = unique_violation. The row already exists — this is the
-          // expected outcome of an idempotent retry after a transient network
-          // failure. Treat as success so the optimistic UI is not reverted.
           if (e.code == '23505') {
             debugPrint('[SyncManager] Insert ${item.table}/${item.id} already present (23505); treating as success.');
             return _ExecuteOutcome.success;
           }
+          debugPrint(
+            '[SyncManager] PostgrestException on ${item.table}/${item.id}: '
+            'code=${e.code}, message=${e.message}, details=${e.details}, hint=${e.hint}',
+          );
           rethrow;
         }
 
