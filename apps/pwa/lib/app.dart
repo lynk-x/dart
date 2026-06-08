@@ -38,11 +38,14 @@ class _LynkXAppWrapperState extends State<LynkXAppWrapper> {
       providers: [
         BlocProvider(create: (context) => FeatureFlagCubit()..init()),
         BlocProvider(create: (context) => SystemConfigCubit()..init()),
-        BlocProvider(create: (context) => ProfileCubit(profileRepository)..loadProfile()),
+        BlocProvider(
+            create: (context) =>
+                ProfileCubit(profileRepository)..loadProfile()),
         // NotificationCubit is NOT auto-loaded here — it force-unwraps
         // currentUser, which is null on a cold start before auth resolves.
         // loadNotifications() is triggered from the signedIn auth event instead.
-        BlocProvider(create: (context) => NotificationCubit(notificationRepository)),
+        BlocProvider(
+            create: (context) => NotificationCubit(notificationRepository)),
         BlocProvider(create: (context) => WalletCubit(walletRepository)),
       ],
       child: LynkXApp(locale: _locale),
@@ -121,7 +124,8 @@ class _LynkXAppState extends State<LynkXApp> {
 
     // Auth state listener — handles sign-in, sign-out, and password recovery.
     try {
-      _authSubscription = Supabase.instance.client.auth.onAuthStateChange.listen((data) {
+      _authSubscription =
+          Supabase.instance.client.auth.onAuthStateChange.listen((data) {
         if (data.event == AuthChangeEvent.signedIn) {
           if (!mounted) return;
           context.read<ProfileCubit>().loadProfile();
@@ -163,7 +167,8 @@ class _LynkXAppState extends State<LynkXApp> {
       const supabaseAnonKey = String.fromEnvironment('SUPABASE_ANON_KEY');
       if (supabaseUrl.isNotEmpty && supabaseAnonKey.isNotEmpty) {
         try {
-          await Supabase.initialize(url: supabaseUrl, publishableKey: supabaseAnonKey);
+          await Supabase.initialize(
+              url: supabaseUrl, publishableKey: supabaseAnonKey);
           _isSupabaseInitialized = true;
         } catch (_) {
           _isSupabaseInitialized = false;
@@ -242,19 +247,23 @@ class _LynkXAppState extends State<LynkXApp> {
                 const SizedBox(height: 40),
                 if (_isLoading)
                   const CircularProgressIndicator(
-                    valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF20F928)),
+                    valueColor:
+                        AlwaysStoppedAnimation<Color>(Color(0xFF20F928)),
                   )
                 else
                   ElevatedButton.icon(
                     onPressed: _retryInitialization,
-                    icon: const Icon(Icons.refresh_rounded, color: Colors.black),
+                    icon:
+                        const Icon(Icons.refresh_rounded, color: Colors.black),
                     label: const Text(
                       'Retry Connection',
-                      style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                          color: Colors.black, fontWeight: FontWeight.bold),
                     ),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF20F928),
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 24, vertical: 12),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(30),
                       ),

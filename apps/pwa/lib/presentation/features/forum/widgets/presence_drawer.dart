@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:lynk_core/core.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:go_router/go_router.dart';
 import 'package:lynk_x/l10n/app_localizations.dart';
 import 'user_presence.dart';
 
@@ -21,6 +20,7 @@ class PresenceDrawer extends StatelessWidget {
   final String? eventId;
   final String forumId;
   final DateTime? eventCreatedAt;
+  final VoidCallback? onEventProgressTap;
 
   const PresenceDrawer({
     super.key,
@@ -31,6 +31,7 @@ class PresenceDrawer extends StatelessWidget {
     required this.forumId,
     this.eventId,
     this.eventCreatedAt,
+    this.onEventProgressTap,
   });
 
   @override
@@ -78,7 +79,8 @@ class PresenceDrawer extends StatelessWidget {
                       status: (user['status'] ?? 'Online').toString(),
                       isOrganizer: user['is_organizer'] == true,
                       isPremium: user['is_premium'] == true,
-                      isPrimary: userId == Supabase.instance.client.auth.currentUser?.id,
+                      isPrimary: userId ==
+                          Supabase.instance.client.auth.currentUser?.id,
                     );
                   } catch (e) {
                     debugPrint('[PresenceDrawer] Error building user card: $e');
@@ -97,27 +99,22 @@ class PresenceDrawer extends StatelessWidget {
                 children: [
                   InkWell(
                     onTap: () {
-                      if (eventId != null && eventId!.isNotEmpty) {
-                        context.push(
-                          '/forum/$forumId/sessions',
-                          extra: {
-                            'eventId': eventId,
-                            'isOrganizer': isOrganizer,
-                            'eventCreatedAt': eventCreatedAt,
-                          },
-                        );
-                        Navigator.of(context).pop();
-                      }
+                      if (eventId == null || eventId!.isEmpty) return;
+                      onEventProgressTap?.call();
+                      Navigator.of(context).pop();
                     },
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 20, vertical: 20),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text((l10n?.eventProgress ?? 'Event Progress').toUpperCase(),
+                              Text(
+                                  (l10n?.eventProgress ?? 'Event Progress')
+                                      .toUpperCase(),
                                   style: AppTypography.inter(
                                       fontSize: 10,
                                       fontWeight: FontWeight.bold,

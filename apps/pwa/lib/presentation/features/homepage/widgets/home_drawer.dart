@@ -7,7 +7,6 @@ import 'package:lynk_core/core.dart';
 
 import 'package:lynk_x/l10n/app_localizations.dart';
 import 'package:lynk_x/app.dart';
-import 'package:lynk_x/presentation/features/support/screens/support_screen.dart';
 
 class HomeDrawer extends StatefulWidget {
   const HomeDrawer({super.key});
@@ -76,7 +75,10 @@ class _HomeDrawerState extends State<HomeDrawer> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final appVersion = context.watch<SystemConfigCubit>().state.getString('app_version', defaultValue: '1.0.0');
+    final appVersion = context
+        .watch<SystemConfigCubit>()
+        .state
+        .getString('app_version', defaultValue: '1.0.0');
 
     return Drawer(
       backgroundColor: AppColors.primaryBackground,
@@ -251,16 +253,13 @@ class _HomeDrawerState extends State<HomeDrawer> {
                   },
                 ),
                 ListTile(
-                  leading: const Icon(Icons.support_agent_rounded, color: Colors.white),
-                  title: const Text('Support', style: TextStyle(color: Colors.white)),
+                  leading: const Icon(Icons.support_agent_rounded,
+                      color: Colors.white),
+                  title: const Text('Support',
+                      style: TextStyle(color: Colors.white)),
                   onTap: () {
                     context.pop();
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const SupportScreen(supportContext: SupportContext.general),
-                      ),
-                    );
+                    context.push('/support?context=general');
                   },
                 ),
                 ListTile(
@@ -279,7 +278,9 @@ class _HomeDrawerState extends State<HomeDrawer> {
             child: Column(
               children: [
                 // ── Upgrade CTA Card ──
-                if (context.read<FeatureFlagCubit>().isEnabled('enable_premium_subscriptions'))
+                if (context
+                    .read<FeatureFlagCubit>()
+                    .isEnabled('enable_premium_subscriptions'))
                   Container(
                     margin:
                         const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -333,7 +334,8 @@ class _HomeDrawerState extends State<HomeDrawer> {
                       ),
                     ),
                   ),
-                const Divider(color: Colors.white38, height: 32, thickness: 0.5),
+                const Divider(
+                    color: Colors.white38, height: 32, thickness: 0.5),
 
                 ListTile(
                   title: Text(

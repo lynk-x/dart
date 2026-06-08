@@ -10,7 +10,6 @@ import 'package:lynk_x/presentation/shared/widgets/permission_request_sheet.dart
 import '../cubit/wallet_cubit.dart';
 import '../cubit/wallet_state.dart';
 import '../utils/web_authn_helper.dart';
-import 'package:lynk_x/presentation/features/support/screens/support_screen.dart';
 
 class WalletSettingsPage extends StatefulWidget {
   const WalletSettingsPage({super.key});
@@ -52,7 +51,8 @@ class _WalletSettingsPageState extends State<WalletSettingsPage> {
       return;
     }
 
-    final canCheck = await auth.canCheckBiometrics || await auth.isDeviceSupported();
+    final canCheck =
+        await auth.canCheckBiometrics || await auth.isDeviceSupported();
     final available = await auth.getAvailableBiometrics();
 
     String label = 'Biometric Unlock';
@@ -63,7 +63,7 @@ class _WalletSettingsPageState extends State<WalletSettingsPage> {
     } else if (available.contains(BiometricType.iris)) {
       label = 'Iris Unlock';
     }
-    
+
     setState(() {
       _canCheckBiometrics = canCheck;
       _biometricLabel = label;
@@ -74,7 +74,8 @@ class _WalletSettingsPageState extends State<WalletSettingsPage> {
     if (value) {
       final prefs = await SharedPreferences.getInstance();
       if (!mounted) return;
-      final hasAcknowledged = prefs.getBool('biometric_permission_acknowledged') ?? false;
+      final hasAcknowledged =
+          prefs.getBool('biometric_permission_acknowledged') ?? false;
 
       if (!hasAcknowledged) {
         if (!mounted) return;
@@ -83,7 +84,8 @@ class _WalletSettingsPageState extends State<WalletSettingsPage> {
           backgroundColor: Colors.transparent,
           builder: (context) => PermissionRequestSheet(
             title: 'Secure with Biometrics',
-            description: 'Use your fingerprint or face to quickly and securely unlock your wallet and authorize transfers.',
+            description:
+                'Use your fingerprint or face to quickly and securely unlock your wallet and authorize transfers.',
             icon: Icons.fingerprint_rounded,
             actionLabel: 'Enable Biometrics',
             onGranted: () async {
@@ -108,7 +110,8 @@ class _WalletSettingsPageState extends State<WalletSettingsPage> {
       try {
         final didAuth = await auth.authenticate(
           localizedReason: 'Confirm biometrics for wallet access',
-          options: const AuthenticationOptions(stickyAuth: true, biometricOnly: true),
+          options: const AuthenticationOptions(
+              stickyAuth: true, biometricOnly: true),
         );
         if (!didAuth) return;
       } catch (e) {
@@ -163,16 +166,17 @@ class _WalletSettingsPageState extends State<WalletSettingsPage> {
             centerTitle: true,
             title: Text(
               'Wallet Settings',
-              style: AppTypography.inter(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+              style: AppTypography.inter(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white),
             ),
             actions: [
               IconButton(
-                icon: const Icon(Icons.support_agent_rounded, color: Colors.white70),
+                icon: const Icon(Icons.support_agent_rounded,
+                    color: Colors.white70),
                 onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const SupportScreen(supportContext: SupportContext.wallet)),
-                  );
+                  context.push('/support?context=wallet');
                 },
               ),
               const SizedBox(width: 8),
@@ -190,7 +194,6 @@ class _WalletSettingsPageState extends State<WalletSettingsPage> {
                   icon: Icons.link_rounded,
                   onTap: () => context.push('/wallet/payment-methods'),
                 ),
-
                 const SizedBox(height: 32),
                 _buildSectionHeader('Verification & Limits'),
                 _buildSettingTile(
@@ -198,19 +201,23 @@ class _WalletSettingsPageState extends State<WalletSettingsPage> {
                   subtitle: 'Current limit: $currentLimit',
                   icon: Icons.speed_rounded,
                   onTap: isFullyVerified ? () {} : () => context.push('/kyc'),
-                  trailing: isFullyVerified 
-                    ? null 
-                    : Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: context.accentColor.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(8),
+                  trailing: isFullyVerified
+                      ? null
+                      : Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: context.accentColor.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            'INCREASE',
+                            style: AppTypography.inter(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                color: context.accentColor),
+                          ),
                         ),
-                        child: Text(
-                          'INCREASE',
-                          style: AppTypography.inter(fontSize: 10, fontWeight: FontWeight.bold, color: context.accentColor),
-                        ),
-                      ),
                 ),
                 _buildSettingTile(
                   title: 'KYC Status',
@@ -218,7 +225,6 @@ class _WalletSettingsPageState extends State<WalletSettingsPage> {
                   icon: Icons.verified_user_outlined,
                   onTap: () => context.push('/kyc'),
                 ),
-
                 const SizedBox(height: 32),
                 _buildSectionHeader('Privacy'),
                 _buildSwitchTile(
@@ -226,9 +232,9 @@ class _WalletSettingsPageState extends State<WalletSettingsPage> {
                   subtitle: 'Hide balances on the main dashboard',
                   icon: Icons.visibility_off_outlined,
                   value: state.isPrivacyModeEnabled,
-                  onChanged: (val) => context.read<WalletCubit>().togglePrivacyMode(val),
+                  onChanged: (val) =>
+                      context.read<WalletCubit>().togglePrivacyMode(val),
                 ),
-
                 const SizedBox(height: 32),
                 _buildSectionHeader('Security'),
                 _buildSettingTile(
@@ -238,12 +244,12 @@ class _WalletSettingsPageState extends State<WalletSettingsPage> {
                   onTap: () => _showChangePin(),
                 ),
                 _buildBiometricTile(state),
-
                 const SizedBox(height: 40),
                 Center(
                   child: Text(
                     'Wallet Version 1.0.4',
-                    style: AppTypography.inter(fontSize: 12, color: Colors.white24),
+                    style: AppTypography.inter(
+                        fontSize: 12, color: Colors.white24),
                   ),
                 ),
               ],
@@ -261,7 +267,8 @@ class _WalletSettingsPageState extends State<WalletSettingsPage> {
         subtitle: 'Your device or browser doesn\'t support biometric unlock.',
         icon: Icons.fingerprint_rounded,
         onTap: () {},
-        trailing: const Icon(Icons.info_outline, color: Colors.white24, size: 20),
+        trailing:
+            const Icon(Icons.info_outline, color: Colors.white24, size: 20),
       );
     }
 
@@ -279,7 +286,8 @@ class _WalletSettingsPageState extends State<WalletSettingsPage> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => const WalletPinSetupSheet(), // Reusing setup sheet for change
+      builder: (context) =>
+          const WalletPinSetupSheet(), // Reusing setup sheet for change
     );
   }
 
@@ -288,7 +296,11 @@ class _WalletSettingsPageState extends State<WalletSettingsPage> {
       padding: const EdgeInsets.only(left: 4, bottom: 12),
       child: Text(
         title.toUpperCase(),
-        style: AppTypography.inter(fontSize: 12, fontWeight: FontWeight.bold, color: context.accentColor, letterSpacing: 1),
+        style: AppTypography.inter(
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+            color: context.accentColor,
+            letterSpacing: 1),
       ),
     );
   }
@@ -318,9 +330,15 @@ class _WalletSettingsPageState extends State<WalletSettingsPage> {
           ),
           child: Icon(icon, color: Colors.white, size: 22),
         ),
-        title: Text(title, style: AppTypography.inter(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white)),
-        subtitle: Text(subtitle, style: AppTypography.inter(fontSize: 13, color: Colors.white54)),
-        trailing: trailing ?? const Icon(Icons.chevron_right_rounded, color: Colors.white24),
+        title: Text(title,
+            style: AppTypography.inter(
+                fontSize: 15,
+                fontWeight: FontWeight.bold,
+                color: Colors.white)),
+        subtitle: Text(subtitle,
+            style: AppTypography.inter(fontSize: 13, color: Colors.white54)),
+        trailing: trailing ??
+            const Icon(Icons.chevron_right_rounded, color: Colors.white24),
       ),
     );
   }
@@ -349,8 +367,13 @@ class _WalletSettingsPageState extends State<WalletSettingsPage> {
           ),
           child: Icon(icon, color: Colors.white, size: 22),
         ),
-        title: Text(title, style: AppTypography.inter(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white)),
-        subtitle: Text(subtitle, style: AppTypography.inter(fontSize: 13, color: Colors.white54)),
+        title: Text(title,
+            style: AppTypography.inter(
+                fontSize: 15,
+                fontWeight: FontWeight.bold,
+                color: Colors.white)),
+        subtitle: Text(subtitle,
+            style: AppTypography.inter(fontSize: 13, color: Colors.white54)),
         trailing: Switch.adaptive(
           value: value,
           onChanged: onChanged,

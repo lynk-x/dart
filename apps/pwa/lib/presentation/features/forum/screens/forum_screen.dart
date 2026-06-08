@@ -61,7 +61,9 @@ class ForumPage extends StatelessWidget {
                     userId: mainCubit.userId,
                     isPremium: !state.showAds,
                   );
-                  if (context.read<FeatureFlagCubit>().isEnabled('enable_forum_ads')) {
+                  if (context
+                      .read<FeatureFlagCubit>()
+                      .isEnabled('enable_forum_ads')) {
                     ads.init();
                   }
                   return ads;
@@ -164,8 +166,6 @@ class _ForumViewState extends State<ForumView> {
     if (mounted) setState(() => _showWelcome = !dismissed);
   }
 
-
-
   @override
   void dispose() {
     _updatesScrollController.dispose();
@@ -173,10 +173,6 @@ class _ForumViewState extends State<ForumView> {
     _pageController.dispose();
     super.dispose();
   }
-
-
-
-
 
   @override
   Widget build(BuildContext context) {
@@ -192,7 +188,11 @@ class _ForumViewState extends State<ForumView> {
         BlocListener<ForumCubit, ForumState>(
           listenWhen: (p, c) => p.waveTrigger != c.waveTrigger,
           listener: (context, state) {
-            if (!context.read<FeatureFlagCubit>().isEnabled('enable_social_actions')) return;
+            if (!context
+                .read<FeatureFlagCubit>()
+                .isEnabled('enable_social_actions')) {
+              return;
+            }
             if (state.waveFromName != null && state.waveFromUserId != null) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
@@ -225,7 +225,23 @@ class _ForumViewState extends State<ForumView> {
       ],
       child: Scaffold(
         backgroundColor: AppColors.primaryBackground,
-        endDrawer: _ForumPresenceDrawerWrapper(forumId: cubit.forumId),
+        endDrawer: _ForumPresenceDrawerWrapper(
+          forumId: cubit.forumId,
+          onEventProgressTap: () {
+            final state = cubit.state;
+            if (state.eventId != null && state.eventId!.isNotEmpty) {
+              final root = context;
+              GoRouter.of(root).push(
+                '/forum/${cubit.forumId}/sessions',
+                extra: {
+                  'eventId': state.eventId,
+                  'isOrganizer': state.isOrganizer,
+                  'eventCreatedAt': state.eventCreatedAt,
+                },
+              );
+            }
+          },
+        ),
         appBar: _buildAppBar(),
         body: Stack(
           children: [
@@ -245,44 +261,59 @@ class _ForumViewState extends State<ForumView> {
                     ),
                   ),
                   BlocBuilder<ForumCubit, ForumState>(
-                    buildWhen: (p, c) => p.isPremium != c.isPremium || p.showAds != c.showAds || p.currentTabIndex != c.currentTabIndex,
+                    buildWhen: (p, c) =>
+                        p.isPremium != c.isPremium ||
+                        p.showAds != c.showAds ||
+                        p.currentTabIndex != c.currentTabIndex,
                     builder: (context, forumState) {
                       return BlocBuilder<ForumAdsCubit, ForumAdsState>(
                         builder: (context, adsState) {
-                          final showBannerAd = context.read<FeatureFlagCubit>().isEnabled('enable_banner_ad');
-                          final hasAds = !forumState.isPremium && 
-                                        showBannerAd && 
-                                        context.read<FeatureFlagCubit>().isEnabled('enable_forum_ads') && 
-                                        adsState.ads.isNotEmpty;
-                          
+                          final showBannerAd = context
+                              .read<FeatureFlagCubit>()
+                              .isEnabled('enable_banner_ad');
+                          final hasAds = !forumState.isPremium &&
+                              showBannerAd &&
+                              context
+                                  .read<FeatureFlagCubit>()
+                                  .isEnabled('enable_forum_ads') &&
+                              adsState.ads.isNotEmpty;
+
                           final adsHeight = hasAds ? 50.0 : 0.0;
-                          
+
                           double extraHeight = 0;
                           Widget? extraHeaderWidgets;
-                          
+
                           if (forumState.currentTabIndex == 0) {
-                            final updatesState = context.watch<ForumUpdatesCubit>().state;
-                            final updatesCubit = context.read<ForumUpdatesCubit>();
-                            final pinned = updatesState.messages.where((m) => m.isPinned).toList();
-                            
+                            final updatesState =
+                                context.watch<ForumUpdatesCubit>().state;
+                            final updatesCubit =
+                                context.read<ForumUpdatesCubit>();
+                            final pinned = updatesState.messages
+                                .where((m) => m.isPinned)
+                                .toList();
+
                             extraHeight += 52.0; // CategoryFilterBar
                             if (pinned.isNotEmpty) {
-                              extraHeight += 48.0; // InfoBanner exact calculated height for 2 lines
+                              extraHeight +=
+                                  48.0; // InfoBanner exact calculated height for 2 lines
                             }
-                            
+
                             extraHeaderWidgets = Column(
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 ColoredBox(
                                   color: AppColors.primaryBackground,
                                   child: CategoryFilterBar(
-                                    selectedCategory: updatesState.selectedCategory,
-                                    onSelectionChanged: (cat) => updatesCubit.setCategory(cat),
+                                    selectedCategory:
+                                        updatesState.selectedCategory,
+                                    onSelectionChanged: (cat) =>
+                                        updatesCubit.setCategory(cat),
                                   ),
                                 ),
                                 if (pinned.isNotEmpty)
                                   Padding(
-                                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+                                    padding:
+                                        const EdgeInsets.fromLTRB(16, 4, 16, 8),
                                     child: InfoBanner(
                                       icon: Icons.push_pin,
                                       text: pinned.first.message.length > 80
@@ -294,68 +325,93 @@ class _ForumViewState extends State<ForumView> {
                             );
                           }
 
-                          final totalHeaderHeight = 104.0 + adsHeight + extraHeight;
+                          final totalHeaderHeight =
+                              104.0 + adsHeight + extraHeight;
                           return SliverOverlapAbsorber(
-                            handle: NestedScrollView.sliverOverlapAbsorberHandleFor(context),
+                            handle:
+                                NestedScrollView.sliverOverlapAbsorberHandleFor(
+                                    context),
                             sliver: SliverPersistentHeader(
                               pinned: true,
                               delegate: _SliverAppBarDelegate(
-                                height: totalHeaderHeight, 
+                                height: totalHeaderHeight,
                                 child: SizedBox(
                                   height: totalHeaderHeight,
                                   child: Column(
                                     mainAxisAlignment: MainAxisAlignment.start,
                                     children: [
-                                    ForumHeader(
-                                      isOrganizer: forumState.isOrganizer,
-                                      isReadOnly: forumState.isReadOnly,
-                                      forumName: forumState.forumName,
-                                      onLockToggle: () {
-                                        final messenger = ScaffoldMessenger.of(context);
-                                        final nextStatus = forumState.isReadOnly ? 'open' : 'read_only';
-                                        cubit.updateForumStatus(nextStatus);
-                                        messenger.showSnackBar(SnackBar(
-                                          content: Text(forumState.isReadOnly ? 'Chat unlocked' : 'Chat locked'),
-                                          behavior: SnackBarBehavior.floating,
-                                        ));
-                                      },
-                                      onSearch: (q) {
-                                        context.read<ForumUpdatesCubit>().setSearchQuery(q);
-                                        context.read<ForumChatCubit>().setSearchQuery(q);
-                                      },
-                                      onSearchToggle: () {
-                                        final updatesCubit = context.read<ForumUpdatesCubit>();
-                                        final chatCubit = context.read<ForumChatCubit>();
-                                        if (updatesCubit.state.searchQuery.isNotEmpty || 
-                                            chatCubit.state.searchQuery.isNotEmpty) {
-                                          updatesCubit.setSearchQuery('');
-                                          chatCubit.setSearchQuery('');
-                                        }
-                                      },
-                                    ),
-                                    if (hasAds) RepaintBoundary(
-                                      child: AdCarousel(
-                                        ads: adsState.ads,
-                                        onAdViewed: (adId) =>
-                                            context.read<ForumAdsCubit>().logAdImpression(adId),
-                                        onAdClicked: (ad) async {
-                                          context.read<ForumAdsCubit>().logAdClick(ad.id);
-                                          if (ad.targetUrl != null) {
-                                            final uri = Uri.parse(ad.targetUrl!);
-                                            if (await canLaunchUrl(uri)) {
-                                              await launchUrl(uri);
-                                            }
-                                          } else if (ad.targetEventId != null) {
-                                            context.push('/events/${ad.targetEventId}');
+                                      ForumHeader(
+                                        isOrganizer: forumState.isOrganizer,
+                                        isReadOnly: forumState.isReadOnly,
+                                        forumName: forumState.forumName,
+                                        onLockToggle: () {
+                                          final messenger =
+                                              ScaffoldMessenger.of(context);
+                                          final nextStatus =
+                                              forumState.isReadOnly
+                                                  ? 'open'
+                                                  : 'read_only';
+                                          cubit.updateForumStatus(nextStatus);
+                                          messenger.showSnackBar(SnackBar(
+                                            content: Text(forumState.isReadOnly
+                                                ? 'Chat unlocked'
+                                                : 'Chat locked'),
+                                            behavior: SnackBarBehavior.floating,
+                                          ));
+                                        },
+                                        onSearch: (q) {
+                                          context
+                                              .read<ForumUpdatesCubit>()
+                                              .setSearchQuery(q);
+                                          context
+                                              .read<ForumChatCubit>()
+                                              .setSearchQuery(q);
+                                        },
+                                        onSearchToggle: () {
+                                          final updatesCubit =
+                                              context.read<ForumUpdatesCubit>();
+                                          final chatCubit =
+                                              context.read<ForumChatCubit>();
+                                          if (updatesCubit.state.searchQuery
+                                                  .isNotEmpty ||
+                                              chatCubit.state.searchQuery
+                                                  .isNotEmpty) {
+                                            updatesCubit.setSearchQuery('');
+                                            chatCubit.setSearchQuery('');
                                           }
                                         },
                                       ),
-                                    ),
-                                    _buildTabs(),
-                                    if (extraHeaderWidgets != null) extraHeaderWidgets,
-                                  ],
+                                      if (hasAds)
+                                        RepaintBoundary(
+                                          child: AdCarousel(
+                                            ads: adsState.ads,
+                                            onAdViewed: (adId) => context
+                                                .read<ForumAdsCubit>()
+                                                .logAdImpression(adId),
+                                            onAdClicked: (ad) async {
+                                              context
+                                                  .read<ForumAdsCubit>()
+                                                  .logAdClick(ad.id);
+                                              if (ad.targetUrl != null) {
+                                                final uri =
+                                                    Uri.parse(ad.targetUrl!);
+                                                if (await canLaunchUrl(uri)) {
+                                                  await launchUrl(uri);
+                                                }
+                                              } else if (ad.targetEventId !=
+                                                  null) {
+                                                context.push(
+                                                    '/events/${ad.targetEventId}');
+                                              }
+                                            },
+                                          ),
+                                        ),
+                                      _buildTabs(),
+                                      if (extraHeaderWidgets != null)
+                                        extraHeaderWidgets,
+                                    ],
+                                  ),
                                 ),
-                              ),
                               ),
                             ),
                           );
@@ -429,13 +485,19 @@ class _ForumViewState extends State<ForumView> {
           buildWhen: (previous, current) =>
               previous.currentTabIndex != current.currentTabIndex,
           builder: (context, state) {
-            final updatesSearchQuery = context.select((ForumUpdatesCubit c) => c.state.searchQuery);
-            final updatesCount = context.select((ForumUpdatesCubit c) => c.state.messages.length);
-            final chatSearchQuery = context.select((ForumChatCubit c) => c.state.searchQuery);
-            final chatCount = context.select((ForumChatCubit c) => c.state.messages.length);
-            
-            final updatesDisplayCount = updatesSearchQuery.isNotEmpty ? updatesCount : null;
-            final chatDisplayCount = chatSearchQuery.isNotEmpty ? chatCount : null;
+            final updatesSearchQuery =
+                context.select((ForumUpdatesCubit c) => c.state.searchQuery);
+            final updatesCount = context
+                .select((ForumUpdatesCubit c) => c.state.messages.length);
+            final chatSearchQuery =
+                context.select((ForumChatCubit c) => c.state.searchQuery);
+            final chatCount =
+                context.select((ForumChatCubit c) => c.state.messages.length);
+
+            final updatesDisplayCount =
+                updatesSearchQuery.isNotEmpty ? updatesCount : null;
+            final chatDisplayCount =
+                chatSearchQuery.isNotEmpty ? chatCount : null;
 
             int displayedIndex = 0;
             return Container(
@@ -513,7 +575,8 @@ class _ForumViewState extends State<ForumView> {
               width: 40,
               decoration: BoxDecoration(
                 color: isActive ? context.accentColor : Colors.transparent,
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(3)),
+                borderRadius:
+                    const BorderRadius.vertical(top: Radius.circular(3)),
               ),
             ),
           ],
@@ -542,21 +605,27 @@ class _ForumViewState extends State<ForumView> {
               physics: const NeverScrollableScrollPhysics(),
               onPageChanged: (index) => mainCubit.setTabIndex(index),
               children: [
-                showUpdates ? UpdatesTab(
-                  scrollController: _updatesScrollController,
-                  onActionTap: () => _navigateToTab(2),
-                  onMediaTap: (url) => _viewMedia(url),
-                ) : const SizedBox.shrink(),
-                showChat ? LiveChatTab(
-                  scrollController: _chatScrollController,
-                  selectedEmoji: state.selectedEmoji,
-                  emojiTrigger: state.emojiTrigger,
-                  onActionTap: () => _navigateToTab(2),
-                  onMediaTap: (url) => _viewMedia(url),
-                ) : const SizedBox.shrink(),
-                showMedia ? MediaTab(
-                  onMediaTap: (item) => _viewMedia(item.url),
-                ) : const SizedBox.shrink(),
+                showUpdates
+                    ? UpdatesTab(
+                        scrollController: _updatesScrollController,
+                        onActionTap: () => _navigateToTab(2),
+                        onMediaTap: (url) => _viewMedia(url),
+                      )
+                    : const SizedBox.shrink(),
+                showChat
+                    ? LiveChatTab(
+                        scrollController: _chatScrollController,
+                        selectedEmoji: state.selectedEmoji,
+                        emojiTrigger: state.emojiTrigger,
+                        onActionTap: () => _navigateToTab(2),
+                        onMediaTap: (url) => _viewMedia(url),
+                      )
+                    : const SizedBox.shrink(),
+                showMedia
+                    ? MediaTab(
+                        onMediaTap: (item) => _viewMedia(item.url),
+                      )
+                    : const SizedBox.shrink(),
               ],
             );
           },
@@ -608,13 +677,14 @@ class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
 
 class _ForumPresenceDrawerWrapper extends StatelessWidget {
   final String forumId;
-  const _ForumPresenceDrawerWrapper({required this.forumId});
+  final VoidCallback? onEventProgressTap;
+  const _ForumPresenceDrawerWrapper(
+      {required this.forumId, this.onEventProgressTap});
 
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<ForumPresenceCubit, ForumPresenceState>(
-      builder: (context, presenceState) =>
-          BlocBuilder<ForumCubit, ForumState>(
+      builder: (context, presenceState) => BlocBuilder<ForumCubit, ForumState>(
         buildWhen: (p, c) =>
             p.eventProgress != c.eventProgress ||
             p.showAds != c.showAds ||
@@ -629,6 +699,7 @@ class _ForumPresenceDrawerWrapper extends StatelessWidget {
           eventId: state.eventId,
           forumId: forumId,
           eventCreatedAt: state.eventCreatedAt,
+          onEventProgressTap: onEventProgressTap,
         ),
       ),
     );

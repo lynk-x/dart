@@ -5,7 +5,7 @@ import 'package:lynk_x/presentation/features/profile/models/country.dart';
 import 'package:lynk_x/presentation/features/support/screens/live_chat_screen.dart';
 import 'package:lynk_x/data/repositories/repository_providers.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-
+import 'package:go_router/go_router.dart';
 
 enum SupportContext { wallet, events, general }
 
@@ -62,13 +62,10 @@ class _SupportScreenState extends State<SupportScreen> {
           'New ${widget.supportContext.name.toUpperCase()} Request',
           'I need help with my ${widget.supportContext.name}.');
       if (mounted) {
-        Navigator.push(
-            context,
-            MaterialPageRoute(
-                builder: (_) => LiveChatScreen(
-                      supportContext: widget.supportContext,
-                      ticketId: ticketId,
-                    ))).then((_) => _loadData());
+        context.push(
+          '/support/chat?context=${widget.supportContext.name}',
+          extra: {'ticketId': ticketId},
+        ).then((_) => _loadData());
       }
     } catch (e) {
       if (mounted) {

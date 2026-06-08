@@ -9,7 +9,6 @@ import 'package:lynk_x/presentation/shared/widgets/empty_state.dart';
 import 'package:lynk_x/presentation/features/ticket/cubit/tickets_list_cubit.dart';
 import 'package:lynk_x/presentation/features/ticket/models/ticket_model.dart';
 import 'package:lynk_x/data/repositories/repository_providers.dart';
-import 'package:lynk_x/presentation/features/support/screens/support_screen.dart';
 
 class TicketsListScreen extends StatelessWidget {
   const TicketsListScreen({super.key});
@@ -47,14 +46,10 @@ class TicketsListView extends StatelessWidget {
         centerTitle: true,
         actions: [
           IconButton(
-            icon: const Icon(Icons.support_agent_rounded, color: Colors.white70),
+            icon:
+                const Icon(Icons.support_agent_rounded, color: Colors.white70),
             onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => const SupportScreen(supportContext: SupportContext.events),
-                ),
-              );
+              context.push('/support?context=events');
             },
           ),
           const SizedBox(width: 8),
@@ -75,7 +70,8 @@ class TicketsListView extends StatelessWidget {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(Icons.error_outline, size: 48, color: Colors.redAccent),
+                    const Icon(Icons.error_outline,
+                        size: 48, color: Colors.redAccent),
                     const SizedBox(height: 16),
                     Text(
                       'Error: ${state.error}',
@@ -84,7 +80,8 @@ class TicketsListView extends StatelessWidget {
                     ),
                     const SizedBox(height: 16),
                     ElevatedButton(
-                      onPressed: () => context.read<TicketsListCubit>().refresh(),
+                      onPressed: () =>
+                          context.read<TicketsListCubit>().refresh(),
                       child: const Text('Retry'),
                     ),
                   ],
@@ -95,7 +92,8 @@ class TicketsListView extends StatelessWidget {
 
           if (state.tickets.isEmpty) {
             return const EmptyState(
-              message: 'You have no tickets yet.\nBook your first event to see it here!',
+              message:
+                  'You have no tickets yet.\nBook your first event to see it here!',
             );
           }
 
@@ -106,7 +104,8 @@ class TicketsListView extends StatelessWidget {
               ListView.separated(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
                 itemCount: state.tickets.length,
-                separatorBuilder: (context, index) => const SizedBox(height: 16),
+                separatorBuilder: (context, index) =>
+                    const SizedBox(height: 16),
                 itemBuilder: (context, index) {
                   final ticket = state.tickets[index];
                   return _TicketListItem(ticket: ticket);
@@ -183,7 +182,8 @@ class _TicketListItem extends StatelessWidget {
                   const SizedBox(height: 4),
                   Row(
                     children: [
-                      const Icon(Icons.location_on, size: 12, color: Colors.white38),
+                      const Icon(Icons.location_on,
+                          size: 12, color: Colors.white38),
                       const SizedBox(width: 4),
                       Expanded(
                         child: Text(
@@ -200,7 +200,8 @@ class _TicketListItem extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                     decoration: BoxDecoration(
                       color: Colors.white10,
                       borderRadius: BorderRadius.circular(6),

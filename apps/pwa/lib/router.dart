@@ -15,6 +15,8 @@ import 'package:lynk_x/presentation/features/ticket/screens/tickets_list_screen.
 import 'package:lynk_x/presentation/features/profile/screens/edit_profile_screen.dart';
 import 'package:lynk_x/presentation/features/profile/screens/profile_setup_screen.dart';
 import 'package:lynk_x/presentation/features/feedback/screens/feedback_screen.dart';
+import 'package:lynk_x/presentation/features/support/screens/support_screen.dart';
+import 'package:lynk_x/presentation/features/support/screens/live_chat_screen.dart';
 
 import 'package:lynk_x/presentation/features/wallet/screens/wallet_screen.dart';
 import 'package:lynk_x/presentation/features/wallet/screens/wallet_list_screen.dart';
@@ -34,7 +36,8 @@ GoRouter createRouter(
 ) {
   return GoRouter(
     initialLocation: '/',
-    refreshListenable: GoRouterRefreshStream([authStream, profileStream, featureFlagStream]),
+    refreshListenable:
+        GoRouterRefreshStream([authStream, profileStream, featureFlagStream]),
     redirect: (context, state) {
       try {
         // Safe check for Supabase initialization
@@ -69,10 +72,12 @@ GoRouter createRouter(
         try {
           final flagCubit = context.read<FeatureFlagCubit>();
           if (!flagCubit.state.isLoading && flagCubit.state.flags.isNotEmpty) {
-            if (flagCubit.isEnabled('app_maintenance_mode') && path != '/maintenance') {
+            if (flagCubit.isEnabled('app_maintenance_mode') &&
+                path != '/maintenance') {
               return '/maintenance';
             }
-            if (flagCubit.isEnabled('force_app_update') && path != '/update-required') {
+            if (flagCubit.isEnabled('force_app_update') &&
+                path != '/update-required') {
               return '/update-required';
             }
           }
@@ -316,6 +321,47 @@ GoRouter createRouter(
         ),
       ),
       GoRoute(
+        path: '/support',
+        builder: (context, state) {
+          final supportContext = state.uri.queryParameters['context'];
+          return Title(
+            title: 'Support',
+            color: Colors.black,
+            child: SupportScreen(
+              supportContext: supportContext != null
+                  ? SupportContext.values.firstWhere(
+                      (e) => e.name == supportContext,
+                      orElse: () => SupportContext.general,
+                    )
+                  : SupportContext.general,
+            ),
+          );
+        },
+        routes: [
+          GoRoute(
+            path: 'chat',
+            builder: (context, state) {
+              final extras = state.extra as Map<String, dynamic>?;
+              final ticketId = extras?['ticketId'] as String?;
+              final supportContextName =
+                  state.uri.queryParameters['context'] ?? 'general';
+              final supportContext = SupportContext.values.firstWhere(
+                (e) => e.name == supportContextName,
+                orElse: () => SupportContext.general,
+              );
+              return Title(
+                title: 'Live Chat',
+                color: Colors.black,
+                child: LiveChatScreen(
+                  supportContext: supportContext,
+                  ticketId: ticketId,
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+      GoRoute(
         path: '/update-required',
         builder: (_, __) => Title(
           title: 'App Update Required',
@@ -340,7 +386,8 @@ GoRouter createRouter(
               color: Colors.black,
               child: const SystemErrorScreen(
                 title: 'Feature Unavailable',
-                message: 'Identity verification is not available in your region yet.',
+                message:
+                    'Identity verification is not available in your region yet.',
               ),
             );
           }
@@ -354,7 +401,9 @@ GoRouter createRouter(
       GoRoute(
         path: '/upgrade',
         builder: (context, __) {
-          if (!context.read<FeatureFlagCubit>().isEnabled('enable_premium_subscriptions')) {
+          if (!context
+              .read<FeatureFlagCubit>()
+              .isEnabled('enable_premium_subscriptions')) {
             return Title(
               title: 'Feature Unavailable',
               color: Colors.black,
@@ -378,7 +427,8 @@ GoRouter createRouter(
           color: Colors.black,
           child: const SystemErrorScreen(
             title: 'Under Maintenance',
-            message: 'Lynk-X is currently undergoing scheduled maintenance to improve our systems. We\'ll be back online shortly.',
+            message:
+                'Lynk-X is currently undergoing scheduled maintenance to improve our systems. We\'ll be back online shortly.',
             isMaintenance: true,
           ),
         ),
@@ -393,7 +443,8 @@ GoRouter createRouter(
             color: Colors.black,
             child: SystemErrorScreen(
               title: titleStr,
-              message: extras?['message'] ?? 'We are currently experiencing some technical difficulties.',
+              message: extras?['message'] ??
+                  'We are currently experiencing some technical difficulties.',
             ),
           );
         },
@@ -412,7 +463,10 @@ GoRouter createRouter(
               const SizedBox(height: 24),
               const Text(
                 'Page not found',
-                style: TextStyle(color: Colors.white70, fontSize: 20, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                    color: Colors.white70,
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 8),
               Text(
@@ -422,7 +476,8 @@ GoRouter createRouter(
               const SizedBox(height: 32),
               TextButton(
                 onPressed: () => context.go('/'),
-                child: const Text('Go home', style: TextStyle(color: Color(0xFF00FF00))),
+                child: const Text('Go home',
+                    style: TextStyle(color: Color(0xFF00FF00))),
               ),
             ],
           ),
