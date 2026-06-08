@@ -225,23 +225,7 @@ class _ForumViewState extends State<ForumView> {
       ],
       child: Scaffold(
         backgroundColor: AppColors.primaryBackground,
-        endDrawer: _ForumPresenceDrawerWrapper(
-          forumId: cubit.forumId,
-          onEventProgressTap: () {
-            final state = cubit.state;
-            if (state.eventId != null && state.eventId!.isNotEmpty) {
-              final root = context;
-              GoRouter.of(root).push(
-                '/forum/${cubit.forumId}/sessions',
-                extra: {
-                  'eventId': state.eventId,
-                  'isOrganizer': state.isOrganizer,
-                  'eventCreatedAt': state.eventCreatedAt,
-                },
-              );
-            }
-          },
-        ),
+        endDrawer: _ForumPresenceDrawerWrapper(forumId: cubit.forumId),
         appBar: _buildAppBar(),
         body: Stack(
           children: [
@@ -677,9 +661,7 @@ class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
 
 class _ForumPresenceDrawerWrapper extends StatelessWidget {
   final String forumId;
-  final VoidCallback? onEventProgressTap;
-  const _ForumPresenceDrawerWrapper(
-      {required this.forumId, this.onEventProgressTap});
+  const _ForumPresenceDrawerWrapper({required this.forumId});
 
   @override
   Widget build(BuildContext context) {
@@ -699,7 +681,6 @@ class _ForumPresenceDrawerWrapper extends StatelessWidget {
           eventId: state.eventId,
           forumId: forumId,
           eventCreatedAt: state.eventCreatedAt,
-          onEventProgressTap: onEventProgressTap,
         ),
       ),
     );
