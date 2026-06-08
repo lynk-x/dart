@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:lynk_core/core.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:go_router/go_router.dart';
 import 'package:lynk_x/l10n/app_localizations.dart';
 import 'user_presence.dart';
 
@@ -101,15 +100,8 @@ class PresenceDrawer extends StatelessWidget {
                   InkWell(
                     onTap: () {
                       if (eventId == null || eventId!.isEmpty) return;
-                      GoRouter.of(context).push(
-                        '/forum/$forumId/sessions',
-                        extra: {
-                          'eventId': eventId,
-                          'isOrganizer': isOrganizer,
-                          'eventCreatedAt': eventCreatedAt,
-                        },
-                      );
                       Navigator.of(context).pop();
+                      onEventProgressTap?.call();
                     },
                     child: Padding(
                       padding: const EdgeInsets.symmetric(

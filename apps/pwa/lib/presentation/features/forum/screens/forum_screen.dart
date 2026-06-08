@@ -16,7 +16,6 @@ import 'package:lynk_x/presentation/features/forum/cubit/forum_updates_cubit.dar
 import 'package:lynk_x/presentation/features/forum/cubit/forum_ads_cubit.dart';
 import 'package:lynk_x/presentation/features/forum/cubit/forum_ads_state.dart';
 import 'package:lynk_x/presentation/features/forum/cubit/forum_presence_cubit.dart';
-import 'package:lynk_x/presentation/features/forum/cubit/forum_presence_state.dart';
 import 'package:lynk_x/presentation/features/forum/cubit/forum_media_cubit.dart';
 import 'package:lynk_x/presentation/features/forum/cubit/forum_media_state.dart';
 import 'package:lynk_x/presentation/features/forum/models/forum_model.dart';
@@ -69,24 +68,26 @@ class ForumPage extends StatelessWidget {
                   return ads;
                 },
               ),
-              BlocProvider(
-                create: (context) {
-                  final cubit = ForumPresenceCubit(
-                    forumId: mainCubit.forumId,
-                    userId: mainCubit.userId,
-                    userName: mainCubit.userName,
-                    isOrganizer: state.isOrganizer,
-                    isPremium: state.isPremium,
-                    channel: mainCubit.channel,
-                  );
-                  if (context
-                      .read<FeatureFlagCubit>()
-                      .isEnabled('enable_realtime_presence')) {
-                    cubit.init();
-                  }
-                  return cubit;
-                },
-              ),
+               BlocProvider(
+                 create: (context) {
+                   final cubit = ForumPresenceCubit(
+                     forumId: mainCubit.forumId,
+                     userId: mainCubit.userId,
+                     userName: mainCubit.userName,
+                     isOrganizer: state.isOrganizer,
+                     isPremium: state.isPremium,
+                     channel: mainCubit.channel,
+                   );
+                   final flagEnabled = context
+                       .read<FeatureFlagCubit>()
+                       .isEnabled('enable_realtime_presence');
+                   debugPrint('[ForumScreen] enable_realtime_presence=$flagEnabled');
+                   if (flagEnabled) {
+                     cubit.init();
+                   }
+                   return cubit;
+                 },
+               ),
               BlocProvider(
                 create: (context) => ForumUpdatesCubit(
                   forumId: mainCubit.forumId,
@@ -225,7 +226,29 @@ class _ForumViewState extends State<ForumView> {
       ],
       child: Scaffold(
         backgroundColor: AppColors.primaryBackground,
-        endDrawer: _ForumPresenceDrawerWrapper(forumId: cubit.forumId),
+        endDrawer: _ForumPresenceDrawerWrapper(
+          forumId: cubit.forumId,
+          onEventProgressTap: () {
+            final state = cubit.state;
+            if (state.eventId == null || state.eventId!.isEmpty) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('No event found for this forum.'),
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
+              return;
+            }
+            context.push(
+              '/forum/${cubit.forumId}/sessions',
+              extra: {
+                'eventId': state.eventId,
+                'isOrganizer': state.isOrganizer,
+                'eventCreatedAt': state.eventCreatedAt,
+              },
+            );
+          },
+        ),
         appBar: _buildAppBar(),
         body: Stack(
           children: [
@@ -661,28 +684,26 @@ class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
 
 class _ForumPresenceDrawerWrapper extends StatelessWidget {
   final String forumId;
-  const _ForumPresenceDrawerWrapper({required this.forumId});
+  final VoidCallback onEventProgressTap;
+  const _ForumPresenceDrawerWrapper({
+    required this.forumId,
+    required this.onEventProgressTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<ForumPresenceCubit, ForumPresenceState>(
-      builder: (context, presenceState) => BlocBuilder<ForumCubit, ForumState>(
-        buildWhen: (p, c) =>
-            p.eventProgress != c.eventProgress ||
-            p.showAds != c.showAds ||
-            p.eventId != c.eventId ||
-            p.eventCreatedAt != c.eventCreatedAt ||
-            p.isOrganizer != c.isOrganizer,
-        builder: (context, state) => PresenceDrawer(
-          onlineUsers: presenceState.onlineUsers,
-          eventProgress: state.eventProgress,
-          isPremium: state.isPremium,
-          isOrganizer: state.isOrganizer,
-          eventId: state.eventId,
-          forumId: forumId,
-          eventCreatedAt: state.eventCreatedAt,
-        ),
-      ),
+    final presenceState = context.watch<ForumPresenceCubit>().state;
+    final forumState = context.watch<ForumCubit>().state;
+
+    return PresenceDrawer(
+      onlineUsers: presenceState.onlineUsers,
+      eventProgress: forumState.eventProgress,
+      isPremium: forumState.isPremium,
+      isOrganizer: forumState.isOrganizer,
+      eventId: forumState.eventId,
+      forumId: forumId,
+      eventCreatedAt: forumState.eventCreatedAt,
+      onEventProgressTap: onEventProgressTap,
     );
   }
 }
