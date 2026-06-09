@@ -159,6 +159,7 @@ class ForumCubit extends Cubit<ForumState> {
           forumCreatedAtFromDb = forumCreatedAtRaw != null
               ? DateTime.parse(forumCreatedAtRaw as String)
               : null;
+          debugPrint('[ForumCubit] forum: createdAt=$forumCreatedAtFromDb accountId=$accountIdFromDb');
           forumName = forumData['event_title'] as String? ?? 'Community Forum';
         }
 
@@ -199,9 +200,10 @@ class ForumCubit extends Cubit<ForumState> {
           accountId: accountIdFromDb,
           eventCreatedAt: eventCreatedAtFromDb,
           forumCreatedAt: forumCreatedAtFromDb,
-          channelId: channelIdFromDb,
-          channelCreatedAt: channelCreatedAtFromDb,
-        ));
+           channelId: channelIdFromDb,
+           channelCreatedAt: channelCreatedAtFromDb,
+         ));
+        debugPrint('[ForumCubit] emit: forumCreatedAt=$forumCreatedAtFromDb accountId=$accountIdFromDb channelId=$channelIdFromDb');
 
         if (eventIdFromDb != null) {
           _syncEventProgress(eventIdFromDb, eventCreatedAtFromDb);

@@ -27,11 +27,11 @@ class ForumRepository {
         .from('forum_channels')
         .select('id, created_at')
         .eq('forum_id', forumId)
-        .eq('status', 'open')
         .limit(1)
         .maybeSingle();
 
-    debugPrint('[ForumRepository] channelData=$channelData for forum=$forumId');
+    debugPrint(
+        '[ForumRepository] forumData: id=${forumData?['id']} created_at=${forumData?['created_at']} account_id=${forumData?['account_id']} member=$memberData channel=$channelData');
 
     return {
       'forum': forumData,
