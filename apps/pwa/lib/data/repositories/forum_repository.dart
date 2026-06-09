@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class ForumRepository {
@@ -29,6 +30,8 @@ class ForumRepository {
         .eq('status', 'open')
         .limit(1)
         .maybeSingle();
+
+    debugPrint('[ForumRepository] channelData=$channelData for forum=$forumId');
 
     return {
       'forum': forumData,

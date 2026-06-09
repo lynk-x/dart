@@ -83,6 +83,7 @@ class ForumChatCubit extends BaseMessageCubit<ForumChatState> {
     String? channelId,
     DateTime? channelCreatedAt,
   }) {
+    debugPrint('[ForumChatCubit] syncForumContext: forum_created_at=$forumCreatedAt accountId=$accountId channelId=$channelId channelCreatedAt=$channelCreatedAt');
     this.forumCreatedAt = forumCreatedAt;
     this.accountId = accountId;
     this.channelId = channelId;
@@ -221,23 +222,24 @@ class ForumChatCubit extends BaseMessageCubit<ForumChatState> {
         action: SyncAction.insert,
         partitionKeyName: 'created_at',
         partitionKeyValue: messageCreatedAt,
-          payload: {
-            'id': messageId,
-            'forum_id': forumId,
-            'forum_created_at': forumCreatedAt?.toIso8601String(),
-            if (accountId != null) 'account_id': accountId,
-            if (channelId != null) 'channel_id': channelId,
-            if (channelCreatedAt != null) 'channel_created_at': channelCreatedAt?.toIso8601String(),
-            'author_id': userId,
-            'content': text,
-            'message_type': 'chat',
-            'created_at': messageCreatedAt,
-            if (mediaId != null) 'media_id': mediaId,
-            if (mediaCreatedAt != null) 'media_created_at': mediaCreatedAt,
-            if (replyTo != null) 'reply_to_id': replyTo.id,
-            if (replyCreatedAt != null) 'reply_to_created_at': replyCreatedAt,
-          },
+        payload: {
+          'id': messageId,
+          'forum_id': forumId,
+          'forum_created_at': forumCreatedAt?.toIso8601String(),
+          if (accountId != null) 'account_id': accountId,
+          if (channelId != null) 'channel_id': channelId,
+          if (channelCreatedAt != null) 'channel_created_at': channelCreatedAt?.toIso8601String(),
+          'author_id': userId,
+          'content': text,
+          'message_type': 'chat',
+          'created_at': messageCreatedAt,
+          if (mediaId != null) 'media_id': mediaId,
+          if (mediaCreatedAt != null) 'media_created_at': mediaCreatedAt,
+          if (replyTo != null) 'reply_to_id': replyTo.id,
+          if (replyCreatedAt != null) 'reply_to_created_at': replyCreatedAt,
+        },
       ));
+      debugPrint('[ForumChatCubit] payload: forum_created_at=$forumCreatedAt accountId=$accountId channelId=$channelId channelCreatedAt=$channelCreatedAt');
 
       // Broadcast immediately (Optimistic Broadcast)
       channel?.sendBroadcastMessage(

@@ -168,6 +168,9 @@ class ForumCubit extends Cubit<ForumState> {
           channelCreatedAtFromDb = channelCreatedAtRaw != null
               ? DateTime.parse(channelCreatedAtRaw as String)
               : null;
+          debugPrint('[ForumCubit] channel: id=$channelIdFromDb createdAt=$channelCreatedAtFromDb');
+        } else {
+          debugPrint('[ForumCubit] channel: null (no open channel found)');
         }
 
         if (memberData != null) {

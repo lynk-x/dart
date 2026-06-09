@@ -216,6 +216,7 @@ class _ForumViewState extends State<ForumView> {
               p.channelId != c.channelId ||
               p.channelCreatedAt != c.channelCreatedAt,
           listener: (context, state) {
+            debugPrint('[ForumScreen] syncing: forumCreatedAt=${state.forumCreatedAt} accountId=${state.accountId} channelId=${state.channelId} channelCreatedAt=${state.channelCreatedAt}');
             context.read<ForumUpdatesCubit>().syncForumContext(
                   forumCreatedAt: state.forumCreatedAt,
                   accountId: state.accountId,
