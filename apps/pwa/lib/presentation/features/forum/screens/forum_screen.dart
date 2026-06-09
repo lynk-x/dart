@@ -47,20 +47,6 @@ class ForumPage extends StatelessWidget {
       child: BlocBuilder<ForumCubit, ForumState>(
         builder: (context, state) {
           final mainCubit = context.read<ForumCubit>();
-
-          context.read<ForumUpdatesCubit>().syncForumContext(
-                forumCreatedAt: state.forumCreatedAt,
-                accountId: state.accountId,
-                channelId: state.channelId,
-                channelCreatedAt: state.channelCreatedAt,
-              );
-          context.read<ForumChatCubit>().syncForumContext(
-                forumCreatedAt: state.forumCreatedAt,
-                accountId: state.accountId,
-                channelId: state.channelId,
-                channelCreatedAt: state.channelCreatedAt,
-              );
-
           return MultiBlocProvider(
             providers: [
               BlocProvider(
