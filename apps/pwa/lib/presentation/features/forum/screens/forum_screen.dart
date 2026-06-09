@@ -45,12 +45,6 @@ class ForumPage extends StatelessWidget {
         forumId: forumId,
       )..init(),
       child: BlocBuilder<ForumCubit, ForumState>(
-        buildWhen: (p, c) =>
-            p.isPremium != c.isPremium ||
-            p.showAds != c.showAds ||
-            p.members != c.members ||
-            p.channelId != c.channelId ||
-            p.channelCreatedAt != c.channelCreatedAt,
         builder: (context, state) {
           final mainCubit = context.read<ForumCubit>();
 
