@@ -13,17 +13,17 @@ class ForumChatCubit extends BaseMessageCubit<ForumChatState> {
   Timer? _typingThrottle;
   Timer? _hideTypingTimer;
   StreamSubscription? _syncSubscription;
-  final DateTime? forumCreatedAt;
-  final String? accountId;
+  final ValueGetter<DateTime?> getForumCreatedAt;
+  final ValueGetter<String?> getAccountId;
 
   ForumChatCubit({
     required super.forumId,
     required super.userId,
     required super.userName,
-    required this.forumCreatedAt,
-    this.accountId,
     required ForumRepository repo,
     super.channel,
+    this.getForumCreatedAt = _defaultNullDateTime,
+    this.getAccountId = _defaultNullString,
   })  : _repo = repo,
         super(
           messageType: 'chat',
@@ -206,11 +206,11 @@ class ForumChatCubit extends BaseMessageCubit<ForumChatState> {
         action: SyncAction.insert,
         partitionKeyName: 'created_at',
         partitionKeyValue: messageCreatedAt,
-        payload: {
-          'id': messageId,
-          'forum_id': forumId,
-          'forum_created_at': forumCreatedAt?.toIso8601String(),
-          if (accountId != null) 'account_id': accountId,
+         payload: {
+           'id': messageId,
+           'forum_id': forumId,
+           'forum_created_at': getForumCreatedAt()?.toIso8601String(),
+           if (getAccountId() != null) 'account_id': getAccountId(),
           'author_id': userId,
           'content': text,
           'message_type': 'chat',
@@ -317,3 +317,6 @@ class ForumChatCubit extends BaseMessageCubit<ForumChatState> {
     return super.close();
   }
 }
+
+DateTime? _defaultNullDateTime() => null;
+String? _defaultNullString() => null;

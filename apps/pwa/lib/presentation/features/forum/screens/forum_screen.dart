@@ -88,27 +88,31 @@ class ForumPage extends StatelessWidget {
                    return cubit;
                  },
                ),
-              BlocProvider(
-                create: (context) => ForumUpdatesCubit(
-                  forumId: mainCubit.forumId,
-                  userId: mainCubit.userId,
-                  userName: mainCubit.userName,
-                  accountId: mainCubit.state.accountId,
-                  forumCreatedAt: mainCubit.state.forumCreatedAt,
-                  channel: mainCubit.channel,
-                )..init(),
-              ),
-              BlocProvider(
-                create: (context) => ForumChatCubit(
-                  forumId: mainCubit.forumId,
-                  userId: mainCubit.userId,
-                  userName: mainCubit.userName,
-                  forumCreatedAt: mainCubit.state.forumCreatedAt,
-                  accountId: mainCubit.state.accountId,
-                  repo: forumRepository,
-                  channel: mainCubit.channel,
-                )..init(),
-              ),
+               BlocProvider(
+                 create: (context) => ForumUpdatesCubit(
+                   forumId: mainCubit.forumId,
+                   userId: mainCubit.userId,
+                   userName: mainCubit.userName,
+                   getForumCreatedAt: () =>
+                       context.watch<ForumCubit>().state.forumCreatedAt,
+                   getAccountId: () =>
+                       context.watch<ForumCubit>().state.accountId,
+                   channel: mainCubit.channel,
+                 )..init(),
+               ),
+               BlocProvider(
+                 create: (context) => ForumChatCubit(
+                   forumId: mainCubit.forumId,
+                   userId: mainCubit.userId,
+                   userName: mainCubit.userName,
+                   getForumCreatedAt: () =>
+                       context.watch<ForumCubit>().state.forumCreatedAt,
+                   getAccountId: () =>
+                       context.watch<ForumCubit>().state.accountId,
+                   repo: forumRepository,
+                   channel: mainCubit.channel,
+                 )..init(),
+               ),
               BlocProvider(
                 create: (context) => ForumMediaCubit(
                   forumId: mainCubit.forumId,
