@@ -210,6 +210,27 @@ class _ForumViewState extends State<ForumView> {
           },
         ),
         BlocListener<ForumCubit, ForumState>(
+          listenWhen: (p, c) =>
+              p.forumCreatedAt != c.forumCreatedAt ||
+              p.accountId != c.accountId ||
+              p.channelId != c.channelId ||
+              p.channelCreatedAt != c.channelCreatedAt,
+          listener: (context, state) {
+            context.read<ForumUpdatesCubit>().syncForumContext(
+                  forumCreatedAt: state.forumCreatedAt,
+                  accountId: state.accountId,
+                  channelId: state.channelId,
+                  channelCreatedAt: state.channelCreatedAt,
+                );
+            context.read<ForumChatCubit>().syncForumContext(
+                  forumCreatedAt: state.forumCreatedAt,
+                  accountId: state.accountId,
+                  channelId: state.channelId,
+                  channelCreatedAt: state.channelCreatedAt,
+                );
+          },
+        ),
+        BlocListener<ForumCubit, ForumState>(
           listenWhen: (p, c) => p.userName != c.userName,
           listener: (context, state) {
             context.read<ForumPresenceCubit>().updateUserName(state.userName);
