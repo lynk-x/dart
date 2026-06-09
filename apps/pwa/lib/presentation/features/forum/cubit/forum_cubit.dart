@@ -135,14 +135,17 @@ class ForumCubit extends Cubit<ForumState> {
       String forumName = 'Community Forum';
       String? eventIdFromDb;
       String? accountIdFromDb;
+      String? channelIdFromDb;
 
       DateTime? eventCreatedAtFromDb;
       DateTime? forumCreatedAtFromDb;
+      DateTime? channelCreatedAtFromDb;
 
       try {
         final result = await _repo.getForumWithMemberStatus(forumId, userId);
         final forumData = result['forum'] as Map<String, dynamic>?;
         final memberData = result['member'] as Map<String, dynamic>?;
+        final channelData = result['channel'] as Map<String, dynamic>?;
 
         if (forumData != null) {
           forumStatus = forumData['status'] as String? ?? 'open';
@@ -157,6 +160,14 @@ class ForumCubit extends Cubit<ForumState> {
               ? DateTime.parse(forumCreatedAtRaw as String)
               : null;
           forumName = forumData['event_title'] as String? ?? 'Community Forum';
+        }
+
+        if (channelData != null) {
+          channelIdFromDb = channelData['id'] as String?;
+          final channelCreatedAtRaw = channelData['created_at'];
+          channelCreatedAtFromDb = channelCreatedAtRaw != null
+              ? DateTime.parse(channelCreatedAtRaw as String)
+              : null;
         }
 
         if (memberData != null) {
@@ -185,6 +196,8 @@ class ForumCubit extends Cubit<ForumState> {
           accountId: accountIdFromDb,
           eventCreatedAt: eventCreatedAtFromDb,
           forumCreatedAt: forumCreatedAtFromDb,
+          channelId: channelIdFromDb,
+          channelCreatedAt: channelCreatedAtFromDb,
         ));
 
         if (eventIdFromDb != null) {

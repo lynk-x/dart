@@ -21,9 +21,19 @@ class ForumRepository {
         .eq('user_id', userId)
         .maybeSingle();
 
+    final channelData = await _client
+        .schema('social')
+        .from('forum_channels')
+        .select('id, created_at')
+        .eq('forum_id', forumId)
+        .eq('status', 'open')
+        .limit(1)
+        .maybeSingle();
+
     return {
       'forum': forumData,
       'member': memberData,
+      'channel': channelData,
     };
   }
 

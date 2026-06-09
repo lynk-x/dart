@@ -48,9 +48,25 @@ class ForumPage extends StatelessWidget {
         buildWhen: (p, c) =>
             p.isPremium != c.isPremium ||
             p.showAds != c.showAds ||
-            p.members != c.members,
+            p.members != c.members ||
+            p.channelId != c.channelId ||
+            p.channelCreatedAt != c.channelCreatedAt,
         builder: (context, state) {
           final mainCubit = context.read<ForumCubit>();
+
+          context.read<ForumUpdatesCubit>().syncForumContext(
+                forumCreatedAt: state.forumCreatedAt,
+                accountId: state.accountId,
+                channelId: state.channelId,
+                channelCreatedAt: state.channelCreatedAt,
+              );
+          context.read<ForumChatCubit>().syncForumContext(
+                forumCreatedAt: state.forumCreatedAt,
+                accountId: state.accountId,
+                channelId: state.channelId,
+                channelCreatedAt: state.channelCreatedAt,
+              );
+
           return MultiBlocProvider(
             providers: [
               BlocProvider(
@@ -88,27 +104,23 @@ class ForumPage extends StatelessWidget {
                    return cubit;
                  },
                ),
-               BlocProvider(
-                 create: (context) => ForumUpdatesCubit(
-                   forumId: mainCubit.forumId,
-                   userId: mainCubit.userId,
-                   userName: mainCubit.userName,
-                   accountId: mainCubit.state.accountId,
-                   forumCreatedAt: mainCubit.state.forumCreatedAt,
-                   channel: mainCubit.channel,
-                 )..init(),
-               ),
-               BlocProvider(
-                 create: (context) => ForumChatCubit(
-                   forumId: mainCubit.forumId,
-                   userId: mainCubit.userId,
-                   userName: mainCubit.userName,
-                   forumCreatedAt: mainCubit.state.forumCreatedAt,
-                   accountId: mainCubit.state.accountId,
-                   repo: forumRepository,
-                   channel: mainCubit.channel,
-                 )..init(),
-               ),
+                 BlocProvider(
+                   create: (context) => ForumUpdatesCubit(
+                     forumId: mainCubit.forumId,
+                     userId: mainCubit.userId,
+                     userName: mainCubit.userName,
+                     channel: mainCubit.channel,
+                   )..init(),
+                 ),
+                 BlocProvider(
+                   create: (context) => ForumChatCubit(
+                     forumId: mainCubit.forumId,
+                     userId: mainCubit.userId,
+                     userName: mainCubit.userName,
+                     repo: forumRepository,
+                     channel: mainCubit.channel,
+                   )..init(),
+                 ),
               BlocProvider(
                 create: (context) => ForumMediaCubit(
                   forumId: mainCubit.forumId,

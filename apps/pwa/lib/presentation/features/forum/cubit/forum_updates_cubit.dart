@@ -6,8 +6,10 @@ import 'base_message_cubit.dart';
 import 'forum_updates_state.dart';
 
 class ForumUpdatesCubit extends BaseMessageCubit<ForumUpdatesState> {
-  final String? accountId;
-  final DateTime? forumCreatedAt;
+  String? accountId;
+  DateTime? forumCreatedAt;
+  String? channelId;
+  DateTime? channelCreatedAt;
 
   ForumUpdatesCubit({
     required super.forumId,
@@ -15,6 +17,8 @@ class ForumUpdatesCubit extends BaseMessageCubit<ForumUpdatesState> {
     required super.userName,
     this.accountId,
     this.forumCreatedAt,
+    this.channelId,
+    this.channelCreatedAt,
     super.channel,
   }) : super(
           messageType: 'announcement',
@@ -48,6 +52,18 @@ class ForumUpdatesCubit extends BaseMessageCubit<ForumUpdatesState> {
   Future<void> init() async {
     await refresh();
     setupBaseListeners();
+  }
+
+  void syncForumContext({
+    required DateTime? forumCreatedAt,
+    required String? accountId,
+    String? channelId,
+    DateTime? channelCreatedAt,
+  }) {
+    this.forumCreatedAt = forumCreatedAt;
+    this.accountId = accountId;
+    this.channelId = channelId;
+    this.channelCreatedAt = channelCreatedAt;
   }
 
   @override
@@ -189,6 +205,8 @@ class ForumUpdatesCubit extends BaseMessageCubit<ForumUpdatesState> {
         'forum_id': forumId,
         'forum_created_at': forumCreatedAt?.toIso8601String(),
         if (accountId != null) 'account_id': accountId,
+        if (channelId != null) 'channel_id': channelId,
+        if (channelCreatedAt != null) 'channel_created_at': channelCreatedAt?.toIso8601String(),
         'author_id': userId,
         'content': text,
         'message_type': 'announcement',

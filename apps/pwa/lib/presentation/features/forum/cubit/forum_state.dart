@@ -14,6 +14,8 @@ class ForumState extends Equatable {
   final String? accountId;
   final DateTime? eventCreatedAt;
   final DateTime? forumCreatedAt;
+  final String? channelId;
+  final DateTime? channelCreatedAt;
   final bool isOrganizer;
   final bool isModerator;
   final bool isMuted;
@@ -41,6 +43,8 @@ class ForumState extends Equatable {
     this.accountId,
     this.eventCreatedAt,
     this.forumCreatedAt,
+    this.channelId,
+    this.channelCreatedAt,
     this.isOrganizer = false,
     this.isModerator = false,
     this.isMuted = false,
@@ -67,6 +71,8 @@ class ForumState extends Equatable {
     String? accountId,
     DateTime? eventCreatedAt,
     DateTime? forumCreatedAt,
+    String? channelId,
+    DateTime? channelCreatedAt,
     bool? isOrganizer,
     bool? isModerator,
     bool? isMuted,
@@ -93,6 +99,8 @@ class ForumState extends Equatable {
       accountId: accountId ?? this.accountId,
       eventCreatedAt: eventCreatedAt ?? this.eventCreatedAt,
       forumCreatedAt: forumCreatedAt ?? this.forumCreatedAt,
+      channelId: channelId ?? this.channelId,
+      channelCreatedAt: channelCreatedAt ?? this.channelCreatedAt,
       isOrganizer: isOrganizer ?? this.isOrganizer,
       isModerator: isModerator ?? this.isModerator,
       isMuted: isMuted ?? this.isMuted,
@@ -121,6 +129,8 @@ class ForumState extends Equatable {
         accountId,
         eventCreatedAt,
         forumCreatedAt,
+        channelId,
+        channelCreatedAt,
         isOrganizer,
         isModerator,
         isMuted,

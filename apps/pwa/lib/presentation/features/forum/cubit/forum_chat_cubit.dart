@@ -13,8 +13,10 @@ class ForumChatCubit extends BaseMessageCubit<ForumChatState> {
   Timer? _typingThrottle;
   Timer? _hideTypingTimer;
   StreamSubscription? _syncSubscription;
-  final DateTime? forumCreatedAt;
-  final String? accountId;
+  DateTime? forumCreatedAt;
+  String? accountId;
+  String? channelId;
+  DateTime? channelCreatedAt;
 
   ForumChatCubit({
     required super.forumId,
@@ -22,6 +24,8 @@ class ForumChatCubit extends BaseMessageCubit<ForumChatState> {
     required super.userName,
     this.forumCreatedAt,
     this.accountId,
+    this.channelId,
+    this.channelCreatedAt,
     required ForumRepository repo,
     super.channel,
   })  : _repo = repo,
@@ -71,6 +75,18 @@ class ForumChatCubit extends BaseMessageCubit<ForumChatState> {
         }
       }
     });
+  }
+
+  void syncForumContext({
+    required DateTime? forumCreatedAt,
+    required String? accountId,
+    String? channelId,
+    DateTime? channelCreatedAt,
+  }) {
+    this.forumCreatedAt = forumCreatedAt;
+    this.accountId = accountId;
+    this.channelId = channelId;
+    this.channelCreatedAt = channelCreatedAt;
   }
 
   void _setupChatListeners() {
@@ -205,20 +221,22 @@ class ForumChatCubit extends BaseMessageCubit<ForumChatState> {
         action: SyncAction.insert,
         partitionKeyName: 'created_at',
         partitionKeyValue: messageCreatedAt,
-         payload: {
-           'id': messageId,
-           'forum_id': forumId,
-           'forum_created_at': forumCreatedAt?.toIso8601String(),
-           if (accountId != null) 'account_id': accountId,
-           'author_id': userId,
-           'content': text,
-           'message_type': 'chat',
-           'created_at': messageCreatedAt,
-           if (mediaId != null) 'media_id': mediaId,
-           if (mediaCreatedAt != null) 'media_created_at': mediaCreatedAt,
-           if (replyTo != null) 'reply_to_id': replyTo.id,
-           if (replyCreatedAt != null) 'reply_to_created_at': replyCreatedAt,
-         },
+          payload: {
+            'id': messageId,
+            'forum_id': forumId,
+            'forum_created_at': forumCreatedAt?.toIso8601String(),
+            if (accountId != null) 'account_id': accountId,
+            if (channelId != null) 'channel_id': channelId,
+            if (channelCreatedAt != null) 'channel_created_at': channelCreatedAt?.toIso8601String(),
+            'author_id': userId,
+            'content': text,
+            'message_type': 'chat',
+            'created_at': messageCreatedAt,
+            if (mediaId != null) 'media_id': mediaId,
+            if (mediaCreatedAt != null) 'media_created_at': mediaCreatedAt,
+            if (replyTo != null) 'reply_to_id': replyTo.id,
+            if (replyCreatedAt != null) 'reply_to_created_at': replyCreatedAt,
+          },
       ));
 
       // Broadcast immediately (Optimistic Broadcast)
