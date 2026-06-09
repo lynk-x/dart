@@ -13,17 +13,17 @@ class ForumChatCubit extends BaseMessageCubit<ForumChatState> {
   Timer? _typingThrottle;
   Timer? _hideTypingTimer;
   StreamSubscription? _syncSubscription;
-  final ValueGetter<DateTime?> getForumCreatedAt;
-  final ValueGetter<String?> getAccountId;
+  final DateTime? forumCreatedAt;
+  final String? accountId;
 
   ForumChatCubit({
     required super.forumId,
     required super.userId,
     required super.userName,
+    this.forumCreatedAt,
+    this.accountId,
     required ForumRepository repo,
     super.channel,
-    this.getForumCreatedAt = _defaultNullDateTime,
-    this.getAccountId = _defaultNullString,
   })  : _repo = repo,
         super(
           messageType: 'chat',
@@ -47,7 +47,6 @@ class ForumChatCubit extends BaseMessageCubit<ForumChatState> {
       isLoading: isLoading,
       searchQuery: searchQuery,
       replyingTo: replyingTo,
-      clearReplyTo: clearReplyTo,
       mentionedMedia: mentionedMedia,
       clearMentionedMedia: clearMentionedMedia,
       linkPreviews: linkPreviews,
@@ -209,17 +208,17 @@ class ForumChatCubit extends BaseMessageCubit<ForumChatState> {
          payload: {
            'id': messageId,
            'forum_id': forumId,
-           'forum_created_at': getForumCreatedAt()?.toIso8601String(),
-           if (getAccountId() != null) 'account_id': getAccountId(),
-          'author_id': userId,
-          'content': text,
-          'message_type': 'chat',
-          'created_at': messageCreatedAt,
-          if (mediaId != null) 'media_id': mediaId,
-          if (mediaCreatedAt != null) 'media_created_at': mediaCreatedAt,
-          if (replyTo != null) 'reply_to_id': replyTo.id,
-          if (replyCreatedAt != null) 'reply_to_created_at': replyCreatedAt,
-        },
+           'forum_created_at': forumCreatedAt?.toIso8601String(),
+           if (accountId != null) 'account_id': accountId,
+           'author_id': userId,
+           'content': text,
+           'message_type': 'chat',
+           'created_at': messageCreatedAt,
+           if (mediaId != null) 'media_id': mediaId,
+           if (mediaCreatedAt != null) 'media_created_at': mediaCreatedAt,
+           if (replyTo != null) 'reply_to_id': replyTo.id,
+           if (replyCreatedAt != null) 'reply_to_created_at': replyCreatedAt,
+         },
       ));
 
       // Broadcast immediately (Optimistic Broadcast)
@@ -317,6 +316,3 @@ class ForumChatCubit extends BaseMessageCubit<ForumChatState> {
     return super.close();
   }
 }
-
-DateTime? _defaultNullDateTime() => null;
-String? _defaultNullString() => null;

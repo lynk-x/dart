@@ -93,10 +93,8 @@ class ForumPage extends StatelessWidget {
                    forumId: mainCubit.forumId,
                    userId: mainCubit.userId,
                    userName: mainCubit.userName,
-                   getForumCreatedAt: () =>
-                       context.watch<ForumCubit>().state.forumCreatedAt,
-                   getAccountId: () =>
-                       context.watch<ForumCubit>().state.accountId,
+                   accountId: mainCubit.state.accountId,
+                   forumCreatedAt: mainCubit.state.forumCreatedAt,
                    channel: mainCubit.channel,
                  )..init(),
                ),
@@ -105,10 +103,8 @@ class ForumPage extends StatelessWidget {
                    forumId: mainCubit.forumId,
                    userId: mainCubit.userId,
                    userName: mainCubit.userName,
-                   getForumCreatedAt: () =>
-                       context.watch<ForumCubit>().state.forumCreatedAt,
-                   getAccountId: () =>
-                       context.watch<ForumCubit>().state.accountId,
+                   forumCreatedAt: mainCubit.state.forumCreatedAt,
+                   accountId: mainCubit.state.accountId,
                    repo: forumRepository,
                    channel: mainCubit.channel,
                  )..init(),
