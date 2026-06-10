@@ -21,6 +21,7 @@ class PresenceDrawer extends StatelessWidget {
   final String forumId;
   final DateTime? eventCreatedAt;
   final VoidCallback? onEventProgressTap;
+  final bool isLoading;
 
   const PresenceDrawer({
     super.key,
@@ -29,6 +30,7 @@ class PresenceDrawer extends StatelessWidget {
     required this.isPremium,
     required this.isOrganizer,
     required this.forumId,
+    required this.isLoading,
     this.eventId,
     this.eventCreatedAt,
     this.onEventProgressTap,
@@ -60,9 +62,15 @@ class PresenceDrawer extends StatelessWidget {
                     color: Colors.white)),
             const SizedBox(height: 20),
             Expanded(
-              child: ListView.builder(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                itemCount: onlineUsers.length,
+              child: isLoading
+                  ? Center(
+                      child: CircularProgressIndicator(
+                        color: context.accentColor,
+                      ),
+                    )
+                  : ListView.builder(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      itemCount: onlineUsers.length,
                 itemBuilder: (context, index) {
                   try {
                     final user = onlineUsers[index];

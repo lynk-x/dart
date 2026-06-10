@@ -28,7 +28,14 @@ class ForumPresenceCubit extends Cubit<ForumPresenceState> {
   }
 
   Future<void> init() async {
-    await _setupPresenceListeners();
+    emit(state.copyWith(isLoading: true));
+    try {
+      await _setupPresenceListeners();
+    } finally {
+      if (!isClosed) {
+        emit(state.copyWith(isLoading: false));
+      }
+    }
   }
 
   Future<void> _setupPresenceListeners() async {

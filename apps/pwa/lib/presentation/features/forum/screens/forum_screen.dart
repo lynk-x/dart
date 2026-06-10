@@ -278,11 +278,9 @@ class _ForumViewState extends State<ForumView> {
             }
             Navigator.of(context).pop();
             context.push(
-              '/forum/${cubit.forumReference}/sessions',
+              '/events/${state.eventId}/sessions?createdAt=${state.eventCreatedAt?.toIso8601String()}',
               extra: {
-                'eventId': state.eventId,
                 'isOrganizer': state.isOrganizer,
-                'eventCreatedAt': state.eventCreatedAt,
               },
             );
           },
@@ -740,6 +738,7 @@ class _ForumPresenceDrawerWrapper extends StatelessWidget {
       isOrganizer: forumState.isOrganizer,
       eventId: forumState.eventId,
       forumId: forumId,
+      isLoading: presenceState.isLoading,
       eventCreatedAt: forumState.eventCreatedAt,
       onEventProgressTap: onEventProgressTap,
     );

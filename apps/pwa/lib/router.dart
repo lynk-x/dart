@@ -163,47 +163,30 @@ GoRouter createRouter(
             child: ForumPage(forumReference: forumReference),
           );
         },
-        routes: [
-          GoRoute(
-            path: 'sessions',
-            builder: (context, state) {
-              final extras = state.extra as Map<String, dynamic>?;
-              final eventId = extras?['eventId'] as String?;
-              final isOrganizer = extras?['isOrganizer'] as bool? ?? false;
-              final eventCreatedAtRaw = extras?['eventCreatedAt'];
-              final eventCreatedAt = eventCreatedAtRaw != null
-                  ? (eventCreatedAtRaw is DateTime
-                      ? eventCreatedAtRaw
-                      : DateTime.parse(eventCreatedAtRaw.toString()))
-                  : null;
+      ),
+      GoRoute(
+        path: '/events/:eventId/sessions',
+        builder: (context, state) {
+          final eventId = state.pathParameters['eventId']!;
+          final extras = state.extra as Map<String, dynamic>?;
+          final isOrganizer = extras?['isOrganizer'] as bool? ?? false;
+          final eventCreatedAtRaw = state.uri.queryParameters['createdAt'] ?? extras?['eventCreatedAt'];
+          final eventCreatedAt = eventCreatedAtRaw != null
+              ? (eventCreatedAtRaw is DateTime
+                  ? eventCreatedAtRaw
+                  : DateTime.parse(eventCreatedAtRaw.toString()))
+              : null;
 
-              if (eventId == null || eventId.isEmpty) {
-                return Title(
-                  title: 'Error',
-                  color: Colors.black,
-                  child: const Scaffold(
-                    body: Center(
-                      child: Text(
-                        'Missing event ID.',
-                        style: TextStyle(color: Colors.white),
-                      ),
-                    ),
-                  ),
-                );
-              }
-
-              return Title(
-                title: 'Sessions',
-                color: Colors.black,
-                child: SessionsScreen(
-                  eventId: eventId,
-                  isOrganizer: isOrganizer,
-                  eventCreatedAt: eventCreatedAt,
-                ),
-              );
-            },
-          ),
-        ],
+          return Title(
+            title: 'Sessions',
+            color: Colors.black,
+            child: SessionsScreen(
+              eventId: eventId,
+              isOrganizer: isOrganizer,
+              eventCreatedAt: eventCreatedAt,
+            ),
+          );
+        },
       ),
       GoRoute(
         path: '/notifications',
