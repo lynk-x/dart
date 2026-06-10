@@ -11,11 +11,15 @@ class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
   final String forumId;
   final String userId;
   final bool isOrganizer;
+  final bool isModerator;
+
+  bool get isModeratorOrOrganizer => isOrganizer || isModerator;
 
   ForumMediaCubit({
     required this.forumId,
     required this.userId,
     required this.isOrganizer,
+    required this.isModerator,
   }) : super(const ForumMediaState());
 
   Future<void> init() async {
@@ -31,7 +35,7 @@ class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
           .select()
           .eq('forum_id', forumId);
 
-      if (!isOrganizer) {
+      if (!isModeratorOrOrganizer) {
         query = query.eq('is_approved', true);
       }
 
@@ -59,7 +63,7 @@ class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
           .select()
           .eq('forum_id', forumId);
 
-      if (!isOrganizer) {
+      if (!isModeratorOrOrganizer) {
         query = query.eq('is_approved', true);
       }
 
@@ -120,7 +124,7 @@ class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
             'mime_type': mimeType,
             'file_size': bytes.length,
           },
-          'is_approved': isOrganizer,
+          'is_approved': isModeratorOrOrganizer,
         });
       }
 
@@ -148,7 +152,7 @@ class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
   /// PK (id, created_at), so the row's `createdAt` must be in the WHERE clause
   /// or the UPDATE/DELETE matches no rows.
   Future<void> approveMedia(ForumMedia media) async {
-    if (!isOrganizer) return;
+    if (!isModeratorOrOrganizer) return;
     try {
       await Supabase.instance.client
           .schema('social').from('forum_media')
@@ -163,7 +167,7 @@ class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
   }
 
   Future<void> deleteMedia(ForumMedia media) async {
-    if (!isOrganizer) return;
+    if (!isModeratorOrOrganizer) return;
     try {
       await Supabase.instance.client
           .schema('social').from('forum_media')

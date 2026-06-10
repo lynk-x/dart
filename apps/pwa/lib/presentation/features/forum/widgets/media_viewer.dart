@@ -16,6 +16,7 @@ class MediaViewer extends StatefulWidget {
   final ForumMedia? mediaItem;
   final VoidCallback? onMention;
   final VoidCallback? onApprove;
+  final VoidCallback? onReject;
 
   const MediaViewer({
     super.key,
@@ -23,13 +24,15 @@ class MediaViewer extends StatefulWidget {
     this.mediaItem,
     this.onMention,
     this.onApprove,
+    this.onReject,
   });
 
   static void show(BuildContext context,
       {String? imageUrl,
       ForumMedia? mediaItem,
       VoidCallback? onMention,
-      VoidCallback? onApprove}) {
+      VoidCallback? onApprove,
+      VoidCallback? onReject}) {
         
     ForumMediaCubit? forumMediaCubit;
     ForumCubit? forumCubit;
@@ -47,6 +50,7 @@ class MediaViewer extends StatefulWidget {
             mediaItem: mediaItem,
             onMention: onMention,
             onApprove: onApprove,
+            onReject: onReject,
           );
           if (forumMediaCubit != null) {
             viewer = BlocProvider.value(value: forumMediaCubit, child: viewer);
@@ -201,18 +205,12 @@ class _MediaViewerState extends State<MediaViewer> {
                     return _SingleMediaView(
                       url: media.url,
                       mediaType: media.mediaType,
+                      isPremium: isPremium,
                     );
                   },
                 )
               else
                 const Center(child: Icon(Icons.broken_image, color: Colors.white24)),
-              
-              // Anti-piracy Watermark
-              // Disabled for premium members
-              if (!isPremium)
-                IgnorePointer(
-                  child: _buildWatermark(),
-                ),
 
               // Navigation Chevrons (Desktop/Web only)
               if (kIsWeb && _gallery.length > 1)
@@ -282,7 +280,7 @@ class _MediaViewerState extends State<MediaViewer> {
               ),
 
               // Bottom Actions
-              if (widget.onApprove != null)
+              if (widget.onApprove != null || widget.onReject != null)
                 Positioned(
                   bottom: MediaQuery.of(context).padding.bottom + 30,
                   left: 0,
@@ -290,24 +288,28 @@ class _MediaViewerState extends State<MediaViewer> {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      _ActionButton(
-                        icon: Icons.check_circle_outline,
-                        label: 'Approve',
-                        color: Colors.greenAccent,
-                        onTap: () {
-                          widget.onApprove?.call();
-                          Navigator.pop(context);
-                        },
-                      ),
-                      const SizedBox(width: 16),
-                      _ActionButton(
-                        icon: Icons.delete_outline,
-                        label: 'Reject',
-                        color: Colors.redAccent,
-                        onTap: () {
-                          Navigator.pop(context);
-                        },
-                      ),
+                      if (widget.onApprove != null) ...[
+                        _ActionButton(
+                          icon: Icons.check_circle_outline,
+                          label: 'Approve',
+                          color: Colors.greenAccent,
+                          onTap: () {
+                            widget.onApprove?.call();
+                            Navigator.pop(context);
+                          },
+                        ),
+                        if (widget.onReject != null) const SizedBox(width: 16),
+                      ],
+                      if (widget.onReject != null)
+                        _ActionButton(
+                          icon: Icons.delete_outline,
+                          label: 'Reject',
+                          color: Colors.redAccent,
+                          onTap: () {
+                            widget.onReject?.call();
+                            Navigator.pop(context);
+                          },
+                        ),
                     ],
                   ),
                 ),
@@ -318,7 +320,167 @@ class _MediaViewerState extends State<MediaViewer> {
     );
   }
 
-  Widget _buildWatermark() {
+}
+
+class _SingleMediaView extends StatefulWidget {
+  final String url;
+  final String mediaType;
+  final bool isPremium;
+
+  const _SingleMediaView({
+    required this.url,
+    required this.mediaType,
+    required this.isPremium,
+  });
+
+  @override
+  State<_SingleMediaView> createState() => _SingleMediaViewState();
+}
+
+class _SingleMediaViewState extends State<_SingleMediaView> {
+  VideoPlayerController? _videoController;
+  bool _isVideo = false;
+  double? _imageWidth;
+  double? _imageHeight;
+  bool _imageLoaded = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _isVideo = widget.mediaType == 'video' || widget.url.contains('.mp4');
+    
+    if (_isVideo) {
+      _videoController = VideoPlayerController.networkUrl(Uri.parse(widget.url))
+        ..initialize().then((_) {
+          if (mounted) {
+            setState(() {});
+            _videoController?.play();
+            _videoController?.setLooping(true);
+          }
+        });
+    } else {
+      _resolveImageSize();
+    }
+  }
+
+  void _resolveImageSize() {
+    final imageProvider = NetworkImage(widget.url);
+    final ImageStream stream = imageProvider.resolve(const ImageConfiguration());
+    ImageStreamListener? listener;
+    listener = ImageStreamListener(
+      (ImageInfo info, bool _) {
+        if (mounted) {
+          setState(() {
+            _imageWidth = info.image.width.toDouble();
+            _imageHeight = info.image.height.toDouble();
+            _imageLoaded = true;
+          });
+        }
+        if (listener != null) {
+          stream.removeListener(listener);
+        }
+      },
+      onError: (exception, stackTrace) {
+        if (mounted) {
+          setState(() {
+            _imageLoaded = true;
+          });
+        }
+        if (listener != null) {
+          stream.removeListener(listener);
+        }
+      },
+    );
+    stream.addListener(listener);
+  }
+
+  @override
+  void dispose() {
+    _videoController?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_isVideo) {
+      if (!_imageLoaded || _imageWidth == null || _imageHeight == null) {
+        return Center(
+          child: CircularProgressIndicator(color: context.accentColor),
+        );
+      }
+
+      final aspectRatio = _imageWidth! / _imageHeight!;
+
+      return Center(
+        child: AspectRatio(
+          aspectRatio: aspectRatio,
+          child: Stack(
+            children: [
+              PhotoView(
+                imageProvider: NetworkImage(widget.url),
+                backgroundDecoration: const BoxDecoration(color: Colors.transparent),
+                minScale: PhotoViewComputedScale.contained,
+                maxScale: PhotoViewComputedScale.covered * 2,
+                heroAttributes: PhotoViewHeroAttributes(tag: widget.url),
+              ),
+              if (!widget.isPremium)
+                const Positioned.fill(
+                  child: IgnorePointer(
+                    child: ForumMediaWatermark(),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (_videoController == null || !_videoController!.value.isInitialized) {
+      return Center(child: CircularProgressIndicator(color: context.accentColor));
+    }
+
+    return Center(
+      child: AspectRatio(
+        aspectRatio: _videoController!.value.aspectRatio,
+        child: Stack(
+          alignment: Alignment.bottomCenter,
+          children: [
+            VideoPlayer(_videoController!),
+            if (!widget.isPremium)
+              const Positioned.fill(
+                child: IgnorePointer(
+                  child: ForumMediaWatermark(),
+                ),
+              ),
+            VideoProgressIndicator(_videoController!, allowScrubbing: true),
+            GestureDetector(
+              onTap: () {
+                setState(() {
+                  _videoController!.value.isPlaying
+                      ? _videoController!.pause()
+                      : _videoController!.play();
+                });
+              },
+              child: Center(
+                child: Icon(
+                  _videoController!.value.isPlaying ? Icons.pause : Icons.play_arrow,
+                  color: Colors.white.withValues(alpha: 0.5),
+                  size: 80,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class ForumMediaWatermark extends StatelessWidget {
+  const ForumMediaWatermark({super.key});
+
+  @override
+  Widget build(BuildContext context) {
     const double baseDensity = 0.25; 
 
     return SizedBox.expand(
@@ -364,91 +526,6 @@ class _MediaViewerState extends State<MediaViewer> {
             },
           );
         }
-      ),
-    );
-  }
-}
-
-class _SingleMediaView extends StatefulWidget {
-  final String url;
-  final String mediaType;
-
-  const _SingleMediaView({required this.url, required this.mediaType});
-
-  @override
-  State<_SingleMediaView> createState() => _SingleMediaViewState();
-}
-
-class _SingleMediaViewState extends State<_SingleMediaView> {
-  VideoPlayerController? _videoController;
-  bool _isVideo = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _isVideo = widget.mediaType == 'video' || widget.url.contains('.mp4');
-    
-    if (_isVideo) {
-      _videoController = VideoPlayerController.networkUrl(Uri.parse(widget.url))
-        ..initialize().then((_) {
-          if (mounted) {
-            setState(() {});
-            _videoController?.play();
-            _videoController?.setLooping(true);
-          }
-        });
-    }
-  }
-
-  @override
-  void dispose() {
-    _videoController?.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (!_isVideo) {
-      return PhotoView(
-        imageProvider: NetworkImage(widget.url),
-        loadingBuilder: (context, event) => Center(
-          child: CircularProgressIndicator(color: context.accentColor),
-        ),
-        backgroundDecoration: const BoxDecoration(color: Colors.transparent),
-        minScale: PhotoViewComputedScale.contained,
-        maxScale: PhotoViewComputedScale.covered * 2,
-        heroAttributes: PhotoViewHeroAttributes(tag: widget.url),
-      );
-    }
-
-    if (_videoController == null || !_videoController!.value.isInitialized) {
-      return Center(child: CircularProgressIndicator(color: context.accentColor));
-    }
-
-    return AspectRatio(
-      aspectRatio: _videoController!.value.aspectRatio,
-      child: Stack(
-        alignment: Alignment.bottomCenter,
-        children: [
-          VideoPlayer(_videoController!),
-          VideoProgressIndicator(_videoController!, allowScrubbing: true),
-          GestureDetector(
-            onTap: () {
-              setState(() {
-                _videoController!.value.isPlaying
-                    ? _videoController!.pause()
-                    : _videoController!.play();
-              });
-            },
-            child: Center(
-              child: Icon(
-                _videoController!.value.isPlaying ? Icons.pause : Icons.play_arrow,
-                color: Colors.white.withValues(alpha: 0.5),
-                size: 80,
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }

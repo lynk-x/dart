@@ -133,6 +133,7 @@ class ForumPage extends StatelessWidget {
                   forumId: fId,
                   userId: mainCubit.userId,
                   isOrganizer: state.isOrganizer,
+                  isModerator: state.isModerator,
                 )..init(),
               ),
             ],
@@ -668,7 +669,7 @@ class _ForumViewState extends State<ForumView> {
                     : const SizedBox.shrink(),
                 showMedia
                     ? MediaTab(
-                        onMediaTap: (item) => _viewMedia(item.url),
+                        onMediaTap: (item) => _viewForumMedia(item),
                       )
                     : const SizedBox.shrink(),
               ],
@@ -691,6 +692,24 @@ class _ForumViewState extends State<ForumView> {
   void _viewMedia(String? url) {
     if (url == null) return;
     MediaViewer.show(context, imageUrl: url);
+  }
+
+  void _viewForumMedia(ForumMedia item) {
+    final mediaCubit = context.read<ForumMediaCubit>();
+    final forumCubit = context.read<ForumCubit>();
+    final isAuthorized = forumCubit.state.isOrganizer || forumCubit.state.isModerator;
+
+    MediaViewer.show(
+      context,
+      imageUrl: item.url,
+      mediaItem: item,
+      onApprove: (isAuthorized && !item.isApproved)
+          ? () => mediaCubit.approveMedia(item)
+          : null,
+      onReject: isAuthorized
+          ? () => mediaCubit.deleteMedia(item)
+          : null,
+    );
   }
 }
 
