@@ -82,18 +82,19 @@
       transition: opacity 0.5s ease-out;
     }
     .loader {
-      width: 50px;
+      width: 40px;
       aspect-ratio: 1;
       border-radius: 50%;
-      border: 8px solid;
+      border: 6px solid;
       border-color: #20F928 #0000;
-      animation: l1 1s infinite;
+      animation: l1 1s infinite linear;
     }
     @keyframes l1 {to{transform: rotate(.5turn)}}
   </style>
 </head>
 <body>
   <div id="loading" class="loading-container">
+    <img src="assets/images/official_lynk-x_combined-logo.svg" alt="Lynk-X" style="width: 160px; height: auto; margin-bottom: 32px; animation: pulse 2s infinite ease-in-out;">
     <span class="loader"></span>
   </div>
   <script src="flutter_bootstrap.js" async></script>
@@ -255,6 +256,7 @@
           console.log('[FCM SW] Registered:', reg.scope);
         }).catch((err) => console.warn('[FCM SW] Registration failed:', err));
       });
+    }
     // ── Aggressive Install Prompt ──────────────────────────────────────────
     let deferredInstallPrompt = null;
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
@@ -304,7 +306,7 @@
           if (!deferredInstallPrompt) return;
           deferredInstallPrompt.prompt();
           const { outcome } = await deferredInstallPrompt.userChoice;
-          console.log(\`[PWA Install] User choice: \${outcome}\`);
+          console.log(`[PWA Install] User choice: ${outcome}`);
           deferredInstallPrompt = null;
           if (outcome === 'accepted') {
             installBanner.remove();

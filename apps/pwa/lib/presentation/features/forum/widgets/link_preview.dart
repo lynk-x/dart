@@ -116,9 +116,7 @@ class _ChatLinkPreviewState extends State<ChatLinkPreview> {
       spans.add(TextSpan(
         text: urlContent,
         style: widget.textStyle.copyWith(
-          color: context.accentColor,
           decoration: TextDecoration.underline,
-          decorationColor: context.accentColor,
         ),
         recognizer: recognizer,
       ));
@@ -188,8 +186,6 @@ class _ChatLinkPreviewState extends State<ChatLinkPreview> {
                       style: widget.textStyle.copyWith(
                         fontWeight: FontWeight.bold,
                         color: context.accentColor,
-                        decoration: TextDecoration.underline,
-                        decorationColor: context.accentColor,
                       ),
                     ),
                   if (widget.data!.description != null)

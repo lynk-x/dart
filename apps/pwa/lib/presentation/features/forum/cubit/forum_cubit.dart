@@ -439,7 +439,7 @@ class ForumCubit extends Cubit<ForumState> {
   Future<void> _persistReaction(ChatMessage message, String emoji) async {
     if (userId == kGuestUserId) return;
     try {
-      await _repo.toggleReaction(
+      final isAdded = await _repo.toggleReaction(
         message.id,
         message.createdAt.toIso8601String(),
         userId,
@@ -452,7 +452,7 @@ class ForumCubit extends Cubit<ForumState> {
           'message_id': message.id,
           'emoji_code': emoji,
           'user_id': userId,
-          'action': 'toggled',
+          'action': isAdded ? 'added' : 'removed',
         },
       );
     } catch (e, stack) {

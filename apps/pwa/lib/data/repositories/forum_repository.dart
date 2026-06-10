@@ -158,7 +158,7 @@ class ForumRepository {
     });
   }
 
-  Future<void> toggleReaction(
+  Future<bool> toggleReaction(
     String messageId,
     String messageCreatedAt,
     String userId,
@@ -182,6 +182,7 @@ class ForumRepository {
           .delete()
           .eq('id', existing['id'] as String)
           .eq('created_at', existing['created_at'] as String);
+      return false;
     } else {
       await _client
           .schema('social')
@@ -192,6 +193,7 @@ class ForumRepository {
         'user_id': userId,
         'emoji_code': emojiCode,
       });
+      return true;
     }
   }
 
