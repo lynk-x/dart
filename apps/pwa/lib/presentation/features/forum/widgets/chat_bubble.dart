@@ -84,16 +84,38 @@ class _ChatBubbleState extends State<ChatBubble> {
             mainAxisAlignment: widget.message.isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              if (widget.message.isMe) _buildStatusIndicator(),
+              if (widget.message.isMe) ...[
+                _buildStatusIndicator(),
+                _buildReplyIcon(),
+                _buildMoreIcon(),
+              ],
               _buildBubble(),
-              if (widget.message.isMe) _buildMoreIcon(),
-              if (!widget.message.isMe) _buildMoreIcon(),
+              if (!widget.message.isMe) ...[
+                _buildReplyIcon(),
+                _buildMoreIcon(),
+              ],
             ],
           ),
           if (widget.showActions) _buildActions(context),
         ],
       ),
     ),
+    );
+  }
+
+  Widget _buildReplyIcon() {
+    final isLargeScreen = MediaQuery.of(context).size.width > 600;
+    if (!isLargeScreen || widget.onReply == null) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      child: IconButton(
+        icon: const Icon(Icons.reply, size: 18, color: Colors.white24),
+        padding: EdgeInsets.zero,
+        constraints: const BoxConstraints(),
+        onPressed: () => widget.onReply?.call(widget.message),
+        tooltip: 'Reply',
+      ),
     );
   }
 
@@ -141,6 +163,20 @@ class _ChatBubbleState extends State<ChatBubble> {
             ? MainAxisAlignment.end
             : MainAxisAlignment.start,
         items: [
+          if (widget.onPin != null)
+            ActionBarItem(
+              label: widget.message.isPinned ? 'Unpin' : 'Pin',
+              onTap: () => widget.onPin?.call(widget.message),
+              color: Colors.white70,
+            ),
+
+          if (widget.message.isMe && widget.onEdit != null)
+            ActionBarItem(
+              label: 'Edit',
+              color: Colors.white70,
+              onTap: () => widget.onEdit?.call(widget.message),
+            ),
+
           if (widget.message.message.isNotEmpty)
             ActionBarItem(
               label: 'Copy',
@@ -151,20 +187,6 @@ class _ChatBubbleState extends State<ChatBubble> {
                 );
               },
               color: Colors.white70,
-            ),
-            
-          if (widget.onPin != null)
-            ActionBarItem(
-              label: 'Pin',
-              onTap: () => widget.onPin?.call(widget.message),
-              color: context.accentColor,
-            ),
-
-          if (widget.message.isMe && widget.onEdit != null)
-            ActionBarItem(
-              label: 'Edit',
-              color: Colors.white70,
-              onTap: () => widget.onEdit?.call(widget.message),
             ),
 
           if (widget.message.isMe && widget.onDelete != null)

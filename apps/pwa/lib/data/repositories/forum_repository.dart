@@ -210,6 +210,14 @@ class ForumRepository {
         .eq('id', messageId);
   }
 
+  Future<void> unpinMessage(String messageId) async {
+    await _client
+        .schema('social')
+        .from('forum_messages')
+        .update({'is_pinned': false})
+        .eq('id', messageId);
+  }
+
   Future<void> submitReport({
     required String targetUserId,
     String? messageId,

@@ -358,7 +358,7 @@ class _ForumViewState extends State<ForumView> {
                                 if (pinned.isNotEmpty)
                                   Padding(
                                     padding:
-                                        const EdgeInsets.fromLTRB(16, 4, 16, 8),
+                                        const EdgeInsets.fromLTRB(4, 4, 4, 4),
                                     child: InfoBanner(
                                       icon: Icons.push_pin,
                                       text: pinned.first.message.length > 80

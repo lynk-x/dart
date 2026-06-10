@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:lynk_core/core.dart';
 import 'package:lynk_x/presentation/features/forum/models/forum_model.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/chat_bubble.dart';
+import 'package:lynk_x/presentation/features/forum/widgets/swipe_to_reply.dart';
 import 'package:lynk_x/presentation/shared/widgets/empty_state.dart';
 import 'package:lynk_x/presentation/features/forum/cubit/base_message_state.dart';
 
@@ -134,7 +135,7 @@ class ChatMessageList extends StatelessWidget {
                   }
                 }
 
-                return ChatBubble(
+                final bubble = ChatBubble(
                   message: message,
                   showSenderInfo: showSenderInfo,
                   isGrouped: isGrouped,
@@ -157,6 +158,15 @@ class ChatMessageList extends StatelessWidget {
                   onLinkPreviewDataFetched: onLinkPreviewDataFetched,
                   onMediaTap: onMediaTap,
                 );
+
+                if (onReply != null) {
+                  return SwipeToReply(
+                    onReply: () => onReply!.call(message),
+                    child: bubble,
+                  );
+                }
+
+                return bubble;
               },
               childCount: chatState.messages.isNotEmpty
                   ? chatState.messages.length + (chatState.isLoading ? 1 : 0)

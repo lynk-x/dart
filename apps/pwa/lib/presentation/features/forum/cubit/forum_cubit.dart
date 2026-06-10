@@ -338,7 +338,11 @@ class ForumCubit extends Cubit<ForumState> {
   Future<void> pinMessage(ChatMessage message) async {
     if (!state.isModerator) return;
     try {
-      await _repo.pinMessage(message.id);
+      if (message.isPinned) {
+        await _repo.unpinMessage(message.id);
+      } else {
+        await _repo.pinMessage(message.id);
+      }
     } catch (e, stack) {
       debugPrint('[ForumCubit] Error: $e\n$stack');
     }
