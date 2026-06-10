@@ -1,18 +1,14 @@
-// ignore_for_file: avoid_web_libraries_in_flutter, deprecated_member_use
-
-import 'dart:html' as html;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:photo_view/photo_view.dart';
 import 'package:video_player/video_player.dart';
-import 'package:http/http.dart' as http;
 import 'package:lynk_x/presentation/features/forum/models/forum_model.dart';
 import 'package:lynk_x/presentation/features/forum/cubit/forum_media_cubit.dart';
 import 'package:lynk_x/presentation/features/forum/cubit/forum_media_state.dart';
 import 'package:lynk_x/presentation/features/forum/cubit/forum_cubit.dart';
+import 'package:lynk_x/core/utils/download_helper.dart';
 import 'package:lynk_core/core.dart';
 
 class MediaViewer extends StatefulWidget {
@@ -161,27 +157,9 @@ class _MediaViewerState extends State<MediaViewer> {
       ),
     );
 
-    try {
-      final response = await http.get(uri);
-      if (response.statusCode == 200) {
-        final segments = uri.pathSegments;
-        final filename = segments.isNotEmpty ? segments.last : 'download';
-        final blob = html.Blob([response.bodyBytes]);
-        final blobUrl = html.Url.createObjectUrlFromBlob(blob);
-        final anchor = html.AnchorElement(href: blobUrl)
-          ..setAttribute("download", filename)
-          ..style.display = 'none';
-        html.document.body?.children.add(anchor);
-        anchor.click();
-        anchor.remove();
-        html.Url.revokeObjectUrl(blobUrl);
-      } else {
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
-      }
-    } catch (e) {
-      debugPrint('[MediaViewer] Download failed: $e');
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    }
+    final segments = uri.pathSegments;
+    final filename = segments.isNotEmpty ? segments.last : 'download';
+    await downloadFile(targetUrl, filename);
   }
 
   void _nextPage() {
