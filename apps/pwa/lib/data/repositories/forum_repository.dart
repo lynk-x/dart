@@ -340,4 +340,23 @@ class ForumRepository {
           callback: callback,
         );
   }
+
+  RealtimeChannel subscribeToMediaChanges(
+    String forumId,
+    void Function(PostgresChangePayload) callback,
+  ) {
+    return _client
+        .channel('forum_media_$forumId')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'social',
+          table: 'forum_media',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'forum_id',
+            value: forumId,
+          ),
+          callback: callback,
+        );
+  }
 }

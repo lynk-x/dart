@@ -107,6 +107,15 @@ abstract class BaseMessageCubit<T extends BaseMessageState> extends HydratedCubi
           final id = payload.oldRecord['id'] as String?;
           final updated = state.messages.where((m) => m.id != id).toList();
           if (!isClosed) emit(copyWithState(messages: updated));
+        } else if (payload.eventType == PostgresChangeEvent.insert) {
+          final data = payload.newRecord;
+          if (data['message_type'] != messageType) return;
+
+          final id = data['id'] as String;
+          if (state.messages.any((m) => m.id == id)) return;
+
+          final msg = ChatMessage.fromMap(data, userId);
+          onBroadcastMessageReceived(msg);
         } else if (payload.eventType == PostgresChangeEvent.update) {
           final data = payload.newRecord;
           if (data['message_type'] != messageType) return;

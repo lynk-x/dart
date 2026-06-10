@@ -133,6 +133,7 @@ class ForumPage extends StatelessWidget {
                   userId: mainCubit.userId,
                   isOrganizer: state.isOrganizer,
                   isModerator: state.isModerator,
+                  repo: forumRepository,
                 )..init(),
               ),
             ],
@@ -696,6 +697,7 @@ class _ForumViewState extends State<ForumView> {
     final mediaCubit = context.read<ForumMediaCubit>();
     final forumCubit = context.read<ForumCubit>();
     final isAuthorized = forumCubit.state.isOrganizer || forumCubit.state.isModerator;
+    final isUploader = item.uploaderId == forumCubit.userId;
 
     MediaViewer.show(
       context,
@@ -704,7 +706,7 @@ class _ForumViewState extends State<ForumView> {
       onApprove: (isAuthorized && !item.isApproved)
           ? () => mediaCubit.approveMedia(item)
           : null,
-      onReject: isAuthorized
+      onReject: (isAuthorized || isUploader)
           ? () => mediaCubit.deleteMedia(item)
           : null,
     );

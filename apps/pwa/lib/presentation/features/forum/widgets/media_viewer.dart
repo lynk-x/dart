@@ -202,6 +202,24 @@ class _MediaViewerState extends State<MediaViewer> {
               ? _gallery[_currentIndex] 
               : null;
 
+          bool isOrganizer = false;
+          bool isModerator = false;
+          String? currentUserId;
+          try {
+            final forumCubit = context.read<ForumCubit>();
+            isOrganizer = forumCubit.state.isOrganizer;
+            isModerator = forumCubit.state.isModerator;
+            currentUserId = forumCubit.userId;
+          } catch (_) {}
+
+          final hasCubit = currentMedia != null && currentUserId != null;
+          final isAuthorized = isOrganizer || isModerator;
+          final isUploader = hasCubit && currentMedia.uploaderId == currentUserId;
+
+          final showApprove = hasCubit ? (isAuthorized && !currentMedia.isApproved) : (widget.onApprove != null);
+          final showDelete = hasCubit ? (isAuthorized || isUploader) : (widget.onReject != null);
+          final deleteText = (hasCubit && isUploader && !isAuthorized) ? 'Delete' : 'Reject';
+
           return Column(
             children: [
               Expanded(
@@ -296,7 +314,7 @@ class _MediaViewerState extends State<MediaViewer> {
               ),
 
               // Bottom Actions
-              if (widget.onApprove != null || widget.onReject != null)
+              if (showApprove || showDelete)
                 Padding(
                   padding: EdgeInsets.only(
                     bottom: MediaQuery.of(context).padding.bottom + 20,
@@ -307,7 +325,7 @@ class _MediaViewerState extends State<MediaViewer> {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      if (widget.onApprove != null) ...[
+                      if (showApprove) ...[
                         Expanded(
                           child: PrimaryButton(
                             icon: Icons.check_circle_outline,
@@ -315,22 +333,34 @@ class _MediaViewerState extends State<MediaViewer> {
                             backgroundColor: Colors.greenAccent.withValues(alpha: 0.8),
                             textColor: Colors.black,
                             onPressed: () {
-                              widget.onApprove?.call();
+                              if (hasCubit) {
+                                try {
+                                  context.read<ForumMediaCubit>().approveMedia(currentMedia);
+                                } catch (_) {}
+                              } else {
+                                widget.onApprove?.call();
+                              }
                               Navigator.pop(context);
                             },
                           ),
                         ),
-                        if (widget.onReject != null) const SizedBox(width: 16),
+                        if (showDelete) const SizedBox(width: 16),
                       ],
-                      if (widget.onReject != null)
+                      if (showDelete)
                         Expanded(
                           child: PrimaryButton(
                             icon: Icons.delete_outline,
-                            text: 'Reject',
+                            text: deleteText,
                             backgroundColor: Colors.redAccent.withValues(alpha: 0.8),
                             textColor: Colors.white,
                             onPressed: () {
-                              widget.onReject?.call();
+                              if (hasCubit) {
+                                try {
+                                  context.read<ForumMediaCubit>().deleteMedia(currentMedia);
+                                } catch (_) {}
+                              } else {
+                                widget.onReject?.call();
+                              }
                               Navigator.pop(context);
                             },
                           ),

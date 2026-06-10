@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:uuid/uuid.dart';
 import 'package:lynk_x/presentation/features/forum/models/forum_model.dart';
 import 'package:lynk_x/core/utils/storage_utils.dart';
+import 'package:lynk_x/data/repositories/forum_repository.dart';
 import 'forum_media_state.dart';
 
 class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
@@ -13,6 +14,8 @@ class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
   final String userId;
   final bool isOrganizer;
   final bool isModerator;
+  final ForumRepository repo;
+  RealtimeChannel? _mediaSubscription;
 
   bool get isModeratorOrOrganizer => isOrganizer || isModerator;
 
@@ -21,10 +24,83 @@ class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
     required this.userId,
     required this.isOrganizer,
     required this.isModerator,
+    required this.repo,
   }) : super(const ForumMediaState());
 
   Future<void> init() async {
     await refreshMedia();
+    _setupRealtimeListener();
+  }
+
+  void _setupRealtimeListener() {
+    _mediaSubscription = repo.subscribeToMediaChanges(forumId, (payload) async {
+      if (payload.eventType == PostgresChangeEvent.insert) {
+        final data = payload.newRecord;
+        final mediaItem = ForumMedia.fromMap(data);
+
+        // Deduplicate
+        if (state.mediaItems.any((m) => m.id == mediaItem.id)) return;
+
+        // Filter permissions: General users only see approved media
+        if (!isModeratorOrOrganizer && !mediaItem.isApproved) return;
+
+        // Sign URL on-the-fly
+        final path = getPathFromStorageUrl(mediaItem.url, 'forum_media');
+        final signedMap = await batchSignStorageUrls([mediaItem.url], 'forum_media');
+        final signed = signedMap[path];
+
+        final finalItem = signed != null
+            ? mediaItem.copyWith(url: signed, thumbnailUrl: signed)
+            : mediaItem;
+
+        if (!isClosed) {
+          final updatedItems = [finalItem, ...state.mediaItems]
+            ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+          emit(state.copyWith(mediaItems: updatedItems));
+        }
+      } else if (payload.eventType == PostgresChangeEvent.update) {
+        final data = payload.newRecord;
+        final mediaItem = ForumMedia.fromMap(data);
+
+        if (!isModeratorOrOrganizer && !mediaItem.isApproved) {
+          // If it got unapproved/rejected, remove it for general users
+          final updated = state.mediaItems.where((m) => m.id != mediaItem.id).toList();
+          if (!isClosed) emit(state.copyWith(mediaItems: updated));
+        } else {
+          // Update approval status or metadata in-place
+          final index = state.mediaItems.indexWhere((m) => m.id == mediaItem.id);
+          if (index != -1) {
+            final updatedList = List<ForumMedia>.from(state.mediaItems);
+            final existing = updatedList[index];
+            // Preserve already signed URLs if urls haven't changed path
+            updatedList[index] = mediaItem.copyWith(
+              url: existing.url,
+              thumbnailUrl: existing.thumbnailUrl,
+            );
+            if (!isClosed) emit(state.copyWith(mediaItems: updatedList));
+          } else if (mediaItem.isApproved || isModeratorOrOrganizer) {
+            // If newly approved/visible, fetch signed URL and prepend
+            final path = getPathFromStorageUrl(mediaItem.url, 'forum_media');
+            final signedMap = await batchSignStorageUrls([mediaItem.url], 'forum_media');
+            final signed = signedMap[path];
+            final finalItem = signed != null
+                ? mediaItem.copyWith(url: signed, thumbnailUrl: signed)
+                : mediaItem;
+
+            if (!isClosed) {
+              final updatedItems = [finalItem, ...state.mediaItems]
+                ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+              emit(state.copyWith(mediaItems: updatedItems));
+            }
+          }
+        }
+      } else if (payload.eventType == PostgresChangeEvent.delete) {
+        final id = payload.oldRecord['id'] as String?;
+        final updated = state.mediaItems.where((m) => m.id != id).toList();
+        if (!isClosed) emit(state.copyWith(mediaItems: updated));
+      }
+    });
+    _mediaSubscription?.subscribe();
   }
 
   Future<void> refreshMedia() async {
@@ -194,7 +270,8 @@ class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
   }
 
   Future<void> deleteMedia(ForumMedia media) async {
-    if (!isModeratorOrOrganizer) return;
+    final isUploader = media.uploaderId == userId;
+    if (!isModeratorOrOrganizer && !isUploader) return;
     try {
       await Supabase.instance.client
           .schema('social').from('forum_media')
@@ -220,4 +297,10 @@ class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
 
   @override
   String get id => forumId;
+
+  @override
+  Future<void> close() {
+    _mediaSubscription?.unsubscribe();
+    return super.close();
+  }
 }
