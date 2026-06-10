@@ -202,88 +202,94 @@ class _MediaViewerState extends State<MediaViewer> {
               ? _gallery[_currentIndex] 
               : null;
 
-          return Stack(
+          return Column(
             children: [
-              // Content Area (PageView)
-              if (_gallery.isNotEmpty)
-                PageView.builder(
-                  controller: _pageController,
-                  onPageChanged: _onPageChanged,
-                  itemCount: _gallery.length,
-                  itemBuilder: (context, index) {
-                    final media = _gallery[index];
-                    return _SingleMediaView(
-                      url: media.url,
-                      mediaType: media.mediaType,
-                      isPremium: isPremium,
-                    );
-                  },
-                )
-              else
-                const Center(child: Icon(Icons.broken_image, color: Colors.white24)),
-
-              // Navigation Chevrons (Desktop/Web only)
-              if (kIsWeb && _gallery.length > 1)
-                Positioned.fill(
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      if (_currentIndex > 0)
-                        IconButton(
-                          icon: const Icon(Icons.chevron_left, size: 50, color: Colors.white),
-                          onPressed: _prevPage,
-                        )
-                      else
-                        const SizedBox(width: 64),
-                      if (_currentIndex < _gallery.length - 1)
-                        IconButton(
-                          icon: const Icon(Icons.chevron_right, size: 50, color: Colors.white),
-                          onPressed: _nextPage,
-                        )
-                      else
-                        const SizedBox(width: 64),
-                    ],
-                  ),
-                ),
-
-              // Top Controls
-              Positioned(
-                top: MediaQuery.of(context).padding.top + 10,
-                left: 20,
-                right: 20,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              Expanded(
+                child: Stack(
                   children: [
-                    _CircleButton(
-                      icon: Icons.close,
-                      onPressed: () => Navigator.pop(context),
-                    ),
-                    if (currentMedia != null)
-                      Text(
-                        currentMedia.mediaType.toUpperCase(),
-                        style: AppTypography.inter(
-                          color: Colors.white54,
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 2,
+                    // Content Area (PageView)
+                    if (_gallery.isNotEmpty)
+                      PageView.builder(
+                        controller: _pageController,
+                        onPageChanged: _onPageChanged,
+                        itemCount: _gallery.length,
+                        itemBuilder: (context, index) {
+                          final media = _gallery[index];
+                          return _SingleMediaView(
+                            url: media.url,
+                            mediaType: media.mediaType,
+                            isPremium: isPremium,
+                          );
+                        },
+                      )
+                    else
+                      const Center(child: Icon(Icons.broken_image, color: Colors.white24)),
+
+                    // Navigation Chevrons (Desktop/Web only)
+                    if (kIsWeb && _gallery.length > 1)
+                      Positioned.fill(
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            if (_currentIndex > 0)
+                              IconButton(
+                                icon: const Icon(Icons.chevron_left, size: 50, color: Colors.white),
+                                onPressed: _prevPage,
+                              )
+                            else
+                              const SizedBox(width: 64),
+                            if (_currentIndex < _gallery.length - 1)
+                              IconButton(
+                                icon: const Icon(Icons.chevron_right, size: 50, color: Colors.white),
+                                onPressed: _nextPage,
+                              )
+                            else
+                              const SizedBox(width: 64),
+                          ],
                         ),
                       ),
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        // _CircleButton(
-                        //   icon: Icons.alternate_email,
-                        //   onPressed: () {
-                        //     Navigator.pop(context);
-                        //     widget.onMention?.call();
-                        //   },
-                        // ),
-                        // const SizedBox(width: 8),
-                        _CircleButton(
-                          icon: Icons.download_rounded,
-                          onPressed: _downloadMedia,
-                        ),
-                      ],
+
+                    // Top Controls
+                    Positioned(
+                      top: MediaQuery.of(context).padding.top + 10,
+                      left: 20,
+                      right: 20,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          _CircleButton(
+                            icon: Icons.close,
+                            onPressed: () => Navigator.pop(context),
+                          ),
+                          if (currentMedia != null)
+                            Text(
+                              currentMedia.mediaType.toUpperCase(),
+                              style: AppTypography.inter(
+                                color: Colors.white54,
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 2,
+                              ),
+                            ),
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              // _CircleButton(
+                              //   icon: Icons.alternate_email,
+                              //   onPressed: () {
+                              //     Navigator.pop(context);
+                              //     widget.onMention?.call();
+                              //   },
+                              // ),
+                              // const SizedBox(width: 8),
+                              _CircleButton(
+                                icon: Icons.download_rounded,
+                                onPressed: _downloadMedia,
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ),
@@ -291,10 +297,13 @@ class _MediaViewerState extends State<MediaViewer> {
 
               // Bottom Actions
               if (widget.onApprove != null || widget.onReject != null)
-                Positioned(
-                  bottom: MediaQuery.of(context).padding.bottom + 30,
-                  left: 24,
-                  right: 24,
+                Padding(
+                  padding: EdgeInsets.only(
+                    bottom: MediaQuery.of(context).padding.bottom + 20,
+                    left: 24,
+                    right: 24,
+                    top: 16,
+                  ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
