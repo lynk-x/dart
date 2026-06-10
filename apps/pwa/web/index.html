@@ -36,14 +36,14 @@
 
   <!-- SEO -->
   <title>Lynk-X — Discover &amp; Attend Events</title>
-  <meta name="description" content="Lynk-X is the ultimate event app. Discover, purchase tickets, and connect with your community through unforgettable live events.">
+  <meta name="description" content="Lynk-X is the ultimate event app. Discover, purchase tickets and connect with your community through unforgettable live events.">
   <meta name="keywords" content="events, tickets, live events, event discovery, lynk-x">
 
   <!-- PWA: Theme & Display -->
   <meta name="theme-color" content="#000000">
   <meta name="color-scheme" content="dark">
   <link rel="manifest" href="manifest.json">
-  <link rel="preload" href="assets/images/official_lynk-x_combined-logo.svg" as="image" type="image/svg+xml">
+  <link rel="preload" href="assets/assets/images/official_lynk-x_combined-logo.svg" as="image" type="image/svg+xml">
 
 
   <!-- PWA: iOS / Safari specific -->
@@ -94,7 +94,7 @@
 </head>
 <body>
   <div id="loading" class="loading-container">
-    <img src="assets/images/official_lynk-x_combined-logo.svg" alt="Lynk-X" style="width: 160px; height: auto; margin-bottom: 32px; animation: pulse 2s infinite ease-in-out;">
+    <img src="assets/assets/images/official_lynk-x_combined-logo.svg" alt="Lynk-X" style="width: 160px; height: auto; margin-bottom: 32px; animation: pulse 2s infinite ease-in-out;">
     <span class="loader"></span>
   </div>
   <script src="flutter_bootstrap.js" async></script>
@@ -220,34 +220,82 @@
         navigator.serviceWorker.register('/service-worker.js').then((reg) => {
           console.log('[SW] Registered:', reg.scope);
 
+          // Function to show the update banner
+          function showUpdateBanner(worker) {
+            if (sessionStorage.getItem('sw-update-dismissed') === 'true') {
+              return;
+            }
+            if (document.getElementById('sw-update-banner')) return;
+
+            const banner = document.createElement('div');
+            banner.id = 'sw-update-banner';
+            banner.innerHTML = `
+              <div style="
+                position:fixed; bottom:20px; left:50%; transform:translateX(-50%);
+                background:#20F928; color:#000; padding:12px 24px;
+                border-radius:12px; font-family:Inter,sans-serif; font-size:14px;
+                font-weight:600; z-index:99999;
+                box-shadow:0 4px 20px rgba(32,249,40,0.3);
+                display:flex; align-items:center; gap:16px;
+              ">
+                <span style="cursor:pointer;" onclick="updateApp()">
+                  ✨ New version available — tap to update
+                </span>
+                <span style="
+                  cursor:pointer; font-size:18px; padding-left:8px;
+                  border-left:1px solid rgba(0,0,0,0.15); display:inline-flex;
+                  align-items:center; height:100%;
+                " onclick="dismissUpdateBanner()">
+                  ✕
+                </span>
+              </div>
+            `;
+            
+            window.updateApp = () => {
+              sessionStorage.removeItem('sw-update-dismissed');
+              if (worker) {
+                worker.postMessage({ type: 'SKIP_WAITING' });
+              }
+              // Fallback reload if controllerchange doesn't fire
+              setTimeout(() => {
+                window.location.reload();
+              }, 800);
+            };
+
+            window.dismissUpdateBanner = () => {
+              sessionStorage.setItem('sw-update-dismissed', 'true');
+              banner.remove();
+            };
+
+            document.body.appendChild(banner);
+          }
+
+          // Handle waiting worker on load (already loaded/reloaded but waiting)
+          if (reg.waiting && navigator.serviceWorker.controller) {
+            showUpdateBanner(reg.waiting);
+          }
+
           // Detect when a new service worker is available (new deploy)
           reg.addEventListener('updatefound', () => {
             const newWorker = reg.installing;
             if (!newWorker) return;
 
             newWorker.addEventListener('statechange', () => {
-              if (newWorker.state === 'activated' && navigator.serviceWorker.controller) {
-                // New version is ready — show a non-intrusive update prompt.
-                // We don't force-reload because the user might be mid-chat.
-                const banner = document.createElement('div');
-                banner.id = 'sw-update-banner';
-                banner.innerHTML = `
-                  <div style="
-                    position:fixed; bottom:20px; left:50%; transform:translateX(-50%);
-                    background:#20F928; color:#000; padding:12px 24px;
-                    border-radius:12px; font-family:Inter,sans-serif; font-size:14px;
-                    font-weight:600; z-index:99999; cursor:pointer;
-                    box-shadow:0 4px 20px rgba(32,249,40,0.3);
-                    display:flex; align-items:center; gap:8px;
-                  " onclick="window.location.reload()">
-                    ✨ New version available — tap to update
-                  </div>
-                `;
-                document.body.appendChild(banner);
+              if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                showUpdateBanner(newWorker);
               }
             });
           });
         }).catch((err) => console.warn('[SW] Registration failed:', err));
+
+        // Reload the page when the new service worker takes over
+        let refreshing = false;
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+          if (!refreshing) {
+            window.location.reload();
+            refreshing = true;
+          }
+        });
 
         // 2. Firebase Messaging SW (background push notifications)
         navigator.serviceWorker.register('/firebase-messaging-sw.js', {
@@ -306,7 +354,6 @@
           if (!deferredInstallPrompt) return;
           deferredInstallPrompt.prompt();
           const { outcome } = await deferredInstallPrompt.userChoice;
-          console.log(`[PWA Install] User choice: ${outcome}`);
           deferredInstallPrompt = null;
           if (outcome === 'accepted') {
             installBanner.remove();
