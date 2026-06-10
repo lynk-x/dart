@@ -5,6 +5,7 @@ import 'package:lynk_x/data/repositories/repositories.dart';
 import 'package:lynk_x/presentation/features/forum/models/forum_model.dart';
 import 'package:lynk_x/core/sync/sync_item.dart';
 import 'package:lynk_x/core/sync/sync_manager.dart';
+import 'package:lynk_x/core/utils/storage_utils.dart';
 import 'base_message_cubit.dart';
 import 'forum_chat_state.dart';
 
@@ -132,8 +133,24 @@ class ForumChatCubit extends BaseMessageCubit<ForumChatState> {
               .toList()
           : data;
 
-      final messages =
+      var messages =
           filtered.map((json) => ChatMessage.fromMap(json, userId)).toList();
+
+      final mediaMessages = messages.where((m) => m.imageUrl != null && m.imageUrl!.isNotEmpty).toList();
+      if (mediaMessages.isNotEmpty) {
+        final urls = mediaMessages.map((m) => m.imageUrl!).toList();
+        final signedMap = await batchSignStorageUrls(urls, 'forum_media');
+        messages = messages.map((m) {
+          if (m.imageUrl != null && m.imageUrl!.isNotEmpty) {
+            final path = getPathFromStorageUrl(m.imageUrl!, 'forum_media');
+            final signed = signedMap[path];
+            if (signed != null) {
+              return m.copyWith(imageUrl: signed, thumbnailUrl: signed);
+            }
+          }
+          return m;
+        }).toList();
+      }
 
       if (!isClosed) {
         emit(state.copyWith(messages: messages, isLoading: false));
@@ -159,8 +176,24 @@ class ForumChatCubit extends BaseMessageCubit<ForumChatState> {
         before: oldest,
       );
 
-      final more =
+      var more =
           data.map((json) => ChatMessage.fromMap(json, userId)).toList();
+
+      final mediaMessages = more.where((m) => m.imageUrl != null && m.imageUrl!.isNotEmpty).toList();
+      if (mediaMessages.isNotEmpty) {
+        final urls = mediaMessages.map((m) => m.imageUrl!).toList();
+        final signedMap = await batchSignStorageUrls(urls, 'forum_media');
+        more = more.map((m) {
+          if (m.imageUrl != null && m.imageUrl!.isNotEmpty) {
+            final path = getPathFromStorageUrl(m.imageUrl!, 'forum_media');
+            final signed = signedMap[path];
+            if (signed != null) {
+              return m.copyWith(imageUrl: signed, thumbnailUrl: signed);
+            }
+          }
+          return m;
+        }).toList();
+      }
 
       if (!isClosed) {
         emit(state.copyWith(

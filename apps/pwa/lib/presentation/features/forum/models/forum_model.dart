@@ -275,6 +275,28 @@ class ForumMedia {
       'created_at': createdAt.toIso8601String(),
     };
   }
+
+  ForumMedia copyWith({
+    String? id,
+    String? url,
+    String? thumbnailUrl,
+    String? mediaType,
+    String? caption,
+    String? uploaderId,
+    bool? isApproved,
+    DateTime? createdAt,
+  }) {
+    return ForumMedia(
+      id: id ?? this.id,
+      url: url ?? this.url,
+      thumbnailUrl: thumbnailUrl ?? this.thumbnailUrl,
+      mediaType: mediaType ?? this.mediaType,
+      caption: caption ?? this.caption,
+      uploaderId: uploaderId ?? this.uploaderId,
+      isApproved: isApproved ?? this.isApproved,
+      createdAt: createdAt ?? this.createdAt,
+    );
+  }
 }
 
 class LinkPreviewData {

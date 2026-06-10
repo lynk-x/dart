@@ -5,6 +5,7 @@ import 'package:hydrated_bloc/hydrated_bloc.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 import 'package:lynk_x/presentation/features/forum/models/forum_model.dart';
+import 'package:lynk_x/core/utils/storage_utils.dart';
 import 'base_message_state.dart';
 
 abstract class BaseMessageCubit<T extends BaseMessageState> extends HydratedCubit<T> {
@@ -138,7 +139,31 @@ abstract class BaseMessageCubit<T extends BaseMessageState> extends HydratedCubi
   void onBroadcastMessageReceived(ChatMessage msg) {
     if (msg.userId == userId) return;
     if (state.messages.any((m) => m.id == msg.id)) return;
-    if (!isClosed) emit(copyWithState(messages: [msg, ...state.messages]));
+    if (msg.imageUrl != null && msg.imageUrl!.isNotEmpty) {
+      _signMessageUrlAndEmit(msg);
+    } else {
+      if (!isClosed) emit(copyWithState(messages: [msg, ...state.messages]));
+    }
+  }
+
+  Future<void> _signMessageUrlAndEmit(ChatMessage msg) async {
+    try {
+      final path = getPathFromStorageUrl(msg.imageUrl!, 'forum_media');
+      if (path.isNotEmpty) {
+        final signedUrl = await Supabase.instance.client.storage
+            .from('forum_media')
+            .createSignedUrl(path, 7200);
+        final updatedMsg = msg.copyWith(
+          imageUrl: signedUrl,
+          thumbnailUrl: signedUrl,
+        );
+        if (!isClosed) emit(copyWithState(messages: [updatedMsg, ...state.messages]));
+      } else {
+        if (!isClosed) emit(copyWithState(messages: [msg, ...state.messages]));
+      }
+    } catch (_) {
+      if (!isClosed) emit(copyWithState(messages: [msg, ...state.messages]));
+    }
   }
 
   Future<void> refresh();

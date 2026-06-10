@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:uuid/uuid.dart';
 import 'package:lynk_x/presentation/features/forum/models/forum_model.dart';
+import 'package:lynk_x/core/utils/storage_utils.dart';
 import 'forum_media_state.dart';
 
 class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
@@ -40,7 +41,20 @@ class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
       }
 
       final data = await query.order('created_at', ascending: false).limit(20);
-      final media = data.map((json) => ForumMedia.fromMap(json)).toList();
+      var media = data.map((json) => ForumMedia.fromMap(json)).toList();
+
+      if (media.isNotEmpty) {
+        final urls = media.map((m) => m.url).toList();
+        final signedMap = await batchSignStorageUrls(urls, 'forum_media');
+        media = media.map((m) {
+          final path = getPathFromStorageUrl(m.url, 'forum_media');
+          final signed = signedMap[path];
+          if (signed != null) {
+            return m.copyWith(url: signed, thumbnailUrl: signed);
+          }
+          return m;
+        }).toList();
+      }
 
       if (!isClosed) {
         emit(state.copyWith(mediaItems: media, isLoading: false));
@@ -71,7 +85,20 @@ class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
           .order('created_at', ascending: false)
           .range(startIndex, startIndex + 20);
 
-      final more = data.map((json) => ForumMedia.fromMap(json)).toList();
+      var more = data.map((json) => ForumMedia.fromMap(json)).toList();
+
+      if (more.isNotEmpty) {
+        final urls = more.map((m) => m.url).toList();
+        final signedMap = await batchSignStorageUrls(urls, 'forum_media');
+        more = more.map((m) {
+          final path = getPathFromStorageUrl(m.url, 'forum_media');
+          final signed = signedMap[path];
+          if (signed != null) {
+            return m.copyWith(url: signed, thumbnailUrl: signed);
+          }
+          return m;
+        }).toList();
+      }
 
       if (!isClosed) {
         emit(state.copyWith(

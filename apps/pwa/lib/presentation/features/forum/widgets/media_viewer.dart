@@ -1,3 +1,6 @@
+// ignore_for_file: avoid_web_libraries_in_flutter, deprecated_member_use
+
+import 'dart:html' as html;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
@@ -5,6 +8,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:photo_view/photo_view.dart';
 import 'package:video_player/video_player.dart';
+import 'package:http/http.dart' as http;
 import 'package:lynk_x/presentation/features/forum/models/forum_model.dart';
 import 'package:lynk_x/presentation/features/forum/cubit/forum_media_cubit.dart';
 import 'package:lynk_x/presentation/features/forum/cubit/forum_media_state.dart';
@@ -147,7 +151,35 @@ class _MediaViewerState extends State<MediaViewer> {
     if (_gallery.isEmpty) return;
     final targetUrl = _gallery[_currentIndex].url;
     final uri = Uri.tryParse(targetUrl);
-    if (uri != null) {
+    if (uri == null) return;
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Starting download...'),
+        duration: Duration(seconds: 2),
+      ),
+    );
+
+    try {
+      final response = await http.get(uri);
+      if (response.statusCode == 200) {
+        final segments = uri.pathSegments;
+        final filename = segments.isNotEmpty ? segments.last : 'download';
+        final blob = html.Blob([response.bodyBytes]);
+        final blobUrl = html.Url.createObjectUrlFromBlob(blob);
+        final anchor = html.AnchorElement(href: blobUrl)
+          ..setAttribute("download", filename)
+          ..style.display = 'none';
+        html.document.body?.children.add(anchor);
+        anchor.click();
+        anchor.remove();
+        html.Url.revokeObjectUrl(blobUrl);
+      } else {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      }
+    } catch (e) {
+      debugPrint('[MediaViewer] Download failed: $e');
       await launchUrl(uri, mode: LaunchMode.externalApplication);
     }
   }
@@ -283,32 +315,38 @@ class _MediaViewerState extends State<MediaViewer> {
               if (widget.onApprove != null || widget.onReject != null)
                 Positioned(
                   bottom: MediaQuery.of(context).padding.bottom + 30,
-                  left: 0,
-                  right: 0,
+                  left: 24,
+                  right: 24,
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       if (widget.onApprove != null) ...[
-                        _ActionButton(
-                          icon: Icons.check_circle_outline,
-                          label: 'Approve',
-                          color: Colors.greenAccent,
-                          onTap: () {
-                            widget.onApprove?.call();
-                            Navigator.pop(context);
-                          },
+                        Expanded(
+                          child: PrimaryButton(
+                            icon: Icons.check_circle_outline,
+                            text: 'Approve',
+                            backgroundColor: Colors.greenAccent.withValues(alpha: 0.8),
+                            textColor: Colors.black,
+                            onPressed: () {
+                              widget.onApprove?.call();
+                              Navigator.pop(context);
+                            },
+                          ),
                         ),
                         if (widget.onReject != null) const SizedBox(width: 16),
                       ],
                       if (widget.onReject != null)
-                        _ActionButton(
-                          icon: Icons.delete_outline,
-                          label: 'Reject',
-                          color: Colors.redAccent,
-                          onTap: () {
-                            widget.onReject?.call();
-                            Navigator.pop(context);
-                          },
+                        Expanded(
+                          child: PrimaryButton(
+                            icon: Icons.delete_outline,
+                            text: 'Reject',
+                            backgroundColor: Colors.redAccent.withValues(alpha: 0.8),
+                            textColor: Colors.white,
+                            onPressed: () {
+                              widget.onReject?.call();
+                              Navigator.pop(context);
+                            },
+                          ),
                         ),
                     ],
                   ),
@@ -552,46 +590,3 @@ class _CircleButton extends StatelessWidget {
   }
 }
 
-class _ActionButton extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final Color color;
-  final VoidCallback onTap;
-
-  const _ActionButton({
-    required this.icon,
-    required this.label,
-    required this.color,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(30),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-        decoration: BoxDecoration(
-          color: Colors.black.withValues(alpha: 0.6),
-          borderRadius: BorderRadius.circular(30),
-          border: Border.all(color: color.withValues(alpha: 0.5)),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, color: color, size: 20),
-            const SizedBox(width: 8),
-            Text(
-              label,
-              style: AppTypography.inter(
-                color: color,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
