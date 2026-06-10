@@ -39,8 +39,6 @@ class ForumPresenceCubit extends Cubit<ForumPresenceState> {
   }
 
   Future<void> _setupPresenceListeners() async {
-    debugPrint('[ForumPresenceCubit] Setting up presence listeners for $forumId');
-
     // Register the sync callback BEFORE tracking so the initial sync is caught.
     channel?.onPresenceSync((_) {
       if (!isClosed) _updatePresenceFromChannel();
@@ -62,18 +60,14 @@ class ForumPresenceCubit extends Cubit<ForumPresenceState> {
   void _updatePresenceFromChannel() {
     final presenceStates = channel?.presenceState();
     if (presenceStates == null) {
-      debugPrint('[ForumPresenceCubit] presenceState() returned null');
       return;
     }
-
-    debugPrint('[ForumPresenceCubit] presenceState() type: ${presenceStates.runtimeType}, length: ${presenceStates.length}');
 
     final List<Map<String, dynamic>> users = [];
     final Set<String> uniqueUserIds = {};
 
     for (final presence in presenceStates) {
       final presences = presence.presences;
-      debugPrint('[ForumPresenceCubit] presences type: ${presences.runtimeType}, length: ${presences.length}');
       for (final p in presences) {
         final data = Map<String, dynamic>.from(p.payload);
         final uid = data['user_id'] as String? ?? data['id'] as String?;
@@ -100,15 +94,12 @@ class ForumPresenceCubit extends Cubit<ForumPresenceState> {
       };
       uniqueUserIds.add(userId);
       users.add(me);
-      debugPrint('[ForumPresenceCubit] Added current user to list (server sync delayed)');
     }
 
-    debugPrint('[ForumPresenceCubit] Sync complete. Online users: ${users.length}');
     if (!isClosed) emit(state.copyWith(onlineUsers: users));
   }
 
   Future<void> _trackUser() async {
-    debugPrint('[ForumPresenceCubit] Tracking user: $userId ($userName)');
     try {
       await channel?.track({
         'user_id': userId,

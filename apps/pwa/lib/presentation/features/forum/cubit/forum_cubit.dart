@@ -168,7 +168,6 @@ class ForumCubit extends Cubit<ForumState> {
           forumCreatedAtFromDb = forumCreatedAtRaw != null
               ? DateTime.parse(forumCreatedAtRaw as String)
               : null;
-          debugPrint('[ForumCubit] forum: createdAt=$forumCreatedAtFromDb accountId=$accountIdFromDb');
           forumName = forumData['event_title'] as String? ?? 'Community Forum';
         }
 
@@ -178,9 +177,6 @@ class ForumCubit extends Cubit<ForumState> {
           channelCreatedAtFromDb = channelCreatedAtRaw != null
               ? DateTime.parse(channelCreatedAtRaw as String)
               : null;
-          debugPrint('[ForumCubit] channel: id=$channelIdFromDb createdAt=$channelCreatedAtFromDb');
-        } else {
-          debugPrint('[ForumCubit] channel: null (no open channel found)');
         }
 
         if (memberData != null) {
@@ -213,7 +209,6 @@ class ForumCubit extends Cubit<ForumState> {
           channelId: channelIdFromDb,
           channelCreatedAt: channelCreatedAtFromDb,
         ));
-        debugPrint('[ForumCubit] emit: forumCreatedAt=$forumCreatedAtFromDb accountId=$accountIdFromDb channelId=$channelIdFromDb');
 
         if (eventIdFromDb != null) {
           _syncEventProgress(eventIdFromDb, eventCreatedAtFromDb);

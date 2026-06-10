@@ -88,7 +88,6 @@ class ForumPage extends StatelessWidget {
                    final flagEnabled = context
                        .read<FeatureFlagCubit>()
                        .isEnabled('enable_realtime_presence');
-                   debugPrint('[ForumScreen] enable_realtime_presence=$flagEnabled');
                    if (flagEnabled) {
                      cubit.init();
                    }
@@ -244,7 +243,6 @@ class _ForumViewState extends State<ForumView> {
               p.channelId != c.channelId ||
               p.channelCreatedAt != c.channelCreatedAt,
           listener: (context, state) {
-            debugPrint('[ForumScreen] syncing: forumCreatedAt=${state.forumCreatedAt} accountId=${state.accountId} channelId=${state.channelId} channelCreatedAt=${state.channelCreatedAt}');
             context.read<ForumUpdatesCubit>().syncForumContext(
                   forumCreatedAt: state.forumCreatedAt,
                   channelId: state.channelId,

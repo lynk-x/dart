@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class ForumRepository {
@@ -29,9 +28,6 @@ class ForumRepository {
         .eq('forum_id', forumId)
         .limit(1)
         .maybeSingle();
-
-    debugPrint(
-        '[ForumRepository] forumData: id=${forumData?['id']} created_at=${forumData?['created_at']} account_id=${forumData?['account_id']} member=$memberData channel=$channelData');
 
     return {
       'forum': forumData,
@@ -74,9 +70,6 @@ class ForumRepository {
         .eq('forum_id', forumId)
         .limit(1)
         .maybeSingle();
-
-    debugPrint(
-        '[ForumRepository] forumDataByRef: id=$forumId reference=$reference member=$memberData channel=$channelData');
 
     return {
       'forum': forumData,

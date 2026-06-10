@@ -86,7 +86,6 @@ class ForumChatCubit extends BaseMessageCubit<ForumChatState> {
     String? channelId,
     DateTime? channelCreatedAt,
   }) {
-    debugPrint('[ForumChatCubit] syncForumContext: forum_created_at=$forumCreatedAt channelId=$channelId channelCreatedAt=$channelCreatedAt');
     this.forumCreatedAt = forumCreatedAt;
     this.channelId = channelId;
     this.channelCreatedAt = channelCreatedAt;
@@ -272,7 +271,6 @@ class ForumChatCubit extends BaseMessageCubit<ForumChatState> {
           if (replyCreatedAt != null) 'reply_to_created_at': replyCreatedAt,
         },
       ));
-      debugPrint('[ForumChatCubit] payload: forum_created_at=$forumCreatedAt channelId=$channelId channelCreatedAt=$channelCreatedAt');
 
       // Broadcast immediately (Optimistic Broadcast)
       channel?.sendBroadcastMessage(
