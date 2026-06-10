@@ -105,9 +105,6 @@ class QuizBuilderCubit extends Cubit<QuizBuilderState> {
 
   void reorderQuestions(int oldIndex, int newIndex) {
     final updatedQuestions = List<DraftQuestion>.from(state.draft.questions);
-    if (oldIndex < newIndex) {
-      newIndex -= 1;
-    }
     final item = updatedQuestions.removeAt(oldIndex);
     updatedQuestions.insert(newIndex, item);
     emit(state.copyWith(

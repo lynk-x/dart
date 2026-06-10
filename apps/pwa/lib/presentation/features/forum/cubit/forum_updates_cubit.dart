@@ -6,7 +6,6 @@ import 'base_message_cubit.dart';
 import 'forum_updates_state.dart';
 
 class ForumUpdatesCubit extends BaseMessageCubit<ForumUpdatesState> {
-  String? accountId;
   DateTime? forumCreatedAt;
   String? channelId;
   DateTime? channelCreatedAt;
@@ -15,7 +14,6 @@ class ForumUpdatesCubit extends BaseMessageCubit<ForumUpdatesState> {
     required super.forumId,
     required super.userId,
     required super.userName,
-    this.accountId,
     this.forumCreatedAt,
     this.channelId,
     this.channelCreatedAt,
@@ -56,12 +54,10 @@ class ForumUpdatesCubit extends BaseMessageCubit<ForumUpdatesState> {
 
   void syncForumContext({
     required DateTime? forumCreatedAt,
-    required String? accountId,
     String? channelId,
     DateTime? channelCreatedAt,
   }) {
     this.forumCreatedAt = forumCreatedAt;
-    this.accountId = accountId;
     this.channelId = channelId;
     this.channelCreatedAt = channelCreatedAt;
   }
@@ -204,7 +200,6 @@ class ForumUpdatesCubit extends BaseMessageCubit<ForumUpdatesState> {
         'id': messageId,
         'forum_id': forumId,
         'forum_created_at': forumCreatedAt?.toIso8601String(),
-        if (accountId != null) 'account_id': accountId,
         if (channelId != null) 'channel_id': channelId,
         if (channelCreatedAt != null) 'channel_created_at': channelCreatedAt?.toIso8601String(),
         'author_id': userId,

@@ -32,27 +32,36 @@ import 'package:lynk_x/presentation/features/forum/widgets/welcome_banner.dart';
 import 'package:lynk_x/data/repositories/repository_providers.dart';
 
 class ForumPage extends StatelessWidget {
-  /// The forum to display. Provided as a path parameter via `/forum/:id`.
-  /// Always non-null — the router guarantees a valid UUID before mounting.
-  final String forumId;
-  const ForumPage({super.key, required this.forumId});
+  /// The forum to display. Provided as a path parameter via `/forum/:reference`.
+  /// Always non-null — the router guarantees a valid slug before mounting.
+  final String forumReference;
+  const ForumPage({super.key, required this.forumReference});
 
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
       create: (context) => ForumCubit(
         repo: forumRepository,
-        forumId: forumId,
+        forumReference: forumReference,
       )..init(),
       child: BlocBuilder<ForumCubit, ForumState>(
         builder: (context, state) {
+          final fId = state.forumId;
+          if (fId == null) {
+            return const Scaffold(
+              backgroundColor: AppColors.primaryBackground,
+              body: Center(
+                child: CircularProgressIndicator(),
+              ),
+            );
+          }
           final mainCubit = context.read<ForumCubit>();
           return MultiBlocProvider(
             providers: [
               BlocProvider(
                 create: (context) {
                   final ads = ForumAdsCubit(
-                    forumId: mainCubit.forumId,
+                    forumId: fId,
                     userId: mainCubit.userId,
                     isPremium: !state.showAds,
                   );
@@ -67,7 +76,7 @@ class ForumPage extends StatelessWidget {
                BlocProvider(
                  create: (context) {
                    final cubit = ForumPresenceCubit(
-                     forumId: mainCubit.forumId,
+                     forumId: fId,
                      userId: mainCubit.userId,
                      userName: mainCubit.userName,
                      isOrganizer: state.isOrganizer,
@@ -85,25 +94,41 @@ class ForumPage extends StatelessWidget {
                  },
                ),
                  BlocProvider(
-                   create: (context) => ForumUpdatesCubit(
-                     forumId: mainCubit.forumId,
-                     userId: mainCubit.userId,
-                     userName: mainCubit.userName,
-                     channel: mainCubit.channel,
-                   )..init(),
+                   create: (context) {
+                     final cubit = ForumUpdatesCubit(
+                       forumId: fId,
+                       userId: mainCubit.userId,
+                       userName: mainCubit.userName,
+                       channel: mainCubit.channel,
+                     )..init();
+                     cubit.syncForumContext(
+                       forumCreatedAt: state.forumCreatedAt,
+                       channelId: state.channelId,
+                       channelCreatedAt: state.channelCreatedAt,
+                     );
+                     return cubit;
+                   },
                  ),
                  BlocProvider(
-                   create: (context) => ForumChatCubit(
-                     forumId: mainCubit.forumId,
-                     userId: mainCubit.userId,
-                     userName: mainCubit.userName,
-                     repo: forumRepository,
-                     channel: mainCubit.channel,
-                   )..init(),
+                   create: (context) {
+                     final cubit = ForumChatCubit(
+                       forumId: fId,
+                       userId: mainCubit.userId,
+                       userName: mainCubit.userName,
+                       repo: forumRepository,
+                       channel: mainCubit.channel,
+                     )..init();
+                     cubit.syncForumContext(
+                       forumCreatedAt: state.forumCreatedAt,
+                       channelId: state.channelId,
+                       channelCreatedAt: state.channelCreatedAt,
+                     );
+                     return cubit;
+                   },
                  ),
               BlocProvider(
                 create: (context) => ForumMediaCubit(
-                  forumId: mainCubit.forumId,
+                  forumId: fId,
                   userId: mainCubit.userId,
                   isOrganizer: state.isOrganizer,
                 )..init(),
@@ -219,13 +244,11 @@ class _ForumViewState extends State<ForumView> {
             debugPrint('[ForumScreen] syncing: forumCreatedAt=${state.forumCreatedAt} accountId=${state.accountId} channelId=${state.channelId} channelCreatedAt=${state.channelCreatedAt}');
             context.read<ForumUpdatesCubit>().syncForumContext(
                   forumCreatedAt: state.forumCreatedAt,
-                  accountId: state.accountId,
                   channelId: state.channelId,
                   channelCreatedAt: state.channelCreatedAt,
                 );
             context.read<ForumChatCubit>().syncForumContext(
                   forumCreatedAt: state.forumCreatedAt,
-                  accountId: state.accountId,
                   channelId: state.channelId,
                   channelCreatedAt: state.channelCreatedAt,
                 );
@@ -241,7 +264,7 @@ class _ForumViewState extends State<ForumView> {
       child: Scaffold(
         backgroundColor: AppColors.primaryBackground,
         endDrawer: _ForumPresenceDrawerWrapper(
-          forumId: cubit.forumId,
+          forumId: cubit.forumId ?? '',
           onEventProgressTap: () {
             final state = cubit.state;
             if (state.eventId == null || state.eventId!.isEmpty) {
@@ -255,7 +278,7 @@ class _ForumViewState extends State<ForumView> {
             }
             Navigator.of(context).pop();
             context.push(
-              '/forum/${cubit.forumId}/sessions',
+              '/forum/${cubit.forumReference}/sessions',
               extra: {
                 'eventId': state.eventId,
                 'isOrganizer': state.isOrganizer,

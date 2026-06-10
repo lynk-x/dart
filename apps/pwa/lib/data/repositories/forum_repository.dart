@@ -10,7 +10,7 @@ class ForumRepository {
     final forumData = await _client
         .schema('api')
         .from('v1_forums')
-        .select('account_id, status, event_id, event_created_at, event_title, created_at')
+        .select('id, account_id, status, event_id, event_created_at, event_title, created_at, reference')
         .eq('id', forumId)
         .maybeSingle();
 
@@ -32,6 +32,51 @@ class ForumRepository {
 
     debugPrint(
         '[ForumRepository] forumData: id=${forumData?['id']} created_at=${forumData?['created_at']} account_id=${forumData?['account_id']} member=$memberData channel=$channelData');
+
+    return {
+      'forum': forumData,
+      'member': memberData,
+      'channel': channelData,
+    };
+  }
+
+  Future<Map<String, dynamic>> getForumWithMemberStatusByReference(
+      String reference, String userId) async {
+    final forumData = await _client
+        .schema('api')
+        .from('v1_forums')
+        .select('id, account_id, status, event_id, event_created_at, event_title, created_at, reference')
+        .eq('reference', reference)
+        .maybeSingle();
+
+    if (forumData == null) {
+      return {
+        'forum': null,
+        'member': null,
+        'channel': null,
+      };
+    }
+
+    final forumId = forumData['id'] as String;
+
+    final memberData = await _client
+        .schema('social')
+        .from('forum_members')
+        .select('is_muted, has_muted_live_chats_media, role_id')
+        .eq('forum_id', forumId)
+        .eq('user_id', userId)
+        .maybeSingle();
+
+    final channelData = await _client
+        .schema('social')
+        .from('forum_channels')
+        .select('id, created_at')
+        .eq('forum_id', forumId)
+        .limit(1)
+        .maybeSingle();
+
+    debugPrint(
+        '[ForumRepository] forumDataByRef: id=$forumId reference=$reference member=$memberData channel=$channelData');
 
     return {
       'forum': forumData,

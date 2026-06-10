@@ -203,7 +203,7 @@
     },
     {
       "name": "meta",
-      "version": "1.17.0",
+      "version": "1.18.0",
       "dependencies": []
     },
     {
@@ -254,7 +254,7 @@
     },
     {
       "name": "matcher",
-      "version": "0.12.17",
+      "version": "0.12.19",
       "dependencies": [
         "async",
         "meta",
@@ -265,7 +265,7 @@
     },
     {
       "name": "test_api",
-      "version": "0.7.7",
+      "version": "0.7.11",
       "dependencies": [
         "async",
         "boolean_selector",
@@ -276,6 +276,20 @@
         "stream_channel",
         "string_scanner",
         "term_glyph"
+      ]
+    },
+    {
+      "name": "jovial_svg",
+      "version": "1.1.29",
+      "dependencies": [
+        "args",
+        "collection",
+        "flutter",
+        "http",
+        "jovial_misc",
+        "meta",
+        "vector_math",
+        "xml"
       ]
     },
     {
@@ -558,14 +572,14 @@
     },
     {
       "name": "material_color_utilities",
-      "version": "0.11.1",
+      "version": "0.13.0",
       "dependencies": [
         "collection"
       ]
     },
     {
       "name": "characters",
-      "version": "1.4.0",
+      "version": "1.4.1",
       "dependencies": []
     },
     {
@@ -615,6 +629,30 @@
       "dependencies": [
         "source_span",
         "string_scanner"
+      ]
+    },
+    {
+      "name": "jovial_misc",
+      "version": "0.10.0",
+      "dependencies": [
+        "async",
+        "collection",
+        "convert",
+        "meta"
+      ]
+    },
+    {
+      "name": "args",
+      "version": "2.7.0",
+      "dependencies": []
+    },
+    {
+      "name": "xml",
+      "version": "6.6.1",
+      "dependencies": [
+        "collection",
+        "meta",
+        "petitparser"
       ]
     },
     {
@@ -933,12 +971,18 @@
       "dependencies": []
     },
     {
-      "name": "xml",
-      "version": "6.6.1",
+      "name": "convert",
+      "version": "3.1.2",
+      "dependencies": [
+        "typed_data"
+      ]
+    },
+    {
+      "name": "petitparser",
+      "version": "7.0.1",
       "dependencies": [
         "collection",
-        "meta",
-        "petitparser"
+        "meta"
       ]
     },
     {
@@ -948,11 +992,6 @@
         "meta",
         "vector_math"
       ]
-    },
-    {
-      "name": "args",
-      "version": "2.7.0",
-      "dependencies": []
     },
     {
       "name": "file",
@@ -1029,14 +1068,6 @@
       ]
     },
     {
-      "name": "petitparser",
-      "version": "7.0.1",
-      "dependencies": [
-        "collection",
-        "meta"
-      ]
-    },
-    {
       "name": "pub_semver",
       "version": "2.2.0",
       "dependencies": [
@@ -1093,13 +1124,6 @@
       ]
     },
     {
-      "name": "convert",
-      "version": "3.1.2",
-      "dependencies": [
-        "typed_data"
-      ]
-    },
-    {
       "name": "pointycastle",
       "version": "4.0.0",
       "dependencies": [
@@ -1138,30 +1162,6 @@
       "name": "fixnum",
       "version": "1.1.1",
       "dependencies": []
-    },
-    {
-      "name": "jovial_svg",
-      "version": "1.1.29",
-      "dependencies": [
-        "args",
-        "collection",
-        "flutter",
-        "http",
-        "jovial_misc",
-        "meta",
-        "vector_math",
-        "xml"
-      ]
-    },
-    {
-      "name": "jovial_misc",
-      "version": "0.10.0",
-      "dependencies": [
-        "async",
-        "collection",
-        "convert",
-        "meta"
-      ]
     }
   ],
   "configVersion": 1

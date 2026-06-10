@@ -2,6 +2,7 @@ import 'package:equatable/equatable.dart';
 import 'package:lynk_x/presentation/features/forum/models/forum_model.dart';
 
 class ForumState extends Equatable {
+  final String? forumId;
   final String forumStatus;
   final String forumName;
   final String userName;
@@ -33,6 +34,7 @@ class ForumState extends Equatable {
   bool get isReadOnly => forumStatus == 'read_only';
 
   const ForumState({
+    this.forumId,
     this.forumStatus = 'open',
     this.forumName = 'Community Forum',
     this.userName = 'A User',
@@ -60,6 +62,7 @@ class ForumState extends Equatable {
   });
 
   ForumState copyWith({
+    String? forumId,
     String? forumStatus,
     String? forumName,
     String? userName,
@@ -87,6 +90,7 @@ class ForumState extends Equatable {
     int? waveTrigger,
   }) {
     return ForumState(
+      forumId: forumId ?? this.forumId,
       forumStatus: forumStatus ?? this.forumStatus,
       forumName: forumName ?? this.forumName,
       userName: userName ?? this.userName,
@@ -119,6 +123,7 @@ class ForumState extends Equatable {
 
   @override
   List<Object?> get props => [
+        forumId,
         forumStatus,
         forumName,
         userName,

@@ -75,7 +75,7 @@ class ForumWidget extends StatelessWidget {
                 Material(
                   color: Colors.transparent,
                   child: InkWell(
-                    onTap: () => context.push('/forum/${event.id}'),
+                    onTap: () => context.push('/forum/${event.forumReference ?? event.reference ?? event.id}'),
                     child: Padding(
                       padding: const EdgeInsets.all(16),
                       child: Column(
@@ -137,7 +137,7 @@ class ForumWidget extends StatelessWidget {
           child: Material(
             color: Colors.transparent,
             child: InkWell(
-              onTap: () => context.push('/forum/${event.id}'),
+              onTap: () => context.push('/forum/${event.forumReference ?? event.reference ?? event.id}'),
               child: Padding(
                 padding: const EdgeInsets.all(8),
                 child: Row(

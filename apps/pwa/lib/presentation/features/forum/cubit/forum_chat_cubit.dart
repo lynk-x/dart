@@ -14,7 +14,6 @@ class ForumChatCubit extends BaseMessageCubit<ForumChatState> {
   Timer? _hideTypingTimer;
   StreamSubscription? _syncSubscription;
   DateTime? forumCreatedAt;
-  String? accountId;
   String? channelId;
   DateTime? channelCreatedAt;
 
@@ -23,7 +22,6 @@ class ForumChatCubit extends BaseMessageCubit<ForumChatState> {
     required super.userId,
     required super.userName,
     this.forumCreatedAt,
-    this.accountId,
     this.channelId,
     this.channelCreatedAt,
     required ForumRepository repo,
@@ -79,13 +77,11 @@ class ForumChatCubit extends BaseMessageCubit<ForumChatState> {
 
   void syncForumContext({
     required DateTime? forumCreatedAt,
-    required String? accountId,
     String? channelId,
     DateTime? channelCreatedAt,
   }) {
-    debugPrint('[ForumChatCubit] syncForumContext: forum_created_at=$forumCreatedAt accountId=$accountId channelId=$channelId channelCreatedAt=$channelCreatedAt');
+    debugPrint('[ForumChatCubit] syncForumContext: forum_created_at=$forumCreatedAt channelId=$channelId channelCreatedAt=$channelCreatedAt');
     this.forumCreatedAt = forumCreatedAt;
-    this.accountId = accountId;
     this.channelId = channelId;
     this.channelCreatedAt = channelCreatedAt;
   }
@@ -226,7 +222,6 @@ class ForumChatCubit extends BaseMessageCubit<ForumChatState> {
           'id': messageId,
           'forum_id': forumId,
           'forum_created_at': forumCreatedAt?.toIso8601String(),
-          if (accountId != null) 'account_id': accountId,
           if (channelId != null) 'channel_id': channelId,
           if (channelCreatedAt != null) 'channel_created_at': channelCreatedAt?.toIso8601String(),
           'author_id': userId,
@@ -239,7 +234,7 @@ class ForumChatCubit extends BaseMessageCubit<ForumChatState> {
           if (replyCreatedAt != null) 'reply_to_created_at': replyCreatedAt,
         },
       ));
-      debugPrint('[ForumChatCubit] payload: forum_created_at=$forumCreatedAt accountId=$accountId channelId=$channelId channelCreatedAt=$channelCreatedAt');
+      debugPrint('[ForumChatCubit] payload: forum_created_at=$forumCreatedAt channelId=$channelId channelCreatedAt=$channelCreatedAt');
 
       // Broadcast immediately (Optimistic Broadcast)
       channel?.sendBroadcastMessage(

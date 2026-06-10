@@ -154,13 +154,13 @@ GoRouter createRouter(
         ),
       ),
       GoRoute(
-        path: '/forum/:id',
+        path: '/forum/:reference',
         builder: (_, state) {
-          final forumId = state.pathParameters['id']!;
+          final forumReference = state.pathParameters['reference']!;
           return Title(
             title: 'Forum',
             color: Colors.black,
-            child: ForumPage(forumId: forumId),
+            child: ForumPage(forumReference: forumReference),
           );
         },
         routes: [

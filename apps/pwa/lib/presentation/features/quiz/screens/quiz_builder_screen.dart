@@ -106,7 +106,7 @@ class QuizBuilderView extends StatelessWidget {
           body: ReorderableListView.builder(
             padding: const EdgeInsets.all(16),
             itemCount: draft.questions.length,
-            onReorder: cubit.reorderQuestions,
+            onReorderItem: cubit.reorderQuestions,
             itemBuilder: (context, index) {
               final q = draft.questions[index];
               return QuestionEditorCard(

@@ -25,11 +25,13 @@ class EventModel extends Equatable {
   final int? totalCapacity;
   final int chatCount;
   final DateTime? createdAt;
+  final String? forumReference;
 
   const EventModel({
     required this.id,
     this.accountId,
     this.reference,
+    this.forumReference,
     required this.title,
     required this.description,
     required this.startDatetime,
@@ -80,6 +82,7 @@ class EventModel extends Equatable {
       id: (map['event_id'] ?? map['id']) as String,
       accountId: map['account_id'] as String?,
       reference: map['reference'] as String?,
+      forumReference: map['forum_reference'] as String?,
       title: (map['event_title'] ?? map['title']) as String,
       description: map['description'] as String? ?? '',
       startDatetime: DateTime.parse(startRaw as String),
@@ -105,6 +108,7 @@ class EventModel extends Equatable {
         id,
         accountId,
         reference,
+        forumReference,
         title,
         description,
         startDatetime,

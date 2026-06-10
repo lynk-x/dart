@@ -10,7 +10,8 @@ import 'package:lynk_core/core.dart';
 /// The core ForumCubit handling global state, permissions, members, and coordination.
 class ForumCubit extends Cubit<ForumState> {
   final ForumRepository _repo;
-  final String forumId;
+  final String forumReference;
+  String? forumId;
   late String userId;
   late String userName;
   RealtimeChannel? _channel;
@@ -20,26 +21,25 @@ class ForumCubit extends Cubit<ForumState> {
 
   ForumCubit({
     required ForumRepository repo,
-    this.forumId = '00000000-0000-0000-0000-000000000000',
+    required this.forumReference,
   })  : _repo = repo,
         super(const ForumState()) {
     final user = Supabase.instance.client.auth.currentUser; // keep — auth, not data
     userId = user?.id ?? kGuestUserId;
     userName = 'A User';
-    _channel = Supabase.instance.client.channel('forum_$forumId'); // keep — broadcast channel, not data
-    _channel?.subscribe();
-    // userName is intentionally not emitted here — _syncUserStatus sets it
-    // from user_profile.user_name which is the canonical display name.
   }
 
   Future<void> init() async {
     await _loadCachedPermissions();
     await _syncUserStatus();
-    await refreshMembers();
-    _setupUserStatusListener();
-    _setupForumStatusListener();
-    _setupReactionListeners();
-    _markAsRead();
+    final fId = forumId;
+    if (fId != null) {
+      await refreshMembers();
+      _setupUserStatusListener();
+      _setupForumStatusListener();
+      _setupReactionListeners();
+      _markAsRead();
+    }
   }
 
   Future<void> _loadCachedPermissions() async {
@@ -47,8 +47,10 @@ class ForumCubit extends Cubit<ForumState> {
   }
 
   Future<void> refreshMembers() async {
+    final fId = forumId;
+    if (fId == null) return;
     try {
-      final data = await _repo.getForumMembers(forumId);
+      final data = await _repo.getForumMembers(fId);
 
       final members = data
           .map((json) => json['user_profile'] as Map<String, dynamic>?)
@@ -65,11 +67,12 @@ class ForumCubit extends Cubit<ForumState> {
   }
 
   void _setupUserStatusListener() {
-    if (userId == kGuestUserId) return;
+    final fId = forumId;
+    if (userId == kGuestUserId || fId == null) return;
 
-    _statusChannel = _repo.subscribeToMemberChanges(forumId, userId, (payload) {
+    _statusChannel = _repo.subscribeToMemberChanges(fId, userId, (payload) {
           final data = payload.newRecord;
-          if (data['forum_id'] == forumId) {
+          if (data['forum_id'] == fId) {
             final String? roleId = data['role_id'] as String?;
             final bool isMuted = data['is_muted'] == true;
             final bool hasMutedLiveChatsMedia =
@@ -89,6 +92,8 @@ class ForumCubit extends Cubit<ForumState> {
   }
 
   void _setupForumStatusListener() {
+    final fId = forumId;
+    if (fId == null) return;
     _channel?.onPostgresChanges(
       event: PostgresChangeEvent.update,
       schema: 'public',
@@ -96,7 +101,7 @@ class ForumCubit extends Cubit<ForumState> {
       filter: PostgresChangeFilter(
         type: PostgresChangeFilterType.eq,
         column: 'id',
-        value: forumId,
+        value: fId,
       ),
       callback: (payload) {
         final String? newStatus = payload.newRecord['status'] as String?;
@@ -142,12 +147,16 @@ class ForumCubit extends Cubit<ForumState> {
       DateTime? channelCreatedAtFromDb;
 
       try {
-        final result = await _repo.getForumWithMemberStatus(forumId, userId);
+        final result = await _repo.getForumWithMemberStatusByReference(forumReference, userId);
         final forumData = result['forum'] as Map<String, dynamic>?;
         final memberData = result['member'] as Map<String, dynamic>?;
         final channelData = result['channel'] as Map<String, dynamic>?;
 
         if (forumData != null) {
+          forumId = forumData['id'] as String;
+          _channel = Supabase.instance.client.channel('forum_$forumId'); // keep — broadcast channel, not data
+          _channel?.subscribe();
+
           forumStatus = forumData['status'] as String? ?? 'open';
           eventIdFromDb = forumData['event_id'] as String?;
           accountIdFromDb = forumData['account_id'] as String?;
@@ -187,6 +196,7 @@ class ForumCubit extends Cubit<ForumState> {
 
       if (!isClosed) {
         emit(state.copyWith(
+          forumId: forumId,
           userName: handle,
           isPremium: isPremium,
           showAds: !isPremium,
@@ -200,9 +210,9 @@ class ForumCubit extends Cubit<ForumState> {
           accountId: accountIdFromDb,
           eventCreatedAt: eventCreatedAtFromDb,
           forumCreatedAt: forumCreatedAtFromDb,
-           channelId: channelIdFromDb,
-           channelCreatedAt: channelCreatedAtFromDb,
-         ));
+          channelId: channelIdFromDb,
+          channelCreatedAt: channelCreatedAtFromDb,
+        ));
         debugPrint('[ForumCubit] emit: forumCreatedAt=$forumCreatedAtFromDb accountId=$accountIdFromDb channelId=$channelIdFromDb');
 
         if (eventIdFromDb != null) {
@@ -215,11 +225,12 @@ class ForumCubit extends Cubit<ForumState> {
   }
 
   Future<void> toggleMuteLiveChatsMedia(bool val) async {
-    if (userId == kGuestUserId) return;
+    final fId = forumId;
+    if (userId == kGuestUserId || fId == null) return;
     emit(state.copyWith(hasMutedLiveChatsMedia: val));
     try {
       await _repo.updateMemberSettings(
-        forumId,
+        fId,
         userId,
         {'has_muted_live_chats_media': val},
       );
@@ -243,9 +254,10 @@ class ForumCubit extends Cubit<ForumState> {
   }
 
   Future<void> _markAsRead() async {
-    if (userId == kGuestUserId) return;
+    final fId = forumId;
+    if (userId == kGuestUserId || fId == null) return;
     try {
-      await _repo.markForumAsRead(forumId);
+      await _repo.markForumAsRead(fId);
     } catch (e, stack) {
       debugPrint('[ForumCubit] Error: $e\n$stack');
     }
@@ -257,12 +269,13 @@ class ForumCubit extends Cubit<ForumState> {
 
   /// Returns `true` on success, `false` if permission denied or RPC failed.
   Future<bool> muteUser(String targetUserId, {String? reason}) async {
-    if (!state.isModerator) return false;
+    final fId = forumId;
+    if (!state.isModerator || fId == null) return false;
     try {
       await _repo.moderateUser(
         targetUserId: targetUserId,
         action: 'mute',
-        forumId: forumId,
+        forumId: fId,
         reason: reason,
       );
       return true;
@@ -274,12 +287,13 @@ class ForumCubit extends Cubit<ForumState> {
 
   /// Returns `true` on success, `false` if permission denied or RPC failed.
   Future<bool> banUser(String targetUserId, {String? reason}) async {
-    if (!state.isOrganizer) return false;
+    final fId = forumId;
+    if (!state.isOrganizer || fId == null) return false;
     try {
       await _repo.moderateUser(
         targetUserId: targetUserId,
         action: 'ban',
-        forumId: forumId,
+        forumId: fId,
         reason: reason ?? 'Banned by organizer',
       );
       return true;
@@ -290,8 +304,10 @@ class ForumCubit extends Cubit<ForumState> {
   }
 
   Future<void> makeModerator(String userIdToPromote) async {
+    final fId = forumId;
+    if (fId == null) return;
     try {
-      await _repo.updateMemberRole(forumId, userIdToPromote, 'moderator');
+      await _repo.updateMemberRole(fId, userIdToPromote, 'moderator');
     } catch (e, stack) {
       debugPrint('[ForumCubit] Error: $e\n$stack');
     }
@@ -329,9 +345,10 @@ class ForumCubit extends Cubit<ForumState> {
   }
 
   Future<void> updateForumStatus(String status) async {
-    if (!state.isOrganizer) return;
+    final fId = forumId;
+    if (!state.isOrganizer || fId == null) return;
     try {
-      await _repo.updateForumStatus(forumId, status);
+      await _repo.updateForumStatus(fId, status);
     } catch (e, stack) {
       debugPrint('[ForumCubit] Error: $e\n$stack');
     }
