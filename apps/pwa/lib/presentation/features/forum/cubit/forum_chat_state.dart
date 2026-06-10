@@ -10,6 +10,7 @@ class ForumChatState extends BaseMessageState {
     super.isLoading,
     super.searchQuery,
     super.replyingTo,
+    super.editingMessage,
     super.mentionedMedia,
     super.linkPreviews,
     super.showJumpToBottom,
@@ -23,6 +24,8 @@ class ForumChatState extends BaseMessageState {
     String? searchQuery,
     ChatMessage? replyingTo,
     bool clearReplyTo = false,
+    ChatMessage? editingMessage,
+    bool clearEditingMessage = false,
     ForumMedia? mentionedMedia,
     bool clearMentionedMedia = false,
     Map<String, LinkPreviewData>? linkPreviews,
@@ -36,6 +39,8 @@ class ForumChatState extends BaseMessageState {
       isLoading: isLoading ?? this.isLoading,
       searchQuery: searchQuery ?? this.searchQuery,
       replyingTo: clearReplyTo ? null : replyingTo ?? this.replyingTo,
+      editingMessage:
+          clearEditingMessage ? null : editingMessage ?? this.editingMessage,
       mentionedMedia:
           clearMentionedMedia ? null : mentionedMedia ?? this.mentionedMedia,
       linkPreviews: linkPreviews ?? this.linkPreviews,

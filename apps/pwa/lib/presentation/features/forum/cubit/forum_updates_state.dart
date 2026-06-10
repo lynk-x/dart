@@ -9,6 +9,7 @@ class ForumUpdatesState extends BaseMessageState {
     super.isLoading,
     super.searchQuery,
     super.replyingTo,
+    super.editingMessage,
     super.mentionedMedia,
     super.linkPreviews,
     super.showJumpToBottom,
@@ -21,6 +22,8 @@ class ForumUpdatesState extends BaseMessageState {
     String? searchQuery,
     ChatMessage? replyingTo,
     bool clearReplyTo = false,
+    ChatMessage? editingMessage,
+    bool clearEditingMessage = false,
     String? selectedCategory,
     bool clearCategory = false,
     ForumMedia? mentionedMedia,
@@ -33,6 +36,8 @@ class ForumUpdatesState extends BaseMessageState {
       isLoading: isLoading ?? this.isLoading,
       searchQuery: searchQuery ?? this.searchQuery,
       replyingTo: clearReplyTo ? null : replyingTo ?? this.replyingTo,
+      editingMessage:
+          clearEditingMessage ? null : editingMessage ?? this.editingMessage,
       mentionedMedia:
           clearMentionedMedia ? null : mentionedMedia ?? this.mentionedMedia,
       linkPreviews: linkPreviews ?? this.linkPreviews,

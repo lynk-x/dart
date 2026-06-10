@@ -16,7 +16,6 @@ class ForumSessionsCubit extends Cubit<ForumSessionsState> {
     emit(state.copyWith(isLoading: true, clearError: true));
     try {
       final response = await Supabase.instance.client
-          .schema('events')
           .from('event_sessions')
           .select()
           .eq('event_id', eventId)
@@ -40,7 +39,6 @@ class ForumSessionsCubit extends Cubit<ForumSessionsState> {
     try {
       final payload = session.toMap()..remove('id');
       await Supabase.instance.client
-          .schema('events')
           .from('event_sessions')
           .insert(payload);
       await loadSessions();
@@ -53,7 +51,6 @@ class ForumSessionsCubit extends Cubit<ForumSessionsState> {
     emit(state.copyWith(isLoading: true, clearError: true));
     try {
       await Supabase.instance.client
-          .schema('events')
           .from('event_sessions')
           .update(session.toMap())
           .eq('id', session.id);
@@ -67,7 +64,6 @@ class ForumSessionsCubit extends Cubit<ForumSessionsState> {
     emit(state.copyWith(isLoading: true, clearError: true));
     try {
       await Supabase.instance.client
-          .schema('events')
           .from('event_sessions')
           .delete()
           .eq('id', sessionId);

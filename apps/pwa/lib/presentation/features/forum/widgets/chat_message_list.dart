@@ -25,6 +25,7 @@ class ChatMessageList extends StatelessWidget {
   final bool isPremium;
   final Function(ChatMessage)? onPin;
   final Function(ChatMessage)? onDelete;
+  final Function(ChatMessage)? onEdit;
   final Function(ChatMessage)? onReport;
   final Function(ChatMessage)? onMute;
   final Function(ChatMessage)? onBan;
@@ -47,6 +48,7 @@ class ChatMessageList extends StatelessWidget {
     required this.isPremium,
     this.onPin,
     this.onDelete,
+    this.onEdit,
     this.onReport,
     this.onMute,
     this.onBan,
@@ -83,11 +85,14 @@ class ChatMessageList extends StatelessWidget {
       return CustomScrollView(
         controller: scrollController,
         physics: const AlwaysScrollableScrollPhysics(),
-        slivers: const [
+        slivers: [
           SliverFillRemaining(
             hasScrollBody: false,
             child: Center(
-              child: CircularProgressIndicator(strokeWidth: 2),
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: context.accentColor,
+              ),
             ),
           ),
         ],
@@ -135,6 +140,7 @@ class ChatMessageList extends StatelessWidget {
                   isGrouped: isGrouped,
                   onPin: onPin,
                   onDelete: onDelete,
+                  onEdit: onEdit,
                   onReport: onReport,
                   onMute: onMute,
                   onBan: onBan,

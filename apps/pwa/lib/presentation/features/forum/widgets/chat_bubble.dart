@@ -23,6 +23,7 @@ class ChatBubble extends StatefulWidget {
   final Function(ChatMessage)? onBan;
   final Function(ChatMessage, String)? onReact;
   final Function(ChatMessage)? onDelete;
+  final Function(ChatMessage)? onEdit;
   final VoidCallback? onTapBubble;
   final Function(String?)? onMediaTap;
   final Function(ChatMessage)? onReactionTap;
@@ -44,6 +45,7 @@ class ChatBubble extends StatefulWidget {
     this.onBan,
     this.onReact,
     this.onDelete,
+    this.onEdit,
     this.onTapBubble,
     this.onMediaTap,
     this.onReactionTap,
@@ -156,6 +158,13 @@ class _ChatBubbleState extends State<ChatBubble> {
               label: 'Pin',
               onTap: () => widget.onPin?.call(widget.message),
               color: context.accentColor,
+            ),
+
+          if (widget.message.isMe && widget.onEdit != null)
+            ActionBarItem(
+              label: 'Edit',
+              color: Colors.white70,
+              onTap: () => widget.onEdit?.call(widget.message),
             ),
 
           if (widget.message.isMe && widget.onDelete != null)

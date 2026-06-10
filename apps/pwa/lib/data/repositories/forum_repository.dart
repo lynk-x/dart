@@ -107,7 +107,6 @@ class ForumRepository {
     DateTime? eventCreatedAt,
   }) async {
     var query = _client
-        .schema('events')
         .from('event_sessions')
         .select('starts_at, ends_at')
         .eq('event_id', eventId);

@@ -47,7 +47,6 @@ class ForumAdsCubit extends Cubit<ForumAdsState> {
       List<dynamic>? embeddingData;
       if (forumRow != null && forumRow['event_id'] != null) {
         final eventRow = await Supabase.instance.client
-            .schema('events')
             .from('events')
             .select('embedding')
             .eq('id', forumRow['event_id'] as String)

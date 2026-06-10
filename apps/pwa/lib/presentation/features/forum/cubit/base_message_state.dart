@@ -6,6 +6,7 @@ abstract class BaseMessageState extends Equatable {
   final bool isLoading;
   final String searchQuery;
   final ChatMessage? replyingTo;
+  final ChatMessage? editingMessage;
   final ForumMedia? mentionedMedia;
   final Map<String, LinkPreviewData> linkPreviews;
   final bool showJumpToBottom;
@@ -15,6 +16,7 @@ abstract class BaseMessageState extends Equatable {
     this.isLoading = false,
     this.searchQuery = '',
     this.replyingTo,
+    this.editingMessage,
     this.mentionedMedia,
     this.linkPreviews = const {},
     this.showJumpToBottom = false,
@@ -26,6 +28,7 @@ abstract class BaseMessageState extends Equatable {
         isLoading,
         searchQuery,
         replyingTo,
+        editingMessage,
         mentionedMedia,
         linkPreviews,
         showJumpToBottom,

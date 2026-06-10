@@ -48,10 +48,12 @@ class ForumPage extends StatelessWidget {
         builder: (context, state) {
           final fId = state.forumId;
           if (fId == null) {
-            return const Scaffold(
-              backgroundColor: AppColors.primaryBackground,
-              body: Center(
-                child: CircularProgressIndicator(),
+            return Builder(
+              builder: (context) => Scaffold(
+                backgroundColor: AppColors.primaryBackground,
+                body: Center(
+                  child: CircularProgressIndicator(color: context.accentColor),
+                ),
               ),
             );
           }

@@ -34,6 +34,8 @@ abstract class BaseMessageCubit<T extends BaseMessageState> extends HydratedCubi
     String? searchQuery,
     ChatMessage? replyingTo,
     bool clearReplyTo = false,
+    ChatMessage? editingMessage,
+    bool clearEditingMessage = false,
     ForumMedia? mentionedMedia,
     bool clearMentionedMedia = false,
     Map<String, LinkPreviewData>? linkPreviews,
@@ -50,6 +52,17 @@ abstract class BaseMessageCubit<T extends BaseMessageState> extends HydratedCubi
         final msg = ChatMessage.fromMap(payload, userId);
         if (msg.type == _getTypeEnum(messageType)) {
           onBroadcastMessageReceived(msg);
+        }
+      },
+    );
+
+    channel?.onBroadcast(
+      event: 'edit_message',
+      callback: (payload) {
+        final String? msgId = payload['id'] as String?;
+        final String? content = payload['content'] as String?;
+        if (msgId != null && content != null) {
+          updateMessageInPlace(msgId, content: content);
         }
       },
     );
@@ -157,6 +170,39 @@ abstract class BaseMessageCubit<T extends BaseMessageState> extends HydratedCubi
       await refresh();
     } catch (e, stack) {
       debugPrint('[BaseMessageCubit] Error deleting msg: $e\n$stack');
+      if (!isClosed) emit(copyWithState(messages: originalMessages));
+    }
+  }
+
+  void setEditingMessage(ChatMessage? message) {
+    if (message == null) {
+      if (!isClosed) emit(copyWithState(clearEditingMessage: true));
+    } else {
+      if (!isClosed) emit(copyWithState(editingMessage: message));
+    }
+  }
+
+  Future<void> editMessage(ChatMessage message, String newContent) async {
+    final originalMessages = List<ChatMessage>.from(state.messages);
+    updateMessageInPlace(message.id, content: newContent);
+
+    try {
+      if (userId == kGuestUserId) return;
+      await Supabase.instance.client
+          .schema('social').from('forum_messages')
+          .update({'content': newContent})
+          .eq('id', message.id)
+          .eq('created_at', message.createdAt.toIso8601String());
+
+      channel?.sendBroadcastMessage(
+        event: 'edit_message',
+        payload: {
+          'id': message.id,
+          'content': newContent,
+        },
+      );
+    } catch (e, stack) {
+      debugPrint('[BaseMessageCubit] Error editing msg: $e\n$stack');
       if (!isClosed) emit(copyWithState(messages: originalMessages));
     }
   }

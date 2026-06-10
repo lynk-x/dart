@@ -6,9 +6,11 @@ import 'package:lynk_x/presentation/features/forum/models/forum_model.dart';
 class MessageInput extends StatefulWidget {
   final Function(String, ChatMessage?)? onSendMessage;
   final ChatMessage? replyTo;
+  final ChatMessage? editingMessage;
   final ForumMedia? mentionedMedia;
   final VoidCallback? onCancelReply;
   final VoidCallback? onCancelMention;
+  final VoidCallback? onCancelEdit;
   final VoidCallback? onActionTap;
   final ValueChanged<String>? onChanged;
   final List<Map<String, dynamic>> members;
@@ -20,9 +22,11 @@ class MessageInput extends StatefulWidget {
     super.key,
     this.onSendMessage,
     this.replyTo,
+    this.editingMessage,
     this.mentionedMedia,
     this.onCancelReply,
     this.onCancelMention,
+    this.onCancelEdit,
     this.onActionTap,
     this.onChanged,
     this.members = const [],
@@ -44,6 +48,19 @@ class _MessageInputState extends State<MessageInput> {
   void dispose() {
     _controller.dispose();
     super.dispose();
+  }
+
+  @override
+  void didUpdateWidget(MessageInput oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.editingMessage != oldWidget.editingMessage && widget.editingMessage != null) {
+      _controller.text = widget.editingMessage!.message;
+      _controller.selection = TextSelection.fromPosition(
+        TextPosition(offset: _controller.text.length),
+      );
+    } else if (widget.editingMessage == null && oldWidget.editingMessage != null) {
+      _controller.clear();
+    }
   }
 
   void _handleSend() {
@@ -152,6 +169,7 @@ class _MessageInputState extends State<MessageInput> {
         children: [
           if (_showMentions) _buildMentionList(),
           if (widget.replyTo != null) _buildReplyPreview(),
+          if (widget.editingMessage != null) _buildEditPreview(),
           if (widget.mentionedMedia != null) _buildMentionPreview(),
           Row(
             children: [
@@ -169,7 +187,7 @@ class _MessageInputState extends State<MessageInput> {
                     cursorColor: AppColors.secondaryText,
                     style: AppTypography.inter(color: AppColors.secondaryText),
                     decoration: InputDecoration(
-                      hintText: 'Type a message...',
+                      hintText: widget.editingMessage != null ? 'Edit message...' : 'Type a message...',
                       hintStyle: AppTypography.inter(
                           color:
                               AppColors.secondaryText.withValues(alpha: 0.5)),
@@ -183,12 +201,60 @@ class _MessageInputState extends State<MessageInput> {
               ),
               const SizedBox(width: 4),
               IconButton(
-                tooltip: 'Send message',
-                icon: const Icon(Icons.send_rounded,
-                    color: Colors.white, size: 26),
+                tooltip: widget.editingMessage != null ? 'Save edit' : 'Send message',
+                icon: Icon(
+                    widget.editingMessage != null
+                        ? Icons.check_rounded
+                        : Icons.send_rounded,
+                    color: Colors.white,
+                    size: 26),
                 onPressed: _handleSend,
               ),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEditPreview() {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.1),
+        border:
+            Border(left: BorderSide(color: context.accentColor, width: 3)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.edit_rounded, size: 16, color: Colors.white54),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Editing Message',
+                  style: AppTypography.inter(
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      color: context.accentColor),
+                ),
+                Text(
+                  widget.editingMessage!.message,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTypography.inter(
+                      fontSize: 11,
+                      color: AppColors.primaryText.withValues(alpha: 0.7)),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.close, size: 18, color: Colors.white54),
+            onPressed: widget.onCancelEdit,
           ),
         ],
       ),

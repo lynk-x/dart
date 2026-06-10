@@ -86,6 +86,7 @@ class _LiveChatTabState extends State<LiveChatTab>
                             isPremium: mainState.isPremium,
                             onPin: (msg) => mainCubit.pinMessage(msg),
                             onDelete: (msg) => chatCubit.deleteMessage(msg),
+                            onEdit: (msg) => chatCubit.setEditingMessage(msg),
                             onReport: (msg) =>
                                 chatCubit.reportMessage(msg, 'Spam'),
                             onMute: (msg) => mainCubit.muteUser(msg.userId),
@@ -115,16 +116,25 @@ class _LiveChatTabState extends State<LiveChatTab>
                     ),
                     if (chatState.isTyping) const TypingIndicator(),
                     MessageInput(
-                      onSendMessage: (text, replyTo) => chatCubit.sendMessage(
-                        text,
-                        isOrganizer: mainState.isOrganizer,
-                        isPremium: mainState.isPremium,
-                      ),
+                      onSendMessage: (text, replyTo) {
+                        if (chatState.editingMessage != null) {
+                          chatCubit.editMessage(chatState.editingMessage!, text);
+                          chatCubit.setEditingMessage(null);
+                        } else {
+                          chatCubit.sendMessage(
+                            text,
+                            isOrganizer: mainState.isOrganizer,
+                            isPremium: mainState.isPremium,
+                          );
+                        }
+                      },
                       onActionTap: widget.onActionTap,
                       mentionedMedia: chatState.mentionedMedia,
                       onCancelMention: () => chatCubit.setMentionedMedia(null),
                       replyTo: chatState.replyingTo,
                       onCancelReply: () => chatCubit.setReplyTo(null),
+                      editingMessage: chatState.editingMessage,
+                      onCancelEdit: () => chatCubit.setEditingMessage(null),
                       onChanged: (text) => chatCubit.notifyTyping(),
                       members: mainState.members,
                       isReadOnly: mainState.forumStatus == 'read_only',

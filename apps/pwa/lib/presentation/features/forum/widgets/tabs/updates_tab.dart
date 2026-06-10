@@ -102,6 +102,7 @@ class _UpdatesTabState extends State<UpdatesTab>
                                       onPin: (msg) => mainCubit.pinMessage(msg),
                                       onDelete: (msg) =>
                                           updatesCubit.deleteMessage(msg),
+                                      onEdit: (msg) => updatesCubit.setEditingMessage(msg),
                                       onReport: (msg) => updatesCubit
                                           .reportMessage(msg, 'Spam'),
                                       onMute: (msg) =>
@@ -141,14 +142,23 @@ class _UpdatesTabState extends State<UpdatesTab>
                 ),
                 if (mainState.isOrganizer)
                   MessageInput(
-                    onSendMessage: (text, _) => updatesCubit.sendMessage(
-                      text,
-                      isOrganizer: mainState.isOrganizer,
-                      isPremium: mainState.isPremium,
-                    ),
+                    onSendMessage: (text, _) {
+                      if (updatesState.editingMessage != null) {
+                        updatesCubit.editMessage(updatesState.editingMessage!, text);
+                        updatesCubit.setEditingMessage(null);
+                      } else {
+                        updatesCubit.sendMessage(
+                          text,
+                          isOrganizer: mainState.isOrganizer,
+                          isPremium: mainState.isPremium,
+                        );
+                      }
+                    },
                     onActionTap: widget.onActionTap,
                     mentionedMedia: updatesState.mentionedMedia,
                     onCancelMention: () => updatesCubit.setMentionedMedia(null),
+                    editingMessage: updatesState.editingMessage,
+                    onCancelEdit: () => updatesCubit.setEditingMessage(null),
                     onChanged: (text) {},
                     members: mainState.members,
                     isOrganizer: true,

@@ -121,10 +121,11 @@ class _MediaTabState extends State<MediaTab>
                                           (context, index) {
                                             if (index ==
                                                 mediaState.mediaItems.length) {
-                                              return const Center(
+                                              return Center(
                                                   child:
                                                       CircularProgressIndicator(
-                                                          strokeWidth: 2));
+                                                          strokeWidth: 2,
+                                                          color: context.accentColor));
                                             }
                                             final item =
                                                 mediaState.mediaItems[index];
