@@ -215,6 +215,22 @@ class ForumChatCubit extends BaseMessageCubit<ForumChatState> {
     final imageUrl = state.mentionedMedia?.url;
     final thumbnailUrl = state.mentionedMedia?.thumbnailUrl;
 
+    // Extract #hashtag from text if present.
+    const validHashtags = ['Urgent', 'Activity', 'Q&A', 'Resources', 'Rules'];
+    String? category;
+    final trimmed = text.trimLeft();
+    if (trimmed.startsWith('#')) {
+      final tagPart = trimmed.substring(1).trimLeft();
+      for (final tag in validHashtags) {
+        final escapedTag = RegExp.escape(tag);
+        final regExp = RegExp('^$escapedTag(?:\\s|[.,!?]|\$)', caseSensitive: false);
+        if (regExp.hasMatch(tagPart)) {
+          category = tag;
+          break;
+        }
+      }
+    }
+
     final newMessage = ChatMessage(
       id: messageId,
       sender: userName,
@@ -226,6 +242,7 @@ class ForumChatCubit extends BaseMessageCubit<ForumChatState> {
       replyTo: replyTo,
       imageUrl: imageUrl,
       thumbnailUrl: thumbnailUrl,
+      category: category,
       isSending: true,
     );
 
@@ -264,6 +281,7 @@ class ForumChatCubit extends BaseMessageCubit<ForumChatState> {
           'author_id': userId,
           'content': text,
           'message_type': 'chat',
+          'hashtag': category,
           'created_at': messageCreatedAt,
           if (mediaId != null) 'media_id': mediaId,
           if (mediaCreatedAt != null) 'media_created_at': mediaCreatedAt,
@@ -280,6 +298,7 @@ class ForumChatCubit extends BaseMessageCubit<ForumChatState> {
           'author_id': userId,
           'content': text,
           'message_type': 'chat',
+          'hashtag': category,
           'created_at': now.toIso8601String(),
           if (mediaId != null) 'media_id': mediaId,
           if (imageUrl != null)

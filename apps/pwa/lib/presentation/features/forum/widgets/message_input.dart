@@ -131,17 +131,16 @@ class _MessageInputState extends State<MessageInput> {
   }
 
   String? _getDetectedCategory() {
-    final text = _controller.text.trimLeft();
-    if (!text.startsWith('#')) return null;
+    final trimmed = _controller.text.trimLeft();
+    if (!trimmed.startsWith('#')) return null;
 
-    final match = RegExp(r'^#([^\s]+)').firstMatch(text);
-    if (match != null) {
-      final tag = match.group(1)!;
-      const validHashtags = ['Urgent', 'Activity', 'Q&A', 'Resources', 'Rules'];
-      for (final validTag in validHashtags) {
-        if (validTag.toLowerCase() == tag.toLowerCase()) {
-          return validTag;
-        }
+    const validHashtags = ['Urgent', 'Activity', 'Q&A', 'Resources', 'Rules'];
+    final tagPart = trimmed.substring(1).trimLeft();
+    for (final tag in validHashtags) {
+      final escapedTag = RegExp.escape(tag);
+      final regExp = RegExp('^$escapedTag(?:\\s|[.,!?]|\$)', caseSensitive: false);
+      if (regExp.hasMatch(tagPart)) {
+        return tag;
       }
     }
     return null;

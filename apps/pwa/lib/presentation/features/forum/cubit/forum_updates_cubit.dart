@@ -196,14 +196,17 @@ class ForumUpdatesCubit extends BaseMessageCubit<ForumUpdatesState> {
     // Extract #hashtag from text if present, otherwise fall back to selected filter.
     const validHashtags = ['Urgent', 'Activity', 'Q&A', 'Resources', 'Rules'];
     String? category = state.selectedCategory;
-    final hashtagMatch = RegExp(r'#(\w+)', caseSensitive: false).firstMatch(text);
-    if (hashtagMatch != null) {
-      final tag = hashtagMatch.group(1)!;
-      final match = validHashtags.firstWhere(
-        (h) => h.toLowerCase() == tag.toLowerCase(),
-        orElse: () => '',
-      );
-      if (match.isNotEmpty) category = match;
+    final trimmed = text.trimLeft();
+    if (trimmed.startsWith('#')) {
+      final tagPart = trimmed.substring(1).trimLeft();
+      for (final tag in validHashtags) {
+        final escapedTag = RegExp.escape(tag);
+        final regExp = RegExp('^$escapedTag(?:\\s|[.,!?]|\$)', caseSensitive: false);
+        if (regExp.hasMatch(tagPart)) {
+          category = tag;
+          break;
+        }
+      }
     }
 
     final newMessage = ChatMessage(
