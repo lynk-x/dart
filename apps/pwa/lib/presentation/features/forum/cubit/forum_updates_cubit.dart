@@ -194,7 +194,7 @@ class ForumUpdatesCubit extends BaseMessageCubit<ForumUpdatesState> {
     final thumbnailUrl = state.mentionedMedia?.thumbnailUrl;
 
     // Extract #hashtag from text if present, otherwise fall back to selected filter.
-    const validHashtags = ['urgent', 'activity', 'Q&A', 'Resources', 'Rules'];
+    const validHashtags = ['Urgent', 'Activity', 'Q&A', 'Resources', 'Rules'];
     String? category = state.selectedCategory;
     final hashtagMatch = RegExp(r'#(\w+)', caseSensitive: false).firstMatch(text);
     if (hashtagMatch != null) {

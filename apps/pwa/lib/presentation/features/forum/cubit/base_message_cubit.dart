@@ -18,6 +18,7 @@ abstract class BaseMessageCubit<T extends BaseMessageState> extends HydratedCubi
   final String messageType;
 
   Timer? searchTimer;
+  RealtimeChannel? _postgresChannel;
 
   BaseMessageCubit({
     required this.forumId,
@@ -93,50 +94,53 @@ abstract class BaseMessageCubit<T extends BaseMessageState> extends HydratedCubi
       },
     );
 
-    channel?.onPostgresChanges(
-      event: PostgresChangeEvent.all,
-      schema: 'social',
-      table: 'forum_messages',
-      filter: PostgresChangeFilter(
-        type: PostgresChangeFilterType.eq,
-        column: 'forum_id',
-        value: forumId,
-      ),
-      callback: (payload) {
-        if (payload.eventType == PostgresChangeEvent.delete) {
-          final id = payload.oldRecord['id'] as String?;
-          final updated = state.messages.where((m) => m.id != id).toList();
-          if (!isClosed) emit(copyWithState(messages: updated));
-        } else if (payload.eventType == PostgresChangeEvent.insert) {
-          final data = payload.newRecord;
-          if (data['message_type'] != messageType) return;
+    // Setup a dedicated postgres CDC channel to ensure that listeners
+    // are registered before the subscribe() handshake is initiated.
+    final client = Supabase.instance.client;
+    _postgresChannel = client
+        .channel('forum_messages_cdc_${messageType}_$forumId')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'social',
+          table: 'forum_messages',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'forum_id',
+            value: forumId,
+          ),
+          callback: (payload) {
+            if (payload.eventType == PostgresChangeEvent.delete) {
+              final id = payload.oldRecord['id'] as String?;
+              final updated = state.messages.where((m) => m.id != id).toList();
+              if (!isClosed) emit(copyWithState(messages: updated));
+            } else if (payload.eventType == PostgresChangeEvent.insert) {
+              final data = payload.newRecord;
+              if (data['message_type'] != messageType) return;
 
-          final id = data['id'] as String;
-          if (state.messages.any((m) => m.id == id)) return;
+              final id = data['id'] as String;
+              if (state.messages.any((m) => m.id == id)) return;
 
-          final msg = ChatMessage.fromMap(data, userId);
-          onBroadcastMessageReceived(msg);
-        } else if (payload.eventType == PostgresChangeEvent.update) {
-          final data = payload.newRecord;
-          if (data['message_type'] != messageType) return;
+              final msg = ChatMessage.fromMap(data, userId);
+              onBroadcastMessageReceived(msg);
+            } else if (payload.eventType == PostgresChangeEvent.update) {
+              final data = payload.newRecord;
+              if (data['message_type'] != messageType) return;
 
-          if (data['deleted_at'] != null) {
-            final id = data['id'] as String?;
-            final updated = state.messages.where((m) => m.id != id).toList();
-            if (!isClosed) emit(copyWithState(messages: updated));
-          } else {
-            updateMessageInPlace(
-              data['id'] as String,
-              content: data['content'] as String?,
-              isPinned: data['is_pinned'] == true,
-            );
-          }
-        }
-      },
-    );
-    // Do NOT call channel?.subscribe() here — ForumCubit owns the channel
-    // lifecycle and has already subscribed it. Re-subscribing fires duplicate
-    // CDC callbacks and triggers spurious refresh() calls.
+              if (data['deleted_at'] != null) {
+                final id = data['id'] as String?;
+                final updated = state.messages.where((m) => m.id != id).toList();
+                if (!isClosed) emit(copyWithState(messages: updated));
+              } else {
+                updateMessageInPlace(
+                  data['id'] as String,
+                  content: data['content'] as String?,
+                  isPinned: data['is_pinned'] == true,
+                );
+              }
+            }
+          },
+        );
+    _postgresChannel?.subscribe();
   }
 
   MessageType _getTypeEnum(String type) {
@@ -309,6 +313,7 @@ abstract class BaseMessageCubit<T extends BaseMessageState> extends HydratedCubi
   @override
   Future<void> close() {
     searchTimer?.cancel();
+    _postgresChannel?.unsubscribe();
     return super.close();
   }
 }

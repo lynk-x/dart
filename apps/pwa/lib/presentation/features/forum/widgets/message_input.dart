@@ -44,8 +44,27 @@ class _MessageInputState extends State<MessageInput> {
   List<Map<String, dynamic>> _filteredMembers = [];
   bool _showMentions = false;
 
+  static const _categoryColors = {
+    'Urgent': Color(0xFFFF4444),
+    'Activity': Color(0xFF00AAFF),
+    'Q&A': Color(0xFFFFAA00),
+    'Resources': Color(0xFF44DD88),
+    'Rules': Color(0xFFAA88FF),
+  };
+
+  @override
+  void initState() {
+    super.initState();
+    _controller.addListener(_onControllerChanged);
+  }
+
+  void _onControllerChanged() {
+    setState(() {});
+  }
+
   @override
   void dispose() {
+    _controller.removeListener(_onControllerChanged);
     _controller.dispose();
     super.dispose();
   }
@@ -111,8 +130,71 @@ class _MessageInputState extends State<MessageInput> {
     });
   }
 
+  String? _getDetectedCategory() {
+    final text = _controller.text.trimLeft();
+    if (!text.startsWith('#')) return null;
+
+    final match = RegExp(r'^#([^\s]+)').firstMatch(text);
+    if (match != null) {
+      final tag = match.group(1)!;
+      const validHashtags = ['Urgent', 'Activity', 'Q&A', 'Resources', 'Rules'];
+      for (final validTag in validHashtags) {
+        if (validTag.toLowerCase() == tag.toLowerCase()) {
+          return validTag;
+        }
+      }
+    }
+    return null;
+  }
+
+  Widget _buildCategoryPreview(String category) {
+    final color = _categoryColors[category] ?? context.accentColor;
+    final textColor = ThemeData.estimateBrightnessForColor(color) == Brightness.light
+        ? Colors.black
+        : Colors.white;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.05),
+        border: Border(left: BorderSide(color: color, width: 3)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+            decoration: BoxDecoration(
+              color: color,
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Text(
+              '#$category',
+              style: AppTypography.inter(
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+                color: textColor,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'This message will be categorized under #$category',
+              style: AppTypography.inter(
+                fontSize: 11,
+                color: AppColors.primaryText.withValues(alpha: 0.6),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final detectedCategory = _getDetectedCategory();
     if (widget.isReadOnly && !widget.isOrganizer) {
       return Container(
         padding: const EdgeInsets.all(16),
@@ -171,6 +253,7 @@ class _MessageInputState extends State<MessageInput> {
           if (widget.replyTo != null) _buildReplyPreview(),
           if (widget.editingMessage != null) _buildEditPreview(),
           if (widget.mentionedMedia != null) _buildMentionPreview(),
+          if (detectedCategory != null) _buildCategoryPreview(detectedCategory),
           Row(
             children: [
               // Action button hidden for MVP

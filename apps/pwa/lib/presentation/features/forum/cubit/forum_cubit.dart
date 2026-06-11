@@ -16,6 +16,7 @@ class ForumCubit extends Cubit<ForumState> {
   late String userName;
   RealtimeChannel? _channel;
   RealtimeChannel? _statusChannel;
+  RealtimeChannel? _forumStatusChannel;
   RealtimeChannel? get channel => _channel;
   Timer? _progressTimer;
 
@@ -94,22 +95,13 @@ class ForumCubit extends Cubit<ForumState> {
   void _setupForumStatusListener() {
     final fId = forumId;
     if (fId == null) return;
-    _channel?.onPostgresChanges(
-      event: PostgresChangeEvent.update,
-      schema: 'public',
-      table: 'forums',
-      filter: PostgresChangeFilter(
-        type: PostgresChangeFilterType.eq,
-        column: 'id',
-        value: fId,
-      ),
-      callback: (payload) {
-        final String? newStatus = payload.newRecord['status'] as String?;
-        if (newStatus != null && !isClosed) {
-          emit(state.copyWith(forumStatus: newStatus));
-        }
-      },
-    );
+    _forumStatusChannel?.unsubscribe();
+    _forumStatusChannel = _repo.subscribeToForumChanges(fId, (payload) {
+      final String? newStatus = payload.newRecord['status'] as String?;
+      if (newStatus != null && !isClosed) {
+        emit(state.copyWith(forumStatus: newStatus));
+      }
+    }).subscribe();
   }
 
   Future<void> _syncUserStatus() async {
@@ -244,6 +236,7 @@ class ForumCubit extends Cubit<ForumState> {
   Future<void> close() {
     _channel?.unsubscribe();
     _statusChannel?.unsubscribe();
+    _forumStatusChannel?.unsubscribe();
     _progressTimer?.cancel();
     return super.close();
   }

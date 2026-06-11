@@ -14,7 +14,7 @@ class CategoryFilterBar extends StatelessWidget {
 
   const CategoryFilterBar({
     super.key,
-    this.categories = const ['urgent', 'activity', 'Q&A', 'Resources', 'Rules'],
+    this.categories = const ['Urgent', 'Activity', 'Q&A', 'Resources', 'Rules'],
     required this.selectedCategory,
     required this.onSelectionChanged,
   });

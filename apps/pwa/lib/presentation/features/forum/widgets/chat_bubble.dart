@@ -344,8 +344,8 @@ class _ChatBubbleState extends State<ChatBubble> {
   }
 
   static const _categoryColors = {
-    'urgent': Color(0xFFFF4444),
-    'activity': Color(0xFF00AAFF),
+    'Urgent': Color(0xFFFF4444),
+    'Activity': Color(0xFF00AAFF),
     'Q&A': Color(0xFFFFAA00),
     'Resources': Color(0xFF44DD88),
     'Rules': Color(0xFFAA88FF),
