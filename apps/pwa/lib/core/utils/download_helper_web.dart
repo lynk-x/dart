@@ -2,7 +2,6 @@
 
 import 'dart:html' as html;
 import 'package:http/http.dart' as http;
-import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter/foundation.dart';
 
 Future<void> downloadFile(String url, String filename) async {
@@ -21,10 +20,10 @@ Future<void> downloadFile(String url, String filename) async {
       anchor.remove();
       html.Url.revokeObjectUrl(blobUrl);
     } else {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
+      throw Exception('Server returned status code ${response.statusCode}');
     }
   } catch (e) {
     debugPrint('[DownloadHelper] Web download failed: $e');
-    await launchUrl(uri, mode: LaunchMode.externalApplication);
+    rethrow;
   }
 }

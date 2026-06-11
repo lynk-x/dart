@@ -117,6 +117,7 @@ class _ChatLinkPreviewState extends State<ChatLinkPreview> {
         text: urlContent,
         style: widget.textStyle.copyWith(
           decoration: TextDecoration.underline,
+          decorationColor: widget.textStyle.color,
         ),
         recognizer: recognizer,
       ));

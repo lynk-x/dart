@@ -150,16 +150,38 @@ class _MediaViewerState extends State<MediaViewer> {
     if (uri == null) return;
 
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
+    final messenger = ScaffoldMessenger.of(context);
+    
+    // Hide any active snackbar before showing a new one
+    messenger.hideCurrentSnackBar();
+    messenger.showSnackBar(
       const SnackBar(
         content: Text('Starting download...'),
         duration: Duration(seconds: 2),
       ),
     );
 
-    final segments = uri.pathSegments;
-    final filename = segments.isNotEmpty ? segments.last : 'download';
-    await downloadFile(targetUrl, filename);
+    String filename = 'download';
+    if (uri.pathSegments.isNotEmpty) {
+      try {
+        filename = Uri.decodeComponent(uri.pathSegments.last);
+      } catch (_) {
+        filename = uri.pathSegments.last;
+      }
+    }
+    
+    try {
+      await downloadFile(targetUrl, filename);
+    } catch (e) {
+      if (!mounted) return;
+      messenger.hideCurrentSnackBar();
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('Download failed: ${e.toString()}'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+    }
   }
 
   void _nextPage() {

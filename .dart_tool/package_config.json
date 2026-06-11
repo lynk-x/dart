@@ -1,0 +1,16 @@
+{
+  "configVersion": 2,
+  "packages": [
+    {
+      "name": "lynk_x_workspace",
+      "rootUri": "../",
+      "packageUri": "lib/",
+      "languageVersion": "3.0"
+    }
+  ],
+  "generator": "pub",
+  "generatorVersion": "3.12.1",
+  "flutterRoot": "file:///home/k3nny/snap/flutter/common/flutter",
+  "flutterVersion": "3.44.1",
+  "pubCache": "file:///home/k3nny/.pub-cache"
+}

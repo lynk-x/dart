@@ -167,7 +167,16 @@ class _ChatBubbleState extends State<ChatBubble> {
           if (widget.onPin != null)
             ActionBarItem(
               label: widget.message.isPinned ? 'Unpin' : 'Pin',
-              onTap: () => widget.onPin?.call(widget.message),
+              onTap: () {
+                final isPinned = widget.message.isPinned;
+                widget.onPin?.call(widget.message);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(isPinned ? 'Message unpinned' : 'Message pinned'),
+                    duration: const Duration(seconds: 2),
+                  ),
+                );
+              },
               color: Colors.white70,
             ),
 
@@ -345,21 +354,24 @@ class _ChatBubbleState extends State<ChatBubble> {
   Widget _buildCategoryBadge() {
     final category = widget.message.category!;
     final color = _categoryColors[category] ?? context.accentColor;
+    final textColor = ThemeData.estimateBrightnessForColor(color) == Brightness.light
+        ? Colors.black
+        : Colors.white;
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
         decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.15),
+          color: color,
           borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: color.withValues(alpha: 0.4), width: 0.5),
         ),
         child: Text(
           '#$category',
           style: AppTypography.inter(
             fontSize: 10,
             fontWeight: FontWeight.w600,
-            color: color,
+            color: textColor,
           ),
         ),
       ),
@@ -367,21 +379,36 @@ class _ChatBubbleState extends State<ChatBubble> {
   }
 
   Widget _buildMessageContent(Color textColor) {
+    String displayMessage = widget.message.message;
+    final category = widget.message.category;
+    if (category != null) {
+      final prefix = '#$category';
+      final escapedPrefix = RegExp.escape(prefix);
+      final regExp = RegExp('^$escapedPrefix(?:\\s+|\$)', caseSensitive: false);
+      if (regExp.hasMatch(displayMessage)) {
+        displayMessage = displayMessage.replaceFirst(regExp, '');
+      }
+    }
+
+    if (displayMessage.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
     final textStyle = AppTypography.inter(
         color: textColor, fontSize: 14, fontWeight: FontWeight.w500);
     final urlRegExp =
         RegExp(r'(?:(?:https?|ftp)://)?[\w/\-?=%.]+\.[\w/\-?=%.]+');
-    final firstMatch = urlRegExp.firstMatch(widget.message.message);
+    final firstMatch = urlRegExp.firstMatch(displayMessage);
 
     if (firstMatch != null) {
       final urlContent =
-          widget.message.message.substring(firstMatch.start, firstMatch.end);
+          displayMessage.substring(firstMatch.start, firstMatch.end);
       final validUrl =
           urlContent.startsWith('http') ? urlContent : 'https://$urlContent';
 
       return ChatLinkPreview(
         url: validUrl,
-        message: widget.message.message,
+        message: displayMessage,
         textStyle: textStyle,
         data: widget.linkPreviewData,
         onFetched: (data) =>
@@ -389,7 +416,7 @@ class _ChatBubbleState extends State<ChatBubble> {
       );
     }
 
-    Widget textWidget = Text(widget.message.message, style: textStyle);
+    Widget textWidget = Text(displayMessage, style: textStyle);
     
     if (kIsWeb || defaultTargetPlatform == TargetPlatform.macOS || defaultTargetPlatform == TargetPlatform.windows || defaultTargetPlatform == TargetPlatform.linux) {
       textWidget = SelectionArea(child: textWidget);
