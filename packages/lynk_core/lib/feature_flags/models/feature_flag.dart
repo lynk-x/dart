@@ -45,3 +45,4 @@ class FeatureFlag extends Equatable {
         allowedRegions,
       ];
 }
+
