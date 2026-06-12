@@ -34,6 +34,37 @@ class _UpdatesTabState extends State<UpdatesTab>
   bool get wantKeepAlive => true;
 
   @override
+  void initState() {
+    super.initState();
+    widget.scrollController.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    widget.scrollController.removeListener(_onScroll);
+    super.dispose();
+  }
+
+  @override
+  void didUpdateWidget(covariant UpdatesTab oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.scrollController != widget.scrollController) {
+      oldWidget.scrollController.removeListener(_onScroll);
+      widget.scrollController.addListener(_onScroll);
+    }
+  }
+
+  void _onScroll() {
+    if (!mounted) return;
+    if (!widget.scrollController.hasClients) return;
+    final maxScroll = widget.scrollController.position.maxScrollExtent;
+    final currentScroll = widget.scrollController.position.pixels;
+    if (maxScroll - currentScroll <= 200) {
+      context.read<ForumUpdatesCubit>().loadMore();
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     super.build(context);
     final mainCubit = context.read<ForumCubit>();

@@ -396,6 +396,7 @@ class _ImageContent extends StatelessWidget {
           imageUrl: imageUrl,
           cacheManager: LynkCacheManager.instance,
           fit: BoxFit.cover,
+          memCacheWidth: 400,
           placeholder: (context, url) => Container(
             height: 120,
             color: Colors.grey[900],

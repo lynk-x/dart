@@ -39,6 +39,37 @@ class _LiveChatTabState extends State<LiveChatTab>
   bool get wantKeepAlive => true;
 
   @override
+  void initState() {
+    super.initState();
+    widget.scrollController.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    widget.scrollController.removeListener(_onScroll);
+    super.dispose();
+  }
+
+  @override
+  void didUpdateWidget(covariant LiveChatTab oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.scrollController != widget.scrollController) {
+      oldWidget.scrollController.removeListener(_onScroll);
+      widget.scrollController.addListener(_onScroll);
+    }
+  }
+
+  void _onScroll() {
+    if (!mounted) return;
+    if (!widget.scrollController.hasClients) return;
+    final maxScroll = widget.scrollController.position.maxScrollExtent;
+    final currentScroll = widget.scrollController.position.pixels;
+    if (maxScroll - currentScroll <= 200) {
+      context.read<ForumChatCubit>().loadMore();
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     super.build(context);
     final mainCubit = context.read<ForumCubit>();
@@ -51,16 +82,20 @@ class _LiveChatTabState extends State<LiveChatTab>
           p.isReadOnly != c.isReadOnly ||
           p.members != c.members,
       builder: (context, mainState) {
-        return BlocBuilder<ForumChatCubit, ForumChatState>(
-          builder: (context, chatState) {
-            return Column(
-              children: [
-                Expanded(
-                  child: RepaintBoundary(
-                    child: RefreshIndicator(
-                      onRefresh: () async => chatCubit.refresh(),
-                      color: context.accentColor,
-                      child: ChatMessageList(
+        return Column(
+          children: [
+            Expanded(
+              child: RepaintBoundary(
+                child: RefreshIndicator(
+                  onRefresh: () async => chatCubit.refresh(),
+                  color: context.accentColor,
+                  child: BlocBuilder<ForumChatCubit, ForumChatState>(
+                    buildWhen: (p, c) =>
+                        p.messages != c.messages ||
+                        p.isLoading != c.isLoading ||
+                        p.linkPreviews != c.linkPreviews,
+                    builder: (context, chatState) {
+                      return ChatMessageList(
                         scrollController: widget.scrollController,
                         chatState: chatState,
                         isOrganizer: mainState.isOrganizer,
@@ -87,12 +122,25 @@ class _LiveChatTabState extends State<LiveChatTab>
                         onLinkPreviewDataFetched: (String url, LinkPreviewData data) =>
                             chatCubit.saveLinkPreview(url, data),
                         onMediaTap: widget.onMediaTap,
-                      ),
-                    ),
+                      );
+                    },
                   ),
                 ),
-                if (chatState.isTyping) const TypingIndicator(),
-                MessageInput(
+              ),
+            ),
+            BlocSelector<ForumChatCubit, ForumChatState, bool>(
+              selector: (state) => state.isTyping,
+              builder: (context, isTyping) {
+                return isTyping ? const TypingIndicator() : const SizedBox.shrink();
+              },
+            ),
+            BlocBuilder<ForumChatCubit, ForumChatState>(
+              buildWhen: (p, c) =>
+                  p.editingMessage != c.editingMessage ||
+                  p.replyingTo != c.replyingTo ||
+                  p.mentionedMedia != c.mentionedMedia,
+              builder: (context, chatState) {
+                return MessageInput(
                   onSendMessage: (text, replyTo) {
                     if (chatState.editingMessage != null) {
                       chatCubit.editMessage(chatState.editingMessage!, text);
@@ -117,10 +165,10 @@ class _LiveChatTabState extends State<LiveChatTab>
                   isReadOnly: mainState.forumStatus == 'read_only',
                   isMuted: mainState.isMuted,
                   isOrganizer: mainState.isOrganizer,
-                ),
-              ],
-            );
-          },
+                );
+              },
+            ),
+          ],
         );
       },
     );

@@ -283,6 +283,68 @@ class ForumUpdatesCubit extends BaseMessageCubit<ForumUpdatesState> {
   }
 
   @override
+  Future<void> reconcileMissedMessages(String afterTimestamp) async {
+    try {
+      var query = Supabase.instance.client
+          .from('vw_forum_messages')
+          .select()
+          .eq('forum_id', forumId)
+          .eq('message_type', 'announcement')
+          .gt('created_at', afterTimestamp);
+
+      if (state.selectedCategory != null) {
+        query = query.eq('hashtag', state.selectedCategory!);
+      }
+
+      final data = await query
+          .order('created_at', ascending: false)
+          .limit(100);
+
+      final deletedIds = data
+          .where((json) => json['deleted_at'] != null)
+          .map((json) => json['id'] as String)
+          .toSet();
+
+      final activeData = data.where((json) => json['deleted_at'] == null).toList();
+
+      var newMsgs = activeData.map((json) => ChatMessage.fromMap(json, userId)).toList();
+
+      final mediaMessages = newMsgs.where((m) => m.imageUrl != null && m.imageUrl!.isNotEmpty).toList();
+      if (mediaMessages.isNotEmpty) {
+        final urls = mediaMessages.map((m) => m.imageUrl!).toList();
+        final signedMap = await batchSignStorageUrls(urls, 'forum_media');
+        newMsgs = newMsgs.map((m) {
+          if (m.imageUrl != null && m.imageUrl!.isNotEmpty) {
+            final path = getPathFromStorageUrl(m.imageUrl!, 'forum_media');
+            final signed = signedMap[path];
+            if (signed != null) {
+              return m.copyWith(imageUrl: signed, thumbnailUrl: signed);
+            }
+          }
+          return m;
+        }).toList();
+      }
+
+      final updatedList = List<ChatMessage>.from(state.messages);
+      for (final msg in newMsgs) {
+        if (!updatedList.any((m) => m.id == msg.id)) {
+          updatedList.add(msg);
+        }
+      }
+
+      if (deletedIds.isNotEmpty) {
+        updatedList.removeWhere((m) => deletedIds.contains(m.id));
+      }
+
+      updatedList.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+      if (!isClosed) emit(state.copyWith(messages: updatedList));
+    } catch (e, stack) {
+      debugPrint('[ForumUpdatesCubit] Error during delta sync: $e\n$stack');
+    }
+  }
+
+  @override
   ForumUpdatesState? fromJson(Map<String, dynamic> json) => ForumUpdatesState.fromMap(json, userId);
 
   @override

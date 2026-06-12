@@ -379,6 +379,59 @@ class ForumChatCubit extends BaseMessageCubit<ForumChatState> {
   String get id => forumId;
 
   @override
+  Future<void> reconcileMissedMessages(String afterTimestamp) async {
+    try {
+      final data = await _repo.getMessages(
+        forumId: forumId,
+        limit: 100,
+        after: afterTimestamp,
+      );
+
+      final deletedIds = data
+          .where((json) => json['deleted_at'] != null)
+          .map((json) => json['id'] as String)
+          .toSet();
+
+      final activeData = data.where((json) => json['deleted_at'] == null).toList();
+
+      var newMsgs = activeData.map((json) => ChatMessage.fromMap(json, userId)).toList();
+
+      final mediaMessages = newMsgs.where((m) => m.imageUrl != null && m.imageUrl!.isNotEmpty).toList();
+      if (mediaMessages.isNotEmpty) {
+        final urls = mediaMessages.map((m) => m.imageUrl!).toList();
+        final signedMap = await batchSignStorageUrls(urls, 'forum_media');
+        newMsgs = newMsgs.map((m) {
+          if (m.imageUrl != null && m.imageUrl!.isNotEmpty) {
+            final path = getPathFromStorageUrl(m.imageUrl!, 'forum_media');
+            final signed = signedMap[path];
+            if (signed != null) {
+              return m.copyWith(imageUrl: signed, thumbnailUrl: signed);
+            }
+          }
+          return m;
+        }).toList();
+      }
+
+      final updatedList = List<ChatMessage>.from(state.messages);
+      for (final msg in newMsgs) {
+        if (!updatedList.any((m) => m.id == msg.id)) {
+          updatedList.add(msg);
+        }
+      }
+
+      if (deletedIds.isNotEmpty) {
+        updatedList.removeWhere((m) => deletedIds.contains(m.id));
+      }
+
+      updatedList.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+      if (!isClosed) emit(state.copyWith(messages: updatedList));
+    } catch (e, stack) {
+      debugPrint('[ForumChatCubit] Error during delta sync: $e\n$stack');
+    }
+  }
+
+  @override
   Future<void> close() {
     _typingThrottle?.cancel();
     _hideTypingTimer?.cancel();

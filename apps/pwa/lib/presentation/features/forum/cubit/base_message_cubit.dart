@@ -19,6 +19,7 @@ abstract class BaseMessageCubit<T extends BaseMessageState> extends HydratedCubi
 
   Timer? searchTimer;
   RealtimeChannel? _postgresChannel;
+  bool _wasDisconnected = false;
 
   BaseMessageCubit({
     required this.forumId,
@@ -63,8 +64,20 @@ abstract class BaseMessageCubit<T extends BaseMessageState> extends HydratedCubi
       callback: (payload) {
         final String? msgId = payload['id'] as String?;
         final String? content = payload['content'] as String?;
-        if (msgId != null && content != null) {
-          updateMessageInPlace(msgId, content: content);
+        final bool? isPinned = payload['is_pinned'] as bool?;
+        if (msgId != null) {
+          updateMessageInPlace(msgId, content: content, isPinned: isPinned);
+        }
+      },
+    );
+
+    channel?.onBroadcast(
+      event: 'delete_message',
+      callback: (payload) {
+        final String? msgId = payload['id'] as String?;
+        if (msgId != null) {
+          final updated = state.messages.where((m) => m.id != msgId).toList();
+          if (!isClosed) emit(copyWithState(messages: updated));
         }
       },
     );
@@ -93,6 +106,21 @@ abstract class BaseMessageCubit<T extends BaseMessageState> extends HydratedCubi
         }
       },
     );
+
+    channel?.subscribe((status, [error]) {
+      if (status == RealtimeSubscribeStatus.channelError ||
+          status == RealtimeSubscribeStatus.timedOut) {
+        _wasDisconnected = true;
+      } else if (status == RealtimeSubscribeStatus.subscribed) {
+        if (_wasDisconnected) {
+          _wasDisconnected = false;
+          final newest = state.messages.isNotEmpty ? state.messages.first : null;
+          if (newest != null) {
+            reconcileMissedMessages(newest.createdAt.toIso8601String());
+          }
+        }
+      }
+    });
 
     // Setup a dedicated postgres CDC channel to ensure that listeners
     // are registered before the subscribe() handshake is initiated.
@@ -183,6 +211,8 @@ abstract class BaseMessageCubit<T extends BaseMessageState> extends HydratedCubi
 
   Future<void> loadMore();
 
+  Future<void> reconcileMissedMessages(String afterTimestamp);
+
   void setSearchQuery(String query) {
     if (!isClosed) emit(copyWithState(searchQuery: query));
     searchTimer?.cancel();
@@ -205,6 +235,14 @@ abstract class BaseMessageCubit<T extends BaseMessageState> extends HydratedCubi
           .update({'deleted_at': DateTime.now().toIso8601String()})
           .eq('id', message.id)
           .eq('created_at', message.createdAt.toIso8601String());
+
+      channel?.sendBroadcastMessage(
+        event: 'delete_message',
+        payload: {
+          'id': message.id,
+        },
+      );
+
       await refresh();
     } catch (e, stack) {
       debugPrint('[BaseMessageCubit] Error deleting msg: $e\n$stack');

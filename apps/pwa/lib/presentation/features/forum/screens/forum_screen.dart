@@ -361,16 +361,22 @@ class _ForumViewState extends State<ForumView> {
                           final chatTabIndex = showUpdates ? 1 : 0;
 
                           if (forumState.currentTabIndex == 0 && showUpdates) {
-                            final updatesState =
-                                context.watch<ForumUpdatesCubit>().state;
                             final updatesCubit =
                                 context.read<ForumUpdatesCubit>();
-                            final pinned = updatesState.messages
-                                .where((m) => m.isPinned)
-                                .toList();
+                            final selectedCategory = context.select<ForumUpdatesCubit, String?>(
+                              (c) => c.state.selectedCategory,
+                            );
+                            final pinnedMessage = context.select<ForumUpdatesCubit, ChatMessage?>(
+                              (c) {
+                                for (final m in c.state.messages) {
+                                  if (m.isPinned) return m;
+                                }
+                                return null;
+                              },
+                            );
 
                             extraHeight += 52.0; // CategoryFilterBar
-                            if (pinned.isNotEmpty) {
+                            if (pinnedMessage != null) {
                               extraHeight +=
                                   48.0; // InfoBanner exact calculated height for 2 lines
                             }
@@ -381,21 +387,20 @@ class _ForumViewState extends State<ForumView> {
                                 ColoredBox(
                                   color: AppColors.primaryBackground,
                                   child: CategoryFilterBar(
-                                    selectedCategory:
-                                        updatesState.selectedCategory,
+                                    selectedCategory: selectedCategory,
                                     onSelectionChanged: (cat) =>
                                         updatesCubit.setCategory(cat),
                                   ),
                                 ),
-                                if (pinned.isNotEmpty)
+                                if (pinnedMessage != null)
                                   Padding(
                                     padding:
                                         const EdgeInsets.fromLTRB(4, 4, 4, 4),
                                     child: InfoBanner(
                                       icon: Icons.push_pin,
-                                      text: pinned.first.message.length > 80
-                                          ? '${pinned.first.message.substring(0, 80)}…'
-                                          : pinned.first.message,
+                                      text: pinnedMessage.message.length > 80
+                                          ? '${pinnedMessage.message.substring(0, 80)}…'
+                                          : pinnedMessage.message,
                                     ),
                                   ),
                               ],

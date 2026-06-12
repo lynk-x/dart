@@ -246,15 +246,22 @@ class ForumRepository {
     required String forumId,
     int limit = 50,
     String? before,
+    String? after,
   }) async {
     var query = _client
         .from('vw_forum_messages')
         .select()
-        .eq('forum_id', forumId)
-        .filter('deleted_at', 'is', null);
+        .eq('forum_id', forumId);
+
+    if (after == null) {
+      query = query.filter('deleted_at', 'is', null);
+    }
 
     if (before != null) {
       query = query.lt('created_at', before);
+    }
+    if (after != null) {
+      query = query.gt('created_at', after);
     }
 
     final data = await query
