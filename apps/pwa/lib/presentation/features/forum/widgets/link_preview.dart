@@ -6,9 +6,8 @@ import 'package:lynk_x/core/network/lynk_cache_manager.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
 
-import 'package:flutter/foundation.dart';
-import 'package:flutter/gestures.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'parsed_message_text.dart';
 
 class ChatLinkPreview extends StatefulWidget {
   final String url;
@@ -16,6 +15,7 @@ class ChatLinkPreview extends StatefulWidget {
   final TextStyle textStyle;
   final LinkPreviewData? data;
   final Function(LinkPreviewData)? onFetched;
+  final Function(String)? onMentionTap;
 
   const ChatLinkPreview({
     super.key,
@@ -24,6 +24,7 @@ class ChatLinkPreview extends StatefulWidget {
     required this.textStyle,
     this.data,
     this.onFetched,
+    this.onMentionTap,
   });
 
   @override
@@ -31,7 +32,6 @@ class ChatLinkPreview extends StatefulWidget {
 }
 
 class _ChatLinkPreviewState extends State<ChatLinkPreview> {
-  final List<TapGestureRecognizer> _gestureRecognizers = [];
 
   @override
   void initState() {
@@ -43,9 +43,6 @@ class _ChatLinkPreviewState extends State<ChatLinkPreview> {
 
   @override
   void dispose() {
-    for (final recognizer in _gestureRecognizers) {
-      recognizer.dispose();
-    }
     super.dispose();
   }
 
@@ -79,63 +76,18 @@ class _ChatLinkPreviewState extends State<ChatLinkPreview> {
   }
 
   Widget _buildRichMessageText() {
-    for (final recognizer in _gestureRecognizers) {
-      recognizer.dispose();
-    }
-    _gestureRecognizers.clear();
-
-    final urlRegExp = RegExp(r'(?:(?:https?|ftp)://)?[\w/\-?=%.]+\.[\w/\-?=%.]+');
-    final matches = urlRegExp.allMatches(widget.message);
-    if (matches.isEmpty) {
-      return Text(widget.message, style: widget.textStyle);
-    }
-
-    final List<TextSpan> spans = [];
-    int lastIndex = 0;
-
-    for (final match in matches) {
-      if (match.start > lastIndex) {
-        spans.add(TextSpan(
-          text: widget.message.substring(lastIndex, match.start),
-          style: widget.textStyle,
-        ));
-      }
-
-      final urlContent = widget.message.substring(match.start, match.end);
-      final validUrl = urlContent.startsWith('http') ? urlContent : 'https://$urlContent';
-
-      final recognizer = TapGestureRecognizer()
-        ..onTap = () async {
-          final uri = Uri.tryParse(validUrl);
-          if (uri != null) {
-            await launchUrl(uri, mode: LaunchMode.externalApplication);
-          }
-        };
-      _gestureRecognizers.add(recognizer);
-
-      spans.add(TextSpan(
-        text: urlContent,
-        style: widget.textStyle.copyWith(
-          decoration: TextDecoration.underline,
-          decorationColor: widget.textStyle.color,
-        ),
-        recognizer: recognizer,
-      ));
-      lastIndex = match.end;
-    }
-
-    if (lastIndex < widget.message.length) {
-      spans.add(TextSpan(
-        text: widget.message.substring(lastIndex),
-        style: widget.textStyle,
-      ));
-    }
-
-    final textWidget = Text.rich(TextSpan(children: spans));
-    if (kIsWeb || defaultTargetPlatform == TargetPlatform.macOS || defaultTargetPlatform == TargetPlatform.windows || defaultTargetPlatform == TargetPlatform.linux) {
-      return SelectionArea(child: textWidget);
-    }
-    return textWidget;
+    return ParsedMessageText(
+      text: widget.message,
+      style: widget.textStyle,
+      accentColor: context.accentColor,
+      onMentionTap: widget.onMentionTap,
+      onUrlTap: (url) async {
+        final uri = Uri.tryParse(url);
+        if (uri != null) {
+          await launchUrl(uri, mode: LaunchMode.externalApplication);
+        }
+      },
+    );
   }
 
   @override

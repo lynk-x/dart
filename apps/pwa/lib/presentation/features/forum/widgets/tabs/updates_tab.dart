@@ -109,8 +109,6 @@ class _UpdatesTabState extends State<UpdatesTab>
                                           mainCubit.muteUser(msg.userId),
                                       onBan: (msg) =>
                                           mainCubit.banUser(msg.userId),
-                                      onReact: (msg, emoji) =>
-                                          mainCubit.reactToMessage(msg, emoji),
                                       onReply: (msg) =>
                                           updatesCubit.setReplyTo(msg),
                                       onMediaTap: widget.onMediaTap,

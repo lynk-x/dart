@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:lynk_core/core.dart';
@@ -12,6 +11,7 @@ import 'polls/poll_attachment.dart';
 
 /// A stylized chat bubble used for both Live Chat and Updates.
 import 'link_preview.dart';
+import 'parsed_message_text.dart';
 
 /// A stylized chat bubble used for both Live Chat and Updates.
 class ChatBubble extends StatefulWidget {
@@ -21,12 +21,11 @@ class ChatBubble extends StatefulWidget {
   final Function(ChatMessage)? onReport;
   final Function(ChatMessage)? onMute;
   final Function(ChatMessage)? onBan;
-  final Function(ChatMessage, String)? onReact;
   final Function(ChatMessage)? onDelete;
   final Function(ChatMessage)? onEdit;
   final VoidCallback? onTapBubble;
   final Function(String?)? onMediaTap;
-  final Function(ChatMessage)? onReactionTap;
+  final Function(String)? onMentionTap;
   final VoidCallback? onLongPressBubble;
   final bool isOrganizer;
   final LinkPreviewData? linkPreviewData;
@@ -43,12 +42,11 @@ class ChatBubble extends StatefulWidget {
     this.onReport,
     this.onMute,
     this.onBan,
-    this.onReact,
     this.onDelete,
     this.onEdit,
     this.onTapBubble,
     this.onMediaTap,
-    this.onReactionTap,
+    this.onMentionTap,
     this.onLongPressBubble,
     this.isOrganizer = false,
     this.linkPreviewData,
@@ -96,11 +94,6 @@ class _ChatBubbleState extends State<ChatBubble> {
               ],
             ],
           ),
-          if (widget.message.reactions.isNotEmpty)
-            _ReactionPills(
-              message: widget.message,
-              onReact: widget.onReact,
-            ),
           if (widget.showActions) _buildActions(context),
         ],
       ),
@@ -300,6 +293,19 @@ class _ChatBubbleState extends State<ChatBubble> {
     );
   }
 
+  void _handleMentionTap(String username) {
+    if (widget.onMentionTap != null) {
+      widget.onMentionTap!(username);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Tapped @$username'),
+          duration: const Duration(seconds: 1),
+        ),
+      );
+    }
+  }
+
   Widget _buildMessageContent(Color textColor) {
     String displayMessage = widget.message.message;
     final category = widget.message.category;
@@ -335,16 +341,17 @@ class _ChatBubbleState extends State<ChatBubble> {
         data: widget.linkPreviewData,
         onFetched: (data) =>
             widget.onLinkPreviewDataFetched?.call(validUrl, data),
+        onMentionTap: _handleMentionTap,
       );
     }
 
-    Widget textWidget = Text(displayMessage, style: textStyle);
-    
-    if (kIsWeb || defaultTargetPlatform == TargetPlatform.macOS || defaultTargetPlatform == TargetPlatform.windows || defaultTargetPlatform == TargetPlatform.linux) {
-      textWidget = SelectionArea(child: textWidget);
-    }
-    
-    return textWidget;
+    return ParsedMessageText(
+      text: displayMessage,
+      style: textStyle,
+      accentColor: widget.message.isMe ? Colors.black : context.accentColor,
+      onMentionTap: _handleMentionTap,
+      onUrlTap: (url) => widget.onMediaTap?.call(url),
+    );
   }
 }
 
@@ -451,58 +458,5 @@ class _CategoryBadge extends StatelessWidget {
   }
 }
 
-class _ReactionPills extends StatelessWidget {
-  final ChatMessage message;
-  final Function(ChatMessage, String)? onReact;
 
-  const _ReactionPills({required this.message, this.onReact});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 4, left: 4, right: 4),
-      child: Wrap(
-        spacing: 4,
-        runSpacing: 4,
-        children: message.reactions.entries.map((entry) {
-          final emoji = entry.key;
-          final count = entry.value;
-
-          return GestureDetector(
-            onTap: () => onReact?.call(message, emoji),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.05),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.08),
-                  width: 1,
-                ),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    emoji,
-                    style: const TextStyle(fontSize: 14),
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    count.toString(),
-                    style: const TextStyle(
-                      color: Colors.white70,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        }).toList(),
-      ),
-    );
-  }
-}
 

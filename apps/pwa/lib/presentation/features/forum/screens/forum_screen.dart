@@ -27,6 +27,7 @@ import 'package:lynk_x/presentation/features/forum/widgets/tabs/updates_tab.dart
 import 'package:lynk_x/presentation/features/forum/widgets/tabs/live_chat_tab.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/tabs/media_tab.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/reaction_background.dart';
+import 'package:lynk_x/presentation/features/forum/widgets/reaction_bar.dart';
 
 import 'package:lynk_x/presentation/features/forum/widgets/welcome_banner.dart';
 import 'package:lynk_x/data/repositories/repository_providers.dart';
@@ -352,7 +353,14 @@ class _ForumViewState extends State<ForumView> {
                           double extraHeight = 0;
                           Widget? extraHeaderWidgets;
 
-                          if (forumState.currentTabIndex == 0) {
+                          final featureFlags = context.read<FeatureFlagCubit>();
+                          final showUpdates =
+                              featureFlags.isEnabled('enable_forum_announcements');
+                          final showChat =
+                              featureFlags.isEnabled('enable_forum_live_chat');
+                          final chatTabIndex = showUpdates ? 1 : 0;
+
+                          if (forumState.currentTabIndex == 0 && showUpdates) {
                             final updatesState =
                                 context.watch<ForumUpdatesCubit>().state;
                             final updatesCubit =
@@ -391,6 +399,18 @@ class _ForumViewState extends State<ForumView> {
                                     ),
                                   ),
                               ],
+                            );
+                          } else if (forumState.currentTabIndex == chatTabIndex && showChat) {
+                            extraHeight += 44.0; // ReactionBar height + vertical padding
+                            extraHeaderWidgets = ColoredBox(
+                              color: AppColors.primaryBackground,
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 8.0),
+                                child: ReactionBar(
+                                  onEmojiTap: (emoji) =>
+                                      context.read<ForumCubit>().handleEmojiTap(emoji),
+                                ),
+                              ),
                             );
                           }
 

@@ -30,9 +30,7 @@ class ChatMessageList extends StatelessWidget {
   final Function(ChatMessage)? onReport;
   final Function(ChatMessage)? onMute;
   final Function(ChatMessage)? onBan;
-  final Function(ChatMessage, String)? onReact;
   final Function(ChatMessage)? onReply;
-  final Function(ChatMessage)? onReactionTap;
   final VoidCallback? onLongPressBubble;
   final String? selectedMessageId;
   final Function(ChatMessage)? onMessageLongPress;
@@ -53,9 +51,7 @@ class ChatMessageList extends StatelessWidget {
     this.onReport,
     this.onMute,
     this.onBan,
-    this.onReact,
     this.onReply,
-    this.onReactionTap,
     this.onLongPressBubble,
     this.selectedMessageId,
     this.onMessageLongPress,
@@ -145,10 +141,8 @@ class ChatMessageList extends StatelessWidget {
                   onReport: onReport,
                   onMute: onMute,
                   onBan: onBan,
-                  onReact: onReact,
                   isOrganizer: isOrganizer,
                   onReply: onReply,
-                  onReactionTap: onReactionTap,
                   onTapBubble: onTapBubble,
                   onLongPressBubble: onLongPressBubble ??
                       () => onMessageLongPress?.call(message),

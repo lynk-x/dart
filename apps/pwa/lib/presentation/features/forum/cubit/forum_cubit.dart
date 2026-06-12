@@ -384,27 +384,7 @@ class ForumCubit extends Cubit<ForumState> {
     }
   }
 
-  void reactToMessage(ChatMessage message, String emoji) {
-    // 1. Update local UI (Flying emoji)
-    if (!isClosed) {
-      emit(state.copyWith(
-        selectedEmoji: emoji,
-        emojiTrigger: state.emojiTrigger + 1,
-      ));
-    }
-
-    // 2. Broadcast for others to see flying emoji
-    _channel?.sendBroadcastMessage(
-      event: 'live_reaction',
-      payload: {'emoji': emoji},
-    );
-
-    // 3. Handle Message Reaction (Slack-style)
-    _persistReaction(message, emoji);
-  }
-
   void handleEmojiTap(String emoji) {
-    // Legacy support for flying emojis only
     if (!isClosed) {
       emit(state.copyWith(
         selectedEmoji: emoji,
@@ -429,30 +409,6 @@ class ForumCubit extends Cubit<ForumState> {
     );
   }
 
-  Future<void> _persistReaction(ChatMessage message, String emoji) async {
-    if (userId == kGuestUserId) return;
-    try {
-      final isAdded = await _repo.toggleReaction(
-        message.id,
-        message.createdAt.toIso8601String(),
-        userId,
-        emoji,
-      );
-
-      _channel?.sendBroadcastMessage(
-        event: 'message_reaction',
-        payload: {
-          'message_id': message.id,
-          'emoji_code': emoji,
-          'user_id': userId,
-          'action': isAdded ? 'added' : 'removed',
-        },
-      );
-    } catch (e, stack) {
-      debugPrint('[ForumCubit] Error: $e\n$stack');
-    }
-  }
-
   void _setupReactionListeners() {
     _channel?.onBroadcast(
       event: 'live_reaction',
@@ -464,14 +420,6 @@ class ForumCubit extends Cubit<ForumState> {
             emojiTrigger: state.emojiTrigger + 1,
           ));
         }
-      },
-    );
-
-    _channel?.onBroadcast(
-      event: 'message_reaction',
-      callback: (payload) {
-        // This can be used by Chat/Update cubits to update specific message counts locally
-        // We'll handle this in the respective cubits via children communication or shared streams
       },
     );
 
