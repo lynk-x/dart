@@ -70,6 +70,7 @@ class ForumCubit extends Cubit<ForumState> {
   void _setupUserStatusListener() {
     final fId = forumId;
     if (userId == kGuestUserId || fId == null) return;
+    _statusChannel?.unsubscribe();
 
     _statusChannel = _repo.subscribeToMemberChanges(fId, userId, (payload) {
           final data = payload.newRecord;
@@ -146,8 +147,8 @@ class ForumCubit extends Cubit<ForumState> {
 
         if (forumData != null) {
           forumId = forumData['id'] as String;
-          _channel = Supabase.instance.client.channel('forum_$forumId'); // keep — broadcast channel, not data
-          _channel?.subscribe();
+          _channel?.unsubscribe();
+          _channel = Supabase.instance.client.channel('forum_reactions_$forumId'); // keep — broadcast channel, not data
 
           forumStatus = forumData['status'] as String? ?? 'open';
           eventIdFromDb = forumData['event_id'] as String?;
@@ -437,5 +438,7 @@ class ForumCubit extends Cubit<ForumState> {
         }
       },
     );
+
+    _channel?.subscribe();
   }
 }

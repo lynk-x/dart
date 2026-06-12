@@ -18,10 +18,11 @@ class ForumUpdatesCubit extends BaseMessageCubit<ForumUpdatesState> {
     this.forumCreatedAt,
     this.channelId,
     this.channelCreatedAt,
-    super.channel,
+    RealtimeChannel? channel,
   }) : super(
           messageType: 'announcement',
           initialState: const ForumUpdatesState(),
+          channel: channel ?? Supabase.instance.client.channel('forum_updates_$forumId'),
         );
 
   @override

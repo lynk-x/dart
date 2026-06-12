@@ -1,6 +1,7 @@
 import 'package:lynk_core/core.dart';
 import 'dart:async';
 import 'package:flutter/foundation.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:lynk_x/data/repositories/repositories.dart';
 import 'package:lynk_x/presentation/features/forum/models/forum_model.dart';
 import 'package:lynk_x/core/sync/sync_item.dart';
@@ -26,11 +27,12 @@ class ForumChatCubit extends BaseMessageCubit<ForumChatState> {
     this.channelId,
     this.channelCreatedAt,
     required ForumRepository repo,
-    super.channel,
+    RealtimeChannel? channel,
   })  : _repo = repo,
         super(
           messageType: 'chat',
           initialState: const ForumChatState(),
+          channel: channel ?? Supabase.instance.client.channel('forum_chat_$forumId'),
         ) {
     _setupSyncListener();
     _reconcileSendingMessages();

@@ -84,7 +84,6 @@ class ForumPage extends StatelessWidget {
                      userName: mainCubit.userName,
                      isOrganizer: state.isOrganizer,
                      isPremium: state.isPremium,
-                     channel: mainCubit.channel,
                    );
                    final flagEnabled = context
                        .read<FeatureFlagCubit>()
@@ -101,7 +100,6 @@ class ForumPage extends StatelessWidget {
                        forumId: fId,
                        userId: mainCubit.userId,
                        userName: mainCubit.userName,
-                       channel: mainCubit.channel,
                      )..init();
                      cubit.syncForumContext(
                        forumCreatedAt: state.forumCreatedAt,
@@ -118,7 +116,6 @@ class ForumPage extends StatelessWidget {
                        userId: mainCubit.userId,
                        userName: mainCubit.userName,
                        repo: forumRepository,
-                       channel: mainCubit.channel,
                      )..init();
                      cubit.syncForumContext(
                        forumCreatedAt: state.forumCreatedAt,

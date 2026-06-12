@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/foundation.dart';
@@ -17,8 +18,9 @@ class ForumPresenceCubit extends Cubit<ForumPresenceState> {
     required this.userName,
     required this.isOrganizer,
     required this.isPremium,
-    this.channel,
-  }) : super(const ForumPresenceState());
+    RealtimeChannel? channel,
+  }) : channel = channel ?? Supabase.instance.client.channel('forum_presence_$forumId'),
+       super(const ForumPresenceState());
 
   void updateUserName(String newName) {
     if (userName != newName) {
@@ -52,7 +54,21 @@ class ForumPresenceCubit extends Cubit<ForumPresenceState> {
       if (!isClosed) _updatePresenceFromChannel();
     });
 
-    await _trackUser();
+    final completer = Completer<void>();
+    channel?.subscribe((status, [error]) {
+      if (status == RealtimeSubscribeStatus.subscribed) {
+        _trackUser().then((_) {
+          if (!completer.isCompleted) completer.complete();
+        }).catchError((e) {
+          if (!completer.isCompleted) completer.complete();
+        });
+      } else if (status == RealtimeSubscribeStatus.channelError ||
+                 status == RealtimeSubscribeStatus.timedOut) {
+        if (!completer.isCompleted) completer.complete();
+      }
+    });
+
+    await completer.future.timeout(const Duration(seconds: 5), onTimeout: () {});
 
     _updatePresenceFromChannel();
   }
@@ -128,6 +144,7 @@ class ForumPresenceCubit extends Cubit<ForumPresenceState> {
   @override
   Future<void> close() {
     untrackUser();
+    channel?.unsubscribe();
     return super.close();
   }
 }

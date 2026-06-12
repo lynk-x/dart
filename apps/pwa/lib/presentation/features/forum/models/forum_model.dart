@@ -80,7 +80,9 @@ class ChatMessage {
 
     return ChatMessage(
       id: map['id'] as String,
-      sender: map['user_profile']?['user_name'] as String? ?? 'Deleted User',
+      sender: map['user_profile']?['user_name'] as String? ??
+              map['user_profile']?['full_name'] as String? ??
+              'Deleted User',
       userId: map['author_id'] as String? ?? map['user_id'] as String? ?? '',
       message: map['content'] as String? ?? '',
       createdAt: DateTime.parse(map['created_at'] as String),

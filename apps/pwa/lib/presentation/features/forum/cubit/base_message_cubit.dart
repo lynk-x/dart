@@ -190,7 +190,22 @@ abstract class BaseMessageCubit<T extends BaseMessageState> extends HydratedCubi
 
   void onBroadcastMessageReceived(ChatMessage msg) {
     if (msg.userId == userId) return;
-    if (state.messages.any((m) => m.id == msg.id)) return;
+    
+    final index = state.messages.indexWhere((m) => m.id == msg.id);
+    if (index != -1) {
+      final existingMsg = state.messages[index];
+      if (existingMsg.isSending ||
+          existingMsg.sender == 'Deleted User' ||
+          existingMsg.sender == 'Unknown' ||
+          existingMsg.sender.isEmpty ||
+          existingMsg.sender == existingMsg.userId) {
+        final updated = List<ChatMessage>.from(state.messages);
+        updated[index] = msg;
+        if (!isClosed) emit(copyWithState(messages: updated));
+      }
+      return;
+    }
+
     if (msg.imageUrl != null && msg.imageUrl!.isNotEmpty) {
       _signMessageUrlAndEmit(msg);
     } else {
@@ -367,6 +382,7 @@ abstract class BaseMessageCubit<T extends BaseMessageState> extends HydratedCubi
   Future<void> close() {
     searchTimer?.cancel();
     _postgresChannel?.unsubscribe();
+    channel?.unsubscribe();
     return super.close();
   }
 }
