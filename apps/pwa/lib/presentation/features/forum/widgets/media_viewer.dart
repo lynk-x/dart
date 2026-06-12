@@ -244,6 +244,45 @@ class _MediaViewerState extends State<MediaViewer> {
 
           return Column(
             children: [
+              SafeArea(
+                bottom: false,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  color: Colors.black,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      IconButton(
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        icon: const Icon(Icons.close, color: Colors.white),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Text(
+                          currentMedia != null
+                              ? '${currentMedia.mediaType.toUpperCase()} (${_currentIndex + 1}/${_gallery.length})'
+                              : 'MEDIA VIEWER',
+                          style: AppTypography.inter(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      IconButton(
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        icon: const Icon(Icons.download_rounded, color: Colors.white),
+                        onPressed: _downloadMedia,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
               Expanded(
                 child: Stack(
                   children: [
@@ -288,49 +327,6 @@ class _MediaViewerState extends State<MediaViewer> {
                           ],
                         ),
                       ),
-
-                    // Top Controls
-                    Positioned(
-                      top: MediaQuery.of(context).padding.top + 10,
-                      left: 20,
-                      right: 20,
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          _CircleButton(
-                            icon: Icons.close,
-                            onPressed: () => Navigator.pop(context),
-                          ),
-                          if (currentMedia != null)
-                            Text(
-                              currentMedia.mediaType.toUpperCase(),
-                              style: AppTypography.inter(
-                                color: Colors.white54,
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: 2,
-                              ),
-                            ),
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              // _CircleButton(
-                              //   icon: Icons.alternate_email,
-                              //   onPressed: () {
-                              //     Navigator.pop(context);
-                              //     widget.onMention?.call();
-                              //   },
-                              // ),
-                              // const SizedBox(width: 8),
-                              _CircleButton(
-                                icon: Icons.download_rounded,
-                                onPressed: _downloadMedia,
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
                   ],
                 ),
               ),
@@ -603,27 +599,6 @@ class ForumMediaWatermark extends StatelessWidget {
             },
           );
         }
-      ),
-    );
-  }
-}
-
-class _CircleButton extends StatelessWidget {
-  final IconData icon;
-  final VoidCallback onPressed;
-
-  const _CircleButton({required this.icon, required this.onPressed});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.5),
-        shape: BoxShape.circle,
-      ),
-      child: IconButton(
-        icon: Icon(icon, color: Colors.white),
-        onPressed: onPressed,
       ),
     );
   }

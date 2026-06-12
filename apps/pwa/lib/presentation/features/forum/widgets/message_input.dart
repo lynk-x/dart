@@ -44,13 +44,6 @@ class _MessageInputState extends State<MessageInput> {
   List<Map<String, dynamic>> _filteredMembers = [];
   bool _showMentions = false;
 
-  static const _categoryColors = {
-    'Urgent': Color(0xFFFF4444),
-    'Activity': Color(0xFF00AAFF),
-    'Q&A': Color(0xFFFFAA00),
-    'Resources': Color(0xFF44DD88),
-    'Rules': Color(0xFFAA88FF),
-  };
 
   @override
   void initState() {
@@ -134,9 +127,8 @@ class _MessageInputState extends State<MessageInput> {
     final trimmed = _controller.text.trimLeft();
     if (!trimmed.startsWith('#')) return null;
 
-    const validHashtags = ['Urgent', 'Activity', 'Q&A', 'Resources', 'Rules'];
     final tagPart = trimmed.substring(1).trimLeft();
-    for (final tag in validHashtags) {
+    for (final tag in ForumCategory.values) {
       final escapedTag = RegExp.escape(tag);
       final regExp = RegExp('^$escapedTag(?:\\s|[.,!?]|\$)', caseSensitive: false);
       if (regExp.hasMatch(tagPart)) {
@@ -147,7 +139,7 @@ class _MessageInputState extends State<MessageInput> {
   }
 
   Widget _buildCategoryPreview(String category) {
-    final color = _categoryColors[category] ?? context.accentColor;
+    final color = ForumCategory.getColorForCategory(category, context.accentColor);
     final textColor = ThemeData.estimateBrightnessForColor(color) == Brightness.light
         ? Colors.black
         : Colors.white;

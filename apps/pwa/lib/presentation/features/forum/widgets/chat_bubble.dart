@@ -96,7 +96,11 @@ class _ChatBubbleState extends State<ChatBubble> {
               ],
             ],
           ),
-          if (widget.message.reactions.isNotEmpty) _buildReactionPills(),
+          if (widget.message.reactions.isNotEmpty)
+            _ReactionPills(
+              message: widget.message,
+              onReact: widget.onReact,
+            ),
           if (widget.showActions) _buildActions(context),
         ],
       ),
@@ -277,102 +281,20 @@ class _ChatBubbleState extends State<ChatBubble> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (widget.message.replyTo != null) _buildReplyPreview(),
-            if (widget.message.imageUrl != null) _buildImageContent(),
-            if (widget.message.category != null) _buildCategoryBadge(),
+            if (widget.message.replyTo != null)
+              _ReplyPreview(replyTo: widget.message.replyTo!),
+            if (widget.message.imageUrl != null)
+              _ImageContent(
+                message: widget.message,
+                onMediaTap: widget.onMediaTap,
+              ),
+            if (widget.message.category != null)
+              _CategoryBadge(category: widget.message.category!),
             _buildMessageContent(textColor),
             if (widget.message.questionnaireId != null &&
                 context.read<FeatureFlagCubit>().isEnabled('enable_forum_polls'))
               PollAttachment(questionnaireId: widget.message.questionnaireId!),
           ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildReplyPreview() {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 4),
-      padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-          color: const Color(0xFF0A0A0A), borderRadius: BorderRadius.circular(8)),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.reply, size: 12, color: Colors.white54),
-          const SizedBox(width: 4),
-          Text(
-            widget.message.replyTo!.message,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: AppTypography.inter(color: Colors.white54, fontSize: 12),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildImageContent() {
-    final imageUrl = widget.message.thumbnailUrl ?? widget.message.imageUrl!;
-    return GestureDetector(
-      onTap: () => widget.onMediaTap?.call(widget.message.imageUrl),
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 6),
-        clipBehavior: Clip.antiAlias,
-        decoration: BoxDecoration(borderRadius: BorderRadius.circular(12)),
-        child: CachedNetworkImage(
-          imageUrl: imageUrl,
-          cacheManager: LynkCacheManager.instance,
-          fit: BoxFit.cover,
-          placeholder: (context, url) => Container(
-            height: 120,
-            color: Colors.grey[900],
-            child: Center(
-              child: CircularProgressIndicator(strokeWidth: 1.5, color: context.accentColor),
-            ),
-          ),
-          errorWidget: (context, url, err) => Container(
-            height: 120,
-            color: Colors.grey[900],
-            child: const Center(
-              child: Icon(Icons.broken_image, color: Colors.white24),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  static const _categoryColors = {
-    'Urgent': Color(0xFFFF4444),
-    'Activity': Color(0xFF00AAFF),
-    'Q&A': Color(0xFFFFAA00),
-    'Resources': Color(0xFF44DD88),
-    'Rules': Color(0xFFAA88FF),
-  };
-
-  Widget _buildCategoryBadge() {
-    final category = widget.message.category!;
-    final color = _categoryColors[category] ?? context.accentColor;
-    final textColor = ThemeData.estimateBrightnessForColor(color) == Brightness.light
-        ? Colors.black
-        : Colors.white;
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-        decoration: BoxDecoration(
-          color: color,
-          borderRadius: BorderRadius.circular(4),
-        ),
-        child: Text(
-          '#$category',
-          style: AppTypography.inter(
-            fontSize: 10,
-            fontWeight: FontWeight.w600,
-            color: textColor,
-          ),
         ),
       ),
     );
@@ -424,19 +346,130 @@ class _ChatBubbleState extends State<ChatBubble> {
     
     return textWidget;
   }
+}
 
-  Widget _buildReactionPills() {
+class _ReplyPreview extends StatelessWidget {
+  final ChatMessage replyTo;
+
+  const _ReplyPreview({required this.replyTo});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 4),
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0A0A0A),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.reply, size: 12, color: Colors.white54),
+          const SizedBox(width: 4),
+          Text(
+            replyTo.message,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: AppTypography.inter(color: Colors.white54, fontSize: 12),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ImageContent extends StatelessWidget {
+  final ChatMessage message;
+  final Function(String?)? onMediaTap;
+
+  const _ImageContent({required this.message, this.onMediaTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final imageUrl = message.thumbnailUrl ?? message.imageUrl!;
+    return GestureDetector(
+      onTap: () => onMediaTap?.call(message.imageUrl),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 6),
+        clipBehavior: Clip.antiAlias,
+        decoration: BoxDecoration(borderRadius: BorderRadius.circular(12)),
+        child: CachedNetworkImage(
+          imageUrl: imageUrl,
+          cacheManager: LynkCacheManager.instance,
+          fit: BoxFit.cover,
+          placeholder: (context, url) => Container(
+            height: 120,
+            color: Colors.grey[900],
+            child: Center(
+              child: CircularProgressIndicator(strokeWidth: 1.5, color: context.accentColor),
+            ),
+          ),
+          errorWidget: (context, url, err) => Container(
+            height: 120,
+            color: Colors.grey[900],
+            child: const Center(
+              child: Icon(Icons.broken_image, color: Colors.white24),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CategoryBadge extends StatelessWidget {
+  final String category;
+
+  const _CategoryBadge({required this.category});
+
+  @override
+  Widget build(BuildContext context) {
+    final color = ForumCategory.getColorForCategory(category, context.accentColor);
+    final textColor = ThemeData.estimateBrightnessForColor(color) == Brightness.light
+        ? Colors.black
+        : Colors.white;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Text(
+          '#$category',
+          style: AppTypography.inter(
+            fontSize: 10,
+            fontWeight: FontWeight.w600,
+            color: textColor,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ReactionPills extends StatelessWidget {
+  final ChatMessage message;
+  final Function(ChatMessage, String)? onReact;
+
+  const _ReactionPills({required this.message, this.onReact});
+
+  @override
+  Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(top: 4, left: 4, right: 4),
       child: Wrap(
         spacing: 4,
         runSpacing: 4,
-        children: widget.message.reactions.entries.map((entry) {
+        children: message.reactions.entries.map((entry) {
           final emoji = entry.key;
           final count = entry.value;
 
           return GestureDetector(
-            onTap: () => widget.onReact?.call(widget.message, emoji),
+            onTap: () => onReact?.call(message, emoji),
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
@@ -472,3 +505,4 @@ class _ChatBubbleState extends State<ChatBubble> {
     );
   }
 }
+

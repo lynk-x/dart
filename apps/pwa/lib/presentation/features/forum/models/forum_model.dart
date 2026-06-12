@@ -330,3 +330,26 @@ class LinkPreviewData {
     );
   }
 }
+
+class ForumCategory {
+  static const List<String> values = [
+    'Urgent',
+    'Activity',
+    'Q&A',
+    'Resources',
+    'Rules',
+  ];
+
+  static const Map<String, Color> colors = {
+    'Urgent': Color(0xFFFF4444),
+    'Activity': Color(0xFF00AAFF),
+    'Q&A': Color(0xFFFFAA00),
+    'Resources': Color(0xFF44DD88),
+    'Rules': Color(0xFFAA88FF),
+  };
+
+  static Color getColorForCategory(String category, Color fallbackColor) {
+    return colors[category] ?? fallbackColor;
+  }
+}
+

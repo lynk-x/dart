@@ -180,6 +180,19 @@ class _ForumViewState extends State<ForumView> {
     }
   }
 
+  bool _isMediaTabActive() {
+    final featureFlags = context.read<FeatureFlagCubit>();
+    final showUpdates = featureFlags.isEnabled('enable_forum_announcements');
+    final showChat = featureFlags.isEnabled('enable_forum_live_chat');
+    final showMedia = featureFlags.isEnabled('enable_forum_media');
+
+    if (!showMedia) return false;
+
+    final mediaIndex = (showUpdates ? 1 : 0) + (showChat ? 1 : 0);
+    final currentTabIndex = context.read<ForumCubit>().state.currentTabIndex;
+    return currentTabIndex == mediaIndex;
+  }
+
   Future<void> _loadBannerState() async {
     final forumId = context.read<ForumCubit>().forumId;
     final prefs = await SharedPreferences.getInstance();
@@ -231,10 +244,21 @@ class _ForumViewState extends State<ForumView> {
             }
           },
         ),
+        BlocListener<ForumCubit, ForumState>(
+          listenWhen: (p, c) => p.currentTabIndex != c.currentTabIndex,
+          listener: (context, state) {
+            if (_isMediaTabActive()) {
+              final mediaState = context.read<ForumMediaCubit>().state;
+              _precacheMedia(mediaState.mediaItems);
+            }
+          },
+        ),
         BlocListener<ForumMediaCubit, ForumMediaState>(
           listenWhen: (p, c) => p.mediaItems != c.mediaItems,
           listener: (context, state) {
-            _precacheMedia(state.mediaItems);
+            if (_isMediaTabActive()) {
+              _precacheMedia(state.mediaItems);
+            }
           },
         ),
         BlocListener<ForumCubit, ForumState>(

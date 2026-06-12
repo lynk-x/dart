@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart' hide ChoiceChip;
 import 'package:lynk_x/presentation/shared/widgets/choice_chip.dart';
+import 'package:lynk_x/presentation/features/forum/models/forum_model.dart';
 
 /// A horizontal scrolling bar of category chips for filtering content.
 class CategoryFilterBar extends StatelessWidget {
@@ -14,10 +15,11 @@ class CategoryFilterBar extends StatelessWidget {
 
   const CategoryFilterBar({
     super.key,
-    this.categories = const ['Urgent', 'Activity', 'Q&A', 'Resources', 'Rules'],
+    this.categories = ForumCategory.values,
     required this.selectedCategory,
     required this.onSelectionChanged,
   });
+
 
   @override
   Widget build(BuildContext context) {
