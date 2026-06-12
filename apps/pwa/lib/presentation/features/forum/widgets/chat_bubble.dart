@@ -294,16 +294,7 @@ class _ChatBubbleState extends State<ChatBubble> {
   }
 
   void _handleMentionTap(String username) {
-    if (widget.onMentionTap != null) {
-      widget.onMentionTap!(username);
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Tapped @$username'),
-          duration: const Duration(seconds: 1),
-        ),
-      );
-    }
+    widget.onMentionTap?.call(username);
   }
 
   Widget _buildMessageContent(Color textColor) {

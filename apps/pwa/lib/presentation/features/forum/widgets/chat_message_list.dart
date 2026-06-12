@@ -168,6 +168,9 @@ class ChatMessageList extends StatelessWidget {
             ),
           ),
         ),
+        SliverOverlapInjector(
+          handle: NestedScrollView.sliverOverlapAbsorberHandleFor(context),
+        ),
       ],
     );
   }

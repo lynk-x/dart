@@ -74,22 +74,7 @@ class ChatMessage {
 
   factory ChatMessage.fromMap(Map<String, dynamic> map, String currentUserId) {
     Map<String, int> parsedReactions = {};
-    if (map['vw_message_reaction_counts'] != null) {
-      final List<dynamic> reactionsList =
-          map['vw_message_reaction_counts'] as List<dynamic>;
-      for (final reaction in reactionsList) {
-        final emoji = reaction['emoji_code'] as String?;
-        final count = reaction['reaction_count'] as int?;
-        if (emoji != null && count != null) {
-          parsedReactions[emoji] = count;
-        }
-      }
-    } else if (map['reaction_summary'] != null) {
-      parsedReactions = (map['reaction_summary'] as Map<String, dynamic>).map(
-        (key, value) => MapEntry(key, value as int),
-      );
-    } else if (map['reactions'] != null) {
-      // Fallback for manual map passed in
+    if (map['reactions'] != null) {
       parsedReactions = Map<String, int>.from(map['reactions'] as Map);
     }
 

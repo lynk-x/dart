@@ -77,7 +77,7 @@ class _UpdatesTabState extends State<UpdatesTab>
                                     'No messages yet. Start the conversation!',
                               ),
                             ),
-                          if (updatesState.messages.isNotEmpty)
+                          if (updatesState.messages.isNotEmpty) ...[
                             SliverPadding(
                               padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
                               sliver: SliverList(
@@ -133,6 +133,11 @@ class _UpdatesTabState extends State<UpdatesTab>
                                 ),
                               ),
                             ),
+                            SliverOverlapInjector(
+                              handle: NestedScrollView
+                                  .sliverOverlapAbsorberHandleFor(context),
+                            ),
+                          ],
                         ],
                       ),
                     ),
