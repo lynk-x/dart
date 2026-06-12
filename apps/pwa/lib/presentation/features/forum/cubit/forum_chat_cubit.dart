@@ -31,7 +31,10 @@ class ForumChatCubit extends BaseMessageCubit<ForumChatState> {
         super(
           messageType: 'chat',
           initialState: const ForumChatState(),
-        );
+        ) {
+    _setupSyncListener();
+    _reconcileSendingMessages();
+  }
 
   @override
   ForumChatState copyWithState({
@@ -66,7 +69,19 @@ class ForumChatCubit extends BaseMessageCubit<ForumChatState> {
     await refresh();
     _setupChatListeners();
     setupBaseListeners();
-    _setupSyncListener();
+  }
+
+  void _reconcileSendingMessages() {
+    final updatedList = state.messages.map((msg) {
+      if (msg.isSending && !SyncManager.instance.isQueued(msg.id)) {
+        return msg.copyWith(isSending: false, hasError: false);
+      }
+      return msg;
+    }).toList();
+
+    if (!listEquals(updatedList, state.messages)) {
+      emit(state.copyWith(messages: updatedList));
+    }
   }
 
   void _setupSyncListener() {
@@ -153,6 +168,7 @@ class ForumChatCubit extends BaseMessageCubit<ForumChatState> {
 
       if (!isClosed) {
         emit(state.copyWith(messages: messages, isLoading: false));
+        _reconcileSendingMessages();
       }
     } catch (e, stack) {
       debugPrint('[ForumChatCubit] Error: $e\n$stack');
@@ -317,36 +333,11 @@ class ForumChatCubit extends BaseMessageCubit<ForumChatState> {
   }
 
   void _completeMessage(String id) {
-    _updateMessageInPlaceInternal(id, isSending: false, hasError: false);
+    updateMessageInPlace(id, isSending: false, hasError: false);
   }
 
   void _failMessage(String id) {
-    _updateMessageInPlaceInternal(id, isSending: false, hasError: true);
-  }
-
-  void _updateMessageInPlaceInternal(
-    String id, {
-    String? content,
-    bool? isPinned,
-    bool? isSending,
-    bool? hasError,
-    Map<String, int>? reactions,
-  }) {
-    final index = state.messages.indexWhere((m) => m.id == id);
-    if (index == -1) return;
-
-    final msg = state.messages[index];
-    final updatedMsg = msg.copyWith(
-      message: content ?? msg.message,
-      reactions: reactions ?? msg.reactions,
-      isPinned: isPinned ?? msg.isPinned,
-      isSending: isSending ?? msg.isSending,
-      hasError: hasError ?? msg.hasError,
-    );
-
-    final updatedList = List<ChatMessage>.from(state.messages);
-    updatedList[index] = updatedMsg;
-    if (!isClosed) emit(state.copyWith(messages: updatedList));
+    updateMessageInPlace(id, isSending: false, hasError: true);
   }
 
   void retryMessage(ChatMessage message,

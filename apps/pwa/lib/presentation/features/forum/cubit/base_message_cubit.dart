@@ -146,7 +146,16 @@ abstract class BaseMessageCubit<T extends BaseMessageState> extends HydratedCubi
               if (data['message_type'] != messageType) return;
 
               final id = data['id'] as String;
-              if (state.messages.any((m) => m.id == id)) return;
+              
+              // Reconcile optimistic insert if it's already in our state
+              final index = state.messages.indexWhere((m) => m.id == id);
+              if (index != -1) {
+                final existingMsg = state.messages[index];
+                if (existingMsg.isSending) {
+                  updateMessageInPlace(id, isSending: false, hasError: false);
+                }
+                return;
+              }
 
               final msg = ChatMessage.fromMap(data, userId);
               onBroadcastMessageReceived(msg);
@@ -163,6 +172,8 @@ abstract class BaseMessageCubit<T extends BaseMessageState> extends HydratedCubi
                   data['id'] as String,
                   content: data['content'] as String?,
                   isPinned: data['is_pinned'] == true,
+                  isSending: false, // Updated rows are confirmed in the DB
+                  hasError: false,
                 );
               }
             }
@@ -332,6 +343,8 @@ abstract class BaseMessageCubit<T extends BaseMessageState> extends HydratedCubi
     String? content,
     bool? isPinned,
     Map<String, int>? reactions,
+    bool? isSending,
+    bool? hasError,
   }) {
     final index = state.messages.indexWhere((m) => m.id == messageId);
     if (index != -1) {
@@ -340,6 +353,8 @@ abstract class BaseMessageCubit<T extends BaseMessageState> extends HydratedCubi
         message: content ?? oldMsg.message,
         reactions: reactions ?? oldMsg.reactions,
         isPinned: isPinned ?? oldMsg.isPinned,
+        isSending: isSending ?? oldMsg.isSending,
+        hasError: hasError ?? oldMsg.hasError,
       );
 
       final updated = List<ChatMessage>.from(state.messages);

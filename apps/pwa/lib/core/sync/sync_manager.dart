@@ -57,6 +57,12 @@ class SyncManager {
     _processQueue();
   }
 
+  /// Check if an item is currently queued for syncing.
+  bool isQueued(String id) {
+    return _queue.any((item) => item.id == id);
+  }
+
+
   /// Resolve a [ConflictPolicy.manual] conflict that was previously paused.
   ///
   /// [resolution] == [ConflictResolution.applyClient] → write the client payload.
