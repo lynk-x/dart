@@ -55,8 +55,8 @@ class ForumUpdatesCubit extends BaseMessageCubit<ForumUpdatesState> {
   }
 
   Future<void> init() async {
-    await refresh();
     setupBaseListeners();
+    await refresh();
   }
 
   void syncForumContext({

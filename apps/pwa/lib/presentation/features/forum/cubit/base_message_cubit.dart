@@ -48,13 +48,21 @@ abstract class BaseMessageCubit<T extends BaseMessageState> extends HydratedCubi
   /// Base listeners.
   void setupBaseListeners() {
     if (channel == null) return;
+    final channelTopic = 'forum_${messageType}_$forumId';
+    debugPrint('[BaseMessageCubit] Setting up base listeners for channel: $channelTopic');
+
     channel?.onBroadcast(
       event: 'new_message',
       callback: (payload) {
+        debugPrint('[BaseMessageCubit] onBroadcast: new_message received on ($channelTopic) with payload: $payload');
         if (payload.isEmpty) return;
-        final msg = ChatMessage.fromMap(payload, userId);
-        if (msg.type == _getTypeEnum(messageType)) {
-          onBroadcastMessageReceived(msg);
+        try {
+          final msg = ChatMessage.fromMap(payload, userId);
+          if (msg.type == _getTypeEnum(messageType)) {
+            onBroadcastMessageReceived(msg);
+          }
+        } catch (e, stack) {
+          debugPrint('[BaseMessageCubit] Error parsing new_message broadcast: $e\n$stack');
         }
       },
     );
@@ -62,11 +70,16 @@ abstract class BaseMessageCubit<T extends BaseMessageState> extends HydratedCubi
     channel?.onBroadcast(
       event: 'edit_message',
       callback: (payload) {
-        final String? msgId = payload['id'] as String?;
-        final String? content = payload['content'] as String?;
-        final bool? isPinned = payload['is_pinned'] as bool?;
-        if (msgId != null) {
-          updateMessageInPlace(msgId, content: content, isPinned: isPinned);
+        debugPrint('[BaseMessageCubit] onBroadcast: edit_message received on ($channelTopic) with payload: $payload');
+        try {
+          final String? msgId = payload['id'] as String?;
+          final String? content = payload['content'] as String?;
+          final bool? isPinned = payload['is_pinned'] as bool?;
+          if (msgId != null) {
+            updateMessageInPlace(msgId, content: content, isPinned: isPinned);
+          }
+        } catch (e, stack) {
+          debugPrint('[BaseMessageCubit] Error parsing edit_message broadcast: $e\n$stack');
         }
       },
     );
@@ -74,10 +87,15 @@ abstract class BaseMessageCubit<T extends BaseMessageState> extends HydratedCubi
     channel?.onBroadcast(
       event: 'delete_message',
       callback: (payload) {
-        final String? msgId = payload['id'] as String?;
-        if (msgId != null) {
-          final updated = state.messages.where((m) => m.id != msgId).toList();
-          if (!isClosed) emit(copyWithState(messages: updated));
+        debugPrint('[BaseMessageCubit] onBroadcast: delete_message received on ($channelTopic) with payload: $payload');
+        try {
+          final String? msgId = payload['id'] as String?;
+          if (msgId != null) {
+            final updated = state.messages.where((m) => m.id != msgId).toList();
+            if (!isClosed) emit(copyWithState(messages: updated));
+          }
+        } catch (e, stack) {
+          debugPrint('[BaseMessageCubit] Error parsing delete_message broadcast: $e\n$stack');
         }
       },
     );
@@ -85,29 +103,35 @@ abstract class BaseMessageCubit<T extends BaseMessageState> extends HydratedCubi
     channel?.onBroadcast(
       event: 'message_reaction',
       callback: (payload) {
-        final String? msgId = payload['message_id'] as String?;
-        final String? emoji = payload['emoji_code'] as String?;
-        final String? action = payload['action'] as String?;
+        debugPrint('[BaseMessageCubit] onBroadcast: message_reaction received on ($channelTopic) with payload: $payload');
+        try {
+          final String? msgId = payload['message_id'] as String?;
+          final String? emoji = payload['emoji_code'] as String?;
+          final String? action = payload['action'] as String?;
 
-        if (msgId == null || emoji == null) return;
+          if (msgId == null || emoji == null) return;
 
-        final index = state.messages.indexWhere((m) => m.id == msgId);
-        if (index != -1) {
-          final msg = state.messages[index];
-          final updatedReactions = Map<String, int>.from(msg.reactions);
-          if (action == 'added') {
-            updatedReactions[emoji] = (updatedReactions[emoji] ?? 0) + 1;
-          } else {
-            updatedReactions[emoji] = (updatedReactions[emoji] ?? 1) - 1;
-            if (updatedReactions[emoji]! <= 0) updatedReactions.remove(emoji);
+          final index = state.messages.indexWhere((m) => m.id == msgId);
+          if (index != -1) {
+            final msg = state.messages[index];
+            final updatedReactions = Map<String, int>.from(msg.reactions);
+            if (action == 'added') {
+              updatedReactions[emoji] = (updatedReactions[emoji] ?? 0) + 1;
+            } else {
+              updatedReactions[emoji] = (updatedReactions[emoji] ?? 1) - 1;
+              if (updatedReactions[emoji]! <= 0) updatedReactions.remove(emoji);
+            }
+
+            updateMessageInPlace(msgId, reactions: updatedReactions);
           }
-
-          updateMessageInPlace(msgId, reactions: updatedReactions);
+        } catch (e, stack) {
+          debugPrint('[BaseMessageCubit] Error parsing message_reaction broadcast: $e\n$stack');
         }
       },
     );
 
     channel?.subscribe((status, [error]) {
+      debugPrint('[BaseMessageCubit] Broadcast channel ($channelTopic) subscribe status: $status, error: $error');
       if (status == RealtimeSubscribeStatus.channelError ||
           status == RealtimeSubscribeStatus.timedOut) {
         _wasDisconnected = true;
@@ -125,8 +149,11 @@ abstract class BaseMessageCubit<T extends BaseMessageState> extends HydratedCubi
     // Setup a dedicated postgres CDC channel to ensure that listeners
     // are registered before the subscribe() handshake is initiated.
     final client = Supabase.instance.client;
+    final pgChannelName = 'forum_messages_cdc_${messageType}_$forumId';
+    debugPrint('[BaseMessageCubit] Setting up Postgres CDC channel: $pgChannelName');
+    
     _postgresChannel = client
-        .channel('forum_messages_cdc_${messageType}_$forumId')
+        .channel(pgChannelName)
         .onPostgresChanges(
           event: PostgresChangeEvent.all,
           schema: 'social',
@@ -137,49 +164,57 @@ abstract class BaseMessageCubit<T extends BaseMessageState> extends HydratedCubi
             value: forumId,
           ),
           callback: (payload) {
-            if (payload.eventType == PostgresChangeEvent.delete) {
-              final id = payload.oldRecord['id'] as String?;
-              final updated = state.messages.where((m) => m.id != id).toList();
-              if (!isClosed) emit(copyWithState(messages: updated));
-            } else if (payload.eventType == PostgresChangeEvent.insert) {
-              final data = payload.newRecord;
-              if (data['message_type'] != messageType) return;
-
-              final id = data['id'] as String;
-              
-              // Reconcile optimistic insert if it's already in our state
-              final index = state.messages.indexWhere((m) => m.id == id);
-              if (index != -1) {
-                final existingMsg = state.messages[index];
-                if (existingMsg.isSending) {
-                  updateMessageInPlace(id, isSending: false, hasError: false);
-                }
-                return;
-              }
-
-              final msg = ChatMessage.fromMap(data, userId);
-              onBroadcastMessageReceived(msg);
-            } else if (payload.eventType == PostgresChangeEvent.update) {
-              final data = payload.newRecord;
-              if (data['message_type'] != messageType) return;
-
-              if (data['deleted_at'] != null) {
-                final id = data['id'] as String?;
+            debugPrint('[BaseMessageCubit] CDC payload received: ${payload.eventType} on table ${payload.table}');
+            try {
+              if (payload.eventType == PostgresChangeEvent.delete) {
+                final id = payload.oldRecord['id'] as String?;
                 final updated = state.messages.where((m) => m.id != id).toList();
                 if (!isClosed) emit(copyWithState(messages: updated));
-              } else {
-                updateMessageInPlace(
-                  data['id'] as String,
-                  content: data['content'] as String?,
-                  isPinned: data['is_pinned'] == true,
-                  isSending: false, // Updated rows are confirmed in the DB
-                  hasError: false,
-                );
+              } else if (payload.eventType == PostgresChangeEvent.insert) {
+                final data = payload.newRecord;
+                if (data['message_type'] != messageType) return;
+
+                final id = data['id'] as String;
+                
+                // Reconcile optimistic insert if it's already in our state
+                final index = state.messages.indexWhere((m) => m.id == id);
+                if (index != -1) {
+                  final existingMsg = state.messages[index];
+                  if (existingMsg.isSending) {
+                    updateMessageInPlace(id, isSending: false, hasError: false);
+                  }
+                  return;
+                }
+
+                final msg = ChatMessage.fromMap(data, userId);
+                onBroadcastMessageReceived(msg);
+              } else if (payload.eventType == PostgresChangeEvent.update) {
+                final data = payload.newRecord;
+                if (data['message_type'] != messageType) return;
+
+                if (data['deleted_at'] != null) {
+                  final id = data['id'] as String?;
+                  final updated = state.messages.where((m) => m.id != id).toList();
+                  if (!isClosed) emit(copyWithState(messages: updated));
+                } else {
+                  updateMessageInPlace(
+                    data['id'] as String,
+                    content: data['content'] as String?,
+                    isPinned: data['is_pinned'] == true,
+                    isSending: false, // Updated rows are confirmed in the DB
+                    hasError: false,
+                  );
+                }
               }
+            } catch (e, stack) {
+              debugPrint('[BaseMessageCubit] Error in Postgres CDC callback: $e\n$stack');
             }
           },
         );
-    _postgresChannel?.subscribe();
+
+    _postgresChannel?.subscribe((status, [error]) {
+      debugPrint('[BaseMessageCubit] Postgres CDC channel ($pgChannelName) subscribe status: $status, error: $error');
+    });
   }
 
   MessageType _getTypeEnum(String type) {

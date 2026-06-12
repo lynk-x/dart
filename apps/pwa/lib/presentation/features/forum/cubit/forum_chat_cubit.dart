@@ -68,9 +68,9 @@ class ForumChatCubit extends BaseMessageCubit<ForumChatState> {
   }
 
   Future<void> init() async {
-    await refresh();
     _setupChatListeners();
     setupBaseListeners();
+    await refresh();
   }
 
   void _reconcileSendingMessages() {
