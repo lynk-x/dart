@@ -42,6 +42,381 @@ class _AccountPageState extends State<AccountPage> {
     }
   }
 
+  void _showChangePasswordDialog(BuildContext context) {
+    final newPasswordController = TextEditingController();
+    final confirmPasswordController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+    bool isUpdating = false;
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              backgroundColor: AppColors.primaryBackground,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+                side: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
+              ),
+              title: Text(
+                'Change Password',
+                style: AppTypography.interTight(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+              content: Form(
+                key: formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextFormField(
+                      controller: newPasswordController,
+                      obscureText: true,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: InputDecoration(
+                        labelText: 'New Password',
+                        labelStyle: const TextStyle(color: Colors.white60),
+                        enabledBorder: UnderlineInputBorder(
+                          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.3)),
+                        ),
+                        focusedBorder: UnderlineInputBorder(
+                          borderSide: BorderSide(color: context.accentColor),
+                        ),
+                      ),
+                      validator: (val) {
+                        if (val == null || val.length < 6) {
+                          return 'Password must be at least 6 characters';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: confirmPasswordController,
+                      obscureText: true,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: InputDecoration(
+                        labelText: 'Confirm Password',
+                        labelStyle: const TextStyle(color: Colors.white60),
+                        enabledBorder: UnderlineInputBorder(
+                          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.3)),
+                        ),
+                        focusedBorder: UnderlineInputBorder(
+                          borderSide: BorderSide(color: context.accentColor),
+                        ),
+                      ),
+                      validator: (val) {
+                        if (val != newPasswordController.text) {
+                          return 'Passwords do not match';
+                        }
+                        return null;
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: isUpdating ? null : () => Navigator.pop(dialogContext),
+                  child: const Text('Cancel', style: TextStyle(color: Colors.white60)),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: context.accentColor,
+                    foregroundColor: Colors.black,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  onPressed: isUpdating
+                      ? null
+                      : () async {
+                          if (formKey.currentState?.validate() ?? false) {
+                            setDialogState(() => isUpdating = true);
+                            try {
+                              await Supabase.instance.client.auth.updateUser(
+                                UserAttributes(password: newPasswordController.text),
+                              );
+                              if (dialogContext.mounted) {
+                                Navigator.pop(dialogContext);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: const Text('Password updated successfully'),
+                                    backgroundColor: context.accentColor,
+                                  ),
+                                );
+                              }
+                            } catch (e) {
+                              if (dialogContext.mounted) {
+                                ScaffoldMessenger.of(dialogContext).showSnackBar(
+                                  SnackBar(
+                                    content: Text('Error: ${e.toFriendlyMessage()}'),
+                                    backgroundColor: Colors.redAccent,
+                                  ),
+                                );
+                              }
+                            } finally {
+                              setDialogState(() => isUpdating = false);
+                            }
+                          }
+                        },
+                  child: isUpdating
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.black,
+                          ),
+                        )
+                      : const Text('Save'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _showUpdateEmailDialog(BuildContext context, String currentEmail) {
+    final emailController = TextEditingController(text: currentEmail == 'No email linked' ? '' : currentEmail);
+    final formKey = GlobalKey<FormState>();
+    bool isUpdating = false;
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              backgroundColor: AppColors.primaryBackground,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+                side: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
+              ),
+              title: Text(
+                'Update Email Address',
+                style: AppTypography.interTight(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+              content: Form(
+                key: formKey,
+                child: TextFormField(
+                  controller: emailController,
+                  keyboardType: TextInputType.emailAddress,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: InputDecoration(
+                    labelText: 'New Email Address',
+                    labelStyle: const TextStyle(color: Colors.white60),
+                    enabledBorder: UnderlineInputBorder(
+                      borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.3)),
+                    ),
+                    focusedBorder: UnderlineInputBorder(
+                      borderSide: BorderSide(color: context.accentColor),
+                    ),
+                  ),
+                  validator: (val) {
+                    if (val == null || val.trim().isEmpty) {
+                      return 'Email cannot be empty';
+                    }
+                    if (!RegExp(r'^[^@]+@[^@]+\.[^@]+$').hasMatch(val.trim())) {
+                      return 'Please enter a valid email address';
+                    }
+                    return null;
+                  },
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: isUpdating ? null : () => Navigator.pop(dialogContext),
+                  child: const Text('Cancel', style: TextStyle(color: Colors.white60)),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: context.accentColor,
+                    foregroundColor: Colors.black,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  onPressed: isUpdating
+                      ? null
+                      : () async {
+                          if (formKey.currentState?.validate() ?? false) {
+                            setDialogState(() => isUpdating = true);
+                            try {
+                              await Supabase.instance.client.auth.updateUser(
+                                UserAttributes(email: emailController.text.trim()),
+                              );
+                              if (dialogContext.mounted) {
+                                Navigator.pop(dialogContext);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: const Text('A confirmation link has been sent to the new email address'),
+                                    backgroundColor: context.accentColor,
+                                  ),
+                                );
+                              }
+                            } catch (e) {
+                              if (dialogContext.mounted) {
+                                ScaffoldMessenger.of(dialogContext).showSnackBar(
+                                  SnackBar(
+                                    content: Text('Error: ${e.toFriendlyMessage()}'),
+                                    backgroundColor: Colors.redAccent,
+                                  ),
+                                );
+                              }
+                            } finally {
+                              setDialogState(() => isUpdating = false);
+                            }
+                          }
+                        },
+                  child: isUpdating
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.black,
+                          ),
+                        )
+                      : const Text('Save'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _showUpdatePhoneDialog(BuildContext context, String currentPhone) {
+    final phoneController = TextEditingController(text: currentPhone == 'No phone number linked' ? '' : currentPhone);
+    final formKey = GlobalKey<FormState>();
+    bool isUpdating = false;
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              backgroundColor: AppColors.primaryBackground,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+                side: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
+              ),
+              title: Text(
+                currentPhone.isEmpty || currentPhone == 'No phone number linked'
+                    ? 'Add Phone Number'
+                    : 'Change Phone Number',
+                style: AppTypography.interTight(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+              content: Form(
+                key: formKey,
+                child: TextFormField(
+                  controller: phoneController,
+                  keyboardType: TextInputType.phone,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: InputDecoration(
+                    labelText: 'New Phone Number',
+                    labelStyle: const TextStyle(color: Colors.white60),
+                    enabledBorder: UnderlineInputBorder(
+                      borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.3)),
+                    ),
+                    focusedBorder: UnderlineInputBorder(
+                      borderSide: BorderSide(color: context.accentColor),
+                    ),
+                  ),
+                  validator: (val) {
+                    if (val == null || val.trim().isEmpty) {
+                      return 'Phone number cannot be empty';
+                    }
+                    if (val.trim().length < 7) {
+                      return 'Please enter a valid phone number';
+                    }
+                    return null;
+                  },
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: isUpdating ? null : () => Navigator.pop(dialogContext),
+                  child: const Text('Cancel', style: TextStyle(color: Colors.white60)),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: context.accentColor,
+                    foregroundColor: Colors.black,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  onPressed: isUpdating
+                      ? null
+                      : () async {
+                          if (formKey.currentState?.validate() ?? false) {
+                            setDialogState(() => isUpdating = true);
+                            try {
+                              await Supabase.instance.client.auth.updateUser(
+                                UserAttributes(phone: phoneController.text.trim()),
+                              );
+                              if (context.mounted) {
+                                context.read<ProfileCubit>().loadProfile();
+                              }
+                              if (dialogContext.mounted) {
+                                Navigator.pop(dialogContext);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: const Text('Phone number updated successfully'),
+                                    backgroundColor: context.accentColor,
+                                  ),
+                                );
+                              }
+                            } catch (e) {
+                              if (dialogContext.mounted) {
+                                ScaffoldMessenger.of(dialogContext).showSnackBar(
+                                  SnackBar(
+                                    content: Text('Error: ${e.toFriendlyMessage()}'),
+                                    backgroundColor: Colors.redAccent,
+                                  ),
+                                );
+                              }
+                            } finally {
+                              setDialogState(() => isUpdating = false);
+                            }
+                          }
+                        },
+                  child: isUpdating
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.black,
+                          ),
+                        )
+                      : const Text('Save'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
   void _showDeleteConfirmation(BuildContext context) {
     showDialog(
       context: context,
@@ -96,6 +471,10 @@ class _AccountPageState extends State<AccountPage> {
 
           final profile = (state as ProfileLoaded).profile;
           final accountRef = profile.accountReference ?? 'Resolving...';
+          final status = profile.accountStatus ?? 'active';
+          final phone = profile.phoneNumber ?? 'No phone number linked';
+
+          final isStatusActive = status.toLowerCase() == 'active';
 
           return SingleChildScrollView(
             padding: const EdgeInsets.all(20),
@@ -118,16 +497,27 @@ class _AccountPageState extends State<AccountPage> {
                   trailing: const Icon(Icons.copy_rounded, color: Colors.white24, size: 20),
                 ),
                 _buildSettingTile(
-                  title: 'Unique User ID (UUID)',
-                  subtitle: profile.id,
-                  icon: Icons.fingerprint_rounded,
-                  onTap: () {
-                    Clipboard.setData(ClipboardData(text: profile.id));
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('User ID copied to clipboard')),
-                    );
-                  },
-                  trailing: const Icon(Icons.copy_rounded, color: Colors.white24, size: 20),
+                  title: 'Account Status',
+                  subtitle: status.toUpperCase(),
+                  icon: Icons.info_outline_rounded,
+                  onTap: () {},
+                  trailing: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: isStatusActive
+                          ? Colors.green.withValues(alpha: 0.1)
+                          : Colors.red.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      status.toUpperCase(),
+                      style: AppTypography.inter(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: isStatusActive ? Colors.greenAccent : Colors.redAccent,
+                      ),
+                    ),
+                  ),
                 ),
                 const SizedBox(height: 32),
                 _buildSectionHeader('Security & Login'),
@@ -135,24 +525,45 @@ class _AccountPageState extends State<AccountPage> {
                   title: 'Primary Email',
                   subtitle: email,
                   icon: Icons.mail_outline_rounded,
-                  onTap: () {},
-                  trailing: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: emailVerified
-                          ? Colors.green.withValues(alpha: 0.1)
-                          : Colors.amber.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      emailVerified ? 'VERIFIED' : 'UNVERIFIED',
-                      style: AppTypography.inter(
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                        color: emailVerified ? Colors.greenAccent : Colors.amberAccent,
+                  onTap: () => _showUpdateEmailDialog(context, email),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: emailVerified
+                              ? Colors.green.withValues(alpha: 0.1)
+                              : Colors.amber.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          emailVerified ? 'VERIFIED' : 'UNVERIFIED',
+                          style: AppTypography.inter(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: emailVerified ? Colors.greenAccent : Colors.amberAccent,
+                          ),
+                        ),
                       ),
-                    ),
+                      const SizedBox(width: 8),
+                      const Icon(Icons.chevron_right_rounded, color: Colors.white24),
+                    ],
                   ),
+                ),
+                _buildSettingTile(
+                  title: 'Phone Number',
+                  subtitle: phone,
+                  icon: Icons.phone_iphone_rounded,
+                  onTap: () => _showUpdatePhoneDialog(context, profile.phoneNumber ?? ''),
+                  trailing: const Icon(Icons.chevron_right_rounded, color: Colors.white24),
+                ),
+                _buildSettingTile(
+                  title: 'Change Password',
+                  subtitle: 'Update your login password in-app',
+                  icon: Icons.lock_outline_rounded,
+                  onTap: () => _showChangePasswordDialog(context),
+                  trailing: const Icon(Icons.chevron_right_rounded, color: Colors.white24),
                 ),
                 _buildSettingTile(
                   title: 'Reset Password',

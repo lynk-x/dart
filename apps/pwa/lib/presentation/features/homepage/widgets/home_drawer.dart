@@ -137,9 +137,7 @@ class _HomeDrawerState extends State<HomeDrawer> {
                                         ),
                                       ),
                                       Text(
-                                        profile.email ??
-                                            _user?.email ??
-                                            'No email',
+                                        profile.userReference ?? 'No user reference',
                                         style: AppTypography.inter(
                                           fontSize: 14,
                                           color: AppColors.primaryText,
