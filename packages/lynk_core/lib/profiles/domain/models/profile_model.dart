@@ -31,7 +31,11 @@ class ProfileModel {
     this.accountStatus,
   });
 
-  factory ProfileModel.fromMap(Map<String, dynamic> map, {String? accountReference}) {
+  factory ProfileModel.fromMap(
+    Map<String, dynamic> map, {
+    String? accountReference,
+    String? accountStatus,
+  }) {
     final info = map['info'] as Map<String, dynamic>? ?? {};
     return ProfileModel(
       id: map['id'] as String,
@@ -47,7 +51,7 @@ class ProfileModel {
       accountReference: accountReference ?? map['account_reference'] as String?,
       userReference: map['reference'] as String?,
       phoneNumber: map['phone_number'] as String?,
-      accountStatus: map['account_status'] as String?,
+      accountStatus: accountStatus ?? map['account_status'] as String?,
     );
   }
 
