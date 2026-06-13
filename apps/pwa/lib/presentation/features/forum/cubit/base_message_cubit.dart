@@ -224,23 +224,26 @@ abstract class BaseMessageCubit<T extends BaseMessageState> extends HydratedCubi
   }
 
   void onBroadcastMessageReceived(ChatMessage msg) {
-    if (msg.userId == userId) return;
-    
     final index = state.messages.indexWhere((m) => m.id == msg.id);
     if (index != -1) {
       final existingMsg = state.messages[index];
+      
+      // Reconcile the message: if it is currently marked as sending or has unresolved/placeholder
+      // sender values, update it in-place using the newly received broadcast metadata (and clear the sending flag).
       if (existingMsg.isSending ||
           existingMsg.sender == 'Deleted User' ||
           existingMsg.sender == 'Unknown' ||
           existingMsg.sender.isEmpty ||
           existingMsg.sender == existingMsg.userId) {
         final updated = List<ChatMessage>.from(state.messages);
-        updated[index] = msg;
+        updated[index] = msg.copyWith(isSending: false);
         if (!isClosed) emit(copyWithState(messages: updated));
       }
       return;
     }
 
+    // Prepend the message if it does not already exist in the list.
+    // This applies to both other users' messages and our own messages received from other devices/tabs.
     if (msg.imageUrl != null && msg.imageUrl!.isNotEmpty) {
       _signMessageUrlAndEmit(msg);
     } else {
