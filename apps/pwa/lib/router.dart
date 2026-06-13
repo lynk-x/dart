@@ -14,6 +14,7 @@ import 'package:lynk_x/presentation/features/ticket/screens/ticket_screen.dart';
 import 'package:lynk_x/presentation/features/ticket/screens/tickets_list_screen.dart';
 import 'package:lynk_x/presentation/features/profile/screens/edit_profile_screen.dart';
 import 'package:lynk_x/presentation/features/profile/screens/profile_setup_screen.dart';
+import 'package:lynk_x/presentation/features/profile/screens/account_screen.dart';
 import 'package:lynk_x/presentation/features/feedback/screens/feedback_screen.dart';
 import 'package:lynk_x/presentation/features/support/screens/support_screen.dart';
 import 'package:lynk_x/presentation/features/support/screens/live_chat_screen.dart';
@@ -225,11 +226,14 @@ GoRouter createRouter(
         routes: [
           GoRoute(
             path: '/wallet',
-            builder: (context, __) => Title(
-              title: 'My Wallet',
-              color: Colors.black,
-              child: const WalletPage(),
-            ),
+            builder: (context, state) {
+              final pay = state.uri.queryParameters['pay'];
+              return Title(
+                title: 'My Wallet',
+                color: Colors.black,
+                child: WalletPage(prefilledRecipientId: pay),
+              );
+            },
             routes: [
               GoRoute(
                 path: 'list',
@@ -286,6 +290,14 @@ GoRouter createRouter(
           title: 'Edit Profile',
           color: Colors.black,
           child: const EditProfilePage(),
+        ),
+      ),
+      GoRoute(
+        path: '/account',
+        builder: (_, __) => Title(
+          title: 'Manage Account',
+          color: Colors.black,
+          child: const AccountPage(),
         ),
       ),
       GoRoute(
@@ -352,6 +364,13 @@ GoRouter createRouter(
           color: Colors.black,
           child: const ProfileSetupScreen(),
         ),
+      ),
+      GoRoute(
+        path: '/pay/:recipientId',
+        redirect: (context, state) {
+          final recipientId = state.pathParameters['recipientId'];
+          return '/wallet?pay=$recipientId';
+        },
       ),
       GoRoute(
         path: '/kyc',

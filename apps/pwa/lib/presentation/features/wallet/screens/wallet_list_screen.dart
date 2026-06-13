@@ -50,8 +50,11 @@ class WalletListPage extends StatelessWidget {
                   const SizedBox(height: 24),
                   ElevatedButton(
                     onPressed: () => _showAddWalletDialog(context),
-                    style: ElevatedButton.styleFrom(backgroundColor: context.accentColor),
-                    child: const Text('Add your first wallet', style: TextStyle(color: Colors.white)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: context.accentColor,
+                      foregroundColor: Colors.black,
+                    ),
+                    child: const Text('Add your first wallet'),
                   ),
                 ],
               ),

@@ -9,6 +9,7 @@ class ProfileModel {
   final String? countryCode; // ISO 3166-1 alpha-2
   final String subscriptionTier; // 'free' or 'pro'
   final String verificationStatus; // 'none', 'verified', 'official'
+  final String? accountReference;
 
   ProfileModel({
     required this.id,
@@ -21,9 +22,10 @@ class ProfileModel {
     this.countryCode,
     required this.subscriptionTier,
     required this.verificationStatus,
+    this.accountReference,
   });
 
-  factory ProfileModel.fromMap(Map<String, dynamic> map) {
+  factory ProfileModel.fromMap(Map<String, dynamic> map, {String? accountReference}) {
     final info = map['info'] as Map<String, dynamic>? ?? {};
     return ProfileModel(
       id: map['id'] as String,
@@ -36,6 +38,7 @@ class ProfileModel {
       countryCode: map['country_code'] as String?,
       subscriptionTier: (map['is_premium'] == true) ? 'pro' : 'free',
       verificationStatus: map['verification_status'] as String? ?? 'none',
+      accountReference: accountReference ?? map['account_reference'] as String?,
     );
   }
 
@@ -67,6 +70,7 @@ class ProfileModel {
     String? avatarUrl,
     String? countryCode,
     bool clearAvatarUrl = false,
+    String? accountReference,
   }) {
     return ProfileModel(
       id: id,
@@ -79,6 +83,7 @@ class ProfileModel {
       countryCode: countryCode ?? this.countryCode,
       subscriptionTier: subscriptionTier,
       verificationStatus: verificationStatus,
+      accountReference: accountReference ?? this.accountReference,
     );
   }
 }

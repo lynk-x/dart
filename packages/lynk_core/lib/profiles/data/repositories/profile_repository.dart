@@ -13,10 +13,13 @@ class ProfileRepository {
   Future<ProfileModel> getProfile(String userId) async {
     final data = await _client
         .from('user_profile')
-        .select('id, email, avatar_url, user_name, full_name, country_code, is_premium, info')
+        .select('id, email, avatar_url, user_name, full_name, country_code, is_premium, info, account_reference')
         .eq('id', userId)
         .single();
-    return ProfileModel.fromMap(data);
+
+    final accountReference = data['account_reference'] as String?;
+
+    return ProfileModel.fromMap(data, accountReference: accountReference);
   }
 
   Future<void> updateProfile({

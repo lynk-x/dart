@@ -8,7 +8,6 @@ import 'package:lynk_x/presentation/shared/widgets/text_field.dart';
 import 'package:country_flags/country_flags.dart';
 import '../models/country.dart';
 import '../widgets/profile_avatar.dart';
-import '../widgets/delete_account_dialog.dart';
 
 class EditProfilePage extends StatefulWidget {
   const EditProfilePage({super.key});
@@ -395,32 +394,11 @@ class _EditProfilePageState extends State<EditProfilePage> {
                         enabled: !isUpdating,
                         maxLines: 3,
                       ),
-                      const SizedBox(height: 64),
-                      Container(
-                        width: double.infinity,
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.redAccent),
-                        ),
-                        child: InkWell(
-                          onTap: isUpdating ? null : () => _showDeleteConfirmation(context),
-                          borderRadius: BorderRadius.circular(12),
-                          hoverColor: Colors.redAccent.withValues(alpha: 0.1),
-                          child: const Padding(
-                            padding: EdgeInsets.symmetric(vertical: 16),
-                            child: Center(
-                              child: Text(
-                                'Delete Account',
-                                style: TextStyle(
-                                  color: Colors.redAccent,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 14,
-                                  letterSpacing: 0.5,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
+                      const SizedBox(height: 48),
+                      PrimaryButton(
+                        icon: Icons.manage_accounts_rounded,
+                        text: 'Manage Account',
+                        onPressed: isUpdating ? null : () => context.push('/account'),
                       ),
                       const SizedBox(height: 24),
                     ],
@@ -467,15 +445,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
           ),
         );
       },
-    );
-  }
-
-  void _showDeleteConfirmation(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (dialogContext) => DeleteAccountDialog(
-        onDelete: () => context.read<ProfileCubit>().deleteAccount(),
-      ),
     );
   }
 }

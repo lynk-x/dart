@@ -25,6 +25,8 @@ class _TransferSheetState extends State<TransferSheet> {
   late String _currency;
   final _pinController = TextEditingController();
   double? _quickPick;
+  Map<String, dynamic>? _recipientDetails;
+  bool _isResolvingRecipient = true;
 
   @override
   void initState() {
@@ -33,6 +35,23 @@ class _TransferSheetState extends State<TransferSheet> {
     _currency = widget.currentBalances.isNotEmpty 
         ? widget.currentBalances.first.currency 
         : 'KES';
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _resolveRecipient();
+    });
+  }
+
+  Future<void> _resolveRecipient() async {
+    if (!mounted) return;
+    setState(() {
+      _isResolvingRecipient = true;
+    });
+    final details = await context.read<WalletCubit>().resolveRecipientDetails(widget.recipientAccountId);
+    if (mounted) {
+      setState(() {
+        _recipientDetails = details;
+        _isResolvingRecipient = false;
+      });
+    }
   }
 
   @override
@@ -55,6 +74,13 @@ class _TransferSheetState extends State<TransferSheet> {
   }
 
   void _submit() {
+    if (_recipientDetails == null && !_isResolvingRecipient) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Recipient account not found')),
+      );
+      return;
+    }
+
     final amount = _parsedAmount;
     if (amount == null || amount <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -81,10 +107,11 @@ class _TransferSheetState extends State<TransferSheet> {
       return;
     }
 
+    final resolvedId = _recipientDetails?['id'] as String? ?? widget.recipientAccountId;
     context.read<WalletCubit>().transferFunds(
       amount: amount,
       currency: _currency,
-      recipientAccountId: widget.recipientAccountId,
+      recipientAccountId: resolvedId,
       pin: pin,
     );
   }
@@ -127,12 +154,32 @@ class _TransferSheetState extends State<TransferSheet> {
                     style: AppTypography.inter(
                         fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
                 const SizedBox(height: 8),
-                Text(
-                  'To: ${widget.recipientAccountId}',
-                  style: AppTypography.inter(fontSize: 12, color: Colors.white38),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
+                if (_isResolvingRecipient)
+                  const SizedBox(
+                    height: 20,
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: SizedBox(
+                        width: 12,
+                        height: 12,
+                        child: CircularProgressIndicator(strokeWidth: 1.5, color: Colors.white54),
+                      ),
+                    ),
+                  )
+                else if (_recipientDetails != null)
+                  Text(
+                    'To: ${_recipientDetails!['display_name']} (${_recipientDetails!['reference']})',
+                    style: AppTypography.inter(fontSize: 13, color: Colors.white70, fontWeight: FontWeight.w500),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  )
+                else
+                  Text(
+                    'To: ${widget.recipientAccountId} (Not found)',
+                    style: AppTypography.inter(fontSize: 13, color: Colors.redAccent.withValues(alpha: 0.8)),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 const SizedBox(height: 24),
 
                 // ── Currency selector ──────────────────────────────────────────

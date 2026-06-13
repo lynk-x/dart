@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lynk_core/core.dart';
 import 'package:lynk_x/presentation/features/wallet/widgets/wallet_pin_setup_sheet.dart';
@@ -193,6 +194,20 @@ class _WalletSettingsPageState extends State<WalletSettingsPage> {
                   subtitle: 'Manage external bank or card links',
                   icon: Icons.link_rounded,
                   onTap: () => context.push('/wallet/payment-methods'),
+                ),
+                _buildSettingTile(
+                  title: 'Account Reference',
+                  subtitle: state.accountReference ?? 'Resolving...',
+                  icon: Icons.badge_outlined,
+                  onTap: () {
+                    if (state.accountReference != null) {
+                      Clipboard.setData(ClipboardData(text: state.accountReference!));
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Account reference copied to clipboard')),
+                      );
+                    }
+                  },
+                  trailing: const Icon(Icons.copy_rounded, color: Colors.white24, size: 20),
                 ),
                 const SizedBox(height: 32),
                 _buildSectionHeader('Verification & Limits'),

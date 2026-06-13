@@ -42,6 +42,9 @@ class WalletState extends Equatable {
   // Resolved account_id — cached to avoid repeated lookups.
   final String? accountId;
 
+  // Resolved account reference (e.g. ACC-123) — cached to avoid repeated lookups.
+  final String? accountReference;
+
   /// The currency currently being viewed in the transactions sub-page.
   final String? selectedCurrency;
   
@@ -66,6 +69,7 @@ class WalletState extends Equatable {
     this.payoutMethods  = const [],
     this.kycTier,
     this.accountId,
+    this.accountReference,
     this.selectedCurrency,
     this.hasPinSet       = false,
     this.isWalletUnlocked = false,
@@ -93,6 +97,7 @@ class WalletState extends Equatable {
     String? kycTier,
     bool clearKycTier = false,
     String? accountId,
+    String? accountReference,
     String? selectedCurrency,
     bool clearSelectedCurrency = false,
     bool? hasPinSet,
@@ -115,6 +120,7 @@ class WalletState extends Equatable {
       payoutMethods:   payoutMethods  ?? this.payoutMethods,
       kycTier:         clearKycTier   ? null : kycTier    ?? this.kycTier,
       accountId:       accountId      ?? this.accountId,
+      accountReference: accountReference ?? this.accountReference,
       selectedCurrency: clearSelectedCurrency ? null : selectedCurrency ?? this.selectedCurrency,
       hasPinSet:       hasPinSet      ?? this.hasPinSet,
       isWalletUnlocked: isWalletUnlocked ?? this.isWalletUnlocked,
@@ -129,7 +135,7 @@ class WalletState extends Equatable {
     isLoading, isLoadingMore, error,
     topUpStatus, topUpError, topUpPaymentUrl,
     withdrawStatus, withdrawError, payoutMethods,
-    kycTier, accountId, selectedCurrency,
+    kycTier, accountId, accountReference, selectedCurrency,
     hasPinSet, isWalletUnlocked, useBiometrics, isPrivacyModeEnabled,
   ];
 }

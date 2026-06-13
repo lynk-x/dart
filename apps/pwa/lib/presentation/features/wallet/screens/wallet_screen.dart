@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lynk_core/core.dart';
@@ -12,7 +13,8 @@ import 'package:lynk_x/presentation/features/wallet/widgets/transfer_sheet.dart'
 import 'package:lynk_x/presentation/shared/widgets/permission_request_sheet.dart';
 
 class WalletPage extends StatefulWidget {
-  const WalletPage({super.key});
+  final String? prefilledRecipientId;
+  const WalletPage({super.key, this.prefilledRecipientId});
 
   @override
   State<WalletPage> createState() => _WalletPageState();
@@ -25,6 +27,7 @@ class _WalletPageState extends State<WalletPage> {
     context.read<WalletCubit>().init();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkOptIn();
+      _handlePrefilledRecipient();
     });
   }
 
@@ -34,6 +37,28 @@ class _WalletPageState extends State<WalletPage> {
     if (!hasOptedIn && mounted) {
       _showOptInPopup();
     }
+  }
+
+  void _handlePrefilledRecipient() {
+    final recipientId = widget.prefilledRecipientId;
+    if (recipientId != null && recipientId.isNotEmpty) {
+      _showTransferSheet(recipientId);
+    }
+  }
+
+  void _showTransferSheet(String recipientId) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => BlocProvider.value(
+        value: context.read<WalletCubit>(),
+        child: TransferSheet(
+          recipientAccountId: recipientId,
+          currentBalances: context.read<WalletCubit>().state.balances,
+        ),
+      ),
+    );
   }
 
   void _showOptInPopup() {
@@ -157,13 +182,14 @@ class _WalletPageState extends State<WalletPage> {
           }
 
           final accountId = state.accountId ?? 'No account linked';
+          final accountReference = state.accountReference ?? accountId;
 
           return LayoutBuilder(
             builder: (context, constraints) {
               if (constraints.maxWidth > 950) {
-                return _buildDesktopLayout(state, accountId);
+                return _buildDesktopLayout(state, accountReference);
               }
-              return _buildMobileLayout(state, accountId);
+              return _buildMobileLayout(state, accountReference);
             },
           );
         },
@@ -185,14 +211,14 @@ class _WalletPageState extends State<WalletPage> {
   );
 }
 
-  Widget _buildMobileLayout(WalletState state, String accountId) {
+  Widget _buildMobileLayout(WalletState state, String accountReference) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           const SizedBox(height: 20),
-          _QRCard(accountId: accountId),
+          _QRCard(accountReference: accountReference),
           const SizedBox(height: 32),
           _QuickActionsRow(),
           const SizedBox(height: 32),
@@ -203,7 +229,7 @@ class _WalletPageState extends State<WalletPage> {
     );
   }
 
-  Widget _buildDesktopLayout(WalletState state, String accountId) {
+  Widget _buildDesktopLayout(WalletState state, String accountReference) {
     return Center(
       child: Container(
         constraints: const BoxConstraints(maxWidth: 1000),
@@ -230,7 +256,7 @@ class _WalletPageState extends State<WalletPage> {
                     style: AppTypography.inter(fontSize: 14),
                   ),
                   const SizedBox(height: 32),
-                  _QRCard(accountId: accountId),
+                  _QRCard(accountReference: accountReference),
                 ],
               ),
             ),
@@ -264,11 +290,16 @@ class _WalletPageState extends State<WalletPage> {
 }
 
 class _QRCard extends StatelessWidget {
-  final String accountId;
-  const _QRCard({required this.accountId});
+  final String accountReference;
+  const _QRCard({required this.accountReference});
 
   @override
   Widget build(BuildContext context) {
+    String displayUrl = 'lynk-x.app/pay/$accountReference';
+    if (accountReference.length > 20) {
+      displayUrl = 'lynk-x.app/pay/${accountReference.substring(0, 12)}...${accountReference.substring(accountReference.length - 4)}';
+    }
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 24),
       decoration: BoxDecoration(
@@ -310,7 +341,7 @@ class _QRCard extends StatelessWidget {
               alignment: Alignment.center,
               children: [
                 QrImageView(
-                  data: accountId,
+                  data: 'https://lynk-x.app/pay/$accountReference',
                   version: QrVersions.auto,
                   size: 200.0,
                   errorCorrectionLevel: QrErrorCorrectLevel.H,
@@ -342,10 +373,43 @@ class _QRCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 24),
-          SelectableText(
-            accountId,
-            style: AppTypography.inter(fontSize: 10, color: Colors.white38, letterSpacing: 1),
-            textAlign: TextAlign.center,
+          InkWell(
+            onTap: () {
+              final fullUrl = 'https://lynk-x.app/pay/$accountReference';
+              Clipboard.setData(ClipboardData(text: fullUrl));
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Payment link copied to clipboard!'),
+                  duration: Duration(seconds: 2),
+                ),
+              );
+            },
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.05),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.white10),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.link, size: 16, color: Colors.white38),
+                  const SizedBox(width: 8),
+                  Text(
+                    displayUrl,
+                    style: AppTypography.inter(
+                      fontSize: 12,
+                      color: Colors.white70,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  const Icon(Icons.copy_rounded, size: 14, color: Colors.white38),
+                ],
+              ),
+            ),
           ),
         ],
       ),
@@ -600,6 +664,13 @@ class _WalletScannerSheetState extends State<_WalletScannerSheet> {
                               if (code != null) {
                                 Navigator.pop(context);
                                 
+                                String recipientId = code;
+                                if (code.contains('/pay/')) {
+                                  recipientId = code.split('/pay/').last.split('?').first;
+                                } else if (code.contains('pay=')) {
+                                  recipientId = code.split('pay=').last.split('&').first;
+                                }
+                                
                                 showModalBottomSheet(
                                   context: context,
                                   isScrollControlled: true,
@@ -607,7 +678,7 @@ class _WalletScannerSheetState extends State<_WalletScannerSheet> {
                                   builder: (sheetContext) => BlocProvider.value(
                                     value: context.read<WalletCubit>(),
                                     child: TransferSheet(
-                                      recipientAccountId: code,
+                                      recipientAccountId: recipientId,
                                       currentBalances: context.read<WalletCubit>().state.balances,
                                     ),
                                   ),

@@ -56,7 +56,8 @@ class WalletCubit extends Cubit<WalletState> {
     // Resolve Account ID first to ensure downstream concurrent methods are initialized correctly
     final accountId = state.accountId ?? await _resolveAccountId();
     if (accountId != null) {
-      emit(state.copyWith(accountId: accountId));
+      final accountRef = state.accountReference ?? await _resolveAccountReference(accountId);
+      emit(state.copyWith(accountId: accountId, accountReference: accountRef));
     }
 
     await Future.wait([
@@ -162,6 +163,7 @@ class WalletCubit extends Cubit<WalletState> {
         emit(state.copyWith(isLoading: false));
         return;
       }
+      final accountRef = state.accountReference ?? await _resolveAccountReference(accountId);
 
       final currencies = ['KES', 'USD'];
       final responses = await Future.wait(
@@ -176,7 +178,7 @@ class WalletCubit extends Cubit<WalletState> {
               }))
           .toList();
 
-      emit(state.copyWith(balances: balances, accountId: accountId, isLoading: false));
+      emit(state.copyWith(balances: balances, accountId: accountId, accountReference: accountRef, isLoading: false));
       _saveCachedBalances(balances);
     } catch (e) {
       emit(state.copyWith(
@@ -198,6 +200,19 @@ class WalletCubit extends Cubit<WalletState> {
         .limit(1)
         .maybeSingle();
     return row?['account_id'] as String?;
+  }
+
+  Future<String?> _resolveAccountReference(String accountId) async {
+    try {
+      final row = await _supabase
+          .from('accounts')
+          .select('reference')
+          .eq('id', accountId)
+          .maybeSingle();
+      return row?['reference'] as String?;
+    } catch (_) {
+      return null;
+    }
   }
 
   Future<void> _fetchTransactions({bool reset = false}) async {
@@ -252,11 +267,11 @@ class WalletCubit extends Cubit<WalletState> {
     }
   }
 
-  /// Pull-to-refresh — resets and refetches everything.
   Future<void> refresh() async {
     final accountId = state.accountId ?? await _resolveAccountId();
     if (accountId != null) {
-      emit(state.copyWith(accountId: accountId));
+      final accountRef = state.accountReference ?? await _resolveAccountReference(accountId);
+      emit(state.copyWith(accountId: accountId, accountReference: accountRef));
     }
     await Future.wait([_fetchBalances(), _fetchTransactions(reset: true)]);
   }
@@ -448,10 +463,13 @@ class WalletCubit extends Cubit<WalletState> {
           ? kycRow['kyc_tier'] as String?
           : null;
 
+      final accountRef = state.accountReference ?? await _resolveAccountReference(accountId);
+
       emit(state.copyWith(
         payoutMethods: List<Map<String, dynamic>>.from(methodRows),
         kycTier:       kycTier,
         accountId:     accountId,
+        accountReference: accountRef,
       ));
     } catch (_) {}
   }
@@ -575,6 +593,19 @@ class WalletCubit extends Cubit<WalletState> {
         withdrawStatus: WithdrawStatus.error,
         withdrawError:  'Transfer failed: ${e.toFriendlyMessage()}',
       ));
+    }
+  }
+
+  Future<Map<String, dynamic>?> resolveRecipientDetails(String identifier) async {
+    try {
+      final isUuid = RegExp(r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$').hasMatch(identifier);
+      final query = _supabase.from('accounts').select('id, reference, display_name');
+      final response = isUuid 
+          ? await query.eq('id', identifier).maybeSingle()
+          : await query.eq('reference', identifier).maybeSingle();
+      return response;
+    } catch (_) {
+      return null;
     }
   }
 
