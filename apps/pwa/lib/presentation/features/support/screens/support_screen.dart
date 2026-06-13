@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:lynk_core/core.dart';
-import 'package:country_flags/country_flags.dart';
-import 'package:lynk_x/presentation/features/profile/models/country.dart';
 import 'package:lynk_x/presentation/features/support/screens/live_chat_screen.dart';
 import 'package:lynk_x/data/repositories/repository_providers.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -22,8 +20,6 @@ class SupportScreen extends StatefulWidget {
 }
 
 class _SupportScreenState extends State<SupportScreen> {
-  String? _selectedCountryCode = 'US'; // Default mock country for showcase
-
   late Future<List<Map<String, dynamic>>> _activeTicketsFuture;
   late Future<Map<String, dynamic>?> _faqsFuture;
   bool _isLoadingChat = false;
@@ -95,66 +91,6 @@ class _SupportScreenState extends State<SupportScreen> {
     }
   }
 
-  Widget _buildFlag(String? code, {double size = 24}) {
-    if (code == null || code == 'GL') {
-      return Text('🌐', style: TextStyle(fontSize: size));
-    }
-    return SizedBox(
-      width: size * 1.4,
-      height: size,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(4),
-        child: CountryFlag.fromCountryCode(code),
-      ),
-    );
-  }
-
-  void _showCountryPicker(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: AppColors.tertiary,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (context) => Container(
-        padding: const EdgeInsets.symmetric(vertical: 20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text('Select Country',
-                style: AppTypography.interTight(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white)),
-            const SizedBox(height: 16),
-            Flexible(
-              child: ListView.builder(
-                shrinkWrap: true,
-                itemCount: kSupportedCountries.length,
-                itemBuilder: (context, index) {
-                  final country = kSupportedCountries[index];
-                  final isSelected = _selectedCountryCode == country.code;
-                  return ListTile(
-                    leading: _buildFlag(country.code, size: 20),
-                    title: Text(country.name,
-                        style: const TextStyle(color: Colors.white)),
-                    trailing: isSelected
-                        ? Icon(Icons.check_circle, color: context.accentColor)
-                        : null,
-                    onTap: () {
-                      setState(() => _selectedCountryCode = country.code);
-                      Navigator.pop(context);
-                    },
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -168,16 +104,6 @@ class _SupportScreenState extends State<SupportScreen> {
           style: AppTypography.inter(
               fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
         ),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 8.0),
-            child: IconButton(
-              icon: _buildFlag(_selectedCountryCode, size: 24),
-              tooltip: 'Select Country',
-              onPressed: () => _showCountryPicker(context),
-            ),
-          ),
-        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),

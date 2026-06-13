@@ -195,11 +195,14 @@ class _LiveChatScreenState extends State<LiveChatScreen> {
           );
         }
 
+        final reversedMessages = messages.reversed.toList();
+
         return ListView.builder(
           padding: const EdgeInsets.all(16),
-          itemCount: messages.length,
+          reverse: true,
+          itemCount: reversedMessages.length,
           itemBuilder: (context, index) {
-            final msg = messages[index];
+            final msg = reversedMessages[index];
             final isMe = msg['sender_id'] == _currentUserId;
             
             // Format time simply for showcase
@@ -217,11 +220,13 @@ class _LiveChatScreenState extends State<LiveChatScreen> {
   }
 
   Widget _buildMockMessages() {
+    final reversedMock = _mockMessages.reversed.toList();
     return ListView.builder(
       padding: const EdgeInsets.all(16),
-      itemCount: _mockMessages.length,
+      reverse: true,
+      itemCount: reversedMock.length,
       itemBuilder: (context, index) {
-        final msg = _mockMessages[index];
+        final msg = reversedMock[index];
         final isMe = msg['isMe'] as bool;
         
         return _buildMessageBubble(
