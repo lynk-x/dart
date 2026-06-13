@@ -91,10 +91,10 @@ class _UserPresenceCardState extends State<UserPresenceCard> {
       items: [
         if (widget.isPrimary) ...[
           ActionBarItem(
-            label: 'View Profile',
+            label: 'Edit Profile',
             onTap: () {
               _toggleActions();
-              context.push('/profile');
+              context.push('/edit-profile');
             },
             color: context.accentColor,
           ),

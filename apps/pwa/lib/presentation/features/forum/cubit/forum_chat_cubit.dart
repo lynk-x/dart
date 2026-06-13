@@ -14,7 +14,6 @@ class ForumChatCubit extends BaseMessageCubit<ForumChatState> {
   final ForumRepository _repo;
   Timer? _typingThrottle;
   Timer? _hideTypingTimer;
-  StreamSubscription? _syncSubscription;
   DateTime? forumCreatedAt;
   String? channelId;
   DateTime? channelCreatedAt;
@@ -33,10 +32,7 @@ class ForumChatCubit extends BaseMessageCubit<ForumChatState> {
           messageType: 'chat',
           initialState: const ForumChatState(),
           channel: channel ?? Supabase.instance.client.channel('forum_chat_$forumId'),
-        ) {
-    _setupSyncListener();
-    _reconcileSendingMessages();
-  }
+        );
 
   @override
   ForumChatState copyWithState({
@@ -73,30 +69,7 @@ class ForumChatCubit extends BaseMessageCubit<ForumChatState> {
     await refresh();
   }
 
-  void _reconcileSendingMessages() {
-    final updatedList = state.messages.map((msg) {
-      if (msg.isSending && !SyncManager.instance.isQueued(msg.id)) {
-        return msg.copyWith(isSending: false, hasError: false);
-      }
-      return msg;
-    }).toList();
 
-    if (!listEquals(updatedList, state.messages)) {
-      emit(state.copyWith(messages: updatedList));
-    }
-  }
-
-  void _setupSyncListener() {
-    _syncSubscription = SyncManager.instance.statusStream.listen((statusMap) {
-      for (var entry in statusMap.entries) {
-        if (entry.value) {
-          _completeMessage(entry.key);
-        } else {
-          _failMessage(entry.key);
-        }
-      }
-    });
-  }
 
   void syncForumContext({
     required DateTime? forumCreatedAt,
@@ -136,21 +109,12 @@ class ForumChatCubit extends BaseMessageCubit<ForumChatState> {
         forumId: forumId,
         limit: 20,
         before: null,
+        searchQuery: state.searchQuery,
+        messageType: 'chat',
       );
 
-      // Apply search filter client-side if query is active
-      // (repo doesn't expose fts search; keep it simple for now)
-      final filtered = state.searchQuery.isNotEmpty
-          ? data
-              .where((m) =>
-                  (m['content'] as String? ?? '')
-                      .toLowerCase()
-                      .contains(state.searchQuery.toLowerCase()))
-              .toList()
-          : data;
-
       var messages =
-          filtered.map((json) => ChatMessage.fromMap(json, userId)).toList();
+          data.map((json) => ChatMessage.fromMap(json, userId)).toList();
 
       final mediaMessages = messages.where((m) => m.imageUrl != null && m.imageUrl!.isNotEmpty).toList();
       if (mediaMessages.isNotEmpty) {
@@ -170,7 +134,7 @@ class ForumChatCubit extends BaseMessageCubit<ForumChatState> {
 
       if (!isClosed) {
         emit(state.copyWith(messages: messages, isLoading: false));
-        _reconcileSendingMessages();
+        reconcileSendingMessages();
       }
     } catch (e, stack) {
       debugPrint('[ForumChatCubit] Error: $e\n$stack');
@@ -191,6 +155,8 @@ class ForumChatCubit extends BaseMessageCubit<ForumChatState> {
         forumId: forumId,
         limit: 20,
         before: oldest,
+        searchQuery: state.searchQuery,
+        messageType: 'chat',
       );
 
       var more =
@@ -224,6 +190,7 @@ class ForumChatCubit extends BaseMessageCubit<ForumChatState> {
     }
   }
 
+  @override
   void sendMessage(String text,
       {required bool isOrganizer, required bool isPremium}) async {
     final messageId = BaseMessageCubit.uuid.v4();
@@ -334,20 +301,7 @@ class ForumChatCubit extends BaseMessageCubit<ForumChatState> {
     }
   }
 
-  void _completeMessage(String id) {
-    updateMessageInPlace(id, isSending: false, hasError: false);
-  }
 
-  void _failMessage(String id) {
-    updateMessageInPlace(id, isSending: false, hasError: true);
-  }
-
-  void retryMessage(ChatMessage message,
-      {required bool isOrganizer, required bool isPremium}) {
-    emit(state.copyWith(
-        messages: state.messages.where((m) => m.id != message.id).toList()));
-    sendMessage(message.message, isOrganizer: isOrganizer, isPremium: isPremium);
-  }
 
   void notifyTyping() {
     if (_typingThrottle?.isActive ?? false) return;
@@ -428,7 +382,6 @@ class ForumChatCubit extends BaseMessageCubit<ForumChatState> {
   Future<void> close() {
     _typingThrottle?.cancel();
     _hideTypingTimer?.cancel();
-    _syncSubscription?.cancel();
     return super.close();
   }
 }

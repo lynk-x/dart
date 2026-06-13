@@ -5,6 +5,8 @@ import 'package:lynk_x/presentation/features/forum/models/forum_model.dart';
 import 'package:lynk_x/core/utils/storage_utils.dart';
 import 'base_message_cubit.dart';
 import 'forum_updates_state.dart';
+import 'package:lynk_x/core/sync/sync_manager.dart';
+import 'package:lynk_x/core/sync/sync_item.dart';
 
 class ForumUpdatesCubit extends BaseMessageCubit<ForumUpdatesState> {
   DateTime? forumCreatedAt;
@@ -185,6 +187,7 @@ class ForumUpdatesCubit extends BaseMessageCubit<ForumUpdatesState> {
     refresh();
   }
 
+  @override
   void sendMessage(String text,
       {required bool isOrganizer, required bool isPremium}) async {
     if (!isOrganizer) return; // Only organizers send updates
@@ -229,16 +232,20 @@ class ForumUpdatesCubit extends BaseMessageCubit<ForumUpdatesState> {
       clearMentionedMedia: true,
     ));
 
-    try {
-      // forum_media is partitioned by created_at; the FK on forum_messages is
-      // composite (media_id, media_created_at) — both must be supplied or the
-      // FK will not resolve and media will not render in the message.
-      final mediaCreatedAt = state.mentionedMedia?.createdAt.toIso8601String();
+    // forum_media is partitioned by created_at; the FK on forum_messages is
+    // composite (media_id, media_created_at) — both must be supplied or the
+    // FK will not resolve and media will not render in the message.
+    final mediaCreatedAt = state.mentionedMedia?.createdAt.toIso8601String();
+    final messageCreatedAt = now.toIso8601String();
 
-      await Supabase.instance.client
-          .schema('social')
-          .from('forum_messages')
-          .insert({
+    SyncManager.instance.addWork(SyncItem(
+      id: messageId,
+      table: 'forum_messages',
+      schema: 'social',
+      action: SyncAction.insert,
+      partitionKeyName: 'created_at',
+      partitionKeyValue: messageCreatedAt,
+      payload: {
         'id': messageId,
         'forum_id': forumId,
         'forum_created_at': forumCreatedAt?.toIso8601String(),
@@ -248,39 +255,35 @@ class ForumUpdatesCubit extends BaseMessageCubit<ForumUpdatesState> {
         'content': text,
         'message_type': 'announcement',
         'hashtag': category,
-        'created_at': now.toIso8601String(),
+        'created_at': messageCreatedAt,
         if (mediaId != null) 'media_id': mediaId,
         if (mediaCreatedAt != null) 'media_created_at': mediaCreatedAt,
-      });
+      },
+    ));
 
-      // Broadcast
-      channel?.sendBroadcastMessage(
-        event: 'new_message',
-        payload: {
-          'id': messageId,
-          'author_id': userId,
-          'content': text,
-          'message_type': 'announcement',
-          'hashtag': category,
-          'created_at': now.toIso8601String(),
-          if (mediaId != null) 'media_id': mediaId,
-          if (imageUrl != null)
-            'forum_media': {
-              'url': imageUrl,
-              'thumbnail_url': thumbnailUrl,
-            },
-          'user_profile': {
-            'full_name': userName,
-            'is_premium': isPremium,
+    // Broadcast
+    channel?.sendBroadcastMessage(
+      event: 'new_message',
+      payload: {
+        'id': messageId,
+        'author_id': userId,
+        'content': text,
+        'message_type': 'announcement',
+        'hashtag': category,
+        'created_at': messageCreatedAt,
+        if (mediaId != null) 'media_id': mediaId,
+        if (imageUrl != null)
+          'forum_media': {
+            'url': imageUrl,
+            'thumbnail_url': thumbnailUrl,
           },
-          'forum_members': {'role_id': 'organizer'}
+        'user_profile': {
+          'full_name': userName,
+          'is_premium': isPremium,
         },
-      );
-      await refresh();
-    } catch (e, stack) {
-      debugPrint('[ForumUpdatesCubit] Error sending announcement: $e\n$stack');
-      await refresh();
-    }
+        'forum_members': {'role_id': 'organizer'}
+      },
+    );
   }
 
   @override

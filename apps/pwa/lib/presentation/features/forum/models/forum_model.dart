@@ -37,6 +37,7 @@ class ChatMessage {
   final bool hasError;
   final bool isPinned;
   final bool isPremium;
+  final bool isEdited;
 
   const ChatMessage({
     required this.id,
@@ -61,6 +62,7 @@ class ChatMessage {
     this.hasError = false,
     this.isPinned = false,
     this.isPremium = false,
+    this.isEdited = false,
   });
 
   /// The relative time to display in UI (e.g., "2m ago")
@@ -99,6 +101,7 @@ class ChatMessage {
       reactions: parsedReactions,
       isPinned: map['is_pinned'] == true,
       isPremium: map['user_profile']?['is_premium'] == true,
+      isEdited: (map['edit_count'] as num? ?? 0) > 0 || map['is_edited'] == true,
     );
   }
 
@@ -125,6 +128,7 @@ class ChatMessage {
     bool? hasError,
     bool? isPinned,
     bool? isPremium,
+    bool? isEdited,
   }) {
     return ChatMessage(
       id: id ?? this.id,
@@ -149,6 +153,7 @@ class ChatMessage {
       hasError: hasError ?? this.hasError,
       isPinned: isPinned ?? this.isPinned,
       isPremium: isPremium ?? this.isPremium,
+      isEdited: isEdited ?? this.isEdited,
     );
   }
 
@@ -163,6 +168,7 @@ class ChatMessage {
       'hashtag': category,
       'is_pinned': isPinned,
       'reactions': reactions,
+      'is_edited': isEdited,
       'user_profile': {
         'user_name': sender,
         'is_premium': isPremium,

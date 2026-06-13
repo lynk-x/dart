@@ -1,11 +1,12 @@
 import 'dart:async';
-import 'package:lynk_core/core.dart';
 import 'package:flutter/foundation.dart';
+import 'package:lynk_core/core.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 import 'package:lynk_x/presentation/features/forum/models/forum_model.dart';
 import 'package:lynk_x/core/utils/storage_utils.dart';
+import 'package:lynk_x/core/sync/sync_manager.dart';
 import 'base_message_state.dart';
 
 abstract class BaseMessageCubit<T extends BaseMessageState> extends HydratedCubit<T> {
@@ -19,6 +20,7 @@ abstract class BaseMessageCubit<T extends BaseMessageState> extends HydratedCubi
 
   Timer? searchTimer;
   RealtimeChannel? _postgresChannel;
+  StreamSubscription? _syncSubscription;
   bool _wasDisconnected = false;
 
   BaseMessageCubit({
@@ -47,30 +49,26 @@ abstract class BaseMessageCubit<T extends BaseMessageState> extends HydratedCubi
 
   /// Base listeners.
   void setupBaseListeners() {
+    _setupSyncListener();
+    reconcileSendingMessages();
     if (channel == null) return;
-    final channelTopic = 'forum_${messageType}_$forumId';
-    debugPrint('[BaseMessageCubit] Setting up base listeners for channel: $channelTopic');
 
     channel?.onBroadcast(
       event: 'new_message',
       callback: (payload) {
-        debugPrint('[BaseMessageCubit] onBroadcast: new_message received on ($channelTopic) with payload: $payload');
         if (payload.isEmpty) return;
         try {
           final msg = ChatMessage.fromMap(payload, userId);
           if (msg.type == _getTypeEnum(messageType)) {
             onBroadcastMessageReceived(msg);
           }
-        } catch (e, stack) {
-          debugPrint('[BaseMessageCubit] Error parsing new_message broadcast: $e\n$stack');
-        }
+        } catch (_) {}
       },
     );
 
     channel?.onBroadcast(
       event: 'edit_message',
       callback: (payload) {
-        debugPrint('[BaseMessageCubit] onBroadcast: edit_message received on ($channelTopic) with payload: $payload');
         try {
           final String? msgId = payload['id'] as String?;
           final String? content = payload['content'] as String?;
@@ -78,32 +76,26 @@ abstract class BaseMessageCubit<T extends BaseMessageState> extends HydratedCubi
           if (msgId != null) {
             updateMessageInPlace(msgId, content: content, isPinned: isPinned);
           }
-        } catch (e, stack) {
-          debugPrint('[BaseMessageCubit] Error parsing edit_message broadcast: $e\n$stack');
-        }
+        } catch (_) {}
       },
     );
 
     channel?.onBroadcast(
       event: 'delete_message',
       callback: (payload) {
-        debugPrint('[BaseMessageCubit] onBroadcast: delete_message received on ($channelTopic) with payload: $payload');
         try {
           final String? msgId = payload['id'] as String?;
           if (msgId != null) {
             final updated = state.messages.where((m) => m.id != msgId).toList();
             if (!isClosed) emit(copyWithState(messages: updated));
           }
-        } catch (e, stack) {
-          debugPrint('[BaseMessageCubit] Error parsing delete_message broadcast: $e\n$stack');
-        }
+        } catch (_) {}
       },
     );
 
     channel?.onBroadcast(
       event: 'message_reaction',
       callback: (payload) {
-        debugPrint('[BaseMessageCubit] onBroadcast: message_reaction received on ($channelTopic) with payload: $payload');
         try {
           final String? msgId = payload['message_id'] as String?;
           final String? emoji = payload['emoji_code'] as String?;
@@ -124,14 +116,11 @@ abstract class BaseMessageCubit<T extends BaseMessageState> extends HydratedCubi
 
             updateMessageInPlace(msgId, reactions: updatedReactions);
           }
-        } catch (e, stack) {
-          debugPrint('[BaseMessageCubit] Error parsing message_reaction broadcast: $e\n$stack');
-        }
+        } catch (_) {}
       },
     );
 
     channel?.subscribe((status, [error]) {
-      debugPrint('[BaseMessageCubit] Broadcast channel ($channelTopic) subscribe status: $status, error: $error');
       if (status == RealtimeSubscribeStatus.channelError ||
           status == RealtimeSubscribeStatus.timedOut) {
         _wasDisconnected = true;
@@ -150,7 +139,6 @@ abstract class BaseMessageCubit<T extends BaseMessageState> extends HydratedCubi
     // are registered before the subscribe() handshake is initiated.
     final client = Supabase.instance.client;
     final pgChannelName = 'forum_messages_cdc_${messageType}_$forumId';
-    debugPrint('[BaseMessageCubit] Setting up Postgres CDC channel: $pgChannelName');
     
     _postgresChannel = client
         .channel(pgChannelName)
@@ -164,7 +152,6 @@ abstract class BaseMessageCubit<T extends BaseMessageState> extends HydratedCubi
             value: forumId,
           ),
           callback: (payload) {
-            debugPrint('[BaseMessageCubit] CDC payload received: ${payload.eventType} on table ${payload.table}');
             try {
               if (payload.eventType == PostgresChangeEvent.delete) {
                 final id = payload.oldRecord['id'] as String?;
@@ -206,15 +193,11 @@ abstract class BaseMessageCubit<T extends BaseMessageState> extends HydratedCubi
                   );
                 }
               }
-            } catch (e, stack) {
-              debugPrint('[BaseMessageCubit] Error in Postgres CDC callback: $e\n$stack');
-            }
+            } catch (_) {}
           },
         );
 
-    _postgresChannel?.subscribe((status, [error]) {
-      debugPrint('[BaseMessageCubit] Postgres CDC channel ($pgChannelName) subscribe status: $status, error: $error');
-    });
+    _postgresChannel?.subscribe();
   }
 
   MessageType _getTypeEnum(String type) {
@@ -308,8 +291,7 @@ abstract class BaseMessageCubit<T extends BaseMessageState> extends HydratedCubi
       );
 
       await refresh();
-    } catch (e, stack) {
-      debugPrint('[BaseMessageCubit] Error deleting msg: $e\n$stack');
+    } catch (_) {
       if (!isClosed) emit(copyWithState(messages: originalMessages));
     }
   }
@@ -341,8 +323,7 @@ abstract class BaseMessageCubit<T extends BaseMessageState> extends HydratedCubi
           'content': newContent,
         },
       );
-    } catch (e, stack) {
-      debugPrint('[BaseMessageCubit] Error editing msg: $e\n$stack');
+    } catch (_) {
       if (!isClosed) emit(copyWithState(messages: originalMessages));
     }
   }
@@ -387,9 +368,7 @@ abstract class BaseMessageCubit<T extends BaseMessageState> extends HydratedCubi
         'p_reason_id': 'general_abuse',
         'p_description': reason,
       });
-    } catch (e, stack) {
-      debugPrint('[BaseMessageCubit] Error reporting msg: $e\n$stack');
-    }
+    } catch (_) {}
   }
 
   void updateMessageInPlace(String messageId, {
@@ -398,16 +377,19 @@ abstract class BaseMessageCubit<T extends BaseMessageState> extends HydratedCubi
     Map<String, int>? reactions,
     bool? isSending,
     bool? hasError,
+    bool? isEdited,
   }) {
     final index = state.messages.indexWhere((m) => m.id == messageId);
     if (index != -1) {
       final oldMsg = state.messages[index];
+      final wasContentChanged = content != null && content != oldMsg.message;
       final newMsg = oldMsg.copyWith(
         message: content ?? oldMsg.message,
         reactions: reactions ?? oldMsg.reactions,
         isPinned: isPinned ?? oldMsg.isPinned,
         isSending: isSending ?? oldMsg.isSending,
         hasError: hasError ?? oldMsg.hasError,
+        isEdited: isEdited ?? (wasContentChanged ? true : oldMsg.isEdited),
       );
 
       final updated = List<ChatMessage>.from(state.messages);
@@ -416,8 +398,45 @@ abstract class BaseMessageCubit<T extends BaseMessageState> extends HydratedCubi
     }
   }
 
+  void reconcileSendingMessages() {
+    final updatedList = state.messages.map((msg) {
+      if (msg.isSending && !SyncManager.instance.isQueued(msg.id)) {
+        return msg.copyWith(isSending: false, hasError: false);
+      }
+      return msg;
+    }).toList();
+
+    if (!listEquals(updatedList, state.messages)) {
+      if (!isClosed) emit(copyWithState(messages: updatedList));
+    }
+  }
+
+  void _setupSyncListener() {
+    _syncSubscription = SyncManager.instance.statusStream.listen((statusMap) {
+      for (var entry in statusMap.entries) {
+        if (entry.value) {
+          updateMessageInPlace(entry.key, isSending: false, hasError: false);
+        } else {
+          updateMessageInPlace(entry.key, isSending: false, hasError: true);
+        }
+      }
+    });
+  }
+
+  void retryMessage(ChatMessage message,
+      {required bool isOrganizer, required bool isPremium}) {
+    if (!isClosed) {
+      emit(copyWithState(
+          messages: state.messages.where((m) => m.id != message.id).toList()));
+    }
+    sendMessage(message.message, isOrganizer: isOrganizer, isPremium: isPremium);
+  }
+
+  void sendMessage(String text, {required bool isOrganizer, required bool isPremium});
+
   @override
   Future<void> close() {
+    _syncSubscription?.cancel();
     searchTimer?.cancel();
     _postgresChannel?.unsubscribe();
     channel?.unsubscribe();

@@ -333,6 +333,7 @@ class _ChatBubbleState extends State<ChatBubble> {
         onFetched: (data) =>
             widget.onLinkPreviewDataFetched?.call(validUrl, data),
         onMentionTap: _handleMentionTap,
+        isEdited: widget.message.isEdited,
       );
     }
 
@@ -342,6 +343,7 @@ class _ChatBubbleState extends State<ChatBubble> {
       accentColor: widget.message.isMe ? Colors.black : context.accentColor,
       onMentionTap: _handleMentionTap,
       onUrlTap: (url) => widget.onMediaTap?.call(url),
+      isEdited: widget.message.isEdited,
     );
   }
 }

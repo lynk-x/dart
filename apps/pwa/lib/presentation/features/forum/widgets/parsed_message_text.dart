@@ -10,6 +10,7 @@ class ParsedMessageText extends StatefulWidget {
   final Color accentColor;
   final Function(String username)? onMentionTap;
   final Function(String url)? onUrlTap;
+  final bool isEdited;
 
   const ParsedMessageText({
     super.key,
@@ -18,6 +19,7 @@ class ParsedMessageText extends StatefulWidget {
     required this.accentColor,
     this.onMentionTap,
     this.onUrlTap,
+    this.isEdited = false,
   });
 
   @override
@@ -45,6 +47,22 @@ class _ParsedMessageTextState extends State<ParsedMessageText> {
 
     final matches = combinedRegex.allMatches(widget.text);
     if (matches.isEmpty) {
+      if (widget.isEdited) {
+        return Text.rich(TextSpan(
+          children: [
+            TextSpan(text: widget.text, style: widget.style),
+            TextSpan(
+              text: ' [edited]',
+              style: widget.style.copyWith(
+                color: widget.style.color?.withValues(alpha: 0.4) ?? Colors.white38,
+                fontSize: (widget.style.fontSize ?? 14) - 2,
+                fontStyle: FontStyle.italic,
+                fontWeight: FontWeight.normal,
+              ),
+            ),
+          ],
+        ));
+      }
       return Text(widget.text, style: widget.style);
     }
 
@@ -111,6 +129,18 @@ class _ParsedMessageTextState extends State<ParsedMessageText> {
       spans.add(TextSpan(
         text: widget.text.substring(lastIndex),
         style: widget.style,
+      ));
+    }
+
+    if (widget.isEdited) {
+      spans.add(TextSpan(
+        text: ' [edited]',
+        style: widget.style.copyWith(
+          color: widget.style.color?.withValues(alpha: 0.4) ?? Colors.white38,
+          fontSize: (widget.style.fontSize ?? 14) - 2,
+          fontStyle: FontStyle.italic,
+          fontWeight: FontWeight.normal,
+        ),
       ));
     }
 

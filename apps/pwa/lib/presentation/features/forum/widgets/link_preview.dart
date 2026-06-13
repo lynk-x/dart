@@ -16,6 +16,7 @@ class ChatLinkPreview extends StatefulWidget {
   final LinkPreviewData? data;
   final Function(LinkPreviewData)? onFetched;
   final Function(String)? onMentionTap;
+  final bool isEdited;
 
   const ChatLinkPreview({
     super.key,
@@ -25,6 +26,7 @@ class ChatLinkPreview extends StatefulWidget {
     this.data,
     this.onFetched,
     this.onMentionTap,
+    this.isEdited = false,
   });
 
   @override
@@ -87,6 +89,7 @@ class _ChatLinkPreviewState extends State<ChatLinkPreview> {
           await launchUrl(uri, mode: LaunchMode.externalApplication);
         }
       },
+      isEdited: widget.isEdited,
     );
   }
 

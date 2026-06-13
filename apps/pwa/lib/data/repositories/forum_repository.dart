@@ -247,11 +247,26 @@ class ForumRepository {
     int limit = 50,
     String? before,
     String? after,
+    String? searchQuery,
+    String? messageType,
+    String? hashtag,
   }) async {
     var query = _client
         .from('vw_forum_messages')
         .select()
         .eq('forum_id', forumId);
+
+    if (messageType != null) {
+      query = query.eq('message_type', messageType);
+    }
+
+    if (hashtag != null) {
+      query = query.eq('hashtag', hashtag);
+    }
+
+    if (searchQuery != null && searchQuery.isNotEmpty) {
+      query = query.textSearch('fts', searchQuery, config: 'english');
+    }
 
     if (after == null) {
       query = query.filter('deleted_at', 'is', null);

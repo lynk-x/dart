@@ -6,7 +6,7 @@ import 'package:lynk_core/core.dart';
 
 import 'router_refresh_stream.dart';
 import 'package:lynk_x/presentation/features/homepage/screens/home_screen.dart';
-import 'package:lynk_x/presentation/features/profile/screens/profile_screen.dart';
+
 import 'package:lynk_x/presentation/features/forum/screens/forum_screen.dart';
 import 'package:lynk_x/presentation/features/forum/screens/sessions_screen.dart';
 import 'package:lynk_x/presentation/features/notifications/screens/notifications_screen.dart';
@@ -145,14 +145,7 @@ GoRouter createRouter(
           child: const HomePage(),
         ),
       ),
-      GoRoute(
-        path: '/profile',
-        builder: (_, __) => Title(
-          title: 'My Profile',
-          color: Colors.black,
-          child: const ProfilePage(),
-        ),
-      ),
+
       GoRoute(
         path: '/forum/:reference',
         builder: (_, state) {
