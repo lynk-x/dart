@@ -11,12 +11,14 @@ class SessionsScreen extends StatelessWidget {
   final String eventId;
   final bool isOrganizer;
   final DateTime? eventCreatedAt;
+  final String? forumReference;
 
   const SessionsScreen({
     super.key,
     required this.eventId,
     this.isOrganizer = false,
     this.eventCreatedAt,
+    this.forumReference,
   });
 
   @override
@@ -26,15 +28,23 @@ class SessionsScreen extends StatelessWidget {
         eventId: eventId,
         eventCreatedAt: eventCreatedAt,
       )..loadSessions(),
-      child: SessionsView(isOrganizer: isOrganizer),
+      child: SessionsView(
+        isOrganizer: isOrganizer,
+        forumReference: forumReference,
+      ),
     );
   }
 }
 
 class SessionsView extends StatelessWidget {
   final bool isOrganizer;
+  final String? forumReference;
 
-  const SessionsView({super.key, required this.isOrganizer});
+  const SessionsView({
+    super.key,
+    required this.isOrganizer,
+    this.forumReference,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -45,8 +55,14 @@ class SessionsView extends StatelessWidget {
         elevation: 0,
         centerTitle: true,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white, size: 28),
-          onPressed: () => context.pop(),
+          icon: const Icon(Icons.arrow_back, color: Colors.white, size: 32),
+          onPressed: () {
+            if (forumReference != null && forumReference!.isNotEmpty) {
+              context.go('/forum/$forumReference');
+            } else {
+              context.pop();
+            }
+          },
         ),
         title: Text(
           'Event Schedule',
@@ -59,7 +75,7 @@ class SessionsView extends StatelessWidget {
         actions: [
           if (isOrganizer)
             IconButton(
-              icon: Icon(Icons.add, color: context.accentColor),
+              icon: Icon(Icons.add, color: context.accentColor, size: 32),
               onPressed: () => _showSessionEditor(context),
             ),
         ],
@@ -292,13 +308,25 @@ class SessionsView extends StatelessWidget {
                 const SizedBox(height: 12),
                 SizedBox(
                   width: double.infinity,
-                  child: TextButton(
+                  height: 50,
+                  child: ElevatedButton(
                     onPressed: () {
                       cubit.deleteSession(session.id);
                       Navigator.pop(bottomContext);
                     },
-                    child: const Text('Delete Session',
-                        style: TextStyle(color: Colors.redAccent)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.redAccent.withValues(alpha: 0.15),
+                      foregroundColor: Colors.redAccent,
+                      elevation: 0,
+                      side: const BorderSide(color: Colors.redAccent, width: 1.5),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: const Text(
+                      'Delete Session',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                    ),
                   ),
                 ),
               ],
@@ -529,7 +557,7 @@ class _DateTimePicker extends StatelessWidget {
                         child: CupertinoDatePicker(
                           initialDateTime: value,
                           mode: CupertinoDatePickerMode.dateAndTime,
-                          use24hFormat: true,
+                          use24hFormat: false,
                           onDateTimeChanged: (DateTime newDateTime) {
                             tempDateTime = newDateTime;
                           },

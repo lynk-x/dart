@@ -170,6 +170,7 @@ GoRouter createRouter(
                   ? eventCreatedAtRaw
                   : DateTime.parse(eventCreatedAtRaw.toString()))
               : null;
+          final forumReference = state.uri.queryParameters['forumReference'] ?? extras?['forumReference'] as String?;
 
           return Title(
             title: 'Sessions',
@@ -178,6 +179,7 @@ GoRouter createRouter(
               eventId: eventId,
               isOrganizer: isOrganizer,
               eventCreatedAt: eventCreatedAt,
+              forumReference: forumReference,
             ),
           );
         },

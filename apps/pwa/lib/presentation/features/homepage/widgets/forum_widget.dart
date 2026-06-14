@@ -121,16 +121,20 @@ class ForumWidget extends StatelessWidget {
           color: AppColors.surface,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: context.accentColor.withValues(alpha: 0.35),
+            color: event.isPassed
+                ? Colors.transparent
+                : context.accentColor.withValues(alpha: 0.35),
             width: 1.5,
           ),
-          boxShadow: [
-            BoxShadow(
-              color: context.accentColor.withValues(alpha: 0.05),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
+          boxShadow: event.isPassed
+              ? null
+              : [
+                  BoxShadow(
+                    color: context.accentColor.withValues(alpha: 0.05),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
         ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(11),
@@ -162,13 +166,9 @@ class ForumWidget extends StatelessWidget {
                             style: AppTypography.interTight(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ).copyWith(
-                              decoration: event.isPassed
-                                  ? TextDecoration.lineThrough
-                                  : null,
-                              decorationColor:
-                                  event.isPassed ? Colors.white60 : null,
+                              color: event.isPassed
+                                  ? Colors.white.withValues(alpha: 0.5)
+                                  : Colors.white,
                             ),
                           ),
                           const SizedBox(height: 2),

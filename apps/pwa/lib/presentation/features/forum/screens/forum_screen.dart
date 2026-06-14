@@ -302,7 +302,7 @@ class _ForumViewState extends State<ForumView> {
             }
             Navigator.of(context).pop();
             context.push(
-              '/events/${state.eventId}/sessions?createdAt=${state.eventCreatedAt?.toIso8601String()}',
+              '/events/${state.eventId}/sessions?createdAt=${state.eventCreatedAt?.toIso8601String()}&forumReference=${cubit.forumReference}',
               extra: {
                 'isOrganizer': state.isOrganizer,
               },
