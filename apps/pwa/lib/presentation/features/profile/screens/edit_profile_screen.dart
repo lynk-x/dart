@@ -568,6 +568,36 @@ class _EditProfilePageState extends State<EditProfilePage> {
                         enabled: !isUpdating,
                       ),
                       const SizedBox(height: 32),
+                                            GestureDetector(
+                        onTap: isUpdating ? null : () => _showGenderPicker(context),
+                        behavior: HitTestBehavior.opaque,
+                        child: IgnorePointer(
+                          child: TextField(
+                            label: 'GENDER',
+                            hintText: 'Select Gender',
+                            controller: _genderController,
+                            readOnly: true,
+                            enabled: !isUpdating,
+                            suffixIcon: const Icon(Icons.arrow_drop_down, color: Colors.white54),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      GestureDetector(
+                        onTap: isUpdating ? null : () => _showDobPicker(context),
+                        behavior: HitTestBehavior.opaque,
+                        child: IgnorePointer(
+                          child: TextField(
+                            label: 'DATE OF BIRTH',
+                            hintText: 'Select Date of Birth',
+                            controller: _dobController,
+                            readOnly: true,
+                            enabled: !isUpdating,
+                            suffixIcon: const Icon(Icons.calendar_today_outlined, color: Colors.white54, size: 18),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
                       GestureDetector(
                         onTap: isUpdating ? null : () => _showCountryPicker(context),
                         behavior: HitTestBehavior.opaque,
@@ -599,36 +629,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
                           thickness: 1,
                         ),
                       ),
-                      GestureDetector(
-                        onTap: isUpdating ? null : () => _showGenderPicker(context),
-                        behavior: HitTestBehavior.opaque,
-                        child: IgnorePointer(
-                          child: TextField(
-                            label: 'GENDER',
-                            hintText: 'Select Gender',
-                            controller: _genderController,
-                            readOnly: true,
-                            enabled: !isUpdating,
-                            suffixIcon: const Icon(Icons.arrow_drop_down, color: Colors.white54),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      GestureDetector(
-                        onTap: isUpdating ? null : () => _showDobPicker(context),
-                        behavior: HitTestBehavior.opaque,
-                        child: IgnorePointer(
-                          child: TextField(
-                            label: 'DATE OF BIRTH',
-                            hintText: 'Select Date of Birth',
-                            controller: _dobController,
-                            readOnly: true,
-                            enabled: !isUpdating,
-                            suffixIcon: const Icon(Icons.calendar_today_outlined, color: Colors.white54, size: 18),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 24),
                       TextField(
                         label: 'STATUS',
                         hintText: 'How are you feeling?',

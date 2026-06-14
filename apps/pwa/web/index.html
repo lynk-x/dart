@@ -235,15 +235,15 @@
                 box-shadow:0 4px 20px rgba(32,249,40,0.3);
                 display:flex; align-items:center; gap:16px;
               ">
-                <span style="cursor:pointer;" onclick="updateApp()">
-                  ✨ New version available — tap to update
-                </span>
                 <span style="
-                  cursor:pointer; font-size:18px; padding-left:8px;
-                  border-left:1px solid rgba(0,0,0,0.15); display:inline-flex;
+                  cursor:pointer; font-size:18px; padding-right:8px;
+                  border-right:1px solid rgba(0,0,0,0.15); display:inline-flex;
                   align-items:center; height:100%;
                 " onclick="dismissUpdateBanner()">
                   ✕
+                </span>
+                <span style="cursor:pointer;" onclick="updateApp()">
+                  ✨ New version available — tap to update
                 </span>
               </div>
             `;
