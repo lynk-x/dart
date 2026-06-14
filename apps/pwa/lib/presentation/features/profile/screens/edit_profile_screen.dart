@@ -534,31 +534,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
                         isUploading: _uploadingAvatar || _isOpeningGallery,
                         onTap: () => _onAvatarTap(context, profile),
                       ),
-                      const SizedBox(height: 32),
-                      GestureDetector(
-                        onTap: isUpdating ? null : () => _showCountryPicker(context),
-                        behavior: HitTestBehavior.opaque,
-                        child: IgnorePointer(
-                          child: TextField(
-                            label: 'COUNTRY',
-                            hintText: 'Select Country',
-                            controller: _countryController,
-                            readOnly: true,
-                            enabled: !isUpdating,
-                            prefixIcon: _selectedCountryCode != null
-                                ? Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      const SizedBox(width: 16),
-                                      _buildFlag(_selectedCountryCode, size: 18),
-                                      const SizedBox(width: 12),
-                                    ],
-                                  )
-                                : null,
-                            suffixIcon: const Icon(Icons.arrow_drop_down, color: Colors.white54),
-                          ),
-                        ),
-                      ),
                       const SizedBox(height: 24),
                       TextField(
                         label: 'USERNAME',
@@ -591,6 +566,31 @@ class _EditProfilePageState extends State<EditProfilePage> {
                         hintText: 'Enter your full name',
                         controller: _nameController,
                         enabled: !isUpdating,
+                      ),
+                      const SizedBox(height: 32),
+                      GestureDetector(
+                        onTap: isUpdating ? null : () => _showCountryPicker(context),
+                        behavior: HitTestBehavior.opaque,
+                        child: IgnorePointer(
+                          child: TextField(
+                            label: 'COUNTRY',
+                            hintText: 'Select Country',
+                            controller: _countryController,
+                            readOnly: true,
+                            enabled: !isUpdating,
+                            prefixIcon: _selectedCountryCode != null
+                                ? Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const SizedBox(width: 16),
+                                      _buildFlag(_selectedCountryCode, size: 18),
+                                      const SizedBox(width: 12),
+                                    ],
+                                  )
+                                : null,
+                            suffixIcon: const Icon(Icons.arrow_drop_down, color: Colors.white54),
+                          ),
+                        ),
                       ),
                       const Padding(
                         padding: EdgeInsets.symmetric(vertical: 24),

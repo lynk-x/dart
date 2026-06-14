@@ -467,10 +467,10 @@ class _TimeBlockWidget extends StatelessWidget {
             const SizedBox(width: 16),
             // The Time Text
             Text(
-              '${timeFormat.format(block.startsAt)} — ${timeFormat.format(block.endsAt)}',
+              '${timeFormat.format(block.startsAt)} — ${timeFormat.format(block.endsAt)} (${block.startsAt.timeZoneName})',
               style: TextStyle(
                 color: isBlockActive ? context.accentColor : Colors.white38,
-                fontSize: 12,
+                fontSize: 14,
                 fontWeight: FontWeight.w600,
               ),
             ),
