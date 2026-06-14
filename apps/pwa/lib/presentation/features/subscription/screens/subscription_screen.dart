@@ -98,7 +98,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                 'id, interval, display_name, '
                 'subscription_prices(id, country_code, currency, amount), '
                 'plan_features(subscription_features(display_name))')
-            .eq('is_active', true)
+            .eq('status', 'approved')
             .eq('product_type', 'attendee_premium'),
 
         // User country + the country's local currency (joined from `countries`).
@@ -124,7 +124,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
         _supabase
             .schema('api')
             .from('v1_wallet_balances')
-            .select('currency, balance, escrow_balance')
+            .select('currency, cash_balance, escrow_balance')
             .order('currency'),
       ]);
 
@@ -147,7 +147,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
       double walletBalance = 0;
       for (final w in walletsRaw) {
         final c = w['currency'] as String;
-        final raw = (w['balance'] as num).toDouble();
+        final raw = (w['cash_balance'] as num).toDouble();
         final escrow = (w['escrow_balance'] as num? ?? 0).toDouble();
         final spendable = raw - escrow;
         if (localCurrency.isNotEmpty && c == localCurrency) {

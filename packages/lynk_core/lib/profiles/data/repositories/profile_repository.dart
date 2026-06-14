@@ -13,7 +13,7 @@ class ProfileRepository {
   Future<ProfileModel> getProfile(String userId) async {
     final data = await _client
         .from('user_profile')
-        .select('id, email, avatar_url, user_name, full_name, country_code, is_premium, info, reference, phone_number, active_account_id')
+        .select('id, email, avatar_url, user_name, full_name, country_code, is_premium, info, reference, phone_number, active_account_id, gender, date_of_birth')
         .eq('id', userId)
         .single();
 
@@ -66,12 +66,16 @@ class ProfileRepository {
     String? userName,
     String? countryCode,
     Map<String, dynamic>? info,
+    String? gender,
+    DateTime? dateOfBirth,
   }) async {
     await _client.rpc('update_profile', params: {
       if (fullName != null) 'p_full_name': fullName,
       if (userName != null) 'p_user_name': userName,
       if (countryCode != null) 'p_country_code': countryCode,
       if (info != null) 'p_info': info,
+      if (gender != null) 'p_gender': gender,
+      if (dateOfBirth != null) 'p_date_of_birth': dateOfBirth.toIso8601String().split('T')[0],
     });
   }
 

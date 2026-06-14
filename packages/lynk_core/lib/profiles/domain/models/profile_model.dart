@@ -13,6 +13,8 @@ class ProfileModel {
   final String? userReference;
   final String? phoneNumber;
   final String? accountStatus;
+  final String? gender;
+  final DateTime? dateOfBirth;
 
   ProfileModel({
     required this.id,
@@ -29,6 +31,8 @@ class ProfileModel {
     this.userReference,
     this.phoneNumber,
     this.accountStatus,
+    this.gender,
+    this.dateOfBirth,
   });
 
   factory ProfileModel.fromMap(
@@ -37,6 +41,7 @@ class ProfileModel {
     String? accountStatus,
   }) {
     final info = map['info'] as Map<String, dynamic>? ?? {};
+    final dobRaw = map['date_of_birth'] as String?;
     return ProfileModel(
       id: map['id'] as String,
       email: map['email'] as String?,
@@ -52,6 +57,8 @@ class ProfileModel {
       userReference: map['reference'] as String?,
       phoneNumber: map['phone_number'] as String?,
       accountStatus: accountStatus ?? map['account_status'] as String?,
+      gender: map['gender'] as String?,
+      dateOfBirth: dobRaw != null ? DateTime.tryParse(dobRaw) : null,
     );
   }
 
@@ -61,6 +68,8 @@ class ProfileModel {
       'user_name': userName,
       'avatar_url': avatarUrl,
       'country_code': countryCode,
+      'gender': gender,
+      'date_of_birth': dateOfBirth?.toIso8601String().split('T')[0],
       'info': {
         'bio': bio,
         'tagline': tagline,
@@ -87,6 +96,8 @@ class ProfileModel {
     String? userReference,
     String? phoneNumber,
     String? accountStatus,
+    String? gender,
+    DateTime? dateOfBirth,
   }) {
     return ProfileModel(
       id: id,
@@ -103,6 +114,8 @@ class ProfileModel {
       userReference: userReference ?? this.userReference,
       phoneNumber: phoneNumber ?? this.phoneNumber,
       accountStatus: accountStatus ?? this.accountStatus,
+      gender: gender ?? this.gender,
+      dateOfBirth: dateOfBirth ?? this.dateOfBirth,
     );
   }
 }

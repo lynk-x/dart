@@ -46,6 +46,8 @@ class ProfileCubit extends Cubit<ProfileState> {
     String? bio,
     String? tagline,
     String? countryCode,
+    String? gender,
+    DateTime? dateOfBirth,
   }) async {
     final currentState = state;
     if (currentState is! ProfileLoaded) return;
@@ -58,15 +60,19 @@ class ProfileCubit extends Cubit<ProfileState> {
       if (bio != null) infoPatch['bio'] = bio;
       if (tagline != null) infoPatch['tagline'] = tagline;
 
-      // RPC: full_name + avatar_url + info (bio/tagline) + country_code
+      // RPC: full_name + avatar_url + info (bio/tagline) + country_code + gender + date_of_birth
       final hasRpcUpdate = fullName != null ||
           countryCode != null ||
-          infoPatch.isNotEmpty;
+          infoPatch.isNotEmpty ||
+          gender != null ||
+          dateOfBirth != null;
       if (hasRpcUpdate) {
         await _repo.updateProfile(
           fullName: fullName,
           countryCode: countryCode,
           info: infoPatch.isNotEmpty ? infoPatch : null,
+          gender: gender,
+          dateOfBirth: dateOfBirth,
         );
       }
 
@@ -81,6 +87,8 @@ class ProfileCubit extends Cubit<ProfileState> {
         bio: bio,
         tagline: tagline,
         countryCode: countryCode,
+        gender: gender,
+        dateOfBirth: dateOfBirth,
       );
       emit(ProfileLoaded(profile: updatedProfile));
     } catch (e) {

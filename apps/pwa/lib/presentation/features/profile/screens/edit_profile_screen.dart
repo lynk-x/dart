@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'package:flutter/material.dart' hide TextField;
+import 'package:flutter/cupertino.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:lynk_core/core.dart';
 import 'package:lynk_x/presentation/shared/widgets/text_field.dart';
@@ -21,6 +23,9 @@ class _EditProfilePageState extends State<EditProfilePage> {
   final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _bioController = TextEditingController();
   final TextEditingController _taglineController = TextEditingController();
+
+  String? _selectedGender;
+  DateTime? _selectedDateOfBirth;
 
   bool _initialized = false;
   String _initialUsername = '';
@@ -146,8 +151,10 @@ class _EditProfilePageState extends State<EditProfilePage> {
     final bioChanged = _bioController.text.trim() != (profile.bio ?? '');
     final taglineChanged = _taglineController.text.trim() != (profile.tagline ?? '');
     final countryChanged = _selectedCountryCode != profile.countryCode;
+    final genderChanged = _selectedGender != profile.gender;
+    final dobChanged = _selectedDateOfBirth != profile.dateOfBirth;
 
-    return nameChanged || usernameChanged || bioChanged || taglineChanged || countryChanged;
+    return nameChanged || usernameChanged || bioChanged || taglineChanged || countryChanged || genderChanged || dobChanged;
   }
 
   void _saveChanges(BuildContext context) {
@@ -157,6 +164,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
           bio: _bioController.text.trim(),
           tagline: _taglineController.text.trim(),
           countryCode: _selectedCountryCode,
+          gender: _selectedGender,
+          dateOfBirth: _selectedDateOfBirth,
         );
   }
 
@@ -215,6 +224,142 @@ class _EditProfilePageState extends State<EditProfilePage> {
     );
   }
 
+  String? _getGenderLabel(String? value) {
+    if (value == 'male') return 'Male';
+    if (value == 'female') return 'Female';
+    if (value == 'other') return 'Other';
+    if (value == 'prefer_not_to_say') return 'Prefer not to say';
+    return null;
+  }
+
+  void _showGenderPicker(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.tertiary,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) => Container(
+        padding: const EdgeInsets.symmetric(vertical: 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('Select Gender',
+                style: AppTypography.interTight(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
+            const SizedBox(height: 16),
+            ListTile(
+              title: const Text('Male', style: TextStyle(color: Colors.white)),
+              trailing: _selectedGender == 'male' ? Icon(Icons.check_circle, color: context.accentColor) : null,
+              onTap: () {
+                setState(() => _selectedGender = 'male');
+                Navigator.pop(context);
+                _onFieldChanged();
+              },
+            ),
+            ListTile(
+              title: const Text('Female', style: TextStyle(color: Colors.white)),
+              trailing: _selectedGender == 'female' ? Icon(Icons.check_circle, color: context.accentColor) : null,
+              onTap: () {
+                setState(() => _selectedGender = 'female');
+                Navigator.pop(context);
+                _onFieldChanged();
+              },
+            ),
+            ListTile(
+              title: const Text('Other', style: TextStyle(color: Colors.white)),
+              trailing: _selectedGender == 'other' ? Icon(Icons.check_circle, color: context.accentColor) : null,
+              onTap: () {
+                setState(() => _selectedGender = 'other');
+                Navigator.pop(context);
+                _onFieldChanged();
+              },
+            ),
+            ListTile(
+              title: const Text('Prefer not to say', style: TextStyle(color: Colors.white)),
+              trailing: _selectedGender == 'prefer_not_to_say' ? Icon(Icons.check_circle, color: context.accentColor) : null,
+              onTap: () {
+                setState(() => _selectedGender = 'prefer_not_to_say');
+                Navigator.pop(context);
+                _onFieldChanged();
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showDobPicker(BuildContext context) async {
+    final initialDate = _selectedDateOfBirth ?? DateTime(2000, 1, 1);
+    DateTime tempDateTime = initialDate;
+    showCupertinoModalPopup<void>(
+      context: context,
+      builder: (BuildContext modalContext) => CupertinoTheme(
+        data: const CupertinoThemeData(
+          brightness: Brightness.dark,
+        ),
+        child: Container(
+          height: 300,
+          color: const Color(0xFF1E1E1E),
+          child: Column(
+            children: [
+              Container(
+                decoration: const BoxDecoration(
+                  color: Color(0xFF2C2C2C),
+                  border: Border(
+                    bottom: BorderSide(color: Colors.white12, width: 0.5),
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    CupertinoButton(
+                      child: const Text('Cancel', style: TextStyle(color: Colors.white54, fontSize: 15)),
+                      onPressed: () => Navigator.pop(modalContext),
+                    ),
+                    const Text(
+                      'Date of Birth',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        decoration: TextDecoration.none,
+                      ),
+                    ),
+                    CupertinoButton(
+                      child: Text(
+                        'Done',
+                        style: TextStyle(
+                          color: context.accentColor,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
+                        ),
+                      ),
+                      onPressed: () {
+                        setState(() => _selectedDateOfBirth = tempDateTime);
+                        _onFieldChanged();
+                        Navigator.pop(modalContext);
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: CupertinoDatePicker(
+                  initialDateTime: initialDate,
+                  mode: CupertinoDatePickerMode.date,
+                  onDateTimeChanged: (DateTime newDateTime) {
+                    tempDateTime = newDateTime;
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocConsumer<ProfileCubit, ProfileState>(
@@ -227,6 +372,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
             _bioController.text = state.profile.bio ?? '';
             _taglineController.text = state.profile.tagline ?? '';
             _selectedCountryCode = state.profile.countryCode;
+            _selectedGender = state.profile.gender;
+            _selectedDateOfBirth = state.profile.dateOfBirth;
             _initialized = true;
           }
 
@@ -378,6 +525,88 @@ class _EditProfilePageState extends State<EditProfilePage> {
                         hintText: 'Enter your full name',
                         controller: _nameController,
                         enabled: !isUpdating,
+                      ),
+                      const SizedBox(height: 24),
+                      GestureDetector(
+                        onTap: isUpdating ? null : () => _showGenderPicker(context),
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                          decoration: BoxDecoration(
+                            color: AppColors.surface,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.white12),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'GENDER',
+                                style: AppTypography.interTight(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white54,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    _getGenderLabel(_selectedGender) ?? 'Select Gender',
+                                    style: TextStyle(
+                                      color: _selectedGender != null ? Colors.white : Colors.white38,
+                                      fontSize: 16,
+                                    ),
+                                  ),
+                                  const Icon(Icons.arrow_drop_down, color: Colors.white54),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      GestureDetector(
+                        onTap: isUpdating ? null : () => _showDobPicker(context),
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                          decoration: BoxDecoration(
+                            color: AppColors.surface,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.white12),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'DATE OF BIRTH',
+                                style: AppTypography.interTight(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white54,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    _selectedDateOfBirth != null
+                                        ? DateFormat('yyyy-MM-dd').format(_selectedDateOfBirth!)
+                                        : 'Select Date of Birth',
+                                    style: TextStyle(
+                                      color: _selectedDateOfBirth != null ? Colors.white : Colors.white38,
+                                      fontSize: 16,
+                                    ),
+                                  ),
+                                  const Icon(Icons.calendar_today_outlined, color: Colors.white54, size: 18),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
                       const SizedBox(height: 24),
                       TextField(

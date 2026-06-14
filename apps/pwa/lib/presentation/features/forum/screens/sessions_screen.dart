@@ -57,15 +57,7 @@ class SessionsView extends StatelessWidget {
         centerTitle: true,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.white, size: 32),
-          onPressed: () {
-            if (context.canPop()) {
-              context.pop();
-            } else if (forumReference != null && forumReference!.isNotEmpty) {
-              context.go('/forum/$forumReference');
-            } else {
-              context.go('/');
-            }
-          },
+          onPressed: () => context.pop(),
         ),
         title: Text(
           'Event Schedule',
@@ -130,15 +122,39 @@ class SessionsView extends StatelessWidget {
           final sortedSessions = List<SessionModel>.from(state.sessions)
             ..sort((a, b) => a.startsAt.compareTo(b.startsAt));
 
-          final items = <dynamic>[];
-          DateTime? lastDate;
+          final Map<DateTime, List<SessionModel>> sessionsByDay = {};
           for (final session in sortedSessions) {
-            final sessionDate = DateTime(session.startsAt.year, session.startsAt.month, session.startsAt.day);
-            if (lastDate == null || lastDate != sessionDate) {
-              lastDate = sessionDate;
-              items.add(sessionDate);
+            final day = DateTime(session.startsAt.year, session.startsAt.month, session.startsAt.day);
+            sessionsByDay.putIfAbsent(day, () => []).add(session);
+          }
+
+          final items = <dynamic>[];
+          final sortedDays = sessionsByDay.keys.toList()..sort();
+
+          for (final day in sortedDays) {
+            items.add(day);
+
+            final daySessions = sessionsByDay[day]!;
+            final List<TimeBlock> blocks = [];
+
+            for (final session in daySessions) {
+              final existingBlock = blocks.firstWhere(
+                (b) => b.startsAt.isAtSameMomentAs(session.startsAt) && b.endsAt.isAtSameMomentAs(session.endsAt),
+                orElse: () {
+                  final newBlock = TimeBlock(
+                    startsAt: session.startsAt,
+                    endsAt: session.endsAt,
+                    sessions: [],
+                  );
+                  blocks.add(newBlock);
+                  return newBlock;
+                },
+              );
+              existingBlock.sessions.add(session);
             }
-            items.add(session);
+
+            blocks.sort((a, b) => a.startsAt.compareTo(b.startsAt));
+            items.addAll(blocks);
           }
 
           final dateFormat = DateFormat('EEEE, MMMM d');
@@ -154,7 +170,7 @@ class SessionsView extends StatelessWidget {
                 final item = items[index];
                 if (item is DateTime) {
                   return Padding(
-                    padding: const EdgeInsets.only(top: 20, bottom: 8, left: 4),
+                    padding: const EdgeInsets.only(top: 20, bottom: 12, left: 4),
                     child: Text(
                       dateFormat.format(item).toUpperCase(),
                       style: AppTypography.interTight(
@@ -167,13 +183,13 @@ class SessionsView extends StatelessWidget {
                   );
                 }
 
-                final session = item as SessionModel;
+                final block = item as TimeBlock;
                 return Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 6),
-                  child: _SessionListItem(
-                    session: session,
+                  padding: const EdgeInsets.symmetric(vertical: 2),
+                  child: _TimeBlockWidget(
+                    block: block,
                     isOrganizer: isOrganizer,
-                    onEdit: () => _showSessionEditor(context, session: session),
+                    onEdit: (session) => _showSessionEditor(context, session: session),
                   ),
                 );
               },
@@ -382,12 +398,123 @@ class _LiveIndicator extends StatelessWidget {
   }
 }
 
-class _SessionListItem extends StatelessWidget {
+class TimeBlock {
+  final DateTime startsAt;
+  final DateTime endsAt;
+  final List<SessionModel> sessions;
+
+  TimeBlock({
+    required this.startsAt,
+    required this.endsAt,
+    required this.sessions,
+  });
+}
+
+class _TimeBlockWidget extends StatelessWidget {
+  final TimeBlock block;
+  final bool isOrganizer;
+  final Function(SessionModel) onEdit;
+
+  const _TimeBlockWidget({
+    required this.block,
+    required this.isOrganizer,
+    required this.onEdit,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final timeFormat = DateFormat('HH:mm');
+    final now = DateTime.now();
+    final isBlockActive = now.isAfter(block.startsAt) && now.isBefore(block.endsAt);
+
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Left: Time info
+          SizedBox(
+            width: 55,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                const SizedBox(height: 8),
+                Text(
+                  timeFormat.format(block.startsAt),
+                  style: AppTypography.interTight(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: isBlockActive ? context.accentColor : Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  timeFormat.format(block.endsAt),
+                  style: AppTypography.inter(
+                    fontSize: 11,
+                    color: Colors.white38,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          
+          // Middle: Timeline line & dot
+          SizedBox(
+            width: 16,
+            child: Column(
+              children: [
+                const SizedBox(height: 12),
+                Container(
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    color: isBlockActive ? context.accentColor : Colors.white24,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                Expanded(
+                  child: Container(
+                    width: 1.5,
+                    color: Colors.white12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          
+          // Right: Sessions list
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 16),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: block.sessions.map((session) {
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: _SessionCard(
+                      session: session,
+                      isOrganizer: isOrganizer,
+                      onEdit: () => onEdit(session),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SessionCard extends StatelessWidget {
   final SessionModel session;
   final bool isOrganizer;
   final VoidCallback? onEdit;
 
-  const _SessionListItem({
+  const _SessionCard({
     required this.session,
     required this.isOrganizer,
     this.onEdit,
@@ -395,8 +522,6 @@ class _SessionListItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final timeFormat = DateFormat('HH:mm');
-    final dateFormat = DateFormat('MMM d');
     final now = DateTime.now();
     final isActive = now.isAfter(session.startsAt) && now.isBefore(session.endsAt);
 
@@ -414,7 +539,7 @@ class _SessionListItem extends StatelessWidget {
       child: Material(
         color: Colors.transparent,
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(14),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
@@ -426,37 +551,21 @@ class _SessionListItem extends StatelessWidget {
                     Text(
                       session.title,
                       style: AppTypography.interTight(
-                        fontSize: 18,
+                        fontSize: 16,
                         fontWeight: FontWeight.bold,
                         color: Colors.white,
                       ),
                     ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Icon(Icons.access_time,
-                            size: 14,
-                            color: isActive ? context.accentColor : Colors.white38),
-                        const SizedBox(width: 4),
-                        Text(
-                          '${timeFormat.format(session.startsAt)} - ${timeFormat.format(session.endsAt)} (${dateFormat.format(session.startsAt)})',
-                          style: TextStyle(
-                            color: isActive ? context.accentColor : Colors.white60,
-                            fontSize: 13,
-                          ),
-                        ),
-                      ],
-                    ),
                     if (session.room != null) ...[
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 6),
                       Row(
                         children: [
                           const Icon(Icons.location_on_outlined,
-                              size: 14, color: Colors.white38),
+                              size: 13, color: Colors.white38),
                           const SizedBox(width: 4),
                           Text(
                             session.room!,
-                            style: const TextStyle(color: Colors.white38, fontSize: 13),
+                            style: const TextStyle(color: Colors.white38, fontSize: 12),
                           ),
                         ],
                       ),
@@ -471,8 +580,10 @@ class _SessionListItem extends StatelessWidget {
               if (isOrganizer) ...[
                 const SizedBox(width: 8),
                 IconButton(
-                  icon: const Icon(Icons.edit_outlined, color: Colors.white24),
+                  icon: const Icon(Icons.edit_outlined, color: Colors.white24, size: 20),
                   onPressed: onEdit,
+                  constraints: const BoxConstraints(),
+                  padding: EdgeInsets.zero,
                 ),
               ],
             ],
