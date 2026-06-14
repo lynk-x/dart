@@ -362,7 +362,7 @@ class SessionsView extends StatelessWidget {
       labelText: label,
       labelStyle: const TextStyle(color: Colors.white38),
       filled: true,
-      fillColor: Colors.white.withValues(alpha: 0.05),
+      fillColor: AppColors.surface,
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide.none,
@@ -423,7 +423,7 @@ class _TimeBlockWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final timeFormat = DateFormat('HH:mm');
+    final timeFormat = DateFormat('h:mm a');
     final now = DateTime.now();
     final isBlockActive = now.isAfter(block.startsAt) && now.isBefore(block.endsAt);
 
@@ -433,7 +433,7 @@ class _TimeBlockWidget extends StatelessWidget {
         children: [
           // Left: Time info
           SizedBox(
-            width: 55,
+            width: 65,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
@@ -690,7 +690,7 @@ class _DateTimePicker extends StatelessWidget {
             width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.05),
+              color: AppColors.surface,
               borderRadius: borderRadius ?? BorderRadius.circular(12),
               border: showRightBorder
                   ? const Border(
@@ -699,7 +699,7 @@ class _DateTimePicker extends StatelessWidget {
                   : null,
             ),
             child: Text(
-              DateFormat('HH:mm, MMM d').format(value),
+              DateFormat('h:mm a, MMM d').format(value),
               style: const TextStyle(color: Colors.white, fontSize: 13),
             ),
           ),

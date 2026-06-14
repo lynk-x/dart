@@ -23,6 +23,9 @@ class _EditProfilePageState extends State<EditProfilePage> {
   final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _bioController = TextEditingController();
   final TextEditingController _taglineController = TextEditingController();
+  final TextEditingController _genderController = TextEditingController();
+  final TextEditingController _dobController = TextEditingController();
+  final TextEditingController _countryController = TextEditingController();
 
   String? _selectedGender;
   DateTime? _selectedDateOfBirth;
@@ -66,6 +69,9 @@ class _EditProfilePageState extends State<EditProfilePage> {
     _usernameController.dispose();
     _bioController.dispose();
     _taglineController.dispose();
+    _genderController.dispose();
+    _dobController.dispose();
+    _countryController.dispose();
     super.dispose();
   }
 
@@ -210,7 +216,10 @@ class _EditProfilePageState extends State<EditProfilePage> {
                     title: Text(country.name, style: const TextStyle(color: Colors.white)),
                     trailing: isSelected ? Icon(Icons.check_circle, color: context.accentColor) : null,
                     onTap: () {
-                      setState(() => _selectedCountryCode = country.code);
+                      setState(() {
+                        _selectedCountryCode = country.code;
+                        _countryController.text = country.name;
+                      });
                       Navigator.pop(context);
                       _onFieldChanged();
                     },
@@ -232,6 +241,16 @@ class _EditProfilePageState extends State<EditProfilePage> {
     return null;
   }
 
+  String _getCountryName(String? code) {
+    if (code == null) return '';
+    for (final country in kSupportedCountries) {
+      if (country.code.toUpperCase() == code.toUpperCase()) {
+        return country.name;
+      }
+    }
+    return '';
+  }
+
   void _showGenderPicker(BuildContext context) {
     showModalBottomSheet(
       context: context,
@@ -251,7 +270,10 @@ class _EditProfilePageState extends State<EditProfilePage> {
               title: const Text('Male', style: TextStyle(color: Colors.white)),
               trailing: _selectedGender == 'male' ? Icon(Icons.check_circle, color: context.accentColor) : null,
               onTap: () {
-                setState(() => _selectedGender = 'male');
+                setState(() {
+                  _selectedGender = 'male';
+                  _genderController.text = 'Male';
+                });
                 Navigator.pop(context);
                 _onFieldChanged();
               },
@@ -260,7 +282,10 @@ class _EditProfilePageState extends State<EditProfilePage> {
               title: const Text('Female', style: TextStyle(color: Colors.white)),
               trailing: _selectedGender == 'female' ? Icon(Icons.check_circle, color: context.accentColor) : null,
               onTap: () {
-                setState(() => _selectedGender = 'female');
+                setState(() {
+                  _selectedGender = 'female';
+                  _genderController.text = 'Female';
+                });
                 Navigator.pop(context);
                 _onFieldChanged();
               },
@@ -269,7 +294,10 @@ class _EditProfilePageState extends State<EditProfilePage> {
               title: const Text('Other', style: TextStyle(color: Colors.white)),
               trailing: _selectedGender == 'other' ? Icon(Icons.check_circle, color: context.accentColor) : null,
               onTap: () {
-                setState(() => _selectedGender = 'other');
+                setState(() {
+                  _selectedGender = 'other';
+                  _genderController.text = 'Other';
+                });
                 Navigator.pop(context);
                 _onFieldChanged();
               },
@@ -278,7 +306,10 @@ class _EditProfilePageState extends State<EditProfilePage> {
               title: const Text('Prefer not to say', style: TextStyle(color: Colors.white)),
               trailing: _selectedGender == 'prefer_not_to_say' ? Icon(Icons.check_circle, color: context.accentColor) : null,
               onTap: () {
-                setState(() => _selectedGender = 'prefer_not_to_say');
+                setState(() {
+                  _selectedGender = 'prefer_not_to_say';
+                  _genderController.text = 'Prefer not to say';
+                });
                 Navigator.pop(context);
                 _onFieldChanged();
               },
@@ -336,7 +367,10 @@ class _EditProfilePageState extends State<EditProfilePage> {
                         ),
                       ),
                       onPressed: () {
-                        setState(() => _selectedDateOfBirth = tempDateTime);
+                        setState(() {
+                          _selectedDateOfBirth = tempDateTime;
+                          _dobController.text = DateFormat('yyyy-MM-dd').format(tempDateTime);
+                        });
                         _onFieldChanged();
                         Navigator.pop(modalContext);
                       },
@@ -372,8 +406,15 @@ class _EditProfilePageState extends State<EditProfilePage> {
             _bioController.text = state.profile.bio ?? '';
             _taglineController.text = state.profile.tagline ?? '';
             _selectedCountryCode = state.profile.countryCode;
+            _countryController.text = _getCountryName(_selectedCountryCode);
             _selectedGender = state.profile.gender;
+            _genderController.text = _getGenderLabel(_selectedGender) ?? '';
             _selectedDateOfBirth = state.profile.dateOfBirth;
+            if (_selectedDateOfBirth != null) {
+              _dobController.text = DateFormat('yyyy-MM-dd').format(_selectedDateOfBirth!);
+            } else {
+              _dobController.text = '';
+            }
             _initialized = true;
           }
 
@@ -474,9 +515,9 @@ class _EditProfilePageState extends State<EditProfilePage> {
                 Padding(
                   padding: const EdgeInsets.only(right: 8.0),
                   child: IconButton(
-                    icon: _buildFlag(_selectedCountryCode, size: 24),
-                    tooltip: 'Select Country',
-                    onPressed: isUpdating ? null : () => _showCountryPicker(context),
+                    icon: const Icon(Icons.settings_outlined, color: Colors.white),
+                    tooltip: 'Manage Account',
+                    onPressed: isUpdating ? null : () => context.push('/account'),
                   ),
                 ),
               ],
@@ -527,86 +568,44 @@ class _EditProfilePageState extends State<EditProfilePage> {
                         enabled: !isUpdating,
                       ),
                       const SizedBox(height: 24),
-                      GestureDetector(
+                      TextField(
+                        label: 'GENDER',
+                        hintText: 'Select Gender',
+                        controller: _genderController,
+                        readOnly: true,
+                        enabled: !isUpdating,
                         onTap: isUpdating ? null : () => _showGenderPicker(context),
-                        child: Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                          decoration: BoxDecoration(
-                            color: AppColors.surface,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.white12),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'GENDER',
-                                style: AppTypography.interTight(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white54,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(
-                                    _getGenderLabel(_selectedGender) ?? 'Select Gender',
-                                    style: TextStyle(
-                                      color: _selectedGender != null ? Colors.white : Colors.white38,
-                                      fontSize: 16,
-                                    ),
-                                  ),
-                                  const Icon(Icons.arrow_drop_down, color: Colors.white54),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
+                        suffixIcon: const Icon(Icons.arrow_drop_down, color: Colors.white54),
                       ),
                       const SizedBox(height: 24),
-                      GestureDetector(
+                      TextField(
+                        label: 'DATE OF BIRTH',
+                        hintText: 'Select Date of Birth',
+                        controller: _dobController,
+                        readOnly: true,
+                        enabled: !isUpdating,
                         onTap: isUpdating ? null : () => _showDobPicker(context),
-                        child: Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                          decoration: BoxDecoration(
-                            color: AppColors.surface,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.white12),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'DATE OF BIRTH',
-                                style: AppTypography.interTight(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white54,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        suffixIcon: const Icon(Icons.calendar_today_outlined, color: Colors.white54, size: 18),
+                      ),
+                      const SizedBox(height: 24),
+                      TextField(
+                        label: 'COUNTRY',
+                        hintText: 'Select Country',
+                        controller: _countryController,
+                        readOnly: true,
+                        enabled: !isUpdating,
+                        onTap: isUpdating ? null : () => _showCountryPicker(context),
+                        prefixIcon: _selectedCountryCode != null
+                            ? Row(
+                                mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Text(
-                                    _selectedDateOfBirth != null
-                                        ? DateFormat('yyyy-MM-dd').format(_selectedDateOfBirth!)
-                                        : 'Select Date of Birth',
-                                    style: TextStyle(
-                                      color: _selectedDateOfBirth != null ? Colors.white : Colors.white38,
-                                      fontSize: 16,
-                                    ),
-                                  ),
-                                  const Icon(Icons.calendar_today_outlined, color: Colors.white54, size: 18),
+                                  const SizedBox(width: 16),
+                                  _buildFlag(_selectedCountryCode, size: 18),
+                                  const SizedBox(width: 12),
                                 ],
-                              ),
-                            ],
-                          ),
-                        ),
+                              )
+                            : null,
+                        suffixIcon: const Icon(Icons.arrow_drop_down, color: Colors.white54),
                       ),
                       const SizedBox(height: 24),
                       TextField(
@@ -622,12 +621,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
                         controller: _bioController,
                         enabled: !isUpdating,
                         maxLines: 3,
-                      ),
-                      const SizedBox(height: 48),
-                      PrimaryButton(
-                        icon: Icons.manage_accounts_rounded,
-                        text: 'Manage Account',
-                        onPressed: isUpdating ? null : () => context.push('/account'),
                       ),
                       const SizedBox(height: 24),
                     ],
