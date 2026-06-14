@@ -535,6 +535,31 @@ class _EditProfilePageState extends State<EditProfilePage> {
                         onTap: () => _onAvatarTap(context, profile),
                       ),
                       const SizedBox(height: 32),
+                      GestureDetector(
+                        onTap: isUpdating ? null : () => _showCountryPicker(context),
+                        behavior: HitTestBehavior.opaque,
+                        child: IgnorePointer(
+                          child: TextField(
+                            label: 'COUNTRY',
+                            hintText: 'Select Country',
+                            controller: _countryController,
+                            readOnly: true,
+                            enabled: !isUpdating,
+                            prefixIcon: _selectedCountryCode != null
+                                ? Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const SizedBox(width: 16),
+                                      _buildFlag(_selectedCountryCode, size: 18),
+                                      const SizedBox(width: 12),
+                                    ],
+                                  )
+                                : null,
+                            suffixIcon: const Icon(Icons.arrow_drop_down, color: Colors.white54),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
                       TextField(
                         label: 'USERNAME',
                         hintText: 'Enter your username',
@@ -574,44 +599,34 @@ class _EditProfilePageState extends State<EditProfilePage> {
                           thickness: 1,
                         ),
                       ),
-                      TextField(
-                        label: 'GENDER',
-                        hintText: 'Select Gender',
-                        controller: _genderController,
-                        readOnly: true,
-                        enabled: !isUpdating,
+                      GestureDetector(
                         onTap: isUpdating ? null : () => _showGenderPicker(context),
-                        suffixIcon: const Icon(Icons.arrow_drop_down, color: Colors.white54),
+                        behavior: HitTestBehavior.opaque,
+                        child: IgnorePointer(
+                          child: TextField(
+                            label: 'GENDER',
+                            hintText: 'Select Gender',
+                            controller: _genderController,
+                            readOnly: true,
+                            enabled: !isUpdating,
+                            suffixIcon: const Icon(Icons.arrow_drop_down, color: Colors.white54),
+                          ),
+                        ),
                       ),
                       const SizedBox(height: 24),
-                      TextField(
-                        label: 'DATE OF BIRTH',
-                        hintText: 'Select Date of Birth',
-                        controller: _dobController,
-                        readOnly: true,
-                        enabled: !isUpdating,
+                      GestureDetector(
                         onTap: isUpdating ? null : () => _showDobPicker(context),
-                        suffixIcon: const Icon(Icons.calendar_today_outlined, color: Colors.white54, size: 18),
-                      ),
-                      const SizedBox(height: 24),
-                      TextField(
-                        label: 'COUNTRY',
-                        hintText: 'Select Country',
-                        controller: _countryController,
-                        readOnly: true,
-                        enabled: !isUpdating,
-                        onTap: isUpdating ? null : () => _showCountryPicker(context),
-                        prefixIcon: _selectedCountryCode != null
-                            ? Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const SizedBox(width: 16),
-                                  _buildFlag(_selectedCountryCode, size: 18),
-                                  const SizedBox(width: 12),
-                                ],
-                              )
-                            : null,
-                        suffixIcon: const Icon(Icons.arrow_drop_down, color: Colors.white54),
+                        behavior: HitTestBehavior.opaque,
+                        child: IgnorePointer(
+                          child: TextField(
+                            label: 'DATE OF BIRTH',
+                            hintText: 'Select Date of Birth',
+                            controller: _dobController,
+                            readOnly: true,
+                            enabled: !isUpdating,
+                            suffixIcon: const Icon(Icons.calendar_today_outlined, color: Colors.white54, size: 18),
+                          ),
+                        ),
                       ),
                       const SizedBox(height: 24),
                       TextField(

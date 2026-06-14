@@ -447,82 +447,77 @@ class _TimeBlockWidget extends StatelessWidget {
     final isBlockActive = now.isAfter(block.startsAt) && now.isBefore(block.endsAt);
     final timeFormat = DateFormat('h:mm a');
 
-    return IntrinsicHeight(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const SizedBox(width: 4),
-          // Left: Timeline line & dot
-          SizedBox(
-            width: 16,
-            child: Column(
-              children: [
-                const SizedBox(height: 14),
-                Container(
-                  width: 8,
-                  height: 8,
-                  decoration: BoxDecoration(
-                    color: isBlockActive ? context.accentColor : Colors.white24,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-                Expanded(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Top Row: Dot on the left, Time range on the right
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            const SizedBox(width: 4),
+            // The Dot (aligned with time text)
+            Container(
+              width: 8,
+              height: 8,
+              decoration: BoxDecoration(
+                color: isBlockActive ? context.accentColor : Colors.white24,
+                shape: BoxShape.circle,
+              ),
+            ),
+            const SizedBox(width: 16),
+            // The Time Text
+            Text(
+              '${timeFormat.format(block.startsAt)} — ${timeFormat.format(block.endsAt)}',
+              style: TextStyle(
+                color: isBlockActive ? context.accentColor : Colors.white38,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+        
+        // Bottom Row: Timeline track line on the left, Cards list on the right
+        IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const SizedBox(width: 4),
+              // Timeline vertical line track centered under the 8px dot
+              SizedBox(
+                width: 8,
+                child: Center(
                   child: Container(
                     width: 1.5,
                     color: Colors.white12,
                   ),
                 ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 12),
-          
-          // Right: Sessions list
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.only(bottom: 16),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Time section divider
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 8, left: 2),
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.access_time_filled_rounded,
-                          size: 13,
-                          color: isBlockActive ? context.accentColor : Colors.white38,
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          '${timeFormat.format(block.startsAt)} — ${timeFormat.format(block.endsAt)}',
-                          style: TextStyle(
-                            color: isBlockActive ? context.accentColor : Colors.white38,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  ...block.sessions.map((session) {
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: _SessionCard(
-                        session: session,
-                        isOrganizer: isOrganizer,
-                        onEdit: () => onEdit(session),
-                      ),
-                    );
-                  }),
-                ],
               ),
-            ),
+              const SizedBox(width: 16),
+              // Cards list
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 8, bottom: 16),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: block.sessions.map((session) {
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: _SessionCard(
+                          session: session,
+                          isOrganizer: isOrganizer,
+                          onEdit: () => onEdit(session),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
@@ -545,13 +540,10 @@ class _SessionCard extends StatelessWidget {
 
     return Container(
       decoration: BoxDecoration(
-        color: isActive
-            ? Color.lerp(AppColors.surface, context.accentColor, 0.1)!
-            : AppColors.surface,
+        color: AppColors.surface,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: isActive ? context.accentColor : const Color(0xFF2C2C2C),
-          width: isActive ? 1.5 : 1,
         ),
       ),
       child: Material(
