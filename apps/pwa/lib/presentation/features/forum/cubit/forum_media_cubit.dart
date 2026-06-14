@@ -19,6 +19,16 @@ class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
 
   bool get isModeratorOrOrganizer => isOrganizer || isModerator;
 
+  List<ForumMedia> _sortMedia(List<ForumMedia> items) {
+    return List<ForumMedia>.from(items)
+      ..sort((a, b) {
+        if (a.isApproved != b.isApproved) {
+          return a.isApproved ? 1 : -1;
+        }
+        return b.createdAt.compareTo(a.createdAt);
+      });
+  }
+
   ForumMediaCubit({
     required this.forumId,
     required this.userId,
@@ -54,9 +64,8 @@ class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
             : mediaItem;
 
         if (!isClosed) {
-          final updatedItems = [finalItem, ...state.mediaItems]
-            ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
-          emit(state.copyWith(mediaItems: updatedItems));
+          final updatedItems = [finalItem, ...state.mediaItems];
+          emit(state.copyWith(mediaItems: _sortMedia(updatedItems)));
         }
       } else if (payload.eventType == PostgresChangeEvent.update) {
         final data = payload.newRecord;
@@ -65,7 +74,7 @@ class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
         if (!isModeratorOrOrganizer && !mediaItem.isApproved) {
           // If it got unapproved/rejected, remove it for general users
           final updated = state.mediaItems.where((m) => m.id != mediaItem.id).toList();
-          if (!isClosed) emit(state.copyWith(mediaItems: updated));
+          if (!isClosed) emit(state.copyWith(mediaItems: _sortMedia(updated)));
         } else {
           // Update approval status or metadata in-place
           final index = state.mediaItems.indexWhere((m) => m.id == mediaItem.id);
@@ -77,7 +86,7 @@ class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
               url: existing.url,
               thumbnailUrl: existing.thumbnailUrl,
             );
-            if (!isClosed) emit(state.copyWith(mediaItems: updatedList));
+            if (!isClosed) emit(state.copyWith(mediaItems: _sortMedia(updatedList)));
           } else if (mediaItem.isApproved || isModeratorOrOrganizer) {
             // If newly approved/visible, fetch signed URL and prepend
             final path = getPathFromStorageUrl(mediaItem.url, 'forum_media');
@@ -88,16 +97,15 @@ class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
                 : mediaItem;
 
             if (!isClosed) {
-              final updatedItems = [finalItem, ...state.mediaItems]
-                ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
-              emit(state.copyWith(mediaItems: updatedItems));
+              final updatedItems = [finalItem, ...state.mediaItems];
+              emit(state.copyWith(mediaItems: _sortMedia(updatedItems)));
             }
           }
         }
       } else if (payload.eventType == PostgresChangeEvent.delete) {
         final id = payload.oldRecord['id'] as String?;
         final updated = state.mediaItems.where((m) => m.id != id).toList();
-        if (!isClosed) emit(state.copyWith(mediaItems: updated));
+        if (!isClosed) emit(state.copyWith(mediaItems: _sortMedia(updated)));
       }
     });
     _mediaSubscription?.subscribe();
@@ -133,7 +141,7 @@ class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
       }
 
       if (!isClosed) {
-        emit(state.copyWith(mediaItems: media, isLoading: false));
+        emit(state.copyWith(mediaItems: _sortMedia(media), isLoading: false));
       }
     } catch (e, stack) {
       debugPrint('[ForumMediaCubit] Error: $e\n$stack');
@@ -178,7 +186,7 @@ class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
 
       if (!isClosed) {
         emit(state.copyWith(
-          mediaItems: [...state.mediaItems, ...more],
+          mediaItems: _sortMedia([...state.mediaItems, ...more]),
           isLoading: false,
         ));
       }

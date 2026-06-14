@@ -203,8 +203,8 @@ class ForumCubit extends Cubit<ForumState> {
           channelCreatedAt: channelCreatedAtFromDb,
         ));
 
-        if (eventIdFromDb != null) {
-          _syncEventProgress(eventIdFromDb, eventCreatedAtFromDb);
+        if (forumId != null) {
+          _syncForumProgress(forumId!, forumCreatedAtFromDb);
         }
       }
     } catch (e, stack) {
@@ -347,9 +347,9 @@ class ForumCubit extends Cubit<ForumState> {
     }
   }
 
-  Future<void> _syncEventProgress(String eventId, DateTime? eventCreatedAt) async {
+  Future<void> _syncForumProgress(String forumId, DateTime? forumCreatedAt) async {
     try {
-      final sessions = await _repo.getEventSessions(eventId, eventCreatedAt: eventCreatedAt);
+      final sessions = await _repo.getForumSessions(forumId, forumCreatedAt: forumCreatedAt);
 
       if (sessions.isEmpty) return;
 

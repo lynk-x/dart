@@ -159,16 +159,16 @@ GoRouter createRouter(
         },
       ),
       GoRoute(
-        path: '/events/:eventId/sessions',
+        path: '/forum/:forumId/sessions',
         builder: (context, state) {
-          final eventId = state.pathParameters['eventId']!;
+          final forumId = state.pathParameters['forumId']!;
           final extras = state.extra as Map<String, dynamic>?;
           final isOrganizer = extras?['isOrganizer'] as bool? ?? false;
-          final eventCreatedAtRaw = state.uri.queryParameters['createdAt'] ?? extras?['eventCreatedAt'];
-          final eventCreatedAt = eventCreatedAtRaw != null
-              ? (eventCreatedAtRaw is DateTime
-                  ? eventCreatedAtRaw
-                  : DateTime.parse(eventCreatedAtRaw.toString()))
+          final forumCreatedAtRaw = state.uri.queryParameters['createdAt'] ?? extras?['forumCreatedAt'];
+          final forumCreatedAt = forumCreatedAtRaw != null
+              ? (forumCreatedAtRaw is DateTime
+                  ? forumCreatedAtRaw
+                  : DateTime.parse(forumCreatedAtRaw.toString()))
               : null;
           final forumReference = state.uri.queryParameters['forumReference'] ?? extras?['forumReference'] as String?;
 
@@ -176,9 +176,9 @@ GoRouter createRouter(
             title: 'Sessions',
             color: Colors.black,
             child: SessionsScreen(
-              eventId: eventId,
+              forumId: forumId,
               isOrganizer: isOrganizer,
-              eventCreatedAt: eventCreatedAt,
+              forumCreatedAt: forumCreatedAt,
               forumReference: forumReference,
             ),
           );

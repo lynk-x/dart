@@ -291,10 +291,10 @@ class _ForumViewState extends State<ForumView> {
           forumId: cubit.forumId ?? '',
           onEventProgressTap: () {
             final state = cubit.state;
-            if (state.eventId == null || state.eventId!.isEmpty) {
+            if (state.forumId == null || state.forumId!.isEmpty) {
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
-                  content: Text('No event found for this forum.'),
+                  content: Text('No forum found.'),
                   behavior: SnackBarBehavior.floating,
                 ),
               );
@@ -302,7 +302,7 @@ class _ForumViewState extends State<ForumView> {
             }
             Navigator.of(context).pop();
             context.push(
-              '/events/${state.eventId}/sessions?createdAt=${state.eventCreatedAt?.toIso8601String()}&forumReference=${cubit.forumReference}',
+              '/forum/${state.forumId}/sessions?createdAt=${state.forumCreatedAt?.toIso8601String()}&forumReference=${cubit.forumReference}',
               extra: {
                 'isOrganizer': state.isOrganizer,
               },

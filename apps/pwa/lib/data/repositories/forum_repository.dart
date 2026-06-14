@@ -95,17 +95,17 @@ class ForumRepository {
     }).toList();
   }
 
-  Future<List<Map<String, dynamic>>> getEventSessions(
-    String eventId, {
-    DateTime? eventCreatedAt,
+  Future<List<Map<String, dynamic>>> getForumSessions(
+    String forumId, {
+    DateTime? forumCreatedAt,
   }) async {
     var query = _client
-        .from('event_sessions')
+        .from('forum_sessions')
         .select('starts_at, ends_at')
-        .eq('event_id', eventId);
+        .eq('forum_id', forumId);
 
-    if (eventCreatedAt != null) {
-      query = query.eq('event_created_at', eventCreatedAt.toIso8601String());
+    if (forumCreatedAt != null) {
+      query = query.eq('forum_created_at', forumCreatedAt.toIso8601String());
     }
 
     final data = await query.order('starts_at', ascending: true);

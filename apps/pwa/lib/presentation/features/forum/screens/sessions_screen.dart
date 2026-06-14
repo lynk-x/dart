@@ -8,16 +8,16 @@ import '../cubit/forum_sessions_cubit.dart';
 import '../cubit/forum_sessions_state.dart';
 
 class SessionsScreen extends StatelessWidget {
-  final String eventId;
+  final String forumId;
   final bool isOrganizer;
-  final DateTime? eventCreatedAt;
+  final DateTime? forumCreatedAt;
   final String? forumReference;
 
   const SessionsScreen({
     super.key,
-    required this.eventId,
+    required this.forumId,
     this.isOrganizer = false,
-    this.eventCreatedAt,
+    this.forumCreatedAt,
     this.forumReference,
   });
 
@@ -25,8 +25,8 @@ class SessionsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocProvider(
       create: (context) => ForumSessionsCubit(
-        eventId: eventId,
-        eventCreatedAt: eventCreatedAt,
+        forumId: forumId,
+        forumCreatedAt: forumCreatedAt,
       )..loadSessions(),
       child: SessionsView(
         isOrganizer: isOrganizer,
@@ -57,10 +57,12 @@ class SessionsView extends StatelessWidget {
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.white, size: 32),
           onPressed: () {
-            if (forumReference != null && forumReference!.isNotEmpty) {
+            if (context.canPop()) {
+              context.pop();
+            } else if (forumReference != null && forumReference!.isNotEmpty) {
               context.go('/forum/$forumReference');
             } else {
-              context.pop();
+              context.go('/');
             }
           },
         ),
@@ -278,14 +280,14 @@ class SessionsView extends StatelessWidget {
 
                     final newSession = SessionModel(
                       id: session?.id ?? '',
-                      eventId: cubit.eventId,
+                      forumId: cubit.forumId,
                       title: title,
                       startsAt: startsAt,
                       endsAt: endsAt,
                       room: roomController.text.trim().isEmpty
                           ? null
                           : roomController.text.trim(),
-                      eventCreatedAt: session?.eventCreatedAt ?? cubit.eventCreatedAt,
+                      forumCreatedAt: session?.forumCreatedAt ?? cubit.forumCreatedAt,
                     );
 
                     if (session == null) {
@@ -400,77 +402,80 @@ class _SessionListItem extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: isActive
-            ? context.accentColor.withValues(alpha: 0.1)
+            ? Color.lerp(const Color(0xFF1E1E1E), context.accentColor, 0.1)!
             : const Color(0xFF1E1E1E),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: isActive ? context.accentColor : Colors.white10,
+          color: isActive ? context.accentColor : const Color(0xFF2C2C2C),
           width: isActive ? 1.5 : 1,
         ),
       ),
       child: Material(
         color: Colors.transparent,
-        child: ListTile(
-          contentPadding: const EdgeInsets.all(16),
-          title: Row(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Expanded(
-                child: Text(
-                  session.title,
-                  style: AppTypography.interTight(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      session.title,
+                      style: AppTypography.interTight(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Icon(Icons.access_time,
+                            size: 14,
+                            color: isActive ? context.accentColor : Colors.white38),
+                        const SizedBox(width: 4),
+                        Text(
+                          '${timeFormat.format(session.startsAt)} - ${timeFormat.format(session.endsAt)} (${dateFormat.format(session.startsAt)})',
+                          style: TextStyle(
+                            color: isActive ? context.accentColor : Colors.white60,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (session.room != null) ...[
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          const Icon(Icons.location_on_outlined,
+                              size: 14, color: Colors.white38),
+                          const SizedBox(width: 4),
+                          Text(
+                            session.room!,
+                            style: const TextStyle(color: Colors.white38, fontSize: 13),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ],
                 ),
               ),
               if (isActive) ...[
                 const SizedBox(width: 8),
                 const _LiveIndicator(),
               ],
-            ],
-          ),
-          subtitle: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Icon(Icons.access_time,
-                      size: 14,
-                      color: isActive ? context.accentColor : Colors.white38),
-                  const SizedBox(width: 4),
-                  Text(
-                    '${timeFormat.format(session.startsAt)} - ${timeFormat.format(session.endsAt)} (${dateFormat.format(session.startsAt)})',
-                    style: TextStyle(
-                      color: isActive ? context.accentColor : Colors.white60,
-                      fontSize: 13,
-                    ),
-                  ),
-                ],
-              ),
-              if (session.room != null) ...[
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    const Icon(Icons.location_on_outlined,
-                        size: 14, color: Colors.white38),
-                    const SizedBox(width: 4),
-                    Text(
-                      session.room!,
-                      style: const TextStyle(color: Colors.white38, fontSize: 13),
-                    ),
-                  ],
+              if (isOrganizer) ...[
+                const SizedBox(width: 8),
+                IconButton(
+                  icon: const Icon(Icons.edit_outlined, color: Colors.white24),
+                  onPressed: onEdit,
                 ),
               ],
             ],
           ),
-          trailing: isOrganizer
-              ? IconButton(
-                  icon: const Icon(Icons.edit_outlined, color: Colors.white24),
-                  onPressed: onEdit,
-                )
-              : null,
         ),
       ),
     );

@@ -1,9 +1,9 @@
 import 'package:equatable/equatable.dart';
 
-/// Represents a single session within an event.
+/// Represents a single session within a forum.
 class SessionModel extends Equatable {
   final String id;
-  final String eventId;
+  final String forumId;
   final String title;
   final DateTime startsAt;
   final DateTime endsAt;
@@ -11,11 +11,11 @@ class SessionModel extends Equatable {
   final List<String> speakers;
   final String? room;
   final int? capacity;
-  final DateTime? eventCreatedAt;
+  final DateTime? forumCreatedAt;
 
   const SessionModel({
     required this.id,
-    required this.eventId,
+    required this.forumId,
     required this.title,
     required this.startsAt,
     required this.endsAt,
@@ -23,7 +23,7 @@ class SessionModel extends Equatable {
     this.speakers = const [],
     this.room,
     this.capacity,
-    this.eventCreatedAt,
+    this.forumCreatedAt,
   });
 
   factory SessionModel.fromMap(Map<String, dynamic> map) {
@@ -34,11 +34,11 @@ class SessionModel extends Equatable {
       speakers = speakersRaw.map((e) => e.toString()).toList();
     }
 
-    final eventCreatedAtRaw = map['event_created_at'];
+    final forumCreatedAtRaw = map['forum_created_at'];
 
     return SessionModel(
       id: map['id'] as String,
-      eventId: map['event_id'] as String,
+      forumId: map['forum_id'] as String,
       title: info['title'] as String? ?? 'Untitled Session',
       startsAt: DateTime.parse(map['starts_at'] as String),
       endsAt: DateTime.parse(map['ends_at'] as String),
@@ -46,14 +46,14 @@ class SessionModel extends Equatable {
       speakers: speakers,
       room: info['room'] as String?,
       capacity: info['capacity'] as int?,
-      eventCreatedAt: eventCreatedAtRaw != null ? DateTime.parse(eventCreatedAtRaw as String) : null,
+      forumCreatedAt: forumCreatedAtRaw != null ? DateTime.parse(forumCreatedAtRaw as String) : null,
     );
   }
 
   Map<String, dynamic> toMap() {
     return {
-      'event_id': eventId,
-      'event_created_at': eventCreatedAt?.toIso8601String(),
+      'forum_id': forumId,
+      'forum_created_at': forumCreatedAt?.toIso8601String(),
       'starts_at': startsAt.toIso8601String(),
       'ends_at': endsAt.toIso8601String(),
       'sort_order': sortOrder,
@@ -69,7 +69,7 @@ class SessionModel extends Equatable {
   @override
   List<Object?> get props => [
         id,
-        eventId,
+        forumId,
         title,
         startsAt,
         endsAt,
@@ -77,6 +77,6 @@ class SessionModel extends Equatable {
         speakers,
         room,
         capacity,
-        eventCreatedAt,
+        forumCreatedAt,
       ];
 }

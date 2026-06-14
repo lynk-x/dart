@@ -4,21 +4,21 @@ import 'package:lynk_core/core.dart';
 import 'forum_sessions_state.dart';
 
 class ForumSessionsCubit extends Cubit<ForumSessionsState> {
-  final String eventId;
-  final DateTime? eventCreatedAt;
+  final String forumId;
+  final DateTime? forumCreatedAt;
 
   ForumSessionsCubit({
-    required this.eventId,
-    this.eventCreatedAt,
+    required this.forumId,
+    this.forumCreatedAt,
   }) : super(const ForumSessionsState());
 
   Future<void> loadSessions() async {
     emit(state.copyWith(isLoading: true, clearError: true));
     try {
       final response = await Supabase.instance.client
-          .from('event_sessions')
+          .from('forum_sessions')
           .select()
-          .eq('event_id', eventId)
+          .eq('forum_id', forumId)
           .order('starts_at', ascending: true);
 
       final sessions = (response as List)
@@ -40,7 +40,7 @@ class ForumSessionsCubit extends Cubit<ForumSessionsState> {
     try {
       final payload = session.toMap()..remove('id');
       await Supabase.instance.client
-          .from('event_sessions')
+          .from('forum_sessions')
           .insert(payload);
       await loadSessions();
     } catch (e) {
@@ -52,7 +52,7 @@ class ForumSessionsCubit extends Cubit<ForumSessionsState> {
     emit(state.copyWith(isLoading: true, clearError: true));
     try {
       await Supabase.instance.client
-          .from('event_sessions')
+          .from('forum_sessions')
           .update(session.toMap())
           .eq('id', session.id);
       await loadSessions();
@@ -65,7 +65,7 @@ class ForumSessionsCubit extends Cubit<ForumSessionsState> {
     emit(state.copyWith(isLoading: true, clearError: true));
     try {
       await Supabase.instance.client
-          .from('event_sessions')
+          .from('forum_sessions')
           .delete()
           .eq('id', sessionId);
       await loadSessions();
