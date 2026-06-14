@@ -129,20 +129,24 @@ class _HomeDrawerState extends State<HomeDrawer> {
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
                                       Text(
-                                        profile.fullName ?? profile.userName,
+                                        '@${profile.userName}',
                                         style: AppTypography.interTight(
                                           fontSize: 20,
                                           fontWeight: FontWeight.bold,
                                           color: AppColors.primaryText,
                                         ),
                                       ),
-                                      Text(
-                                        profile.userReference ?? 'No user reference',
-                                        style: AppTypography.inter(
-                                          fontSize: 14,
-                                          color: AppColors.primaryText,
+                                      if (profile.fullName != null &&
+                                          profile.fullName!.isNotEmpty) ...[
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          profile.fullName!,
+                                          style: AppTypography.inter(
+                                            fontSize: 14,
+                                            color: AppColors.primaryText,
+                                          ),
                                         ),
-                                      ),
+                                      ],
                                     ],
                                   ),
                                 ),

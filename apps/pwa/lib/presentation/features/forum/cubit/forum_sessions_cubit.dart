@@ -36,6 +36,7 @@ class ForumSessionsCubit extends Cubit<ForumSessionsState> {
 
   Future<void> addSession(SessionModel session) async {
     emit(state.copyWith(isLoading: true, clearError: true));
+
     try {
       final payload = session.toMap()..remove('id');
       await Supabase.instance.client

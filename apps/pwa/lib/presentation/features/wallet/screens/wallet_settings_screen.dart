@@ -244,14 +244,6 @@ class _WalletSettingsPageState extends State<WalletSettingsPage> {
                   onTap: () => _showChangePin(),
                 ),
                 _buildBiometricTile(state),
-                const SizedBox(height: 40),
-                Center(
-                  child: Text(
-                    'Wallet Version 1.0.4',
-                    style: AppTypography.inter(
-                        fontSize: 12, color: Colors.white24),
-                  ),
-                ),
               ],
             ),
           ),

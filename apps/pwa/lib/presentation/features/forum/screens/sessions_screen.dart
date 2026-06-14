@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:lynk_core/core.dart';
@@ -107,19 +108,54 @@ class SessionsView extends StatelessWidget {
             );
           }
 
+          final sortedSessions = List<SessionModel>.from(state.sessions)
+            ..sort((a, b) => a.startsAt.compareTo(b.startsAt));
+
+          final items = <dynamic>[];
+          DateTime? lastDate;
+          for (final session in sortedSessions) {
+            final sessionDate = DateTime(session.startsAt.year, session.startsAt.month, session.startsAt.day);
+            if (lastDate == null || lastDate != sessionDate) {
+              lastDate = sessionDate;
+              items.add(sessionDate);
+            }
+            items.add(session);
+          }
+
+          final dateFormat = DateFormat('EEEE, MMMM d');
+
           return RefreshIndicator(
             onRefresh: () => context.read<ForumSessionsCubit>().loadSessions(),
             color: context.accentColor,
-            child: ListView.separated(
-              padding: const EdgeInsets.all(16),
-              itemCount: state.sessions.length,
-              separatorBuilder: (context, index) => const SizedBox(height: 12),
+            child: ListView.builder(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              itemCount: items.length,
               itemBuilder: (context, index) {
-                final session = state.sessions[index];
-                return _SessionListItem(
-                  session: session,
-                  isOrganizer: isOrganizer,
-                  onEdit: () => _showSessionEditor(context, session: session),
+                final item = items[index];
+                if (item is DateTime) {
+                  return Padding(
+                    padding: const EdgeInsets.only(top: 20, bottom: 8, left: 4),
+                    child: Text(
+                      dateFormat.format(item).toUpperCase(),
+                      style: AppTypography.interTight(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: context.accentColor,
+                        letterSpacing: 1.2,
+                      ),
+                    ),
+                  );
+                }
+
+                final session = item as SessionModel;
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  child: _SessionListItem(
+                    session: session,
+                    isOrganizer: isOrganizer,
+                    onEdit: () => _showSessionEditor(context, session: session),
+                  ),
                 );
               },
             ),
@@ -183,14 +219,22 @@ class SessionsView extends StatelessWidget {
                     child: _DateTimePicker(
                       label: 'Starts At',
                       value: startsAt,
+                      borderRadius: const BorderRadius.only(
+                        topLeft: Radius.circular(12),
+                        bottomLeft: Radius.circular(12),
+                      ),
+                      showRightBorder: true,
                       onChanged: (val) => setState(() => startsAt = val),
                     ),
                   ),
-                  const SizedBox(width: 16),
                   Expanded(
                     child: _DateTimePicker(
                       label: 'Ends At',
                       value: endsAt,
+                      borderRadius: const BorderRadius.only(
+                        topRight: Radius.circular(12),
+                        bottomRight: Radius.circular(12),
+                      ),
                       onChanged: (val) => setState(() => endsAt = val),
                     ),
                   ),
@@ -284,6 +328,29 @@ class SessionsView extends StatelessWidget {
   }
 }
 
+class _LiveIndicator extends StatelessWidget {
+  const _LiveIndicator();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.redAccent,
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        'LIVE NOW',
+        style: AppTypography.interTight(
+          fontSize: 10,
+          fontWeight: FontWeight.bold,
+          color: Colors.white,
+        ),
+      ),
+    );
+  }
+}
+
 class _SessionListItem extends StatelessWidget {
   final SessionModel session;
   final bool isOrganizer;
@@ -317,13 +384,23 @@ class _SessionListItem extends StatelessWidget {
         color: Colors.transparent,
         child: ListTile(
           contentPadding: const EdgeInsets.all(16),
-          title: Text(
-            session.title,
-            style: AppTypography.interTight(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-            ),
+          title: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  session.title,
+                  style: AppTypography.interTight(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+              if (isActive) ...[
+                const SizedBox(width: 8),
+                const _LiveIndicator(),
+              ],
+            ],
           ),
           subtitle: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -376,11 +453,15 @@ class _DateTimePicker extends StatelessWidget {
   final String label;
   final DateTime value;
   final ValueChanged<DateTime> onChanged;
+  final BorderRadius? borderRadius;
+  final bool showRightBorder;
 
   const _DateTimePicker({
     required this.label,
     required this.value,
     required this.onChanged,
+    this.borderRadius,
+    this.showRightBorder = false,
   });
 
   @override
@@ -391,35 +472,86 @@ class _DateTimePicker extends StatelessWidget {
         Text(label, style: const TextStyle(color: Colors.white38, fontSize: 12)),
         const SizedBox(height: 8),
         InkWell(
-          onTap: () async {
-            final date = await showDatePicker(
+          onTap: () {
+            DateTime tempDateTime = value;
+            showCupertinoModalPopup<void>(
               context: context,
-              initialDate: value,
-              firstDate: DateTime.now().subtract(const Duration(days: 365)),
-              lastDate: DateTime.now().add(const Duration(days: 365 * 2)),
+              builder: (BuildContext modalContext) => CupertinoTheme(
+                data: const CupertinoThemeData(
+                  brightness: Brightness.dark,
+                ),
+                child: Container(
+                  height: 300,
+                  color: const Color(0xFF1E1E1E),
+                  child: Column(
+                    children: [
+                      Container(
+                        decoration: const BoxDecoration(
+                          color: Color(0xFF2C2C2C),
+                          border: Border(
+                            bottom: BorderSide(color: Colors.white12, width: 0.5),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            CupertinoButton(
+                              child: const Text('Cancel', style: TextStyle(color: Colors.white54, fontSize: 15)),
+                              onPressed: () => Navigator.pop(modalContext),
+                            ),
+                            Text(
+                              label,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                decoration: TextDecoration.none,
+                              ),
+                            ),
+                            CupertinoButton(
+                              child: Text(
+                                'Done',
+                                style: TextStyle(
+                                  color: context.accentColor,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 15,
+                                ),
+                              ),
+                              onPressed: () {
+                                onChanged(tempDateTime);
+                                Navigator.pop(modalContext);
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                      Expanded(
+                        child: CupertinoDatePicker(
+                          initialDateTime: value,
+                          mode: CupertinoDatePickerMode.dateAndTime,
+                          use24hFormat: true,
+                          onDateTimeChanged: (DateTime newDateTime) {
+                            tempDateTime = newDateTime;
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             );
-            if (date != null) {
-              if (!context.mounted) return;
-              final time = await showTimePicker(
-                context: context,
-                initialTime: TimeOfDay.fromDateTime(value),
-              );
-              if (time != null) {
-                onChanged(DateTime(
-                  date.year,
-                  date.month,
-                  date.day,
-                  time.hour,
-                  time.minute,
-                ));
-              }
-            }
           },
           child: Container(
+            width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
             decoration: BoxDecoration(
               color: Colors.white.withValues(alpha: 0.05),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: borderRadius ?? BorderRadius.circular(12),
+              border: showRightBorder
+                  ? const Border(
+                      right: BorderSide(color: Colors.white12, width: 0.5),
+                    )
+                  : null,
             ),
             child: Text(
               DateFormat('HH:mm, MMM d').format(value),
