@@ -235,13 +235,32 @@ class SessionsView extends StatelessWidget {
                   color: Colors.white,
                 ),
               ),
-              const SizedBox(height: 24),
+              const Text(
+                'Session Title',
+                style: TextStyle(
+                  color: Colors.white38,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.2,
+                ),
+              ),
+              const SizedBox(height: 6),
               TextField(
                 controller: titleController,
                 style: const TextStyle(color: Colors.white),
-                decoration: _inputDecoration('Session Title', context),
+                decoration: _inputDecoration('Enter session title', context),
               ),
               const SizedBox(height: 16),
+              const Text(
+                'Room / Location',
+                style: TextStyle(
+                  color: Colors.white38,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.2,
+                ),
+              ),
+              const SizedBox(height: 6),
               TextField(
                 controller: roomController,
                 style: const TextStyle(color: Colors.white),
@@ -357,12 +376,13 @@ class SessionsView extends StatelessWidget {
     );
   }
 
-  InputDecoration _inputDecoration(String label, BuildContext context) {
+  InputDecoration _inputDecoration(String hint, BuildContext context) {
     return InputDecoration(
-      labelText: label,
-      labelStyle: const TextStyle(color: Colors.white38),
+      hintText: hint,
+      hintStyle: const TextStyle(color: Colors.white24, fontSize: 13),
       filled: true,
       fillColor: AppColors.surface,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide.none,
@@ -423,48 +443,21 @@ class _TimeBlockWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final timeFormat = DateFormat('h:mm a');
     final now = DateTime.now();
     final isBlockActive = now.isAfter(block.startsAt) && now.isBefore(block.endsAt);
+    final timeFormat = DateFormat('h:mm a');
 
     return IntrinsicHeight(
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Left: Time info
-          SizedBox(
-            width: 65,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                const SizedBox(height: 8),
-                Text(
-                  timeFormat.format(block.startsAt),
-                  style: AppTypography.interTight(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: isBlockActive ? context.accentColor : Colors.white,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  timeFormat.format(block.endsAt),
-                  style: AppTypography.inter(
-                    fontSize: 11,
-                    color: Colors.white38,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 12),
-          
-          // Middle: Timeline line & dot
+          const SizedBox(width: 4),
+          // Left: Timeline line & dot
           SizedBox(
             width: 16,
             child: Column(
               children: [
-                const SizedBox(height: 12),
+                const SizedBox(height: 14),
                 Container(
                   width: 8,
                   height: 8,
@@ -490,16 +483,41 @@ class _TimeBlockWidget extends StatelessWidget {
               padding: const EdgeInsets.only(bottom: 16),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
-                children: block.sessions.map((session) {
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: _SessionCard(
-                      session: session,
-                      isOrganizer: isOrganizer,
-                      onEdit: () => onEdit(session),
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Time section divider
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8, left: 2),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.access_time_filled_rounded,
+                          size: 13,
+                          color: isBlockActive ? context.accentColor : Colors.white38,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          '${timeFormat.format(block.startsAt)} — ${timeFormat.format(block.endsAt)}',
+                          style: TextStyle(
+                            color: isBlockActive ? context.accentColor : Colors.white38,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
                     ),
-                  );
-                }).toList(),
+                  ),
+                  ...block.sessions.map((session) {
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: _SessionCard(
+                        session: session,
+                        isOrganizer: isOrganizer,
+                        onEdit: () => onEdit(session),
+                      ),
+                    );
+                  }),
+                ],
               ),
             ),
           ),
@@ -528,8 +546,8 @@ class _SessionCard extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: isActive
-            ? Color.lerp(const Color(0xFF1E1E1E), context.accentColor, 0.1)!
-            : const Color(0xFF1E1E1E),
+            ? Color.lerp(AppColors.surface, context.accentColor, 0.1)!
+            : AppColors.surface,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: isActive ? context.accentColor : const Color(0xFF2C2C2C),

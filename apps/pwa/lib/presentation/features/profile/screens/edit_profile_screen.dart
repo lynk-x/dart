@@ -567,7 +567,13 @@ class _EditProfilePageState extends State<EditProfilePage> {
                         controller: _nameController,
                         enabled: !isUpdating,
                       ),
-                      const SizedBox(height: 24),
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 24),
+                        child: Divider(
+                          color: Colors.white10,
+                          thickness: 1,
+                        ),
+                      ),
                       TextField(
                         label: 'GENDER',
                         hintText: 'Select Gender',
