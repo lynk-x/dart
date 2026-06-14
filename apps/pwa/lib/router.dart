@@ -157,32 +157,34 @@ GoRouter createRouter(
             child: ForumPage(forumReference: forumReference),
           );
         },
-      ),
-      GoRoute(
-        path: '/forum/:forumId/sessions',
-        builder: (context, state) {
-          final forumId = state.pathParameters['forumId']!;
-          final extras = state.extra as Map<String, dynamic>?;
-          final isOrganizer = extras?['isOrganizer'] as bool? ?? false;
-          final forumCreatedAtRaw = state.uri.queryParameters['createdAt'] ?? extras?['forumCreatedAt'];
-          final forumCreatedAt = forumCreatedAtRaw != null
-              ? (forumCreatedAtRaw is DateTime
-                  ? forumCreatedAtRaw
-                  : DateTime.parse(forumCreatedAtRaw.toString()))
-              : null;
-          final forumReference = state.uri.queryParameters['forumReference'] ?? extras?['forumReference'] as String?;
+        routes: [
+          GoRoute(
+            path: 'sessions',
+            builder: (context, state) {
+              final forumReference = state.pathParameters['reference']!;
+              final extras = state.extra as Map<String, dynamic>?;
+              final isOrganizer = extras?['isOrganizer'] as bool? ?? false;
+              final forumId = state.uri.queryParameters['forumId'] ?? extras?['forumId'] as String?;
+              final forumCreatedAtRaw = state.uri.queryParameters['createdAt'] ?? extras?['forumCreatedAt'];
+              final forumCreatedAt = forumCreatedAtRaw != null
+                  ? (forumCreatedAtRaw is DateTime
+                      ? forumCreatedAtRaw
+                      : DateTime.parse(forumCreatedAtRaw.toString()))
+                  : null;
 
-          return Title(
-            title: 'Sessions',
-            color: Colors.black,
-            child: SessionsScreen(
-              forumId: forumId,
-              isOrganizer: isOrganizer,
-              forumCreatedAt: forumCreatedAt,
-              forumReference: forumReference,
-            ),
-          );
-        },
+              return Title(
+                title: 'Sessions',
+                color: Colors.black,
+                child: SessionsScreen(
+                  forumId: forumId,
+                  isOrganizer: isOrganizer,
+                  forumCreatedAt: forumCreatedAt,
+                  forumReference: forumReference,
+                ),
+              );
+            },
+          ),
+        ],
       ),
       GoRoute(
         path: '/notifications',

@@ -6,19 +6,43 @@ import 'forum_sessions_state.dart';
 class ForumSessionsCubit extends Cubit<ForumSessionsState> {
   final String forumId;
   final DateTime? forumCreatedAt;
+  final String? forumReference;
+
+  String? _resolvedForumId;
+  DateTime? _resolvedForumCreatedAt;
+
+  String get activeForumId => _resolvedForumId ?? forumId;
+  DateTime? get activeForumCreatedAt => _resolvedForumCreatedAt ?? forumCreatedAt;
 
   ForumSessionsCubit({
     required this.forumId,
     this.forumCreatedAt,
+    this.forumReference,
   }) : super(const ForumSessionsState());
 
   Future<void> loadSessions() async {
     emit(state.copyWith(isLoading: true, clearError: true));
     try {
+      if (activeForumId.isEmpty && forumReference != null && forumReference!.isNotEmpty) {
+        final forumRes = await Supabase.instance.client
+            .from('forums')
+            .select('id, created_at')
+            .eq('reference', forumReference!)
+            .maybeSingle();
+        if (forumRes != null) {
+          _resolvedForumId = forumRes['id'] as String;
+          _resolvedForumCreatedAt = DateTime.parse(forumRes['created_at'] as String);
+        }
+      }
+
+      if (activeForumId.isEmpty) {
+        throw Exception('Forum not found or reference is invalid.');
+      }
+
       final response = await Supabase.instance.client
           .from('forum_sessions')
           .select()
-          .eq('forum_id', forumId)
+          .eq('forum_id', activeForumId)
           .order('starts_at', ascending: true);
 
       final sessions = (response as List)
@@ -39,6 +63,8 @@ class ForumSessionsCubit extends Cubit<ForumSessionsState> {
 
     try {
       final payload = session.toMap()..remove('id');
+      payload['forum_id'] = activeForumId;
+      payload['forum_created_at'] = activeForumCreatedAt?.toIso8601String();
       await Supabase.instance.client
           .from('forum_sessions')
           .insert(payload);
@@ -51,9 +77,12 @@ class ForumSessionsCubit extends Cubit<ForumSessionsState> {
   Future<void> updateSession(SessionModel session) async {
     emit(state.copyWith(isLoading: true, clearError: true));
     try {
+      final payload = session.toMap();
+      payload['forum_id'] = activeForumId;
+      payload['forum_created_at'] = activeForumCreatedAt?.toIso8601String();
       await Supabase.instance.client
           .from('forum_sessions')
-          .update(session.toMap())
+          .update(payload)
           .eq('id', session.id);
       await loadSessions();
     } catch (e) {

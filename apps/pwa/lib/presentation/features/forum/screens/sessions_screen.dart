@@ -8,14 +8,14 @@ import '../cubit/forum_sessions_cubit.dart';
 import '../cubit/forum_sessions_state.dart';
 
 class SessionsScreen extends StatelessWidget {
-  final String forumId;
+  final String? forumId;
   final bool isOrganizer;
   final DateTime? forumCreatedAt;
   final String? forumReference;
 
   const SessionsScreen({
     super.key,
-    required this.forumId,
+    this.forumId,
     this.isOrganizer = false,
     this.forumCreatedAt,
     this.forumReference,
@@ -25,8 +25,9 @@ class SessionsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocProvider(
       create: (context) => ForumSessionsCubit(
-        forumId: forumId,
+        forumId: forumId ?? '',
         forumCreatedAt: forumCreatedAt,
+        forumReference: forumReference,
       )..loadSessions(),
       child: SessionsView(
         isOrganizer: isOrganizer,
@@ -280,14 +281,14 @@ class SessionsView extends StatelessWidget {
 
                     final newSession = SessionModel(
                       id: session?.id ?? '',
-                      forumId: cubit.forumId,
+                      forumId: cubit.activeForumId,
                       title: title,
                       startsAt: startsAt,
                       endsAt: endsAt,
                       room: roomController.text.trim().isEmpty
                           ? null
                           : roomController.text.trim(),
-                      forumCreatedAt: session?.forumCreatedAt ?? cubit.forumCreatedAt,
+                      forumCreatedAt: session?.forumCreatedAt ?? cubit.activeForumCreatedAt,
                     );
 
                     if (session == null) {
