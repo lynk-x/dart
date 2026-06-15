@@ -205,7 +205,8 @@ class WalletCubit extends Cubit<WalletState> {
   Future<String?> _resolveAccountReference(String accountId) async {
     try {
       final row = await _supabase
-          .from('accounts')
+          .schema('api')
+          .from('v1_accounts')
           .select('reference')
           .eq('id', accountId)
           .maybeSingle();
@@ -618,7 +619,7 @@ class WalletCubit extends Cubit<WalletState> {
   Future<Map<String, dynamic>?> resolveRecipientDetails(String identifier) async {
     try {
       final isUuid = RegExp(r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$').hasMatch(identifier);
-      final query = _supabase.from('accounts').select('id, reference, display_name');
+      final query = _supabase.schema('api').from('v1_accounts').select('id, reference, display_name');
       final response = isUuid 
           ? await query.eq('id', identifier).maybeSingle()
           : await query.eq('reference', identifier).maybeSingle();

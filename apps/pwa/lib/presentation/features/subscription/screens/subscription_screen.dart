@@ -104,11 +104,12 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
         // Get user's owner attendee account country + the country's local currency.
         uid != null
             ? _supabase
-                .from('accounts')
-                .select('country_code, countries:country_code(currency), account_members!inner(user_id, role_slug)')
+                .schema('api')
+                .from('v1_account_memberships')
+                .select('country_code, countries:v1_countries(currency)')
+                .eq('user_id', uid)
                 .eq('type', 'attendee')
-                .eq('account_members.user_id', uid)
-                .eq('account_members.role_slug', 'owner')
+                .eq('role_slug', 'owner')
                 .maybeSingle()
             : Future<dynamic>.value(null),
 
