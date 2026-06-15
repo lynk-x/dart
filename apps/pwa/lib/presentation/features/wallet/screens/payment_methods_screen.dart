@@ -175,7 +175,7 @@ class _AddMethodSheet extends StatefulWidget {
 
 class _AddMethodSheetState extends State<_AddMethodSheet> {
   final TextEditingController _controller = TextEditingController();
-  String _provider = 'mpesa_daraja';
+  String? _selectedProvider;
 
   @override
   void dispose() {
@@ -194,6 +194,33 @@ class _AddMethodSheetState extends State<_AddMethodSheet> {
       },
       builder: (context, state) {
         final isLoading = state.withdrawStatus == WithdrawStatus.addingMethod;
+        final providers = state.paymentProviders;
+
+        // Determine currently active provider value
+        final currentProvider = providers.any((p) => p['provider_name'] == _selectedProvider)
+            ? _selectedProvider!
+            : (providers.isNotEmpty ? providers.first['provider_name'] as String : 'mpesa_daraja');
+
+        // Extract selected provider details
+        final selectedProviderConfig = providers.firstWhere(
+          (p) => p['provider_name'] == currentProvider,
+          orElse: () => {
+            'provider_name': 'mpesa_daraja',
+            'display_name': 'M-Pesa Mobile Money',
+            'metadata': <String, dynamic>{},
+          },
+        );
+
+        final metadata = selectedProviderConfig['metadata'] as Map<String, dynamic>? ?? {};
+        final validationRegex = metadata['validation_regex'] as String?;
+        final inputType = metadata['input_type'] as String?;
+        final prefix = metadata['prefix'] as String?;
+        final hint = metadata['hint'] as String?;
+
+        final isPhone = inputType == 'phone' || currentProvider.contains('mpesa');
+        final keyboardType = isPhone ? TextInputType.phone : TextInputType.text;
+        final hintText = hint ?? (isPhone ? '07XXXXXXXX' : 'Enter account number or email');
+        final prefixText = prefix ?? (isPhone ? '+254  ' : '');
 
         return Column(
           mainAxisSize: MainAxisSize.min,
@@ -209,28 +236,40 @@ class _AddMethodSheetState extends State<_AddMethodSheet> {
               ),
               child: DropdownButtonHideUnderline(
                 child: DropdownButton<String>(
-                  value: _provider,
+                  value: currentProvider,
                   isExpanded: true,
                   dropdownColor: AppColors.tertiary,
                   style: const TextStyle(color: Colors.white),
-                  items: const [
-                    DropdownMenuItem(value: 'mpesa_daraja', child: Text('M-Pesa Mobile Money')),
-                    DropdownMenuItem(value: 'bank_transfer', child: Text('Bank Transfer (SWIFT/IBAN)')),
-                    DropdownMenuItem(value: 'stripe', child: Text('Stripe Connect')),
-                  ],
-                  onChanged: (v) => setState(() => _provider = v!),
+                  items: providers.isNotEmpty
+                      ? providers.map((p) {
+                          return DropdownMenuItem<String>(
+                            value: p['provider_name'] as String,
+                            child: Text(p['display_name'] as String? ?? p['provider_name'] as String),
+                          );
+                        }).toList()
+                      : const [
+                          DropdownMenuItem(value: 'mpesa_daraja', child: Text('M-Pesa Mobile Money')),
+                        ],
+                  onChanged: (v) {
+                    if (v != null) {
+                      setState(() {
+                        _selectedProvider = v;
+                        _controller.clear();
+                      });
+                    }
+                  },
                 ),
               ),
             ),
             const SizedBox(height: 16),
             TextField(
               controller: _controller,
-              keyboardType: _provider == 'mpesa_daraja' ? TextInputType.phone : TextInputType.text,
+              keyboardType: keyboardType,
               style: const TextStyle(color: Colors.white),
               decoration: InputDecoration(
-                hintText: _provider == 'mpesa_daraja' ? '07XXXXXXXX' : 'Enter account number or email',
+                hintText: hintText,
                 hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.3)),
-                prefixText: _provider == 'mpesa_daraja' ? '+254  ' : '',
+                prefixText: prefixText,
                 prefixStyle: const TextStyle(color: Colors.white60),
                 filled: true,
                 fillColor: Colors.white.withValues(alpha: 0.05),
@@ -248,16 +287,41 @@ class _AddMethodSheetState extends State<_AddMethodSheet> {
               onPressed: () {
                 final raw = _controller.text.trim();
                 if (raw.isEmpty) return;
-                final identity = _provider == 'mpesa_daraja' 
-                  ? (raw.startsWith('+') ? raw : '+254${raw.replaceFirst(RegExp(r'^0'), '')}')
-                  : raw;
-                
-                final label = _provider == 'mpesa_daraja' 
-                  ? 'M-Pesa $identity' 
-                  : (_provider == 'bank_transfer' ? 'Bank Account' : 'Gateway');
-                  
+
+                // Validate using regex if present
+                if (validationRegex != null && validationRegex.isNotEmpty) {
+                  final regExp = RegExp(validationRegex);
+                  if (!regExp.hasMatch(raw)) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Invalid format. Must match pattern: $hintText'),
+                        backgroundColor: Colors.redAccent,
+                      ),
+                    );
+                    return;
+                  }
+                }
+
+                // If isPhone, enforce simple validation length check
+                if (isPhone && raw.length < 9) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Invalid phone number length.'),
+                      backgroundColor: Colors.redAccent,
+                    ),
+                  );
+                  return;
+                }
+
+                final identity = isPhone
+                    ? (raw.startsWith('+') ? raw : '+254${raw.replaceFirst(RegExp(r'^0'), '')}')
+                    : raw;
+
+                final display = selectedProviderConfig['display_name'] as String? ?? 'Payout Method';
+                final label = isPhone ? '$display $identity' : '$display Account';
+
                 context.read<WalletCubit>().addPayoutMethod(
-                  providerName: _provider,
+                  providerName: currentProvider,
                   identity:     identity,
                   label:        label,
                 );

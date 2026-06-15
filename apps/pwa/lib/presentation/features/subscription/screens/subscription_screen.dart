@@ -101,12 +101,14 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
             .eq('status', 'approved')
             .eq('product_type', 'attendee_premium'),
 
-        // User country + the country's local currency (joined from `countries`).
+        // Get user's owner attendee account country + the country's local currency.
         uid != null
             ? _supabase
-                .from('user_profile')
-                .select('country_code, countries:country_code(currency)')
-                .eq('id', uid)
+                .from('accounts')
+                .select('country_code, countries:country_code(currency), account_members!inner(user_id, role_slug)')
+                .eq('type', 'attendee')
+                .eq('account_members.user_id', uid)
+                .eq('account_members.role_slug', 'owner')
                 .maybeSingle()
             : Future<dynamic>.value(null),
 
@@ -129,16 +131,16 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
       ]);
 
       final plansRaw = results[0] as List;
-      final profileRaw = results[1] as Map<String, dynamic>?;
+      final accountRaw = results[1] as Map<String, dynamic>?;
       final subRaw = results[2] as Map<String, dynamic>?;
       final walletsRaw = results[3] as List;
 
-      final country = (profileRaw?['country_code'] as String?) ?? '';
-      // `countries.currency` is the local ISO-4217 code derived from the user's
-      // profile country. Used to pick the wallet that matches the user's
-      // home currency, falling back to USD when no local wallet exists.
+      final country = (accountRaw?['country_code'] as String?) ?? '';
+      // `countries.currency` is the local ISO-4217 code derived from the active
+      // account's country. Used to pick the wallet that matches the active account's
+      // billing currency, falling back to USD when no local wallet exists.
       final localCurrency =
-          (profileRaw?['countries']?['currency'] as String?) ?? '';
+          (accountRaw?['countries']?['currency'] as String?) ?? '';
 
       // Resolve spendable balance — prefer local-country currency, then USD.
       // Subtract escrow_balance (funds reserved for pending payouts) so we never

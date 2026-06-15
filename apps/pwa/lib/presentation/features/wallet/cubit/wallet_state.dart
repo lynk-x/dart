@@ -34,6 +34,7 @@ class WalletState extends Equatable {
   final WithdrawStatus withdrawStatus;
   final String? withdrawError;
   final List<Map<String, dynamic>> payoutMethods;
+  final List<Map<String, dynamic>> paymentProviders;
 
   // KYC tier for the current user's account ('tier_1_basic', 'tier_2_verified',
   // 'tier_3_advanced', or null when not yet verified).
@@ -67,6 +68,7 @@ class WalletState extends Equatable {
     this.withdrawStatus = WithdrawStatus.idle,
     this.withdrawError,
     this.payoutMethods  = const [],
+    this.paymentProviders = const [],
     this.kycTier,
     this.accountId,
     this.accountReference,
@@ -94,6 +96,7 @@ class WalletState extends Equatable {
     String? withdrawError,
     bool clearWithdrawError = false,
     List<Map<String, dynamic>>? payoutMethods,
+    List<Map<String, dynamic>>? paymentProviders,
     String? kycTier,
     bool clearKycTier = false,
     String? accountId,
@@ -118,6 +121,7 @@ class WalletState extends Equatable {
       withdrawStatus:  withdrawStatus ?? this.withdrawStatus,
       withdrawError:   clearWithdrawError ? null : withdrawError ?? this.withdrawError,
       payoutMethods:   payoutMethods  ?? this.payoutMethods,
+      paymentProviders: paymentProviders ?? this.paymentProviders,
       kycTier:         clearKycTier   ? null : kycTier    ?? this.kycTier,
       accountId:       accountId      ?? this.accountId,
       accountReference: accountReference ?? this.accountReference,
@@ -134,7 +138,7 @@ class WalletState extends Equatable {
     balances, transactions, hasMore,
     isLoading, isLoadingMore, error,
     topUpStatus, topUpError, topUpPaymentUrl,
-    withdrawStatus, withdrawError, payoutMethods,
+    withdrawStatus, withdrawError, payoutMethods, paymentProviders,
     kycTier, accountId, accountReference, selectedCurrency,
     hasPinSet, isWalletUnlocked, useBiometrics, isPrivacyModeEnabled,
   ];

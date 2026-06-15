@@ -465,11 +465,30 @@ class WalletCubit extends Cubit<WalletState> {
 
       final accountRef = state.accountReference ?? await _resolveAccountReference(accountId);
 
+      // Load active payment providers in parallel
+      await loadPaymentProviders();
+
       emit(state.copyWith(
         payoutMethods: List<Map<String, dynamic>>.from(methodRows),
         kycTier:       kycTier,
         accountId:     accountId,
         accountReference: accountRef,
+      ));
+    } catch (_) {}
+  }
+
+  /// Fetch all approved payment providers that support outbound payouts.
+  Future<void> loadPaymentProviders() async {
+    try {
+      final response = await _supabase
+          .from('platform_payment_providers')
+          .select('id, provider_name, display_name, logo_url, supports_outbound, status, metadata')
+          .eq('supports_outbound', true)
+          .order('display_name');
+      
+      final providers = List<Map<String, dynamic>>.from(response);
+      emit(state.copyWith(
+        paymentProviders: providers,
       ));
     } catch (_) {}
   }
