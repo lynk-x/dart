@@ -115,7 +115,8 @@ class ForumCubit extends Cubit<ForumState> {
       bool isPremium = true;
 
       final data = await Supabase.instance.client
-          .from('user_profile')
+          .schema('api')
+          .from('v1_profiles')
           .select('user_name, is_premium')
           .eq('id', userId)
           .single();

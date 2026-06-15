@@ -36,7 +36,8 @@ class FeatureFlagCubit extends Cubit<FeatureFlagState> {
       if (userId == null) return;
 
       final data = await Supabase.instance.client
-          .from('user_profile')
+          .schema('api')
+          .from('v1_profiles')
           .select('country_code')
           .eq('id', userId)
           .maybeSingle();
@@ -53,7 +54,7 @@ class FeatureFlagCubit extends Cubit<FeatureFlagState> {
     emit(state.copyWith(isLoading: true));
     try {
       final data =
-          await Supabase.instance.client.from('feature_flags').select();
+          await Supabase.instance.client.schema('api').from('v1_feature_flags').select();
 
       final flags =
           (data as List).map((json) => FeatureFlag.fromMap(json)).toList();

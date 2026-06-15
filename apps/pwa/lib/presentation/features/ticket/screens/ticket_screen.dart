@@ -711,7 +711,8 @@ class _TransferTicketDialogState extends State<_TransferTicketDialog> {
       if (!mounted) return;
       try {
         final data = await Supabase.instance.client
-            .from('user_profile')
+            .schema('api')
+            .from('v1_profiles')
             .select('user_name')
             .eq('user_name', checkedValue)
             .maybeSingle();
@@ -919,7 +920,8 @@ class _ResellTicketSheetState extends State<_ResellTicketSheet> {
       if (!mounted) return;
       try {
         final data = await Supabase.instance.client
-            .from('user_profile')
+            .schema('api')
+            .from('v1_profiles')
             .select('user_name')
             .eq('user_name', checkedValue)
             .maybeSingle();

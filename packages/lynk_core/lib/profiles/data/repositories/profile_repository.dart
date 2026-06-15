@@ -12,8 +12,9 @@ class ProfileRepository {
   /// pulling sensitive fields (embedding, fts, strikes, etc.).
   Future<ProfileModel> getProfile(String userId) async {
     final data = await _client
-        .from('user_profile')
-        .select('id, email, avatar_url, user_name, full_name, country_code, is_premium, info, reference, phone_number, active_account_id, gender, date_of_birth')
+        .schema('api')
+        .from('v1_profiles')
+        .select('id, email, avatar_url, user_name, full_name, country_code, is_premium, bio, tagline, reference, phone_number, active_account_id, gender, date_of_birth')
         .eq('id', userId)
         .single();
 
@@ -24,13 +25,13 @@ class ProfileRepository {
     if (targetAccountId == null) {
       try {
         final primaryAccountData = await _client
-            .from('vw_my_accounts')
-            .select('account_id, account_status')
+            .schema('api')
+            .from('v1_account_memberships')
+            .select('account_id')
             .eq('is_primary', true)
             .maybeSingle();
         if (primaryAccountData != null) {
           targetAccountId = primaryAccountData['account_id'] as String?;
-          accountStatus = primaryAccountData['account_status'] as String?;
         }
       } catch (_) {
         // Fallback
@@ -41,13 +42,15 @@ class ProfileRepository {
     if (targetAccountId != null) {
       try {
         final accountData = await _client
-            .from('accounts')
-            .select('reference, status')
+            .schema('api')
+            .from('v1_accounts')
+            .select('reference, is_active')
             .eq('id', targetAccountId)
             .maybeSingle();
         if (accountData != null) {
           accountReference = accountData['reference'] as String?;
-          accountStatus ??= accountData['status'] as String?;
+          final isActive = accountData['is_active'] as bool? ?? false;
+          accountStatus = isActive ? 'active' : 'inactive';
         }
       } catch (_) {
         // Fallback

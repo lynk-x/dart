@@ -26,7 +26,8 @@ class SystemConfigCubit extends Cubit<SystemConfigState> {
     emit(state.copyWith(isLoading: true));
     try {
       final data = await Supabase.instance.client
-          .from('system_config')
+          .schema('api')
+          .from('v1_system_config')
           .select('key, value, data_type')
           .eq('is_active', true);
 

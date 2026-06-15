@@ -79,9 +79,9 @@ class _ReportSheetState extends State<_ReportSheet> {
   Future<void> _loadReasons() async {
     try {
       final data = await Supabase.instance.client
-          .from('report_reasons')
+          .schema('api')
+          .from('v1_report_reasons')
           .select('id, category, display_name, description')
-          .eq('is_active', true)
           .order('display_name');
 
       setState(() {

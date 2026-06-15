@@ -676,7 +676,8 @@ class WalletCubit extends Cubit<WalletState> {
   Future<void> _checkPinStatus() async {
     try {
       final res = await _supabase
-          .from('user_profile')
+          .schema('api')
+          .from('v1_profiles')
           .select('wallet_pin_hash')
           .eq('id', _supabase.auth.currentUser?.id ?? '')
           .single();

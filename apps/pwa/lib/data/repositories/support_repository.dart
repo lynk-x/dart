@@ -11,7 +11,8 @@ class SupportRepository {
     try {
       final slug = 'faq-$contextCategory';
       final response = await _client
-          .from('cms_pages')
+          .schema('api')
+          .from('v1_cms_pages')
           .select('content')
           .eq('slug', slug)
           .maybeSingle();
@@ -30,7 +31,8 @@ class SupportRepository {
   Future<List<Map<String, dynamic>>> getActiveTickets(String userId, String contextCategory) async {
     try {
       final response = await _client
-          .from('support_tickets')
+          .schema('api')
+          .from('v1_support_tickets')
           .select('id, reference, subject, status, priority, created_at, updated_at, metadata')
           .eq('user_id', userId)
           .eq('metadata->>context', contextCategory)
@@ -45,6 +47,7 @@ class SupportRepository {
   /// Streams real-time messages for a specific support ticket
   Stream<List<Map<String, dynamic>>> streamMessages(String ticketId) {
     return _client
+        .schema('reports')
         .from('support_ticket_messages')
         .stream(primaryKey: ['id'])
         .eq('ticket_id', ticketId)
@@ -54,7 +57,7 @@ class SupportRepository {
   /// Sends a new message to a support ticket
   Future<void> sendMessage(String ticketId, String userId, String message) async {
     final createdAt = DateTime.now().toIso8601String();
-    await _client.from('support_ticket_messages').insert({
+    await _client.schema('api').from('v1_support_ticket_messages').insert({
       'ticket_id': ticketId,
       'sender_id': userId,
       'message': message,
@@ -65,7 +68,7 @@ class SupportRepository {
 
   /// Creates a new support ticket
   Future<String> createTicket(String userId, String contextCategory, String subject, String message) async {
-    final response = await _client.from('support_tickets').insert({
+    final response = await _client.schema('api').from('v1_support_tickets').insert({
       'user_id': userId,
       'email': _client.auth.currentUser?.email ?? 'user@lynk-x.com',
       'subject': subject,
