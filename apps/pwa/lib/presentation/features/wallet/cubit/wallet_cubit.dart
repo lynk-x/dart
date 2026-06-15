@@ -192,7 +192,8 @@ class WalletCubit extends Cubit<WalletState> {
     final userId = _supabase.auth.currentUser?.id;
     if (userId == null) return null;
     final row = await _supabase
-        .from('account_members')
+        .schema('api')
+        .from('v1_account_memberships')
         .select('account_id')
         .eq('user_id', userId)
         .eq('role_slug', 'owner')
@@ -433,7 +434,8 @@ class WalletCubit extends Cubit<WalletState> {
 
       // Resolve personal account (oldest owner membership = personal account)
       final memberData = await _supabase
-          .from('account_members')
+          .schema('api')
+          .from('v1_account_memberships')
           .select('account_id')
           .eq('user_id', userId)
           .eq('role_slug', 'owner')

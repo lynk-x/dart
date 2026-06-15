@@ -21,8 +21,6 @@ class EditProfilePage extends StatefulWidget {
 class _EditProfilePageState extends State<EditProfilePage> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _usernameController = TextEditingController();
-  final TextEditingController _bioController = TextEditingController();
-  final TextEditingController _taglineController = TextEditingController();
   final TextEditingController _genderController = TextEditingController();
   final TextEditingController _dobController = TextEditingController();
   final TextEditingController _countryController = TextEditingController();
@@ -44,8 +42,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
     _usernameController.addListener(_onUsernameChanged);
     _usernameController.addListener(_onFieldChanged);
     _nameController.addListener(_onFieldChanged);
-    _bioController.addListener(_onFieldChanged);
-    _taglineController.addListener(_onFieldChanged);
     
     // Load profile data on entry
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -62,13 +58,9 @@ class _EditProfilePageState extends State<EditProfilePage> {
     _usernameController.removeListener(_onUsernameChanged);
     _usernameController.removeListener(_onFieldChanged);
     _nameController.removeListener(_onFieldChanged);
-    _bioController.removeListener(_onFieldChanged);
-    _taglineController.removeListener(_onFieldChanged);
     _debounceTimer?.cancel();
     _nameController.dispose();
     _usernameController.dispose();
-    _bioController.dispose();
-    _taglineController.dispose();
     _genderController.dispose();
     _dobController.dispose();
     _countryController.dispose();
@@ -154,21 +146,17 @@ class _EditProfilePageState extends State<EditProfilePage> {
   bool _hasChanges(ProfileModel profile) {
     final nameChanged = _nameController.text.trim() != (profile.fullName ?? '');
     final usernameChanged = _usernameController.text.trim() != profile.userName;
-    final bioChanged = _bioController.text.trim() != (profile.bio ?? '');
-    final taglineChanged = _taglineController.text.trim() != (profile.tagline ?? '');
     final countryChanged = _selectedCountryCode != profile.countryCode;
     final genderChanged = _selectedGender != profile.gender;
     final dobChanged = _selectedDateOfBirth != profile.dateOfBirth;
 
-    return nameChanged || usernameChanged || bioChanged || taglineChanged || countryChanged || genderChanged || dobChanged;
+    return nameChanged || usernameChanged || countryChanged || genderChanged || dobChanged;
   }
 
   void _saveChanges(BuildContext context) {
     context.read<ProfileCubit>().updateProfile(
           fullName: _nameController.text.trim(),
           userName: _usernameController.text.trim(),
-          bio: _bioController.text.trim(),
-          tagline: _taglineController.text.trim(),
           countryCode: _selectedCountryCode,
           gender: _selectedGender,
           dateOfBirth: _selectedDateOfBirth,
@@ -403,8 +391,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
             _initialUsername = state.profile.userName;
             _usernameController.text = state.profile.userName;
             _nameController.text = state.profile.fullName ?? '';
-            _bioController.text = state.profile.bio ?? '';
-            _taglineController.text = state.profile.tagline ?? '';
             _selectedCountryCode = state.profile.countryCode;
             _countryController.text = _getCountryName(_selectedCountryCode);
             _selectedGender = state.profile.gender;
@@ -621,27 +607,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
                             suffixIcon: const Icon(Icons.arrow_drop_down, color: Colors.white54),
                           ),
                         ),
-                      ),
-                      const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 24),
-                        child: Divider(
-                          color: Colors.white10,
-                          thickness: 1,
-                        ),
-                      ),
-                      TextField(
-                        label: 'STATUS',
-                        hintText: 'How are you feeling?',
-                        controller: _taglineController,
-                        enabled: !isUpdating,
-                      ),
-                      const SizedBox(height: 24),
-                      TextField(
-                        label: 'BIO',
-                        hintText: 'Tell us about yourself',
-                        controller: _bioController,
-                        enabled: !isUpdating,
-                        maxLines: 3,
                       ),
                       const SizedBox(height: 24),
                     ],

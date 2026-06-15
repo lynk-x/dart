@@ -12,7 +12,6 @@ import 'package:lynk_x/presentation/features/homepage/cubit/home_cubit.dart';
 import 'package:lynk_x/presentation/features/homepage/cubit/home_state.dart';
 import 'package:lynk_x/presentation/features/homepage/widgets/forum_widget.dart';
 import 'package:lynk_x/presentation/features/homepage/widgets/home_drawer.dart';
-import 'package:lynk_x/presentation/shared/widgets/empty_state.dart';
 import 'package:lynk_x/presentation/features/notifications/cubit/notification_cubit.dart';
 import 'package:lynk_x/presentation/features/notifications/cubit/notification_state.dart';
 import 'package:lynk_x/presentation/features/notifications/widgets/device_notification_modal.dart';
@@ -195,14 +194,6 @@ class _HomeViewState extends State<HomeView>
             );
           }
 
-          if (state.events.isEmpty && !state.isLoading) {
-            return EmptyState(
-              message: "You haven't joined any events yet.",
-              actionLabel: 'Find Events',
-              onAction: _launchWebApp,
-            );
-          }
-
           return Column(
             children: [
               if (_showWelcomeBanner) _buildWelcomeBanner(),
@@ -213,6 +204,26 @@ class _HomeViewState extends State<HomeView>
                   backgroundColor: AppColors.tertiary,
                   child: LayoutBuilder(
                     builder: (context, constraints) {
+                      if (state.events.isEmpty) {
+                        return SingleChildScrollView(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          controller: _scrollController,
+                          child: Container(
+                            height: constraints.maxHeight,
+                            alignment: Alignment.center,
+                            padding: const EdgeInsets.all(24.0),
+                            child: Text(
+                              "You haven't joined any events yet.",
+                              textAlign: TextAlign.center,
+                              style: AppTypography.inter(
+                                fontSize: 16,
+                                color: Colors.grey[500],
+                              ),
+                            ),
+                          ),
+                        );
+                      }
+
                       final isWide = constraints.maxWidth > 600;
                       
                       if (isWide) {

@@ -50,6 +50,7 @@ void main() {
     );
 
     await tester.pumpAndSettle();
+    expect(find.text("You haven't joined any events yet."), findsOneWidget);
     await homeCubit.close();
     await notificationCubit.close();
   });
