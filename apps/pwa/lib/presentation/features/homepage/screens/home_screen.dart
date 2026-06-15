@@ -213,7 +213,7 @@ class _HomeViewState extends State<HomeView>
                             alignment: Alignment.center,
                             padding: const EdgeInsets.all(24.0),
                             child: Text(
-                              "You haven't joined any events yet.",
+                              "You haven't joined any events yet.\nBook your first event to get started!",
                               textAlign: TextAlign.center,
                               style: AppTypography.inter(
                                 fontSize: 16,

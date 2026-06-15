@@ -93,7 +93,7 @@ class _MediaTabState extends State<MediaTab>
                             )
                           : mediaState.mediaItems.isEmpty
                               ? const EmptyState(
-                                  message: 'No media uploaded yet.')
+                                  message: 'No media uploaded yet. Share your first photo or video!')
                               : CustomScrollView(
                                   controller: _scrollController,
                                   slivers: [
