@@ -102,7 +102,7 @@ class PushNotificationService {
     if (user == null) return;
 
     try {
-      await Supabase.instance.client.rpc('register_user_device', params: {
+      await Supabase.instance.client.schema('api').rpc('register_user_device', params: {
         'p_fcm_token': token,
         'p_info': {
           'platform': kIsWeb ? 'web' : 'other',
