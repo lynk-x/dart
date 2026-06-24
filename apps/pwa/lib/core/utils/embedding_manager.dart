@@ -11,6 +11,7 @@ class EmbeddingManager {
 
   web.Worker? _worker;
   bool _isReady = false;
+  bool _isEnabled = false;
 
   final Set<String> _computingMessageIds = {};
   final Set<String> _syncingMessageIds = {};
@@ -75,7 +76,13 @@ class EmbeddingManager {
     return true;
   }
 
-  void init() {
+  void init({bool isEnabled = true}) {
+    _isEnabled = isEnabled;
+    if (!isEnabled) {
+      debugPrint('[EmbeddingManager] Client embedding disabled by configuration/feature flag.');
+      return;
+    }
+
     if (_worker != null) return;
 
     if (!_isWifiConnection()) {
@@ -140,7 +147,7 @@ class EmbeddingManager {
   }
 
   void processMessage(String messageId, String text) {
-    if (!_isReady) return;
+    if (!_isEnabled || !_isReady) return;
     if (isNoiseMessage(text)) {
       debugPrint('[EmbeddingManager] Skipping embedding: message "$text" classified as noise.');
       return;

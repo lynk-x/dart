@@ -6,7 +6,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
 import 'package:flutter_web_plugins/url_strategy.dart';
-import 'package:lynk_x/core/utils/embedding_manager.dart';
 import 'app.dart';
 
 void main() async {
@@ -50,9 +49,6 @@ void main() async {
     final url = supabaseUrl.isNotEmpty ? supabaseUrl : 'https://placeholder.supabase.co';
     final key = supabaseAnonKey.isNotEmpty ? supabaseAnonKey : 'placeholder_publishable_key';
     await Supabase.initialize(url: url, publishableKey: key);
-    
-    // Initialize the client-side embedding worker manager
-    EmbeddingManager.instance.init();
   } catch (e) {
     debugPrint('[Main] Supabase initialization failed: $e');
   }

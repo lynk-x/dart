@@ -11,6 +11,7 @@ import 'package:lynk_x/presentation/features/wallet/cubit/wallet_cubit.dart';
 import 'package:lynk_x/l10n/app_localizations.dart';
 import 'package:lynk_x/data/repositories/repository_providers.dart';
 import 'services/push_notification_service.dart';
+import 'package:lynk_x/core/utils/embedding_manager.dart';
 
 class LynkXAppWrapper extends StatefulWidget {
   const LynkXAppWrapper({super.key});
@@ -64,6 +65,7 @@ class LynkXApp extends StatefulWidget {
 class _LynkXAppState extends State<LynkXApp> {
   late GoRouter _router;
   StreamSubscription<AuthState>? _authSubscription;
+  StreamSubscription<FeatureFlagState>? _featureFlagSubscription;
   bool _isSupabaseInitialized = true;
   bool _isLoading = false;
 
@@ -107,6 +109,17 @@ class _LynkXAppState extends State<LynkXApp> {
         _router.go(route);
       }
     };
+
+    // Initialize and listen to the client embedding feature flag
+    final featureFlags = context.read<FeatureFlagCubit>();
+    EmbeddingManager.instance.init(
+      isEnabled: featureFlags.isEnabled('enable_client_embeddings'),
+    );
+    _featureFlagSubscription = featureFlags.stream.listen((state) {
+      EmbeddingManager.instance.init(
+        isEnabled: featureFlags.isEnabled('enable_client_embeddings'),
+      );
+    });
 
     // Inform the user when notification permission is denied so they know
     // why they won't receive alerts.
@@ -194,6 +207,7 @@ class _LynkXAppState extends State<LynkXApp> {
   @override
   void dispose() {
     _authSubscription?.cancel();
+    _featureFlagSubscription?.cancel();
     super.dispose();
   }
 
