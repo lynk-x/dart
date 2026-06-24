@@ -112,9 +112,6 @@ class _LynkXAppState extends State<LynkXApp> {
 
     // Initialize and listen to the client embedding feature flag
     final featureFlags = context.read<FeatureFlagCubit>();
-    EmbeddingManager.instance.init(
-      isEnabled: featureFlags.isEnabled('enable_client_embeddings'),
-    );
     _featureFlagSubscription = featureFlags.stream.listen((state) {
       EmbeddingManager.instance.init(
         isEnabled: featureFlags.isEnabled('enable_client_embeddings'),

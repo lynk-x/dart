@@ -8,8 +8,10 @@ import 'forum_updates_state.dart';
 import 'package:lynk_x/core/sync/sync_manager.dart';
 import 'package:lynk_x/core/sync/sync_item.dart';
 import 'package:lynk_x/core/utils/embedding_manager.dart';
+import 'package:lynk_x/core/utils/i_embedding_service.dart';
 
 class ForumUpdatesCubit extends BaseMessageCubit<ForumUpdatesState> {
+  final IEmbeddingService _embeddingService;
   DateTime? forumCreatedAt;
   String? channelId;
   DateTime? channelCreatedAt;
@@ -21,8 +23,10 @@ class ForumUpdatesCubit extends BaseMessageCubit<ForumUpdatesState> {
     this.forumCreatedAt,
     this.channelId,
     this.channelCreatedAt,
+    IEmbeddingService? embeddingService,
     RealtimeChannel? channel,
-  }) : super(
+  })  : _embeddingService = embeddingService ?? EmbeddingManager.instance,
+        super(
           messageType: 'announcement',
           initialState: const ForumUpdatesState(),
           channel: channel ?? Supabase.instance.client.channel('forum_updates_$forumId'),
@@ -240,7 +244,7 @@ class ForumUpdatesCubit extends BaseMessageCubit<ForumUpdatesState> {
     final messageCreatedAt = now.toIso8601String();
 
     // Trigger client-side background embedding calculation
-    EmbeddingManager.instance.processMessage(messageId, text);
+    _embeddingService.processMessage(messageId, text);
 
     SyncManager.instance.addWork(SyncItem(
       id: messageId,

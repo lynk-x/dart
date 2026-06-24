@@ -4,18 +4,22 @@ import 'package:flutter/foundation.dart';
 import 'package:web/web.dart' as web;
 import 'package:lynk_x/core/sync/sync_item.dart';
 import 'package:lynk_x/core/sync/sync_manager.dart';
+import 'package:lynk_x/core/utils/embedding_noise_filter.dart';
+import 'package:lynk_x/core/utils/embedding_worker_client.dart';
+import 'package:lynk_x/core/utils/i_embedding_service.dart';
 
-class EmbeddingManager {
+class EmbeddingManager implements IEmbeddingService {
   EmbeddingManager._();
   static final instance = EmbeddingManager._();
 
-  web.Worker? _worker;
+  EmbeddingWorkerClient? _workerClient;
   bool _isReady = false;
   bool _isEnabled = false;
 
   final Set<String> _computingMessageIds = {};
   final Set<String> _syncingMessageIds = {};
 
+  @override
   bool get isReady => _isReady;
 
   bool get _shouldPreventUnload {
@@ -25,40 +29,6 @@ class EmbeddingManager {
     return false;
   }
 
-  // Noise Filters
-  static final Set<String> _noiseWords = {
-    'lol', 'haha', 'lmao', 'test', 'yes', 'no', 'ok', 'hey', 'hi', 'bye'
-  };
-  static final RegExp _meaningfulContentRegex = RegExp(r'[a-zA-Z0-9\u00C0-\u00FF\u0100-\u017F]');
-  static final RegExp _urlRegex = RegExp(r'^(https?:\/\/[^\s]+)$');
-
-  static bool isNoiseMessage(String text) {
-    final trimmed = text.trim().toLowerCase();
-    
-    // 1. Length Check
-    if (trimmed.length < 10 || trimmed.split(RegExp(r'\s+')).length < 3) {
-      return true;
-    }
-    
-    // 2. Meaningful Content Check (ignore if only emojis/punctuation/noise symbols)
-    if (!_meaningfulContentRegex.hasMatch(trimmed)) {
-      return true;
-    }
-
-    // 3. Common Stop Words
-    if (_noiseWords.contains(trimmed)) {
-      return true;
-    }
-
-    // 4. URL Only
-    if (_urlRegex.hasMatch(trimmed)) {
-      return true;
-    }
-
-    return false;
-  }
-
-  // Check if network connection is Wi-Fi or Ethernet
   bool _isWifiConnection() {
     try {
       final navigatorObj = web.window.navigator as JSObject;
@@ -72,18 +42,18 @@ class EmbeddingManager {
         }
       }
     } catch (_) {}
-    // Fallback: If NetworkInfo is not supported, default to true to allow loading
     return true;
   }
 
+  @override
   void init({bool isEnabled = true}) {
     _isEnabled = isEnabled;
     if (!isEnabled) {
-      debugPrint('[EmbeddingManager] Client embedding disabled by configuration/feature flag.');
+      debugPrint('[EmbeddingManager] Client embedding disabled.');
       return;
     }
 
-    if (_worker != null) return;
+    if (_workerClient != null) return;
 
     if (!_isWifiConnection()) {
       debugPrint('[EmbeddingManager] Skipping client embedding: Not on Wi-Fi connection.');
@@ -91,7 +61,6 @@ class EmbeddingManager {
     }
 
     try {
-      // Register unload listener once to prevent tab closing during calculations
       web.window.addEventListener('beforeunload', ((web.Event event) {
         if (_shouldPreventUnload) {
           event.preventDefault();
@@ -100,7 +69,6 @@ class EmbeddingManager {
         }
       }).toJS);
 
-      // Listen to sync updates to remove items from our in-flight tracking list
       SyncManager.instance.statusStream.listen((statusMap) {
         for (final entry in statusMap.entries) {
           final key = entry.key;
@@ -111,67 +79,65 @@ class EmbeddingManager {
         }
       });
 
-      // Load Web Worker from PWA web folder root
-      _worker = web.Worker('embedding.worker.js'.toJS);
-      
-      // Initialize the model
-      _worker?.postMessage({'type': 'init'}.jsify());
-
-      _worker?.onmessage = (web.MessageEvent event) {
-        final dartData = event.data.dartify();
-        if (dartData is Map) {
-          final type = dartData['type'];
-          if (type == 'ready') {
-            _isReady = true;
-            debugPrint('[EmbeddingManager] Web Worker embedding model loaded successfully.');
-          } else if (type == 'progress') {
-            debugPrint('[EmbeddingManager] Loading model ${dartData['file']}: ${(dartData['progress'] * 100).toStringAsFixed(1)}%');
-          } else if (type == 'embed_result') {
-            final List<dynamic> embedding = dartData['embedding'];
-            final String msgId = dartData['msgId'];
+      _workerClient = EmbeddingWorkerClient(
+        workerPath: 'embedding.worker.js',
+        onReady: () {
+          _isReady = true;
+          debugPrint('[EmbeddingManager] Web Worker embedding model loaded successfully.');
+        },
+        onProgress: (file, progress) {
+          debugPrint('[EmbeddingManager] Loading model $file: ${(progress * 100).toStringAsFixed(1)}%');
+        },
+        onResult: (embedding, msgId) {
+          _computingMessageIds.remove(msgId);
+          _syncingMessageIds.add(msgId);
+          _uploadEmbedding(msgId, embedding);
+        },
+        onError: (msgId, error) {
+          if (msgId != null) {
             _computingMessageIds.remove(msgId);
-            _syncingMessageIds.add(msgId);
-            _uploadEmbedding(msgId, embedding.cast<double>());
-          } else if (type == 'error') {
-            final String? msgId = dartData['msgId'];
-            if (msgId != null) {
-              _computingMessageIds.remove(msgId);
-            }
-            debugPrint('[EmbeddingManager] Worker Error: ${dartData['error']}');
+            debugPrint('[EmbeddingManager] Worker Error for $msgId: $error');
+          } else {
+            debugPrint('[EmbeddingManager] Worker Error: $error');
           }
-        }
-      }.toJS;
+        },
+      );
+
+      _workerClient!.init();
     } catch (e) {
       debugPrint('[EmbeddingManager] Failed to initialize worker: $e');
     }
   }
 
+  @override
   void processMessage(String messageId, String text) {
     if (!_isEnabled || !_isReady) return;
-    if (isNoiseMessage(text)) {
+    if (EmbeddingNoiseFilter.isNoise(text)) {
       debugPrint('[EmbeddingManager] Skipping embedding: message "$text" classified as noise.');
       return;
     }
+    if (_computingMessageIds.contains(messageId)) return;
+
     _computingMessageIds.add(messageId);
-    _worker?.postMessage({
-      'type': 'embed',
-      'text': text,
-      'msgId': messageId,
-    }.jsify());
+    try {
+      _workerClient?.embed(text, messageId);
+    } catch (e) {
+      _computingMessageIds.remove(messageId);
+      debugPrint('[EmbeddingManager] Failed to queue embedding: $e');
+    }
   }
 
   void _uploadEmbedding(String messageId, List<double> embedding) {
     debugPrint('[EmbeddingManager] Queueing embedding upload for message: $messageId');
-    
-    // Queue RPC upload through SyncManager to handle offline/retry scenarios safely
+
     SyncManager.instance.addWork(SyncItem(
       id: '${messageId}_embedding',
-      table: 'update_my_chat_embedding', // API schema proxy function
+      table: 'update_my_chat_embedding',
       schema: 'api',
       action: SyncAction.rpc,
       payload: {
         'p_message_id': messageId,
-        'p_embedding': embedding, // List<double> is converted to vector by Supabase SDK
+        'p_embedding': embedding,
       },
     ));
   }

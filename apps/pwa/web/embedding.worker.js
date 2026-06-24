@@ -2,7 +2,7 @@
 // Description: Web Worker to run Transformers.js client-side inference for vector embeddings.
 
 // Import Transformers.js via ESM CDN
-import { pipeline, env } from 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2';
+import { pipeline, env } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers';
 
 // Force CDN loading for model files instead of local files
 env.allowLocalModels = false;
@@ -15,8 +15,8 @@ self.onmessage = async (event) => {
 
   if (type === 'init') {
     try {
-      // Load the quantized multilingual embedding model (paraphrase-multilingual-MiniLM-L12-v2, ~110MB)
-      extractor = await pipeline('feature-extraction', 'Xenova/paraphrase-multilingual-MiniLM-L12-v2', {
+      // Load the quantized multilingual embedding model (IBM Granite 97M multilingual R2, ~94MB)
+      extractor = await pipeline('feature-extraction', 'yuiseki/granite-embedding-97m-multilingual-r2-ONNX', {
         progress_callback: (data) => {
           if (data.status === 'progress') {
             self.postMessage({ type: 'progress', file: data.file, progress: data.progress });
@@ -38,7 +38,7 @@ self.onmessage = async (event) => {
     }
     try {
       // Calculate 384-dimensional vector embedding
-      const output = await extractor(text, { pooling: 'mean', normalize: true });
+      const output = await extractor(text, { pooling: 'cls', normalize: true });
       const embedding = Array.from(output.data);
       self.postMessage({ type: 'embed_result', embedding, msgId });
     } catch (err) {

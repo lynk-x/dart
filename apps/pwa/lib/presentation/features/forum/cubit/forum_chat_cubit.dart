@@ -8,11 +8,13 @@ import 'package:lynk_x/core/sync/sync_item.dart';
 import 'package:lynk_x/core/sync/sync_manager.dart';
 import 'package:lynk_x/core/utils/storage_utils.dart';
 import 'package:lynk_x/core/utils/embedding_manager.dart';
+import 'package:lynk_x/core/utils/i_embedding_service.dart';
 import 'base_message_cubit.dart';
 import 'forum_chat_state.dart';
 
 class ForumChatCubit extends BaseMessageCubit<ForumChatState> {
   final ForumRepository _repo;
+  final IEmbeddingService _embeddingService;
   Timer? _typingThrottle;
   Timer? _hideTypingTimer;
   DateTime? forumCreatedAt;
@@ -27,8 +29,10 @@ class ForumChatCubit extends BaseMessageCubit<ForumChatState> {
     this.channelId,
     this.channelCreatedAt,
     required ForumRepository repo,
+    IEmbeddingService? embeddingService,
     RealtimeChannel? channel,
   })  : _repo = repo,
+        _embeddingService = embeddingService ?? EmbeddingManager.instance,
         super(
           messageType: 'chat',
           initialState: const ForumChatState(),
@@ -252,7 +256,7 @@ class ForumChatCubit extends BaseMessageCubit<ForumChatState> {
       final messageCreatedAt = now.toIso8601String();
 
       // Trigger client-side background embedding calculation
-      EmbeddingManager.instance.processMessage(messageId, text);
+      _embeddingService.processMessage(messageId, text);
 
       SyncManager.instance.addWork(SyncItem(
         id: messageId,
