@@ -7,6 +7,7 @@ import 'base_message_cubit.dart';
 import 'forum_updates_state.dart';
 import 'package:lynk_x/core/sync/sync_manager.dart';
 import 'package:lynk_x/core/sync/sync_item.dart';
+import 'package:lynk_x/core/utils/embedding_manager.dart';
 
 class ForumUpdatesCubit extends BaseMessageCubit<ForumUpdatesState> {
   DateTime? forumCreatedAt;
@@ -237,6 +238,9 @@ class ForumUpdatesCubit extends BaseMessageCubit<ForumUpdatesState> {
     // FK will not resolve and media will not render in the message.
     final mediaCreatedAt = state.mentionedMedia?.createdAt.toIso8601String();
     final messageCreatedAt = now.toIso8601String();
+
+    // Trigger client-side background embedding calculation
+    EmbeddingManager.instance.processMessage(messageId, text);
 
     SyncManager.instance.addWork(SyncItem(
       id: messageId,

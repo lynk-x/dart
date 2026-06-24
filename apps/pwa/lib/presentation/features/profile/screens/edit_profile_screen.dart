@@ -411,11 +411,13 @@ class _EditProfilePageState extends State<EditProfilePage> {
                 backgroundColor: Colors.red,
               ),
             );
-          } else if (_uploadingAvatar && !state.isUpdating) {
-            setState(() => _uploadingAvatar = false);
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Profile photo updated')),
-            );
+          } else {
+            if (_uploadingAvatar && !state.isUpdating) {
+              setState(() => _uploadingAvatar = false);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Profile photo updated')),
+              );
+            }
           }
         }
       },

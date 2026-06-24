@@ -7,6 +7,7 @@ import 'package:lynk_x/presentation/features/forum/models/forum_model.dart';
 import 'package:lynk_x/core/sync/sync_item.dart';
 import 'package:lynk_x/core/sync/sync_manager.dart';
 import 'package:lynk_x/core/utils/storage_utils.dart';
+import 'package:lynk_x/core/utils/embedding_manager.dart';
 import 'base_message_cubit.dart';
 import 'forum_chat_state.dart';
 
@@ -249,6 +250,9 @@ class ForumChatCubit extends BaseMessageCubit<ForumChatState> {
       final mediaCreatedAt = state.mentionedMedia?.createdAt.toIso8601String();
       final replyCreatedAt = replyTo?.createdAt.toIso8601String();
       final messageCreatedAt = now.toIso8601String();
+
+      // Trigger client-side background embedding calculation
+      EmbeddingManager.instance.processMessage(messageId, text);
 
       SyncManager.instance.addWork(SyncItem(
         id: messageId,
