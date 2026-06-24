@@ -14,28 +14,25 @@ class ProfileRepository {
     final data = await _client
         .schema('api')
         .from('v1_profiles')
-        .select('id, email, avatar_url, user_name, full_name, country_code, is_premium, bio, tagline, reference, phone_number, active_account_id, gender, date_of_birth')
+        .select('id, email, avatar_url, user_name, full_name, country_code, is_premium, bio, tagline, reference, phone_number, gender, date_of_birth')
         .eq('id', userId)
         .single();
 
-    final activeAccountId = data['active_account_id'] as String?;
-    String? targetAccountId = activeAccountId;
+    String? targetAccountId;
     String? accountStatus;
 
-    if (targetAccountId == null) {
-      try {
-        final primaryAccountData = await _client
-            .schema('api')
-            .from('v1_account_memberships')
-            .select('account_id')
-            .eq('is_primary', true)
-            .maybeSingle();
-        if (primaryAccountData != null) {
-          targetAccountId = primaryAccountData['account_id'] as String?;
-        }
-      } catch (_) {
-        // Fallback
+    try {
+      final primaryAccountData = await _client
+          .schema('api')
+          .from('v1_account_memberships')
+          .select('account_id')
+          .eq('is_primary', true)
+          .maybeSingle();
+      if (primaryAccountData != null) {
+        targetAccountId = primaryAccountData['account_id'] as String?;
       }
+    } catch (_) {
+      // Fallback
     }
 
     String? accountReference;
