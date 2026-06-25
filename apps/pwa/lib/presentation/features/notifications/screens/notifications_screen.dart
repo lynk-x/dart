@@ -255,6 +255,13 @@ class _NotificationsPageState extends State<NotificationsPage> {
                 child: NotificationCard(
                   model: notification,
                   onTap: () => _handleNotificationTap(notification),
+                  onDelete: () {
+                    final cubit = context.read<NotificationCubit>();
+                    cubit.deleteNotification(notification);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('${notification.title} dismissed')),
+                    );
+                  },
                 ),
               );
             },

@@ -312,21 +312,25 @@ class _ForumViewState extends State<ForumView> {
         appBar: _buildAppBar(),
         body: Stack(
           children: [
+            if (_showWelcome)
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                child: WelcomeBanner(
+                  show: _showWelcome,
+                  onDismiss: () async {
+                    setState(() => _showWelcome = false);
+                    final forumId = context.read<ForumCubit>().forumId;
+                    final prefs = await SharedPreferences.getInstance();
+                    await prefs.setBool(
+                        'forum_banner_dismissed_$forumId', true);
+                  },
+                ),
+              ),
             NestedScrollView(
               headerSliverBuilder: (context, innerBoxIsScrolled) {
                 return [
-                  SliverToBoxAdapter(
-                    child: WelcomeBanner(
-                      show: _showWelcome,
-                      onDismiss: () async {
-                        setState(() => _showWelcome = false);
-                        final forumId = context.read<ForumCubit>().forumId;
-                        final prefs = await SharedPreferences.getInstance();
-                        await prefs.setBool(
-                            'forum_banner_dismissed_$forumId', true);
-                      },
-                    ),
-                  ),
                   BlocBuilder<ForumCubit, ForumState>(
                     buildWhen: (p, c) =>
                         p.isPremium != c.isPremium ||

@@ -2,18 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:lynk_core/core.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import 'package:lynk_x/presentation/features/notifications/models/notification_model.dart';
+import 'package:lynk_x/core/utils/breakpoints.dart';
 
-/// A card widget displaying a notification summary.
-///
-/// Features a [model] containing title, body, timestamp, and metadata.
 class NotificationCard extends StatelessWidget {
   final NotificationModel model;
   final VoidCallback onTap;
+  final VoidCallback? onDelete;
 
   const NotificationCard({
     super.key,
     required this.model,
     required this.onTap,
+    this.onDelete,
   });
 
   @override
@@ -114,6 +114,12 @@ class NotificationCard extends StatelessWidget {
                 ],
               ),
             ),
+            if (Breakpoints.isTablet(context) && onDelete != null)
+              IconButton(
+                icon: const Icon(Icons.delete_outline, color: Colors.white38, size: 20),
+                onPressed: onDelete,
+                tooltip: 'Delete',
+              ),
           ],
         ),
       ),
