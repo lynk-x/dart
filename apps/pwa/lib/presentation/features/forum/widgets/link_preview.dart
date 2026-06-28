@@ -124,7 +124,9 @@ class _ChatLinkPreviewState extends State<ChatLinkPreview> {
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(4),
                         child: CachedNetworkImage(
-                          imageUrl: widget.data!.image!,
+                          imageUrl: widget.data!.image!.startsWith('http')
+                              ? '${Supabase.instance.client.rest.url.replaceAll('/rest/v1', '')}/functions/v1/link-preview?proxy=${Uri.encodeComponent(widget.data!.image!)}'
+                              : widget.data!.image!,
                           cacheManager: LynkCacheManager.instance,
                           fit: BoxFit.cover,
                           placeholder: (context, url) => Container(
