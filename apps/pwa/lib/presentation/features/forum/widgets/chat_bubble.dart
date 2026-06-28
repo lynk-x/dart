@@ -6,6 +6,7 @@ import 'package:lynk_core/core.dart';
 import 'package:intl/intl.dart';
 import 'package:lynk_x/presentation/features/forum/models/forum_model.dart';
 import 'package:lynk_x/core/network/lynk_cache_manager.dart';
+import 'package:lynk_x/core/utils/image_optimizer.dart';
 import 'action_bar.dart';
 import 'polls/poll_attachment.dart';
 
@@ -387,7 +388,10 @@ class _ImageContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final imageUrl = message.thumbnailUrl ?? message.imageUrl!;
+    final imageUrl = ImageOptimizer.getOptimizedUrl(
+      message.thumbnailUrl ?? message.imageUrl!,
+      width: 500,
+    );
     return GestureDetector(
       onTap: () => onMediaTap?.call(message.imageUrl),
       child: Container(

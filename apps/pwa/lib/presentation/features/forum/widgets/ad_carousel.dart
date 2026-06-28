@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:lynk_core/core.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:lynk_x/presentation/features/forum/models/forum_model.dart';
+import 'package:lynk_x/core/utils/image_optimizer.dart';
 
 class AdCarousel extends StatefulWidget {
   final List<AdModel> ads;
@@ -114,7 +115,11 @@ class _AdCarouselState extends State<AdCarousel> {
               children: [
                 if (ad.imageUrl != null)
                   CachedNetworkImage(
-                    imageUrl: ad.imageUrl!,
+                    imageUrl: ImageOptimizer.getOptimizedUrl(
+                      ad.imageUrl!,
+                      width: 600,
+                      height: 100,
+                    ),
                     fit: BoxFit.cover,
                     placeholder: (context, url) =>
                         Container(color: Colors.black26),

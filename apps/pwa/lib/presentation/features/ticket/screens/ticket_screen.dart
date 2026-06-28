@@ -15,6 +15,7 @@ import 'package:lynk_x/presentation/features/ticket/cubit/ticket_cubit.dart';
 import 'package:lynk_x/data/repositories/repository_providers.dart';
 import 'package:lynk_x/presentation/features/ticket/models/ticket_model.dart';
 import 'package:lynk_x/core/network/lynk_cache_manager.dart';
+import 'package:lynk_x/core/utils/image_optimizer.dart';
 
 
 class TicketPage extends StatelessWidget {
@@ -480,7 +481,11 @@ class _TicketViewState extends State<TicketView> {
                 ClipRRect(
                   borderRadius: BorderRadius.circular(12),
                   child: CachedNetworkImage(
-                    imageUrl: ticket.thumbnailUrl ?? '',
+                    imageUrl: ImageOptimizer.getOptimizedUrl(
+                      ticket.thumbnailUrl ?? '',
+                      width: 150,
+                      height: 150,
+                    ),
                     cacheManager: LynkCacheManager.instance,
                     width: 70,
                     height: 70,

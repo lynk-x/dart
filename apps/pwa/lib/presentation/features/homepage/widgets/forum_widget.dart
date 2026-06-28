@@ -4,6 +4,7 @@ import 'package:lynk_core/core.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:lynk_x/core/network/lynk_cache_manager.dart';
+import 'package:lynk_x/core/utils/image_optimizer.dart';
 
 /// A card widget displaying a forum event summary on the home feed.
 ///
@@ -202,7 +203,11 @@ class ForumWidget extends StatelessWidget {
         );
       }
       return CachedNetworkImage(
-        imageUrl: event.thumbnailUrl!,
+        imageUrl: ImageOptimizer.getOptimizedUrl(
+          event.thumbnailUrl!,
+          width: isGrid ? 350 : 120,
+          height: isGrid ? 350 : 120,
+        ),
         cacheManager: LynkCacheManager.instance,
         fit: BoxFit.cover,
         placeholder: (_, __) => _buildPlaceholder(),

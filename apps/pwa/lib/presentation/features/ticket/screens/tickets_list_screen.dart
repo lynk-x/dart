@@ -9,6 +9,7 @@ import 'package:lynk_x/presentation/shared/widgets/empty_state.dart';
 import 'package:lynk_x/presentation/features/ticket/cubit/tickets_list_cubit.dart';
 import 'package:lynk_x/presentation/features/ticket/models/ticket_model.dart';
 import 'package:lynk_x/data/repositories/repository_providers.dart';
+import 'package:lynk_x/core/utils/image_optimizer.dart';
 
 class TicketsListScreen extends StatelessWidget {
   const TicketsListScreen({super.key});
@@ -144,7 +145,11 @@ class _TicketListItem extends StatelessWidget {
             ClipRRect(
               borderRadius: BorderRadius.circular(12),
               child: CachedNetworkImage(
-                imageUrl: ticket.thumbnailUrl ?? '',
+                imageUrl: ImageOptimizer.getOptimizedUrl(
+                  ticket.thumbnailUrl ?? '',
+                  width: 160,
+                  height: 160,
+                ),
                 width: 80,
                 height: 80,
                 fit: BoxFit.cover,

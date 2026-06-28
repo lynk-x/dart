@@ -14,6 +14,7 @@ import 'package:lynk_x/presentation/shared/widgets/permission_request_sheet.dart
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:lynk_x/presentation/features/forum/models/forum_model.dart';
 import 'package:lynk_x/core/network/lynk_cache_manager.dart';
+import 'package:lynk_x/core/utils/image_optimizer.dart';
 
 /// The 'Media' tab content for the Forum.
 class MediaTab extends StatefulWidget {
@@ -148,8 +149,10 @@ class _MediaTabState extends State<MediaTab>
                                                       child: isVideo
                                                           ? const _VideoThumbnailPreview()
                                                           : CachedNetworkImage(
-                                                              imageUrl:
-                                                                  displayUrl,
+                                                              imageUrl: ImageOptimizer.getOptimizedUrl(
+                                                                displayUrl,
+                                                                width: 300,
+                                                              ),
                                                               cacheManager:
                                                                   LynkCacheManager
                                                                       .instance,
