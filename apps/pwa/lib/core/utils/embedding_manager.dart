@@ -18,6 +18,7 @@ class EmbeddingManager implements IEmbeddingService {
 
   final Set<String> _computingMessageIds = {};
   final Set<String> _syncingMessageIds = {};
+  int _lastLoggedDecile = -1;
 
   @override
   bool get isReady => _isReady;
@@ -86,7 +87,11 @@ class EmbeddingManager implements IEmbeddingService {
           debugPrint('[EmbeddingManager] Web Worker embedding model loaded successfully.');
         },
         onProgress: (file, progress) {
-          debugPrint('[EmbeddingManager] Loading model $file: ${(progress * 100).toStringAsFixed(1)}%');
+          final decile = (progress / 10).floor();
+          if (decile > _lastLoggedDecile) {
+            _lastLoggedDecile = decile;
+            debugPrint('[EmbeddingManager] Loading model $file: ${progress.toStringAsFixed(1)}%');
+          }
         },
         onResult: (embedding, msgId) {
           _computingMessageIds.remove(msgId);
