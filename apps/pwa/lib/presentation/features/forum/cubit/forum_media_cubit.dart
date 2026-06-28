@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:uuid/uuid.dart';
+import 'package:http/http.dart' as http;
 import 'package:lynk_x/presentation/features/forum/models/forum_model.dart';
 import 'package:lynk_x/core/utils/storage_utils.dart';
 import 'package:lynk_x/data/repositories/forum_repository.dart';
@@ -196,7 +197,7 @@ class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
     }
   }
 
-  /// Uploads multiple media items to Supabase.
+  /// Uploads multiple media items to Cloudflare R2 via Edge Function presigned URL.
   Future<void> uploadMultipleMedia({
     required List<XFile> files,
     required String type,
@@ -209,27 +210,48 @@ class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
         final ext = file.name.split('.').last.toLowerCase();
         final fileId = _uuid.v4();
         final fileName = '$fileId.$ext';
-        final path = '$forumId/$fileName';
         final mimeType = type == 'video' ? 'video/$ext' : 'image/$ext';
 
-        await Supabase.instance.client.storage
-            .from('forum_media')
-            .uploadBinary(path, bytes, fileOptions: FileOptions(contentType: mimeType));
+        // 1. Request presigned upload URL from Edge Function
+        final uploadResponse = await Supabase.instance.client.functions.invoke(
+          'media-signer',
+          body: {
+            'action': 'upload',
+            'folder': 'forum_media',
+            'filename': fileName,
+            'contentType': mimeType,
+            'mediaType': type,
+          },
+        );
 
-        final publicUrl = Supabase.instance.client.storage
-            .from('forum_media')
-            .getPublicUrl(path);
+        if (uploadResponse.status != 200) {
+          throw Exception('Failed to get presigned upload URL');
+        }
 
-        // forum_media has jsonb columns `media_url` and `metadata` rather than
-        // top-level url/mime_type/file_size. See schema PART 06.
+        final uploadData = uploadResponse.data;
+        final uploadUrl = uploadData['uploadUrl'] as String;
+        final fileKey = uploadData['fileKey'] as String;
+
+        // 2. Upload file directly to R2
+        final putResponse = await http.put(
+          Uri.parse(uploadUrl),
+          headers: {'Content-Type': mimeType},
+          body: bytes,
+        );
+
+        if (putResponse.statusCode != 200) {
+          throw Exception('Failed to upload file to R2: ${putResponse.body}');
+        }
+
+        // 3. Insert record with R2 fileKey (which is signed on-the-fly when read)
         await Supabase.instance.client.schema('social').from('forum_media').insert({
           'id': fileId,
           'forum_id': forumId,
           'uploader_id': userId,
           'media_type': type,
           'media_url': {
-            'full_res': publicUrl,
-            'thumbnail': publicUrl,
+            'full_res': fileKey,
+            'thumbnail': fileKey,
           },
           'metadata': {
             'mime_type': mimeType,

@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:universal_io/io.dart';
 import 'package:lynk_core/core.dart';
 
 class ProfileRepository {
@@ -91,15 +92,45 @@ class ProfileRepository {
   /// on the `avatars` storage bucket which restricts writes to `{uid}/*`.
   Future<String> uploadAvatar(
       String userId, Uint8List bytes, String ext) async {
-    final path = '$userId/avatar.$ext';
+    final fileName = 'avatar.$ext';
+    final mimeType = 'image/$ext';
 
-    await _client.storage.from('avatars').uploadBinary(
-          path,
-          bytes,
-          fileOptions: FileOptions(contentType: 'image/$ext', upsert: true),
-        );
+    // 1. Request presigned upload URL from Edge Function
+    final uploadResponse = await _client.functions.invoke(
+      'media-signer',
+      body: {
+        'action': 'upload',
+        'folder': 'avatars',
+        'filename': fileName,
+        'contentType': mimeType,
+        'mediaType': 'image',
+      },
+    );
 
-    return _client.storage.from('avatars').getPublicUrl(path);
+    if (uploadResponse.status != 200) {
+      throw Exception('Failed to get presigned upload URL');
+    }
+
+    final uploadData = uploadResponse.data;
+    final uploadUrl = uploadData['uploadUrl'] as String;
+    final fileKey = uploadData['fileKey'] as String;
+
+    // 2. Upload to R2 using HttpClient from universal_io
+    final httpClient = HttpClient();
+    try {
+      final request = await httpClient.putUrl(Uri.parse(uploadUrl));
+      request.headers.set('content-type', mimeType);
+      request.add(bytes);
+      final response = await request.close();
+      if (response.statusCode != 200) {
+        throw Exception('Failed to upload avatar to R2: ${response.statusCode}');
+      }
+    } finally {
+      httpClient.close();
+    }
+
+    // 3. Return the public CDN URL
+    return 'https://cdn.lynk-x.app/$fileKey';
   }
 
   Future<void> updateAvatarUrl(String userId, String? avatarUrl) async {

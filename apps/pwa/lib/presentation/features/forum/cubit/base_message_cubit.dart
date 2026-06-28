@@ -238,17 +238,18 @@ abstract class BaseMessageCubit<T extends BaseMessageState> extends HydratedCubi
     try {
       final path = getPathFromStorageUrl(msg.imageUrl!, 'forum_media');
       if (path.isNotEmpty) {
-        final signedUrl = await Supabase.instance.client.storage
-            .from('forum_media')
-            .createSignedUrl(path, 7200);
-        final updatedMsg = msg.copyWith(
-          imageUrl: signedUrl,
-          thumbnailUrl: signedUrl,
-        );
-        if (!isClosed) emit(copyWithState(messages: [updatedMsg, ...state.messages]));
-      } else {
-        if (!isClosed) emit(copyWithState(messages: [msg, ...state.messages]));
+        final signedUrls = await batchSignStorageUrls([path], 'forum_media');
+        final signedUrl = signedUrls[path];
+        if (signedUrl != null && signedUrl.isNotEmpty) {
+          final updatedMsg = msg.copyWith(
+            imageUrl: signedUrl,
+            thumbnailUrl: signedUrl,
+          );
+          if (!isClosed) emit(copyWithState(messages: [updatedMsg, ...state.messages]));
+          return;
+        }
       }
+      if (!isClosed) emit(copyWithState(messages: [msg, ...state.messages]));
     } catch (_) {
       if (!isClosed) emit(copyWithState(messages: [msg, ...state.messages]));
     }
