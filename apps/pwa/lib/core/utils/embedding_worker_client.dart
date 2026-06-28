@@ -29,7 +29,10 @@ class EmbeddingWorkerClient {
 
   void init() {
     try {
-      _worker = web.Worker(workerPath.toJS);
+      _worker = web.Worker(
+        workerPath.toJS,
+        web.WorkerOptions(type: 'module'),
+      );
       _worker?.postMessage({'type': 'init'}.jsify());
 
       _worker?.onmessage = (web.MessageEvent event) {

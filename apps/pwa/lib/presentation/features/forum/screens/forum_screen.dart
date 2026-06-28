@@ -67,6 +67,8 @@ class ForumPage extends StatelessWidget {
                     forumId: fId,
                     userId: mainCubit.userId,
                     isPremium: !state.showAds,
+                    eventId: state.eventId,
+                    eventCreatedAt: state.eventCreatedAt,
                   );
                   if (context
                       .read<FeatureFlagCubit>()

@@ -9,6 +9,8 @@ import 'forum_ads_state.dart';
 class ForumAdsCubit extends Cubit<ForumAdsState> {
   final String forumId;
   final String userId;
+  final String? eventId;
+  final DateTime? eventCreatedAt;
   bool isPremium;
   final Set<String> _viewedAds = {};
   final Map<String, Timer> _impressionTimers = {};
@@ -17,6 +19,8 @@ class ForumAdsCubit extends Cubit<ForumAdsState> {
     required this.forumId,
     required this.userId,
     required this.isPremium,
+    this.eventId,
+    this.eventCreatedAt,
   }) : super(const ForumAdsState());
 
   Future<void> init() async {
@@ -35,24 +39,14 @@ class ForumAdsCubit extends Cubit<ForumAdsState> {
     emit(state.copyWith(isLoading: true));
 
     try {
-      // Composite FK (event_id, event_created_at) can't be auto-embedded by
-      // PostgREST, so we fetch the event reference first, then the embedding.
-      final forumRow = await Supabase.instance.client
-          .schema('social')
-          .from('forums')
-          .select('event_id, event_created_at')
-          .eq('id', forumId)
-          .maybeSingle();
-
       List<dynamic>? embeddingData;
-      if (forumRow != null && forumRow['event_id'] != null) {
-        final eventRow = await Supabase.instance.client
-            .from('events')
-            .select('embedding')
-            .eq('id', forumRow['event_id'] as String)
-            .eq('created_at', forumRow['event_created_at'] as String)
-            .maybeSingle();
-        embeddingData = eventRow?['embedding'] as List<dynamic>?;
+      if (eventId != null && eventCreatedAt != null) {
+        embeddingData = await Supabase.instance.client
+            .schema('api')
+            .rpc('get_event_embedding', params: {
+          'p_event_id': eventId,
+          'p_created_at': eventCreatedAt!.toIso8601String(),
+        });
       }
 
       if (embeddingData != null) {
