@@ -26,7 +26,7 @@ class NotificationRepository {
   }
 
   Future<void> markAllAsRead(String userId) async {
-    await _client.rpc('mark_all_notifications_read');
+    await _client.schema('api').rpc('mark_all_notifications_read');
   }
 
   Future<void> deleteNotification(String id, DateTime createdAt) async {

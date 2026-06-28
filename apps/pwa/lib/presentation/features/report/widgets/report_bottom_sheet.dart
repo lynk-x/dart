@@ -112,14 +112,14 @@ class _ReportSheetState extends State<_ReportSheet> {
       // created_at values to satisfy database foreign keys.
       switch (widget.targetType) {
         case ReportTargetType.user:
-          await Supabase.instance.client.rpc('submit_report', params: {
+          await Supabase.instance.client.schema('api').rpc('submit_report', params: {
             'p_target_user_id': widget.targetId,
             'p_reason_id': _selectedReasonId,
             'p_description': description.isEmpty ? null : description,
           });
           break;
         case ReportTargetType.event:
-          await Supabase.instance.client.rpc('submit_report', params: {
+          await Supabase.instance.client.schema('api').rpc('submit_report', params: {
             'p_target_event_id': widget.targetId,
             'p_target_event_created_at':
                 widget.eventCreatedAt?.toUtc().toIso8601String(),
@@ -128,7 +128,7 @@ class _ReportSheetState extends State<_ReportSheet> {
           });
           break;
         case ReportTargetType.message:
-          await Supabase.instance.client.rpc('submit_report', params: {
+          await Supabase.instance.client.schema('api').rpc('submit_report', params: {
             'p_target_message_id': widget.targetId,
             'p_target_message_created_at':
                 widget.messageCreatedAt?.toUtc().toIso8601String(),
@@ -137,7 +137,7 @@ class _ReportSheetState extends State<_ReportSheet> {
           });
           break;
         case ReportTargetType.adAsset:
-          await Supabase.instance.client.rpc('submit_report', params: {
+          await Supabase.instance.client.schema('api').rpc('submit_report', params: {
             'p_target_variant_id': widget.targetId,
             'p_target_variant_created_at':
                 widget.variantCreatedAt?.toUtc().toIso8601String(),

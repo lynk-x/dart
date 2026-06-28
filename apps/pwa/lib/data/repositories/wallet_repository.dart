@@ -51,7 +51,7 @@ class WalletRepository {
     required String currency,
     required String provider,
   }) async {
-    final result = await _client.rpc('initiate_wallet_topup', params: {
+    final result = await _client.schema('api').rpc('initiate_wallet_topup', params: {
       'p_account_id': accountId,
       'p_amount': amount,
       'p_currency': currency,
@@ -67,7 +67,7 @@ class WalletRepository {
     required String method,
     required String destination,
   }) async {
-    final result = await _client.rpc('request_payout', params: {
+    final result = await _client.schema('api').rpc('request_payout', params: {
       'p_account_id': accountId,
       'p_amount': amount,
       'p_currency': currency,

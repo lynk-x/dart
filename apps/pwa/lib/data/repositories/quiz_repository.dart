@@ -29,7 +29,7 @@ class QuizRepository {
 
   Future<List<Map<String, dynamic>>> getLeaderboard(String quizId, {int limit = 5}) async {
     final data = await _client
-        .rpc('get_quiz_leaderboard', params: {'p_quiz_id': quizId, 'p_limit': limit});
+        .schema('api').rpc('get_quiz_leaderboard', params: {'p_quiz_id': quizId, 'p_limit': limit});
     return List<Map<String, dynamic>>.from(data as List);
   }
 

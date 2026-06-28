@@ -141,7 +141,7 @@ class ForumRepository {
   }
 
   Future<void> markForumAsRead(String forumId) async {
-    await _client.rpc('mark_forum_as_read', params: {'p_forum_id': forumId});
+    await _client.schema('api').rpc('mark_forum_as_read', params: {'p_forum_id': forumId});
   }
 
   Future<void> moderateUser({
@@ -150,7 +150,7 @@ class ForumRepository {
     required String forumId,
     String? reason,
   }) async {
-    await _client.rpc('moderate_user_safe', params: {
+    await _client.schema('api').rpc('moderate_user_safe', params: {
       'p_target_user_id': targetUserId,
       'p_action': action,
       'p_forum_id': forumId,
@@ -219,7 +219,7 @@ class ForumRepository {
     required String reasonId,
     required String description,
   }) async {
-    await _client.rpc('submit_report', params: {
+    await _client.schema('api').rpc('submit_report', params: {
       'p_target_user_id': targetUserId,
       'p_target_message_id': messageId,
       'p_reason_id': reasonId,
@@ -233,7 +233,7 @@ class ForumRepository {
     int limit = 30,
     int offset = 0,
   }) async {
-    final data = await _client.rpc('get_thread_replies', params: {
+    final data = await _client.schema('api').rpc('get_thread_replies', params: {
       'p_root_id': rootMessageId,
       'p_root_created_at': rootCreatedAt,
       'p_limit': limit,

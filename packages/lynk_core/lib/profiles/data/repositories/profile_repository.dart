@@ -69,7 +69,7 @@ class ProfileRepository {
     String? gender,
     DateTime? dateOfBirth,
   }) async {
-    await _client.rpc('update_profile', params: {
+    await _client.schema('api').rpc('update_profile', params: {
       if (fullName != null) 'p_full_name': fullName,
       if (userName != null) 'p_user_name': userName,
       if (countryCode != null) 'p_country_code': countryCode,
@@ -80,7 +80,7 @@ class ProfileRepository {
   }
 
   Future<void> updateUserName(String userId, String userName) async {
-    await _client.rpc('update_profile', params: {
+    await _client.schema('api').rpc('update_profile', params: {
       'p_user_name': userName,
     });
   }
@@ -103,17 +103,17 @@ class ProfileRepository {
   }
 
   Future<void> updateAvatarUrl(String userId, String? avatarUrl) async {
-    await _client.rpc('update_profile', params: {
+    await _client.schema('api').rpc('update_profile', params: {
       'p_avatar_url': avatarUrl,
     });
   }
 
   Future<void> deleteAccount() async {
-    await _client.rpc('shred_user_data');
+    await _client.schema('api').rpc('shred_user_data');
   }
 
   Future<bool> isUsernameAvailable(String username) async {
-    final result = await _client.rpc(
+    final result = await _client.schema('api').rpc(
       'is_username_available',
       params: {'username_to_check': username},
     );

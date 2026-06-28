@@ -356,7 +356,7 @@ class WalletCubit extends Cubit<WalletState> {
     emit(state.copyWith(topUpStatus: TopUpStatus.submitting, clearTopUpError: true));
 
     try {
-      final response = await _supabase.rpc('initiate_wallet_topup', params: {
+      final response = await _supabase.schema('api').rpc('initiate_wallet_topup', params: {
         'p_account_id': state.accountId,
         'p_amount': amount,
         'p_currency': currency,
@@ -507,7 +507,7 @@ class WalletCubit extends Cubit<WalletState> {
       clearWithdrawError: true,
     ));
     try {
-      await _supabase.rpc('add_payout_method', params: {
+      await _supabase.schema('api').rpc('add_payout_method', params: {
         'p_provider_name': providerName,
         'p_identity':      identity,
         'p_label':         label,
@@ -562,7 +562,7 @@ class WalletCubit extends Cubit<WalletState> {
 
     try {
       final hash = _hashPin(pin);
-      await _supabase.rpc('request_attendee_withdrawal', params: {
+      await _supabase.schema('api').rpc('request_attendee_withdrawal', params: {
         'p_amount':            amount,
         'p_currency':          currency,
         'p_payout_method_id':  payoutMethodId,
@@ -601,7 +601,7 @@ class WalletCubit extends Cubit<WalletState> {
 
     try {
       final hash = _hashPin(pin);
-      await _supabase.rpc('transfer_funds', params: {
+      await _supabase.schema('api').rpc('transfer_funds', params: {
         'p_amount':               amount,
         'p_currency':             currency,
         'p_recipient_account_id': recipientAccountId,
@@ -663,7 +663,7 @@ class WalletCubit extends Cubit<WalletState> {
   Future<void> createWallet(String currency) async {
     try {
       emit(state.copyWith(isLoading: true));
-      await _supabase.rpc('create_wallet', params: {'p_currency': currency});
+      await _supabase.schema('api').rpc('create_wallet', params: {'p_currency': currency});
       await _fetchBalances();
     } catch (e) {
       emit(state.copyWith(
@@ -699,7 +699,7 @@ class WalletCubit extends Cubit<WalletState> {
     try {
       emit(state.copyWith(isLoading: true));
       final hash = _hashPin(pin);
-      await _supabase.rpc('set_wallet_pin', params: {'p_pin_hash': hash});
+      await _supabase.schema('api').rpc('set_wallet_pin', params: {'p_pin_hash': hash});
       emit(state.copyWith(hasPinSet: true, isWalletUnlocked: true, isLoading: false));
     } catch (e) {
       emit(state.copyWith(isLoading: false, error: 'Failed to set PIN: ${e.toFriendlyMessage()}'));
@@ -709,7 +709,7 @@ class WalletCubit extends Cubit<WalletState> {
   Future<bool> unlockWithPin(String pin) async {
     try {
       final hash = _hashPin(pin);
-      final isValid = await _supabase.rpc('verify_wallet_pin', params: {'p_pin_hash': hash}) as bool;
+      final isValid = await _supabase.schema('api').rpc('verify_wallet_pin', params: {'p_pin_hash': hash}) as bool;
       if (isValid) {
         emit(state.copyWith(isWalletUnlocked: true));
         return true;

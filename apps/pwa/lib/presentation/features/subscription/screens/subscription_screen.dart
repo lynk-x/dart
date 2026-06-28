@@ -203,7 +203,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
     setState(() => _isProcessing = true);
 
     try {
-      await _supabase.rpc('purchase_subscription', params: {
+      await _supabase.schema('api').rpc('purchase_subscription', params: {
         'p_price_id': plan.priceId,
         'p_provider': 'wallet',
       });
@@ -314,7 +314,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
 
     setState(() => _isProcessing = true);
     try {
-      await _supabase.rpc('cancel_subscription', params: {
+      await _supabase.schema('api').rpc('cancel_subscription', params: {
         'p_subscription_id': _activeSubId,
         'p_reason': 'user_requested',
       });

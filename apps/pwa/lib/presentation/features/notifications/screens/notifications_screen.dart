@@ -136,7 +136,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
     final messenger = ScaffoldMessenger.of(context);
     final accentColor = context.accentColor;
     try {
-      await Supabase.instance.client.rpc(
+      await Supabase.instance.client.schema('api').rpc(
         accept ? 'accept_ticket_listing' : 'decline_ticket_listing',
         params: {'p_listing_id': listingId},
       );

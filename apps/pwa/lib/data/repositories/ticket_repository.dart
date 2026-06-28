@@ -29,7 +29,7 @@ class TicketRepository {
   }
 
   Future<void> transferTicket(String ticketId, String toUserId) async {
-    await _client.rpc('transfer_ticket', params: {
+    await _client.schema('api').rpc('transfer_ticket', params: {
       'p_ticket_id': ticketId,
       'p_to_user_id': toUserId,
     });
@@ -48,7 +48,7 @@ class TicketRepository {
   /// Atomically reserves [quantity] tickets for [tierId].
   /// Returns the reservation UUID — valid for 15 minutes.
   Future<String> lockForCheckout(String tierId, int quantity) async {
-    final result = await _client.rpc('lock_tickets_for_checkout', params: {
+    final result = await _client.schema('api').rpc('lock_tickets_for_checkout', params: {
       'p_tier_id': tierId,
       'p_quantity': quantity,
     });
@@ -65,7 +65,7 @@ class TicketRepository {
     String provider = 'in-app',
     String? promoCode,
   }) async {
-    final result = await _client.rpc('purchase_tickets', params: {
+    final result = await _client.schema('api').rpc('purchase_tickets', params: {
       'p_event_id': eventId,
       'p_tier_id': tierId,
       'p_quantity': quantity,
@@ -139,7 +139,7 @@ class TicketRepository {
     required String recipientUsername,
     required double askingPrice,
   }) async {
-    final result = await _client.rpc(
+    final result = await _client.schema('api').rpc(
       'create_ticket_listing',
       params: {
         'p_ticket_id': ticketId,
@@ -151,7 +151,7 @@ class TicketRepository {
   }
 
   Future<void> cancelResaleListing(String listingId) async {
-    await _client.rpc(
+    await _client.schema('api').rpc(
       'cancel_ticket_listing',
       params: {'p_listing_id': listingId},
     );

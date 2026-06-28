@@ -362,7 +362,7 @@ abstract class BaseMessageCubit<T extends BaseMessageState> extends HydratedCubi
   Future<void> reportMessage(ChatMessage message, String reason) async {
     try {
       if (userId == kGuestUserId) return;
-      await Supabase.instance.client.rpc('submit_report', params: {
+      await Supabase.instance.client.schema('api').rpc('submit_report', params: {
         'p_target_message_id': message.id,
         'p_target_message_created_at': message.createdAt.toIso8601String(),
         'p_reason_id': 'general_abuse',

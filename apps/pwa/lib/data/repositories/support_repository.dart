@@ -81,6 +81,6 @@ class SupportRepository {
 
   /// Closes an active support ticket
   Future<void> closeTicket(String ticketId) async {
-    await _client.rpc('close_support_ticket', params: {'p_ticket_id': ticketId});
+    await _client.schema('api').rpc('close_support_ticket', params: {'p_ticket_id': ticketId});
   }
 }

@@ -86,7 +86,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
       if (!mounted) return;
       setState(() => _isCheckingUsername = true);
       try {
-        final response = await sb.Supabase.instance.client.rpc(
+        final response = await sb.Supabase.instance.client.schema('api').rpc(
           'is_username_available',
           params: {'username_to_check': name},
         );

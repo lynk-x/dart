@@ -747,7 +747,7 @@ class _TransferTicketDialogState extends State<_TransferTicketDialog> {
     Navigator.pop(context);
 
     try {
-      await Supabase.instance.client.rpc('transfer_ticket', params: {
+      await Supabase.instance.client.schema('api').rpc('transfer_ticket', params: {
         'p_ticket_id': widget.ticket.id,
         'p_recipient_username': recipient,
       });

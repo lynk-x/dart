@@ -178,7 +178,7 @@ class SyncManager {
         return _ExecuteOutcome.success;
 
       case SyncAction.rpc:
-        await client.rpc(item.table, params: item.payload);
+        await client.schema('api').rpc(item.table, params: item.payload);
         return _ExecuteOutcome.success;
     }
   }

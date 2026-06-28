@@ -57,12 +57,12 @@ class ForumAdsCubit extends Cubit<ForumAdsState> {
 
       if (embeddingData != null) {
         final results = await Future.wait([
-          Supabase.instance.client.rpc('match_ad_campaigns', params: {
+          Supabase.instance.client.schema('api').rpc('match_ad_campaigns', params: {
             'query_embedding': embeddingData,
             'match_type': 'banner',
             'match_count': 8,
           }),
-          Supabase.instance.client.rpc('match_ad_campaigns', params: {
+          Supabase.instance.client.schema('api').rpc('match_ad_campaigns', params: {
             'query_embedding': embeddingData,
             'match_type': 'interstitial',
             'match_count': 1,
@@ -166,7 +166,7 @@ class ForumAdsCubit extends Cubit<ForumAdsState> {
       _viewedAds.add(adId);
       _impressionTimers.remove(adId);
       try {
-        await Supabase.instance.client.rpc('log_ad_interaction', params: {
+        await Supabase.instance.client.schema('api').rpc('log_ad_interaction', params: {
           'p_campaign_id': adId,
           'p_interaction_type': 'impression',
         });
@@ -194,7 +194,7 @@ class ForumAdsCubit extends Cubit<ForumAdsState> {
     if (adId == 'default_lynk_upgrade') return;
     if (userId == kGuestUserId) return;
     try {
-      await Supabase.instance.client.rpc('log_ad_interaction', params: {
+      await Supabase.instance.client.schema('api').rpc('log_ad_interaction', params: {
         'p_campaign_id': adId,
         'p_interaction_type': 'click',
       });
