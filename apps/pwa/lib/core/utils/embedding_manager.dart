@@ -18,7 +18,6 @@ class EmbeddingManager implements IEmbeddingService {
 
   final Set<String> _computingMessageIds = {};
   final Set<String> _syncingMessageIds = {};
-  int _lastLoggedDecile = -1;
 
   @override
   bool get isReady => _isReady;
@@ -50,14 +49,12 @@ class EmbeddingManager implements IEmbeddingService {
   void init({bool isEnabled = true}) {
     _isEnabled = isEnabled;
     if (!isEnabled) {
-      debugPrint('[EmbeddingManager] Client embedding disabled.');
       return;
     }
 
     if (_workerClient != null) return;
 
     if (!_isWifiConnection()) {
-      debugPrint('[EmbeddingManager] Skipping client embedding: Not on Wi-Fi connection.');
       return;
     }
 
@@ -84,15 +81,8 @@ class EmbeddingManager implements IEmbeddingService {
         workerPath: 'embedding.worker.js',
         onReady: () {
           _isReady = true;
-          debugPrint('[EmbeddingManager] Web Worker embedding model loaded successfully.');
         },
-        onProgress: (file, progress) {
-          final decile = (progress / 10).floor();
-          if (decile > _lastLoggedDecile) {
-            _lastLoggedDecile = decile;
-            debugPrint('[EmbeddingManager] Loading model $file: ${progress.toStringAsFixed(1)}%');
-          }
-        },
+        onProgress: (file, progress) {},
         onResult: (embedding, msgId) {
           _computingMessageIds.remove(msgId);
           _syncingMessageIds.add(msgId);
@@ -118,7 +108,6 @@ class EmbeddingManager implements IEmbeddingService {
   void processMessage(String messageId, String text) {
     if (!_isEnabled || !_isReady) return;
     if (EmbeddingNoiseFilter.isNoise(text)) {
-      debugPrint('[EmbeddingManager] Skipping embedding: message "$text" classified as noise.');
       return;
     }
     if (_computingMessageIds.contains(messageId)) return;
@@ -133,7 +122,6 @@ class EmbeddingManager implements IEmbeddingService {
   }
 
   void _uploadEmbedding(String messageId, List<double> embedding) {
-    debugPrint('[EmbeddingManager] Queueing embedding upload for message: $messageId');
 
     SyncManager.instance.addWork(SyncItem(
       id: '${messageId}_embedding',

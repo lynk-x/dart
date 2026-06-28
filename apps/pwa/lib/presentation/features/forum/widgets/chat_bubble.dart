@@ -330,6 +330,7 @@ class _ChatBubbleState extends State<ChatBubble> {
         url: validUrl,
         message: displayMessage,
         textStyle: textStyle,
+        isMe: widget.message.isMe,
         data: widget.linkPreviewData,
         onFetched: (data) =>
             widget.onLinkPreviewDataFetched?.call(validUrl, data),

@@ -56,7 +56,9 @@ class ForumPresenceCubit extends Cubit<ForumPresenceState> {
 
     final completer = Completer<void>();
     channel?.subscribe((status, [error]) {
-      debugPrint('[ForumPresenceCubit] Channel (forum_presence_$forumId) subscribe status: $status, error: $error');
+      if (error != null) {
+        debugPrint('[ForumPresenceCubit] Channel (forum_presence_$forumId) subscribe error: $error');
+      }
       if (status == RealtimeSubscribeStatus.subscribed) {
         _trackUser().then((_) {
           if (!completer.isCompleted) completer.complete();

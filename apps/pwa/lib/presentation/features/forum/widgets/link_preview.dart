@@ -17,12 +17,14 @@ class ChatLinkPreview extends StatefulWidget {
   final Function(LinkPreviewData)? onFetched;
   final Function(String)? onMentionTap;
   final bool isEdited;
+  final bool isMe;
 
   const ChatLinkPreview({
     super.key,
     required this.url,
     required this.message,
     required this.textStyle,
+    required this.isMe,
     this.data,
     this.onFetched,
     this.onMentionTap,
@@ -104,67 +106,70 @@ class _ChatLinkPreviewState extends State<ChatLinkPreview> {
       children: [
         _buildRichMessageText(),
         const SizedBox(height: 4),
-        ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 480),
-          child: MouseRegion(
-            cursor: SystemMouseCursors.click,
-            child: GestureDetector(
-              onTap: _launchUrl,
-              child: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF0A0A0A),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (widget.data!.image != null)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 8.0),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(4),
-                          child: CachedNetworkImage(
-                            imageUrl: widget.data!.image!.startsWith('http')
-                                ? '${Supabase.instance.client.rest.url.replaceAll('/rest/v1', '')}/functions/v1/link-preview?proxy=${Uri.encodeComponent(widget.data!.image!)}'
-                                : widget.data!.image!,
-                            cacheManager: LynkCacheManager.instance,
-                            height: 200,
-                            width: double.infinity,
-                            fit: BoxFit.cover,
-                            placeholder: (context, url) => Container(
+        Align(
+          alignment: widget.isMe ? Alignment.centerRight : Alignment.centerLeft,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 480),
+            child: MouseRegion(
+              cursor: SystemMouseCursors.click,
+              child: GestureDetector(
+                onTap: _launchUrl,
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF0A0A0A),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (widget.data!.image != null)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 8.0),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(4),
+                            child: CachedNetworkImage(
+                              imageUrl: widget.data!.image!.startsWith('http')
+                                  ? '${Supabase.instance.client.rest.url.replaceAll('/rest/v1', '')}/functions/v1/link-preview?proxy=${Uri.encodeComponent(widget.data!.image!)}'
+                                  : widget.data!.image!,
+                              cacheManager: LynkCacheManager.instance,
                               height: 200,
                               width: double.infinity,
-                              color: Colors.white12,
+                              fit: BoxFit.cover,
+                              placeholder: (context, url) => Container(
+                                height: 200,
+                                width: double.infinity,
+                                color: Colors.white12,
+                              ),
+                              errorWidget: (context, url, error) => const SizedBox.shrink(),
                             ),
-                            errorWidget: (context, url, error) => const SizedBox.shrink(),
                           ),
                         ),
-                      ),
-                  if (widget.data!.title != null)
-                    Text(
-                      widget.data!.title!,
-                      style: widget.textStyle.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: context.accentColor,
-                      ),
-                    ),
-                  if (widget.data!.description != null)
-                    Text(
-                      widget.data!.description!,
-                      style: widget.textStyle.copyWith(
-                          fontSize: 12, color: Colors.white70),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                ],
+                      if (widget.data!.title != null)
+                        Text(
+                          widget.data!.title!,
+                          style: widget.textStyle.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: context.accentColor,
+                          ),
+                        ),
+                      if (widget.data!.description != null)
+                        Text(
+                          widget.data!.description!,
+                          style: widget.textStyle.copyWith(
+                              fontSize: 12, color: Colors.white70),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                    ],
+                  ),
+                ),
               ),
             ),
           ),
         ),
-      ),
-    ],
-  );
+      ],
+    );
   }
 }

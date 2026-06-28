@@ -52,7 +52,6 @@ class SyncManager {
   /// Add a pending action to the queue.
   /// The calling cubit should have already applied its optimistic state update.
   void addWork(SyncItem item) {
-    debugPrint('[SyncManager] Queued ${item.action.name} on ${item.table} (id=${item.id})');
     _queue.add(item);
     _processQueue();
   }
@@ -75,9 +74,7 @@ class SyncManager {
     if (resolution == ConflictResolution.discardClient) {
       _queue.removeAt(idx);
       _statusController.add({itemId: false});
-      debugPrint('[SyncManager] Manual conflict discarded for $itemId');
     } else {
-      debugPrint('[SyncManager] Manual conflict: applying client version for $itemId');
       _processQueue();
     }
   }
@@ -91,14 +88,11 @@ class SyncManager {
     if (_isSyncing || _queue.isEmpty) return;
     _isSyncing = true;
 
-    debugPrint('[SyncManager] Starting sync loop for ${_queue.length} item(s)');
-
     while (_queue.isNotEmpty) {
       final item = _queue.first;
 
       // Skip items paused for manual conflict resolution.
       if (_pausedIds.contains(item.id)) {
-        debugPrint('[SyncManager] Skipping paused item ${item.id}');
         break;
       }
 
@@ -108,7 +102,6 @@ class SyncManager {
         if (outcome == _ExecuteOutcome.success) {
           _queue.removeAt(0);
           _statusController.add({item.id: true});
-          debugPrint('[SyncManager] Synced ${item.id}');
         } else if (outcome == _ExecuteOutcome.conflictServerWins) {
           // Server won — revert the optimistic UI state.
           _queue.removeAt(0);
@@ -148,12 +141,10 @@ class SyncManager {
         try {
           var query = client.from(item.table);
           if (item.schema != null) query = client.schema(item.schema!).from(item.table);
-          debugPrint('[SyncManager] INSERT ${item.schema ?? ''}.${item.table} payload: ${item.payload}');
           await query.insert(item.payload);
           return _ExecuteOutcome.success;
         } on PostgrestException catch (e) {
           if (e.code == '23505') {
-            debugPrint('[SyncManager] Insert ${item.table}/${item.id} already present (23505); treating as success.');
             return _ExecuteOutcome.success;
           }
           debugPrint(
