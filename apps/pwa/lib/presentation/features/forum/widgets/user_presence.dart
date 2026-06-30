@@ -3,7 +3,9 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:lynk_core/core.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lynk_x/presentation/features/forum/cubit/forum_cubit.dart';
+import '../cubit/ticket_validation_cubit.dart';
 import 'action_bar.dart';
+import 'ticket_scanner_sheet.dart';
 
 class UserPresenceCard extends StatefulWidget {
   final String userId;
@@ -86,6 +88,10 @@ class _UserPresenceCardState extends State<UserPresenceCard> {
   }
 
   Widget _buildActionRow() {
+    final forumCubit = context.read<ForumCubit>();
+    final forumState = forumCubit.state;
+    final bool canScan = forumState.isOrganizer || forumState.isModerator;
+
     return ActionBar(
       padding: const EdgeInsets.only(bottom: 12),
       items: [
@@ -98,6 +104,40 @@ class _UserPresenceCardState extends State<UserPresenceCard> {
             },
             color: context.accentColor,
           ),
+          if (canScan)
+            ActionBarItem(
+              label: 'Scan Tickets',
+              onTap: () {
+                _toggleActions();
+                final eventId = forumState.eventId;
+                final eventCreatedAt = forumState.eventCreatedAt;
+                if (eventId == null || eventCreatedAt == null) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('No active event associated with this forum.'),
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+                  return;
+                }
+                showModalBottomSheet(
+                  context: context,
+                  isScrollControlled: true,
+                  backgroundColor: Colors.transparent,
+                  builder: (context) => BlocProvider<TicketValidationCubit>(
+                    create: (context) => TicketValidationCubit(
+                      eventId: eventId,
+                      eventCreatedAt: eventCreatedAt,
+                    )..fetchTickets(),
+                    child: TicketScannerSheet(
+                      eventId: eventId,
+                      eventCreatedAt: eventCreatedAt,
+                    ),
+                  ),
+                );
+              },
+              color: context.accentColor,
+            ),
         ],
 
         if (!widget.isPrimary)

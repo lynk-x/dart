@@ -55,6 +55,7 @@ dependencies:
   # DSN is injected via --dart-define=SENTRY_DSN=https://... at build time.
   sentry_flutter: ^8.14.0
   flutter_svg: ^2.2.4
+  audioplayers: ^6.8.1
 
 
 
@@ -80,6 +81,7 @@ flutter:
   assets:
     - assets/images/
     - assets/icons/
+    - assets/audio/
 
 
 
