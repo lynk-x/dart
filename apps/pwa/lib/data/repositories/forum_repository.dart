@@ -38,12 +38,15 @@ class ForumRepository {
 
   Future<Map<String, dynamic>> getForumWithMemberStatusByReference(
       String reference, String userId) async {
-    final forumData = await _client
+    final isUuid = RegExp(r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$').hasMatch(reference);
+    final query = _client
         .schema('api')
         .from('v1_forums')
-        .select('id, account_id, status, event_id, event_created_at, event_title, created_at, reference')
-        .eq('reference', reference)
-        .maybeSingle();
+        .select('id, account_id, status, event_id, event_created_at, event_title, created_at, reference');
+
+    final forumData = await (isUuid
+        ? query.eq('id', reference).maybeSingle()
+        : query.eq('reference', reference).maybeSingle());
 
     if (forumData == null) {
       return {
