@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -9,6 +10,7 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../cubit/ticket_validation_cubit.dart';
 import '../cubit/ticket_validation_state.dart';
+import 'web_qr_scanner.dart';
 
 enum ScanStatus {
   idle,
@@ -40,7 +42,7 @@ class TicketScannerSheet extends StatefulWidget {
 }
 
 class _TicketScannerSheetState extends State<TicketScannerSheet> {
-  final MobileScannerController _controller = MobileScannerController();
+  late final MobileScannerController? _controller;
   final TextEditingController _textController = TextEditingController();
   final AudioPlayer _audioPlayer = AudioPlayer();
   
@@ -57,12 +59,19 @@ class _TicketScannerSheetState extends State<TicketScannerSheet> {
   void initState() {
     super.initState();
     _loadFeedbackMode();
+    if (!kIsWeb) {
+      _controller = MobileScannerController();
+    } else {
+      _controller = null;
+    }
   }
 
   @override
   void dispose() {
     _resumeTimer?.cancel();
-    _controller.dispose();
+    if (!kIsWeb) {
+      _controller?.dispose();
+    }
     _textController.dispose();
     _audioPlayer.dispose();
     super.dispose();
@@ -131,7 +140,9 @@ class _TicketScannerSheetState extends State<TicketScannerSheet> {
         _errorMessage = null;
         _textController.clear();
       });
-      _controller.start();
+      if (!kIsWeb) {
+        _controller?.start();
+      }
     }
   }
 
@@ -339,19 +350,26 @@ class _TicketScannerSheetState extends State<TicketScannerSheet> {
                               child: Stack(
                                 children: [
                                   if (_status == ScanStatus.scanning || _status == ScanStatus.processing)
-                                    MobileScanner(
-                                      controller: _controller,
-                                      onDetect: (capture) {
-                                        final List<Barcode> barcodes = capture.barcodes;
-                                        if (barcodes.isNotEmpty) {
-                                          final String? code = barcodes.first.rawValue;
-                                          if (code != null && code.isNotEmpty) {
-                                            _controller.stop();
-                                            _processTicketCode(code);
+                                    if (kIsWeb)
+                                      WebQrScanner(
+                                        onDetect: (code) {
+                                          _processTicketCode(code);
+                                        },
+                                      )
+                                    else
+                                      MobileScanner(
+                                        controller: _controller!,
+                                        onDetect: (capture) {
+                                          final List<Barcode> barcodes = capture.barcodes;
+                                          if (barcodes.isNotEmpty) {
+                                            final String? code = barcodes.first.rawValue;
+                                            if (code != null && code.isNotEmpty) {
+                                              _controller.stop();
+                                              _processTicketCode(code);
+                                            }
                                           }
-                                        }
-                                      },
-                                    ),
+                                        },
+                                      ),
                                   
                                   // Scanner Overlay (target frame)
                                   if (_status == ScanStatus.scanning)

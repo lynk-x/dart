@@ -1,0 +1,104 @@
+import 'dart:async';
+import 'dart:js_interop';
+import 'dart:ui_web' as ui_web;
+import 'package:flutter/material.dart';
+import 'package:web/web.dart' as web;
+
+@JS('window.flutterQrScanner.start')
+external JSPromise<JSBoolean> _jsStart(JSString videoElementId, JSFunction onScanCallback);
+
+@JS('window.flutterQrScanner.stop')
+external void _jsStop();
+
+class WebQrScanner extends StatefulWidget {
+  final void Function(String) onDetect;
+
+  const WebQrScanner({
+    super.key,
+    required this.onDetect,
+  });
+
+  @override
+  State<WebQrScanner> createState() => _WebQrScannerState();
+}
+
+class _WebQrScannerState extends State<WebQrScanner> {
+  static const String _viewType = 'qr-video-view';
+  static const String _elementId = 'qr-video-element';
+  bool _isInitialized = false;
+
+  @override
+  void initState() {
+    super.initState();
+
+    // Register the platform view factory
+    ui_web.platformViewRegistry.registerViewFactory(
+      _viewType,
+      (int viewId) {
+        final video = web.HTMLVideoElement()
+          ..id = _elementId
+          ..style.width = '100%'
+          ..style.height = '100%'
+          ..style.objectFit = 'cover';
+        
+        video.setAttribute('playsinline', 'true');
+        video.setAttribute('autoplay', 'true');
+        video.setAttribute('muted', 'true');
+        
+        return video;
+      },
+    );
+
+    // Start the camera after the platform view has been inserted into the DOM
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _startScanner();
+    });
+  }
+
+  Future<void> _startScanner() async {
+    try {
+      final jsCallback = (JSString code) {
+        widget.onDetect(code.toDart);
+      }.toJS;
+
+      final promise = _jsStart(_elementId.toJS, jsCallback);
+      final result = await promise.toDart;
+      
+      if (mounted) {
+        setState(() {
+          _isInitialized = result.toDart;
+        });
+      }
+    } catch (e) {
+      debugPrint('Failed to start web QR scanner: $e');
+    }
+  }
+
+  @override
+  void dispose() {
+    try {
+      _jsStop();
+    } catch (e) {
+      debugPrint('Failed to stop web QR scanner: $e');
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        const HtmlElementView(viewType: _viewType),
+        if (!_isInitialized)
+          Container(
+            color: Colors.black,
+            child: const Center(
+              child: CircularProgressIndicator(
+                color: Color(0xFF20F928),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
