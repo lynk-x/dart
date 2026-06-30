@@ -227,25 +227,14 @@ class _TicketScannerSheetState extends State<TicketScannerSheet> {
     return BlocBuilder<TicketValidationCubit, TicketValidationState>(
       builder: (context, state) {
         return Container(
-          height: MediaQuery.of(context).size.height * 0.85,
+          height: double.infinity,
           decoration: const BoxDecoration(
             color: Colors.black,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
           ),
           padding: EdgeInsets.only(bottom: bottomInset),
           child: SafeArea(
             child: Column(
               children: [
-                const SizedBox(height: 12),
-                // Handlebar
-                Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: Colors.white24,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
                 const SizedBox(height: 16),
                 
                 // Header
@@ -254,35 +243,44 @@ class _TicketScannerSheetState extends State<TicketScannerSheet> {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                      Row(
                         children: [
-                          Text(
-                            'Ticket Scanner',
-                            style: AppTypography.interTight(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
+                          IconButton(
+                            icon: const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 24),
+                            onPressed: () => Navigator.pop(context),
                           ),
-                          const SizedBox(height: 4),
-                          Row(
+                          const SizedBox(width: 8),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Container(
-                                width: 8,
-                                height: 8,
-                                decoration: BoxDecoration(
-                                  color: state.error != null ? Colors.orange : Colors.green,
-                                  shape: BoxShape.circle,
+                              Text(
+                                'Ticket Scanner',
+                                style: AppTypography.interTight(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
                                 ),
                               ),
-                              const SizedBox(width: 6),
-                              Text(
-                                '${state.tickets.length} tickets cached • Synced: ${_formatTime(state.lastSyncedAt)}',
-                                style: AppTypography.inter(
-                                  fontSize: 12,
-                                  color: Colors.white60,
-                                ),
+                              const SizedBox(height: 4),
+                              Row(
+                                children: [
+                                  Container(
+                                    width: 8,
+                                    height: 8,
+                                    decoration: BoxDecoration(
+                                      color: state.error != null ? Colors.orange : Colors.green,
+                                      shape: BoxShape.circle,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    '${state.tickets.length} ticket count • Last updated: ${_formatTime(state.lastSyncedAt)}',
+                                    style: AppTypography.inter(
+                                      fontSize: 12,
+                                      color: Colors.white60,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ],
                           ),
@@ -319,10 +317,6 @@ class _TicketScannerSheetState extends State<TicketScannerSheet> {
                               onPressed: () => context.read<TicketValidationCubit>().fetchTickets(),
                               tooltip: 'Sync Ticket Registry',
                             ),
-                          IconButton(
-                            icon: const Icon(Icons.close, color: Colors.white70),
-                            onPressed: () => Navigator.pop(context),
-                          ),
                         ],
                       ),
                     ],
@@ -428,11 +422,11 @@ class _TicketScannerSheetState extends State<TicketScannerSheet> {
                           if (_status != ScanStatus.scanning && _status != ScanStatus.processing) ...[
                             TextButton.icon(
                               onPressed: _resetScanner,
-                              icon: const Icon(Icons.refresh_rounded, color: Colors.white),
+                              icon: const Icon(Icons.refresh_rounded, color: Colors.black),
                               label: Text(
                                 'Scan Next Ticket',
                                 style: AppTypography.inter(
-                                  color: Colors.white,
+                                  color: Colors.black,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),

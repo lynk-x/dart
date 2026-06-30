@@ -3,9 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:lynk_core/core.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lynk_x/presentation/features/forum/cubit/forum_cubit.dart';
-import '../cubit/ticket_validation_cubit.dart';
 import 'action_bar.dart';
-import 'ticket_scanner_sheet.dart';
 
 class UserPresenceCard extends StatefulWidget {
   final String userId;
@@ -120,20 +118,8 @@ class _UserPresenceCardState extends State<UserPresenceCard> {
                   );
                   return;
                 }
-                showModalBottomSheet(
-                  context: context,
-                  isScrollControlled: true,
-                  backgroundColor: Colors.transparent,
-                  builder: (context) => BlocProvider<TicketValidationCubit>(
-                    create: (context) => TicketValidationCubit(
-                      eventId: eventId,
-                      eventCreatedAt: eventCreatedAt,
-                    )..fetchTickets(),
-                    child: TicketScannerSheet(
-                      eventId: eventId,
-                      eventCreatedAt: eventCreatedAt,
-                    ),
-                  ),
+                context.push(
+                  '/forum/${forumCubit.forumReference}/scanner?eventId=$eventId&eventCreatedAt=${eventCreatedAt.toIso8601String()}',
                 );
               },
               color: context.accentColor,

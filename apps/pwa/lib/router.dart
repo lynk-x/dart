@@ -9,6 +9,8 @@ import 'package:lynk_x/presentation/features/homepage/screens/home_screen.dart';
 
 import 'package:lynk_x/presentation/features/forum/screens/forum_screen.dart';
 import 'package:lynk_x/presentation/features/forum/screens/sessions_screen.dart';
+import 'package:lynk_x/presentation/features/forum/widgets/ticket_scanner_sheet.dart';
+import 'package:lynk_x/presentation/features/forum/cubit/ticket_validation_cubit.dart';
 import 'package:lynk_x/presentation/features/notifications/screens/notifications_screen.dart';
 import 'package:lynk_x/presentation/features/ticket/screens/ticket_screen.dart';
 import 'package:lynk_x/presentation/features/ticket/screens/tickets_list_screen.dart';
@@ -180,6 +182,48 @@ GoRouter createRouter(
                   isOrganizer: isOrganizer,
                   forumCreatedAt: forumCreatedAt,
                   forumReference: forumReference,
+                ),
+              );
+            },
+          ),
+          GoRoute(
+            path: 'scanner',
+            builder: (context, state) {
+              final extras = state.extra as Map<String, dynamic>?;
+              final eventId = state.uri.queryParameters['eventId'] ?? extras?['eventId'] as String?;
+              final eventCreatedAtRaw = state.uri.queryParameters['eventCreatedAt'] ?? extras?['eventCreatedAt'];
+              final eventCreatedAt = eventCreatedAtRaw != null
+                  ? (eventCreatedAtRaw is DateTime
+                      ? eventCreatedAtRaw
+                      : DateTime.parse(eventCreatedAtRaw.toString()))
+                  : null;
+
+              if (eventId == null || eventCreatedAt == null) {
+                return Title(
+                  title: 'Error',
+                  color: Colors.black,
+                  child: const SystemErrorScreen(
+                    title: 'Invalid Event',
+                    message: 'Cannot launch scanner without a valid event reference.',
+                  ),
+                );
+              }
+
+              return Title(
+                title: 'Ticket Scanner',
+                color: Colors.black,
+                child: BlocProvider<TicketValidationCubit>(
+                  create: (context) => TicketValidationCubit(
+                    eventId: eventId,
+                    eventCreatedAt: eventCreatedAt,
+                  )..fetchTickets(),
+                  child: Scaffold(
+                    backgroundColor: Colors.black,
+                    body: TicketScannerSheet(
+                      eventId: eventId,
+                      eventCreatedAt: eventCreatedAt,
+                    ),
+                  ),
                 ),
               );
             },
