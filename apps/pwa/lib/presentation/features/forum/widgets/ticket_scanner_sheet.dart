@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:lynk_core/core.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -285,7 +286,7 @@ class _TicketScannerSheetState extends State<TicketScannerSheet> {
                                   ),
                                   const SizedBox(width: 6),
                                   Text(
-                                    '${state.tickets.length} ticket count • Last updated: ${_formatTime(state.lastSyncedAt)}',
+                                    ' ticket count ${state.tickets.length} • Last updated: ${_formatTime(state.lastSyncedAt)}',
                                     style: AppTypography.inter(
                                       fontSize: 12,
                                       color: Colors.white60,
@@ -333,108 +334,150 @@ class _TicketScannerSheetState extends State<TicketScannerSheet> {
                     ],
                   ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 24),
 
                 // Main Content Area
                 Expanded(
                   child: SingleChildScrollView(
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
                       child: Column(
                         children: [
                           // Scanner / Result Preview Box
                           AspectRatio(
                             aspectRatio: 1.5,
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(16),
-                              child: Stack(
-                                children: [
-                                  if (_status == ScanStatus.scanning || _status == ScanStatus.processing)
-                                    if (kIsWeb)
-                                      WebQrScanner(
-                                        onDetect: (code) {
-                                          _processTicketCode(code);
-                                        },
-                                      )
-                                    else
-                                      MobileScanner(
-                                        controller: _controller!,
-                                        onDetect: (capture) {
-                                          final List<Barcode> barcodes = capture.barcodes;
-                                          if (barcodes.isNotEmpty) {
-                                            final String? code = barcodes.first.rawValue;
-                                            if (code != null && code.isNotEmpty) {
-                                              _controller.stop();
-                                              _processTicketCode(code);
-                                            }
-                                          }
-                                        },
-                                      ),
-                                  
-                                  // Scanner Overlay (target frame)
-                                  if (_status == ScanStatus.scanning)
-                                    Center(
-                                      child: Container(
-                                        width: 240,
-                                        height: 130,
-                                        decoration: BoxDecoration(
-                                          border: Border.all(color: context.accentColor, width: 2.5),
-                                          borderRadius: BorderRadius.circular(16),
-                                        ),
-                                        child: Stack(
-                                          children: [
-                                            Center(
-                                              child: Container(
-                                                width: 210,
-                                                height: 2,
-                                                color: context.accentColor.withValues(alpha: 0.6),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ),
-
-                                  // Result Overlays
-                                  if (_status == ScanStatus.processing)
-                                    Container(
-                                      color: Colors.black54,
-                                      child: const Center(
-                                        child: CircularProgressIndicator(color: Colors.white),
-                                      ),
-                                    ),
-
-                                  if (_status == ScanStatus.success)
-                                    _buildResultCard(
-                                      color: const Color(0xFF1B5E20), // Premium Dark Green
-                                      icon: Icons.check_circle_outline_rounded,
-                                      title: 'CHECK-IN SUCCESSFUL',
-                                      subtitle: _attendeeName ?? 'Attendee',
-                                      extra: 'Username: ${_username ?? "N/A"}\nTier: ${_tierName ?? "General"}',
-                                    ),
-
-                                  if (_status == ScanStatus.alreadyScanned)
-                                    _buildResultCard(
-                                      color: const Color(0xFFE65100), // Premium Dark Orange/Yellow
-                                      icon: Icons.warning_amber_rounded,
-                                      title: 'ALREADY CHECKED IN',
-                                      subtitle: _attendeeName ?? 'Attendee',
-                                      extra: 'Redeemed At: ${_redeemedAt ?? "Previously"}',
-                                    ),
-
-                                  if (_status == ScanStatus.error)
-                                    _buildResultCard(
-                                      color: const Color(0xFFB71C1C), // Premium Dark Red
-                                      icon: Icons.error_outline_rounded,
-                                      title: 'INVALID TICKET',
-                                      subtitle: _errorMessage ?? 'Access Denied',
-                                      extra: 'Please verify the ticket code or check attendee permissions.',
-                                    ),
+                            child: Container(
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(24),
+                                border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.5),
+                                    blurRadius: 20,
+                                    spreadRadius: -5,
+                                  ),
                                 ],
+                              ),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(24),
+                                child: Stack(
+                                  children: [
+                                    if (_status == ScanStatus.scanning || _status == ScanStatus.processing)
+                                      if (kIsWeb)
+                                        WebQrScanner(
+                                          onDetect: (code) {
+                                            _processTicketCode(code);
+                                          },
+                                        )
+                                      else
+                                        MobileScanner(
+                                          controller: _controller!,
+                                          onDetect: (capture) {
+                                            final List<Barcode> barcodes = capture.barcodes;
+                                            if (barcodes.isNotEmpty) {
+                                              final String? code = barcodes.first.rawValue;
+                                              if (code != null && code.isNotEmpty) {
+                                                _controller.stop();
+                                                _processTicketCode(code);
+                                              }
+                                            }
+                                          },
+                                        ),
+                                    
+                                    // Semi-transparent overlay with cutout
+                                    if (_status == ScanStatus.scanning)
+                                      Positioned.fill(
+                                        child: CustomPaint(
+                                          painter: ScannerOverlayPainter(
+                                            cutoutWidth: 160,
+                                            cutoutHeight: 160,
+                                            borderRadius: 20,
+                                          ),
+                                        ),
+                                      ),
+
+                                    // Scanner Overlay (target frame)
+                                    if (_status == ScanStatus.scanning)
+                                      Center(
+                                        child: Container(
+                                          width: 160,
+                                          height: 160,
+                                          decoration: BoxDecoration(
+                                            border: Border.all(color: context.accentColor, width: 2.5),
+                                            borderRadius: BorderRadius.circular(20),
+                                          ),
+                                          child: Stack(
+                                            children: [
+                                              Center(
+                                                child: Container(
+                                                  width: 140,
+                                                  height: 3,
+                                                  decoration: BoxDecoration(
+                                                    gradient: LinearGradient(
+                                                      colors: [
+                                                        context.accentColor.withValues(alpha: 0.1),
+                                                        context.accentColor,
+                                                        context.accentColor.withValues(alpha: 0.1),
+                                                      ],
+                                                    ),
+                                                    boxShadow: [
+                                                      BoxShadow(
+                                                        color: context.accentColor.withValues(alpha: 0.5),
+                                                        blurRadius: 8,
+                                                        spreadRadius: 1,
+                                                      ),
+                                                    ],
+                                                  ),
+                                                )
+                                                .animate(onPlay: (controller) => controller.repeat(reverse: true))
+                                                .moveY(begin: -65, end: 65, duration: 1500.ms, curve: Curves.easeInOut),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+
+                                    // Result Overlays
+                                    if (_status == ScanStatus.processing)
+                                      Container(
+                                        color: Colors.black54,
+                                        child: const Center(
+                                          child: CircularProgressIndicator(color: Colors.white),
+                                        ),
+                                      ),
+
+                                    if (_status == ScanStatus.success)
+                                      _buildResultCard(
+                                        color: const Color(0xFF1B5E20), // Premium Dark Green
+                                        icon: Icons.check_circle_outline_rounded,
+                                        title: 'CHECK-IN SUCCESSFUL',
+                                        subtitle: _attendeeName ?? 'Attendee',
+                                        extra: 'Username: ${_username ?? "N/A"}\nTier: ${_tierName ?? "General"}',
+                                      ),
+
+                                    if (_status == ScanStatus.alreadyScanned)
+                                      _buildResultCard(
+                                        color: const Color(0xFFE65100), // Premium Dark Orange/Yellow
+                                        icon: Icons.warning_amber_rounded,
+                                        title: 'ALREADY CHECKED IN',
+                                        subtitle: _attendeeName ?? 'Attendee',
+                                        extra: 'Redeemed At: ${_redeemedAt ?? "Previously"}',
+                                      ),
+
+                                    if (_status == ScanStatus.error)
+                                      _buildResultCard(
+                                        color: const Color(0xFFB71C1C), // Premium Dark Red
+                                        icon: Icons.error_outline_rounded,
+                                        title: 'INVALID TICKET',
+                                        subtitle: _errorMessage ?? 'Access Denied',
+                                        extra: 'Please verify the ticket code or check attendee permissions.',
+                                      ),
+                                  ],
+                                ),
                               ),
                             ),
                           ),
-                          const SizedBox(height: 12),
+                          const SizedBox(height: 24),
 
                           // Status Indicator and Actions
                           if (_status != ScanStatus.scanning && _status != ScanStatus.processing) ...[
@@ -459,76 +502,79 @@ class _TicketScannerSheetState extends State<TicketScannerSheet> {
                             const SizedBox(height: 12),
                           ],
 
-                          // Manual Code Entry Form
-                          Container(
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF121212),
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(color: Colors.white10),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Manual Entry',
-                                  style: AppTypography.interTight(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.white70,
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: TextField(
-                                        controller: _textController,
-                                        style: const TextStyle(color: Colors.white),
-                                        decoration: InputDecoration(
-                                          hintText: 'Enter ticket code...',
-                                          hintStyle: const TextStyle(color: Colors.white38),
-                                          filled: true,
-                                          fillColor: Colors.black,
-                                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                                          border: OutlineInputBorder(
-                                            borderRadius: BorderRadius.circular(12),
-                                            borderSide: BorderSide.none,
-                                         ),
-                                        ),
-                                        onSubmitted: (val) {
-                                          if (val.trim().isNotEmpty) {
-                                            _processTicketCode(val.trim());
-                                          }
-                                        },
-                                      ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    InkWell(
-                                      onTap: () {
-                                        final val = _textController.text.trim();
-                                        if (val.isNotEmpty) {
-                                          _processTicketCode(val);
-                                        }
-                                      },
-                                      borderRadius: BorderRadius.circular(12),
-                                      child: Container(
-                                        padding: const EdgeInsets.all(12),
-                                        decoration: BoxDecoration(
-                                          color: context.accentColor,
-                                          borderRadius: BorderRadius.circular(12),
-                                        ),
-                                        child: const Icon(Icons.arrow_forward_rounded, color: Colors.black),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 24),
                         ],
                       ),
+                    ),
+                  ),
+                ),
+
+                // Manual Code Entry Form (Docked at the bottom)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF121212),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.white10),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Manual Entry',
+                          style: AppTypography.interTight(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white70,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                controller: _textController,
+                                style: const TextStyle(color: Colors.white),
+                                decoration: InputDecoration(
+                                  hintText: 'Enter ticket code...',
+                                  hintStyle: const TextStyle(color: Colors.white38),
+                                  filled: true,
+                                  fillColor: Colors.black,
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    borderSide: BorderSide.none,
+                                  ),
+                                ),
+                                onSubmitted: (val) {
+                                  if (val.trim().isNotEmpty) {
+                                    _processTicketCode(val.trim());
+                                  }
+                                },
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            InkWell(
+                              onTap: () {
+                                final val = _textController.text.trim();
+                                if (val.isNotEmpty) {
+                                  _processTicketCode(val);
+                                }
+                              },
+                              borderRadius: BorderRadius.circular(12),
+                              child: Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: context.accentColor,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: const Icon(Icons.arrow_forward_rounded, color: Colors.black),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -597,5 +643,52 @@ class _TicketScannerSheetState extends State<TicketScannerSheet> {
         ],
       ),
     );
+  }
+}
+
+class ScannerOverlayPainter extends CustomPainter {
+  final double cutoutWidth;
+  final double cutoutHeight;
+  final double borderRadius;
+
+  ScannerOverlayPainter({
+    required this.cutoutWidth,
+    required this.cutoutHeight,
+    this.borderRadius = 16.0,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final backgroundPaint = Paint()
+      ..color = Colors.black.withValues(alpha: 0.5)
+      ..style = PaintingStyle.fill;
+
+    // Outer path covering the whole widget
+    final outerPath = Path()..addRect(Rect.fromLTWH(0, 0, size.width, size.height));
+
+    // Inner path for the cutout, centered
+    final left = (size.width - cutoutWidth) / 2;
+    final top = (size.height - cutoutHeight) / 2;
+    final innerPath = Path()
+      ..addRRect(RRect.fromRectAndRadius(
+        Rect.fromLTWH(left, top, cutoutWidth, cutoutHeight),
+        Radius.circular(borderRadius),
+      ));
+
+    // Combine them to create a cutout (outer minus inner)
+    final cutOutPath = Path.combine(
+      PathOperation.difference,
+      outerPath,
+      innerPath,
+    );
+
+    canvas.drawPath(cutOutPath, backgroundPaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant ScannerOverlayPainter oldDelegate) {
+    return oldDelegate.cutoutWidth != cutoutWidth ||
+        oldDelegate.cutoutHeight != cutoutHeight ||
+        oldDelegate.borderRadius != borderRadius;
   }
 }
