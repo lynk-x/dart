@@ -13,6 +13,7 @@ module.exports = {
   // ── Source & Destination ───────────────────────────────────────────────────
   globDirectory: 'build/web',
   swDest: 'build/web/service-worker.js',
+  maximumFileSizeToCacheInBytes: 15 * 1024 * 1024, // 15MB (allows precaching of large Flutter Wasm/JS/CanvasKit assets)
 
   // ── Precache: Static app shell ─────────────────────────────────────────────
   // Glob every static asset Flutter produces. Workbox hashes each file and

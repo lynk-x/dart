@@ -235,7 +235,7 @@ class _TicketScannerSheetState extends State<TicketScannerSheet> {
           child: SafeArea(
             child: Column(
               children: [
-                const SizedBox(height: 16),
+                const SizedBox(height: 8),
                 
                 // Header
                 Padding(
@@ -322,20 +322,20 @@ class _TicketScannerSheetState extends State<TicketScannerSheet> {
                     ],
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 8),
 
                 // Main Content Area
                 Expanded(
                   child: SingleChildScrollView(
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
                       child: Column(
                         children: [
                           // Scanner / Result Preview Box
                           AspectRatio(
-                            aspectRatio: 1.0,
+                            aspectRatio: 1.5,
                             child: ClipRRect(
-                              borderRadius: BorderRadius.circular(24),
+                              borderRadius: BorderRadius.circular(16),
                               child: Stack(
                                 children: [
                                   if (_status == ScanStatus.scanning || _status == ScanStatus.processing)
@@ -357,19 +357,19 @@ class _TicketScannerSheetState extends State<TicketScannerSheet> {
                                   if (_status == ScanStatus.scanning)
                                     Center(
                                       child: Container(
-                                        width: 200,
-                                        height: 200,
+                                        width: 240,
+                                        height: 130,
                                         decoration: BoxDecoration(
-                                          border: Border.all(color: context.accentColor, width: 3),
-                                          borderRadius: BorderRadius.circular(24),
+                                          border: Border.all(color: context.accentColor, width: 2.5),
+                                          borderRadius: BorderRadius.circular(16),
                                         ),
                                         child: Stack(
                                           children: [
                                             Center(
                                               child: Container(
-                                                width: 180,
+                                                width: 210,
                                                 height: 2,
-                                                color: context.accentColor.withValues(alpha: 0.5),
+                                                color: context.accentColor.withValues(alpha: 0.6),
                                               ),
                                             ),
                                           ],
@@ -416,7 +416,7 @@ class _TicketScannerSheetState extends State<TicketScannerSheet> {
                               ),
                             ),
                           ),
-                          const SizedBox(height: 24),
+                          const SizedBox(height: 12),
 
                           // Status Indicator and Actions
                           if (_status != ScanStatus.scanning && _status != ScanStatus.processing) ...[
@@ -438,7 +438,7 @@ class _TicketScannerSheetState extends State<TicketScannerSheet> {
                                 ),
                               ),
                             ),
-                            const SizedBox(height: 16),
+                            const SizedBox(height: 12),
                           ],
 
                           // Manual Code Entry Form
