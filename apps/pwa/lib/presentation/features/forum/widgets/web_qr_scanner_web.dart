@@ -10,12 +10,17 @@ external JSPromise<JSBoolean> _jsStart(JSString videoElementId, JSFunction onSca
 @JS('window.flutterQrScanner.stop')
 external void _jsStop();
 
+@JS('window.flutterQrScanner.toggleTorch')
+external JSPromise<JSBoolean> _jsToggleTorch(JSBoolean enabled);
+
 class WebQrScanner extends StatefulWidget {
   final void Function(String) onDetect;
+  final bool torchEnabled;
 
   const WebQrScanner({
     super.key,
     required this.onDetect,
+    this.torchEnabled = false,
   });
 
   @override
@@ -68,9 +73,28 @@ class _WebQrScannerState extends State<WebQrScanner> {
         setState(() {
           _isInitialized = result.toDart;
         });
+        if (result.toDart && widget.torchEnabled) {
+          _setTorch(true);
+        }
       }
     } catch (e) {
       debugPrint('Failed to start web QR scanner: $e');
+    }
+  }
+
+  @override
+  void didUpdateWidget(WebQrScanner oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.torchEnabled != widget.torchEnabled && _isInitialized) {
+      _setTorch(widget.torchEnabled);
+    }
+  }
+
+  Future<void> _setTorch(bool enabled) async {
+    try {
+      await _jsToggleTorch(enabled.toJS).toDart;
+    } catch (e) {
+      debugPrint('Failed to toggle web torch: $e');
     }
   }
 

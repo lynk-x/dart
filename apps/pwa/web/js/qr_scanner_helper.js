@@ -8,9 +8,19 @@ window.flutterQrScanner = {
 
   async start(videoElementId, onScanCallback) {
     this.callback = onScanCallback;
-    this.videoElement = document.getElementById(videoElementId);
+    
+    // Poll for the video element to exist in the DOM (up to 2 seconds)
+    let attempts = 0;
+    this.videoElement = null;
+    while (!this.videoElement && attempts < 40) {
+      this.videoElement = document.getElementById(videoElementId);
+      if (this.videoElement) break;
+      await new Promise(resolve => setTimeout(resolve, 50));
+      attempts++;
+    }
+
     if (!this.videoElement) {
-      console.error("Video element not found:", videoElementId);
+      console.error("Video element not found after polling:", videoElementId);
       return false;
     }
 
@@ -47,6 +57,28 @@ window.flutterQrScanner = {
     }
     if (this.videoElement) {
       this.videoElement.srcObject = null;
+    }
+  },
+
+  async toggleTorch(enabled) {
+    if (!this.stream) return false;
+    const videoTrack = this.stream.getVideoTracks()[0];
+    if (!videoTrack) return false;
+    
+    const capabilities = videoTrack.getCapabilities ? videoTrack.getCapabilities() : {};
+    if (!capabilities.torch) {
+      console.warn("Torch/Flashlight is not supported on this device/browser.");
+      return false;
+    }
+    
+    try {
+      await videoTrack.applyConstraints({
+        advanced: [{ torch: enabled }]
+      });
+      return true;
+    } catch (e) {
+      console.error("Failed to toggle torch:", e);
+      return false;
     }
   },
 

@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 
 class WebQrScanner extends StatelessWidget {
   final void Function(String) onDetect;
+  final bool torchEnabled;
 
   const WebQrScanner({
     super.key,
     required this.onDetect,
+    this.torchEnabled = false,
   });
 
   @override
