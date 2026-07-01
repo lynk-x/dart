@@ -26,8 +26,6 @@ class _WebQrScannerState extends State<WebQrScanner> {
   static const String _viewType = 'qr-video-view';
   static const String _elementId = 'qr-video-element';
   bool _isInitialized = false;
-  bool _checkingPermission = true;
-  String? _errorMessage;
 
   @override
   void initState() {
@@ -58,12 +56,6 @@ class _WebQrScannerState extends State<WebQrScanner> {
   }
 
   Future<void> _startScanner() async {
-    if (!mounted) return;
-    setState(() {
-      _checkingPermission = true;
-      _errorMessage = null;
-    });
-
     try {
       final jsCallback = (JSString code) {
         widget.onDetect(code.toDart);
@@ -75,21 +67,10 @@ class _WebQrScannerState extends State<WebQrScanner> {
       if (mounted) {
         setState(() {
           _isInitialized = result.toDart;
-          _checkingPermission = false;
-          if (!_isInitialized) {
-            _errorMessage = 'Camera access was denied or no camera was found. Please check your browser permissions.';
-          }
         });
       }
     } catch (e) {
       debugPrint('Failed to start web QR scanner: $e');
-      if (mounted) {
-        setState(() {
-          _isInitialized = false;
-          _checkingPermission = false;
-          _errorMessage = 'Error initializing camera: ${e.toString()}';
-        });
-      }
     }
   }
 
@@ -111,62 +92,10 @@ class _WebQrScannerState extends State<WebQrScanner> {
         if (!_isInitialized)
           Container(
             color: Colors.black,
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-            child: Center(
-              child: _checkingPermission
-                  ? const CircularProgressIndicator(
-                      color: Color(0xFF20F928),
-                    )
-                  : Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(
-                          Icons.videocam_off_rounded,
-                          color: Colors.white38,
-                          size: 44,
-                        ),
-                        const SizedBox(height: 12),
-                        const Text(
-                          'Camera Access Required',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 15,
-                            fontWeight: FontWeight.bold,
-                            fontFamily: 'Inter',
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          _errorMessage ?? 'Please grant camera permission to scan tickets.',
-                          style: const TextStyle(
-                            color: Colors.white54,
-                            fontSize: 12,
-                            fontFamily: 'Inter',
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 16),
-                        ElevatedButton.icon(
-                          onPressed: _startScanner,
-                          icon: const Icon(Icons.refresh_rounded, size: 16),
-                          label: const Text('Grant Permission / Retry'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF20F928),
-                            foregroundColor: Colors.black,
-                            elevation: 0,
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                            textStyle: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 12,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
+            child: const Center(
+              child: CircularProgressIndicator(
+                color: Color(0xFF20F928),
+              ),
             ),
           ),
       ],

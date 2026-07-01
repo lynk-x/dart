@@ -3,7 +3,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:lynk_core/core.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -12,6 +11,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../cubit/ticket_validation_cubit.dart';
 import '../cubit/ticket_validation_state.dart';
 import 'web_qr_scanner.dart';
+import 'package:lynk_x/presentation/shared/widgets/permission_request_sheet.dart';
 
 enum ScanStatus {
   idle,
@@ -56,10 +56,13 @@ class _TicketScannerSheetState extends State<TicketScannerSheet> {
   String? _errorMessage;
   Timer? _resumeTimer;
 
+  bool _permissionAcknowledged = false;
+
   @override
   void initState() {
     super.initState();
     _loadFeedbackMode();
+    _checkPermission();
     if (!kIsWeb) {
       _controller = MobileScannerController();
     } else {
@@ -90,6 +93,51 @@ class _TicketScannerSheetState extends State<TicketScannerSheet> {
     } catch (e) {
       debugPrint('[TicketScannerSheet] Error loading feedback mode: $e');
     }
+  }
+
+  Future<void> _checkPermission() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final hasAcknowledged = prefs.getBool('camera_permission_acknowledged') ?? false;
+      if (mounted) {
+        setState(() {
+          _permissionAcknowledged = hasAcknowledged;
+        });
+      }
+
+      if (!hasAcknowledged && mounted) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _showPermissionSheet();
+        });
+      }
+    } catch (e) {
+      // SharedPreferences / state error
+    }
+  }
+
+  void _showPermissionSheet() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isDismissible: false,
+      enableDrag: false,
+      builder: (sheetContext) => PermissionRequestSheet(
+        title: 'Ticket Scanner Access',
+        description: 'To scan ticket QR codes, we need access to your device camera.',
+        icon: Icons.camera_alt_rounded,
+        actionLabel: 'Enable Camera',
+        onGranted: () async {
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setBool('camera_permission_acknowledged', true);
+          if (mounted) {
+            setState(() {
+              _permissionAcknowledged = true;
+            });
+            _resetScanner();
+          }
+        },
+      ),
+    );
   }
 
   Future<void> _cycleFeedbackMode() async {
@@ -141,7 +189,7 @@ class _TicketScannerSheetState extends State<TicketScannerSheet> {
         _errorMessage = null;
         _textController.clear();
       });
-      if (!kIsWeb) {
+      if (!kIsWeb && _permissionAcknowledged) {
         _controller?.start();
       }
     }
@@ -286,7 +334,7 @@ class _TicketScannerSheetState extends State<TicketScannerSheet> {
                                   ),
                                   const SizedBox(width: 6),
                                   Text(
-                                    ' ticket count ${state.tickets.length} • Last updated: ${_formatTime(state.lastSyncedAt)}',
+                                    ' tickets :${state.tickets.length} • Last updated: ${_formatTime(state.lastSyncedAt)}',
                                     style: AppTypography.inter(
                                       fontSize: 12,
                                       color: Colors.white60,
@@ -363,7 +411,59 @@ class _TicketScannerSheetState extends State<TicketScannerSheet> {
                                 child: Stack(
                                   children: [
                                     if (_status == ScanStatus.scanning || _status == ScanStatus.processing)
-                                      if (kIsWeb)
+                                      if (!_permissionAcknowledged)
+                                        Container(
+                                          color: Colors.black87,
+                                          child: Center(
+                                            child: Column(
+                                              mainAxisAlignment: MainAxisAlignment.center,
+                                              children: [
+                                                const Icon(
+                                                  Icons.camera_alt_rounded,
+                                                  color: Colors.white30,
+                                                  size: 48,
+                                                ),
+                                                const SizedBox(height: 16),
+                                                Text(
+                                                  'Camera Access Required',
+                                                  style: AppTypography.inter(
+                                                    color: Colors.white70,
+                                                    fontWeight: FontWeight.bold,
+                                                    fontSize: 16,
+                                                  ),
+                                                ),
+                                                const SizedBox(height: 8),
+                                                Text(
+                                                  'Enable camera to start scanning tickets.',
+                                                  style: AppTypography.inter(
+                                                    color: Colors.white38,
+                                                    fontSize: 12,
+                                                  ),
+                                                  textAlign: TextAlign.center,
+                                                ),
+                                                const SizedBox(height: 16),
+                                                TextButton(
+                                                  onPressed: _showPermissionSheet,
+                                                  style: TextButton.styleFrom(
+                                                    backgroundColor: context.accentColor,
+                                                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                                                    shape: RoundedRectangleBorder(
+                                                      borderRadius: BorderRadius.circular(8),
+                                                    ),
+                                                  ),
+                                                  child: Text(
+                                                    'Enable Camera',
+                                                    style: AppTypography.inter(
+                                                      color: Colors.black,
+                                                      fontWeight: FontWeight.bold,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        )
+                                      else if (kIsWeb)
                                         WebQrScanner(
                                           onDetect: (code) {
                                             _processTicketCode(code);
@@ -385,54 +485,26 @@ class _TicketScannerSheetState extends State<TicketScannerSheet> {
                                         ),
                                     
                                     // Semi-transparent overlay with cutout
-                                    if (_status == ScanStatus.scanning)
+                                    if (_status == ScanStatus.scanning && _permissionAcknowledged)
                                       Positioned.fill(
                                         child: CustomPaint(
                                           painter: ScannerOverlayPainter(
-                                            cutoutWidth: 160,
-                                            cutoutHeight: 160,
-                                            borderRadius: 20,
+                                            cutoutWidth: 260,
+                                            cutoutHeight: 80,
+                                            borderRadius: 12,
                                           ),
                                         ),
                                       ),
 
                                     // Scanner Overlay (target frame)
-                                    if (_status == ScanStatus.scanning)
+                                    if (_status == ScanStatus.scanning && _permissionAcknowledged)
                                       Center(
                                         child: Container(
-                                          width: 160,
-                                          height: 160,
+                                          width: 260,
+                                          height: 80,
                                           decoration: BoxDecoration(
-                                            border: Border.all(color: context.accentColor, width: 2.5),
-                                            borderRadius: BorderRadius.circular(20),
-                                          ),
-                                          child: Stack(
-                                            children: [
-                                              Center(
-                                                child: Container(
-                                                  width: 140,
-                                                  height: 3,
-                                                  decoration: BoxDecoration(
-                                                    gradient: LinearGradient(
-                                                      colors: [
-                                                        context.accentColor.withValues(alpha: 0.1),
-                                                        context.accentColor,
-                                                        context.accentColor.withValues(alpha: 0.1),
-                                                      ],
-                                                    ),
-                                                    boxShadow: [
-                                                      BoxShadow(
-                                                        color: context.accentColor.withValues(alpha: 0.5),
-                                                        blurRadius: 8,
-                                                        spreadRadius: 1,
-                                                      ),
-                                                    ],
-                                                  ),
-                                                )
-                                                .animate(onPlay: (controller) => controller.repeat(reverse: true))
-                                                .moveY(begin: -65, end: 65, duration: 1500.ms, curve: Curves.easeInOut),
-                                              ),
-                                            ],
+                                            border: Border.all(color: context.accentColor, width: 2.0),
+                                            borderRadius: BorderRadius.circular(12),
                                           ),
                                         ),
                                       ),
