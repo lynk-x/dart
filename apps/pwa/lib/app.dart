@@ -174,8 +174,8 @@ class _LynkXAppState extends State<LynkXApp> {
       Supabase.instance.client;
       _isSupabaseInitialized = true;
     } catch (_) {
-      const supabaseUrl = String.fromEnvironment('SUPABASE_URL');
-      const supabaseAnonKey = String.fromEnvironment('SUPABASE_ANON_KEY');
+      const supabaseUrl = String.fromEnvironment('NEXT_PUBLIC_SUPABASE_URL');
+      const supabaseAnonKey = String.fromEnvironment('NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY');
       if (supabaseUrl.isNotEmpty && supabaseAnonKey.isNotEmpty) {
         try {
           await Supabase.initialize(

@@ -73,7 +73,7 @@ class PushNotificationService {
       try {
         String? token;
         if (kIsWeb) {
-          const vapidKey = String.fromEnvironment('FIREBASE_VAPID_KEY');
+          const vapidKey = String.fromEnvironment('NEXT_PUBLIC_FIREBASE_VAPID_KEY');
           if (vapidKey.isEmpty) {
             debugPrint('[Push] FIREBASE_VAPID_KEY is not set — skipping web push registration');
             return;
