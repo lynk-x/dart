@@ -189,7 +189,7 @@ window.flutterQrScanner = {
     }
   },
 
-  tick() {
+  async tick() {
     if (!this.scanning) return;
 
     if (this.videoElement && this.videoElement.readyState === this.videoElement.HAVE_ENOUGH_DATA) {
@@ -208,9 +208,9 @@ window.flutterQrScanner = {
           this.zxingReader = new ZXing.BrowserMultiFormatReader();
         }
         try {
-          const result = this.zxingReader.decodeFromCanvas(this.canvasElement);
-          if (result && result.text) {
-            decodedText = result.text;
+          const result = await this.zxingReader.decodeFromCanvas(this.canvasElement);
+          if (result) {
+            decodedText = result.getText ? result.getText() : result.text;
           }
         } catch (e) {
           // Not found in this frame

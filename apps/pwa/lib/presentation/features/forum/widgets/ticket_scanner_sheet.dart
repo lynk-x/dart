@@ -565,80 +565,79 @@ class _TicketScannerSheetState extends State<TicketScannerSheet> {
           body: Stack(
             children: [
               // 1. Camera Feed / Native Scanner (Full screen background)
-              if (_status == ScanStatus.scanning || _status == ScanStatus.processing)
-                Positioned.fill(
-                  child: !_permissionAcknowledged
-                      ? Container(
-                          color: Colors.black87,
-                          child: Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                const Icon(
-                                  Icons.camera_alt_rounded,
-                                  color: Colors.white30,
-                                  size: 48,
+              Positioned.fill(
+                child: !_permissionAcknowledged
+                    ? Container(
+                        color: Colors.black87,
+                        child: Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(
+                                Icons.camera_alt_rounded,
+                                color: Colors.white30,
+                                size: 48,
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                'Camera Access Required',
+                                style: AppTypography.inter(
+                                  color: Colors.white70,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
                                 ),
-                                const SizedBox(height: 16),
-                                Text(
-                                  'Camera Access Required',
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'Enable camera to start scanning tickets.',
+                                style: AppTypography.inter(
+                                  color: Colors.white38,
+                                  fontSize: 12,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                              const SizedBox(height: 16),
+                              TextButton(
+                                onPressed: _showPermissionSheet,
+                                style: TextButton.styleFrom(
+                                  backgroundColor: context.accentColor,
+                                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                ),
+                                child: Text(
+                                  'Enable Camera',
                                   style: AppTypography.inter(
-                                    color: Colors.white70,
+                                    color: Colors.black,
                                     fontWeight: FontWeight.bold,
-                                    fontSize: 16,
                                   ),
                                 ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  'Enable camera to start scanning tickets.',
-                                  style: AppTypography.inter(
-                                    color: Colors.white38,
-                                    fontSize: 12,
-                                  ),
-                                  textAlign: TextAlign.center,
-                                ),
-                                const SizedBox(height: 16),
-                                TextButton(
-                                  onPressed: _showPermissionSheet,
-                                  style: TextButton.styleFrom(
-                                    backgroundColor: context.accentColor,
-                                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                  ),
-                                  child: Text(
-                                    'Enable Camera',
-                                    style: AppTypography.inter(
-                                      color: Colors.black,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
+                              ),
+                            ],
                           ),
-                        )
-                      : (kIsWeb
-                          ? WebQrScanner(
-                              torchEnabled: _torchEnabled,
-                              onDetect: (code) {
-                                _processTicketCode(code);
-                              },
-                            )
-                          : MobileScanner(
-                              controller: _controller!,
-                              onDetect: (capture) {
-                                final List<Barcode> barcodes = capture.barcodes;
-                                if (barcodes.isNotEmpty) {
-                                  final String? code = barcodes.first.rawValue;
-                                  if (code != null && code.isNotEmpty) {
-                                    _processTicketCode(code);
-                                  }
+                        ),
+                      )
+                    : (kIsWeb
+                        ? WebQrScanner(
+                            torchEnabled: _torchEnabled,
+                            onDetect: (code) {
+                              _processTicketCode(code);
+                            },
+                          )
+                        : MobileScanner(
+                            controller: _controller!,
+                            onDetect: (capture) {
+                              final List<Barcode> barcodes = capture.barcodes;
+                              if (barcodes.isNotEmpty) {
+                                final String? code = barcodes.first.rawValue;
+                                if (code != null && code.isNotEmpty) {
+                                  _processTicketCode(code);
                                 }
-                              },
-                            )),
-                ),
+                              }
+                            },
+                          )),
+              ),
 
               // 2. Stylized Barcode Overlay Guide (Translucent vertical barcode stripes)
               if (_status == ScanStatus.scanning && _permissionAcknowledged)
