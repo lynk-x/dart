@@ -8,6 +8,8 @@ class PermissionRequestSheet extends StatelessWidget {
   final String actionLabel;
   final VoidCallback onGranted;
 
+  final VoidCallback? onDenied;
+
   const PermissionRequestSheet({
     super.key,
     required this.title,
@@ -15,6 +17,7 @@ class PermissionRequestSheet extends StatelessWidget {
     required this.icon,
     this.actionLabel = 'Continue',
     required this.onGranted,
+    this.onDenied,
   });
 
   @override
@@ -66,7 +69,10 @@ class PermissionRequestSheet extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () {
+              Navigator.pop(context);
+              onDenied?.call();
+            },
             child: Text(
               'Not now',
               style: AppTypography.inter(

@@ -200,21 +200,41 @@ window.flutterQrScanner = {
       this.canvasContext.drawImage(this.videoElement, 0, 0, width, height);
       
       const imageData = this.canvasContext.getImageData(0, 0, width, height);
-      if (window.jsQR) {
+      let decodedText = null;
+
+      // Try decoding using ZXing (supports QR codes and all 1D barcode formats)
+      if (window.ZXing) {
+        if (!this.zxingReader) {
+          this.zxingReader = new ZXing.BrowserMultiFormatReader();
+        }
+        try {
+          const result = this.zxingReader.decodeFromCanvas(this.canvasElement);
+          if (result && result.text) {
+            decodedText = result.text;
+          }
+        } catch (e) {
+          // Not found in this frame
+        }
+      }
+
+      // Fallback to jsQR if ZXing did not find a code or is not loaded
+      if (!decodedText && window.jsQR) {
         const code = window.jsQR(imageData.data, imageData.width, imageData.height, {
           inversionAttempts: "dontInvert",
         });
         if (code && code.data) {
-          if (this.callback) {
-            try {
-              this.callback(code.data);
-            } catch (err) {
-              console.error("Error in Dart callback:", err);
-            }
+          decodedText = code.data;
+        }
+      }
+
+      if (decodedText) {
+        if (this.callback) {
+          try {
+            this.callback(decodedText);
+          } catch (err) {
+            console.error("Error in Dart callback:", err);
           }
         }
-      } else {
-        console.warn("jsQR is not loaded yet.");
       }
     }
     

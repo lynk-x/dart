@@ -12,6 +12,7 @@ import '../cubit/ticket_validation_cubit.dart';
 import '../cubit/ticket_validation_state.dart';
 import 'web_qr_scanner.dart';
 import 'package:lynk_x/presentation/shared/widgets/permission_request_sheet.dart';
+import 'scan_history_drawer.dart';
 
 enum ScanStatus {
   idle,
@@ -26,6 +27,24 @@ enum FeedbackMode {
   sound,      // Sound + Vibration
   vibration,  // Vibration Only
   silent,     // Silent
+}
+
+class ScanHistoryItem {
+  final String code;
+  final String? attendeeName;
+  final String? username;
+  final ScanStatus status;
+  final String? errorMessage;
+  final DateTime timestamp;
+
+  const ScanHistoryItem({
+    required this.code,
+    this.attendeeName,
+    this.username,
+    required this.status,
+    this.errorMessage,
+    required this.timestamp,
+  });
 }
 
 class TicketScannerSheet extends StatefulWidget {
@@ -49,6 +68,7 @@ class _TicketScannerSheetState extends State<TicketScannerSheet> {
   
   ScanStatus _status = ScanStatus.scanning;
   FeedbackMode _feedbackMode = FeedbackMode.sound;
+  final List<ScanHistoryItem> _scanHistory = [];
   String? _attendeeName;
   String? _username;
   String? _tierName;
@@ -58,6 +78,7 @@ class _TicketScannerSheetState extends State<TicketScannerSheet> {
   Timer? _syncTimer;
 
   bool _permissionAcknowledged = false;
+  bool _vibrationPermissionAcknowledged = false;
   bool _torchEnabled = false;
 
   @override
@@ -100,9 +121,18 @@ class _TicketScannerSheetState extends State<TicketScannerSheet> {
     try {
       final prefs = await SharedPreferences.getInstance();
       final modeName = prefs.getString('scanner_feedback_mode');
-      if (modeName != null && mounted) {
+      final hasVibAcknowledged = prefs.getBool('vibration_permission_acknowledged') ?? false;
+      if (mounted) {
         setState(() {
-          _feedbackMode = FeedbackMode.values.byName(modeName);
+          _vibrationPermissionAcknowledged = hasVibAcknowledged;
+          if (modeName != null) {
+            final loadedMode = FeedbackMode.values.byName(modeName);
+            if (loadedMode == FeedbackMode.vibration && !hasVibAcknowledged) {
+              _feedbackMode = FeedbackMode.sound;
+            } else {
+              _feedbackMode = loadedMode;
+            }
+          }
         });
       }
     } catch (e) {
@@ -155,23 +185,71 @@ class _TicketScannerSheetState extends State<TicketScannerSheet> {
     );
   }
 
+  void _showVibrationPermissionSheet({
+    required VoidCallback onGranted,
+    required VoidCallback onDenied,
+  }) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isDismissible: false,
+      enableDrag: false,
+      builder: (sheetContext) => PermissionRequestSheet(
+        title: 'Vibration Alerts',
+        description: 'To confirm ticket validation scans with haptic vibrations, we request permission to vibrate your device.',
+        icon: Icons.vibration_rounded,
+        actionLabel: 'Enable Vibration',
+        onGranted: () async {
+          try {
+            final prefs = await SharedPreferences.getInstance();
+            await prefs.setBool('vibration_permission_acknowledged', true);
+            if (mounted) {
+              setState(() {
+                _vibrationPermissionAcknowledged = true;
+              });
+              onGranted();
+            }
+          } catch (e) {
+            // SharedPreferences error
+          }
+        },
+        onDenied: onDenied,
+      ),
+    );
+  }
+
   Future<void> _cycleFeedbackMode() async {
     final nextIndex = (_feedbackMode.index + 1) % FeedbackMode.values.length;
     final nextMode = FeedbackMode.values[nextIndex];
-    setState(() {
-      _feedbackMode = nextMode;
-    });
 
+    if (nextMode == FeedbackMode.vibration && !_vibrationPermissionAcknowledged) {
+      _showVibrationPermissionSheet(
+        onGranted: () async {
+          await _saveAndSetFeedbackMode(FeedbackMode.vibration);
+          HapticFeedback.lightImpact();
+        },
+        onDenied: () async {
+          // Fallback directly to the next mode after vibration, which is silent
+          await _saveAndSetFeedbackMode(FeedbackMode.silent);
+        },
+      );
+    } else {
+      await _saveAndSetFeedbackMode(nextMode);
+      if (nextMode != FeedbackMode.silent) {
+        HapticFeedback.lightImpact();
+      }
+    }
+  }
+
+  Future<void> _saveAndSetFeedbackMode(FeedbackMode mode) async {
+    setState(() {
+      _feedbackMode = mode;
+    });
     try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('scanner_feedback_mode', nextMode.name);
+      await prefs.setString('scanner_feedback_mode', mode.name);
     } catch (e) {
       debugPrint('[TicketScannerSheet] Error saving feedback mode: $e');
-    }
-
-    // Acknowledge the change with a light vibration if not in silent mode
-    if (_feedbackMode != FeedbackMode.silent) {
-      HapticFeedback.lightImpact();
     }
 
     if (mounted) {
@@ -179,9 +257,9 @@ class _TicketScannerSheetState extends State<TicketScannerSheet> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            nextMode == FeedbackMode.sound
+            mode == FeedbackMode.sound
                 ? 'Audio and Vibration Enabled'
-                : nextMode == FeedbackMode.vibration
+                : mode == FeedbackMode.vibration
                     ? 'Vibration Only'
                     : 'Silent Mode Enabled',
           ),
@@ -199,24 +277,37 @@ class _TicketScannerSheetState extends State<TicketScannerSheet> {
     if (!kIsWeb) {
       _controller?.toggleTorch();
     }
+    if (mounted) {
+      ScaffoldMessenger.of(context).clearSnackBars();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(_torchEnabled ? 'Flashlight ON' : 'Flashlight OFF'),
+          duration: const Duration(seconds: 1),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
 
   Future<void> _switchCamera() async {
+    bool success = false;
     if (kIsWeb) {
-      final success = await switchWebCamera();
-      if (success) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Switched camera source'),
-              duration: Duration(seconds: 1),
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
-        }
-      }
+      success = await switchWebCamera();
     } else {
-      await _controller?.switchCamera();
+      if (_controller != null) {
+        await _controller.switchCamera();
+        success = true;
+      }
+    }
+    if (success && mounted) {
+      ScaffoldMessenger.of(context).clearSnackBars();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Switched camera source'),
+          duration: Duration(seconds: 1),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
     }
   }
 
@@ -255,7 +346,7 @@ class _TicketScannerSheetState extends State<TicketScannerSheet> {
   }
 
   Future<void> _processTicketCode(String code) async {
-    if (_status == ScanStatus.processing) return;
+    if (_status != ScanStatus.scanning) return;
 
     setState(() {
       _status = ScanStatus.processing;
@@ -274,6 +365,21 @@ class _TicketScannerSheetState extends State<TicketScannerSheet> {
 
       final bool success = result['success'] == true;
 
+      final status = success
+          ? ScanStatus.success
+          : ((result['error']?.toString() ?? '').toLowerCase().contains('already')
+              ? ScanStatus.alreadyScanned
+              : ScanStatus.error);
+
+      final item = ScanHistoryItem(
+        code: code,
+        attendeeName: result['attendee_name']?.toString(),
+        username: result['username']?.toString(),
+        status: status,
+        errorMessage: success ? null : (result['error']?.toString() ?? 'Unknown error'),
+        timestamp: DateTime.now(),
+      );
+
       if (success) {
         _triggerFeedback(isSuccess: true);
         if (mounted) {
@@ -282,6 +388,7 @@ class _TicketScannerSheetState extends State<TicketScannerSheet> {
             _attendeeName = result['attendee_name']?.toString();
             _username = result['username']?.toString();
             _tierName = result['tier_name']?.toString();
+            _scanHistory.insert(0, item);
           });
         }
       } else {
@@ -297,15 +404,23 @@ class _TicketScannerSheetState extends State<TicketScannerSheet> {
               _status = ScanStatus.error;
               _errorMessage = err;
             }
+            _scanHistory.insert(0, item);
           });
         }
       }
     } catch (e) {
       _triggerFeedback(isSuccess: false);
+      final item = ScanHistoryItem(
+        code: code,
+        status: ScanStatus.error,
+        errorMessage: e.toString(),
+        timestamp: DateTime.now(),
+      );
       if (mounted) {
         setState(() {
           _status = ScanStatus.error;
           _errorMessage = e.toString();
+          _scanHistory.insert(0, item);
         });
       }
     }
@@ -330,6 +445,25 @@ class _TicketScannerSheetState extends State<TicketScannerSheet> {
       builder: (context, state) {
         return Scaffold(
           backgroundColor: Colors.black,
+          endDrawer: ScanHistoryDrawer(
+            history: _scanHistory,
+            onClearHistory: () {
+              setState(() {
+                _scanHistory.clear();
+              });
+              if (Navigator.canPop(context)) {
+                Navigator.pop(context); // Close the drawer
+              }
+              ScaffoldMessenger.of(context).clearSnackBars();
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Scan history cleared'),
+                  duration: Duration(seconds: 1),
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
+            },
+          ),
           appBar: AppBar(
             backgroundColor: Colors.black,
             elevation: 0,
@@ -388,6 +522,14 @@ class _TicketScannerSheetState extends State<TicketScannerSheet> {
                     ),
                   ),
                 ),
+              Builder(
+                builder: (context) => IconButton(
+                  icon: const Icon(Icons.history_rounded, color: Colors.white, size: 24),
+                  onPressed: () {
+                    Scaffold.of(context).openEndDrawer();
+                  },
+                ),
+              ),
             ],
           ),
           body: Stack(
@@ -461,7 +603,6 @@ class _TicketScannerSheetState extends State<TicketScannerSheet> {
                                 if (barcodes.isNotEmpty) {
                                   final String? code = barcodes.first.rawValue;
                                   if (code != null && code.isNotEmpty) {
-                                    _controller.stop();
                                     _processTicketCode(code);
                                   }
                                 }
@@ -469,27 +610,17 @@ class _TicketScannerSheetState extends State<TicketScannerSheet> {
                             )),
                 ),
 
-              // 2. Full-Screen Semi-transparent Overlay with Cutout (Barcode style, centered)
-              if (_status == ScanStatus.scanning && _permissionAcknowledged)
-                Positioned.fill(
-                  child: CustomPaint(
-                    painter: ScannerOverlayPainter(
-                      cutoutWidth: 280,
-                      cutoutHeight: 90,
-                      borderRadius: 12,
-                    ),
-                  ),
-                ),
-
-              // 3. Target Frame Boundary Overlay (Barcode style, centered)
+              // 2. Stylized Barcode Overlay Guide (Translucent vertical barcode stripes)
               if (_status == ScanStatus.scanning && _permissionAcknowledged)
                 Center(
-                  child: Container(
-                    width: 280,
-                    height: 90,
-                    decoration: BoxDecoration(
-                      border: Border.all(color: context.accentColor, width: 2.5),
-                      borderRadius: BorderRadius.circular(12),
+                  child: Opacity(
+                    opacity: 0.18, // Subtly translucent as seen in reference image
+                    child: SizedBox(
+                      width: 260,
+                      height: 70,
+                      child: CustomPaint(
+                        painter: BarcodeGuidePainter(),
+                      ),
                     ),
                   ),
                 ),
@@ -551,7 +682,7 @@ class _TicketScannerSheetState extends State<TicketScannerSheet> {
                       // Torch Toggle Button (Lightning bolt)
                       _buildFloatingActionButton(
                         icon: Icon(
-                          Icons.flash_on_rounded,
+                          Icons.flash_on,
                           color: _torchEnabled ? context.accentColor : Colors.white70,
                           size: 24,
                         ),
@@ -795,55 +926,57 @@ class _TicketScannerSheetState extends State<TicketScannerSheet> {
   }
 }
 
-class ScannerOverlayPainter extends CustomPainter {
-  final double cutoutWidth;
-  final double cutoutHeight;
-  final double borderRadius;
-
-  ScannerOverlayPainter({
-    required this.cutoutWidth,
-    required this.cutoutHeight,
-    this.borderRadius = 16.0,
-  });
-
+class BarcodeGuidePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
-    final left = (size.width - cutoutWidth) / 2;
-    final top = (size.height - cutoutHeight) / 2;
+    final paint = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.fill;
 
-    // Draw the outer cutout border (thicker, lower opacity)
-    final outerBorderPaint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.1)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 3.0;
-    
-    final outerCutoutRect = Rect.fromLTWH(left, top, cutoutWidth, cutoutHeight);
-    final outerCutoutRRect = RRect.fromRectAndRadius(outerCutoutRect, Radius.circular(borderRadius));
-    canvas.drawRRect(outerCutoutRRect, outerBorderPaint);
+    // Pattern representing custom bar widths and gaps
+    final bars = [
+      _Bar(width: 4, space: 6),
+      _Bar(width: 10, space: 8),
+      _Bar(width: 4, space: 10),
+      _Bar(width: 16, space: 8),
+      _Bar(width: 4, space: 6),
+      _Bar(width: 12, space: 10),
+      _Bar(width: 4, space: 8),
+      _Bar(width: 18, space: 6),
+      _Bar(width: 4, space: 10),
+      _Bar(width: 12, space: 8),
+      _Bar(width: 6, space: 6),
+      _Bar(width: 14, space: 0),
+    ];
 
-    // Draw the inner cutout border (thinner, higher opacity, slightly inset)
-    final innerBorderPaint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.35)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.0;
-    
-    final innerCutoutRect = Rect.fromLTWH(
-      left + 2.0,
-      top + 2.0,
-      cutoutWidth - 4.0,
-      cutoutHeight - 4.0,
-    );
-    final innerCutoutRRect = RRect.fromRectAndRadius(
-      innerCutoutRect,
-      Radius.circular(borderRadius - 2.0 > 0 ? borderRadius - 2.0 : 0),
-    );
-    canvas.drawRRect(innerCutoutRRect, innerBorderPaint);
+    // Compute total width of the pattern to center it horizontally
+    double totalWidth = 0;
+    for (int i = 0; i < bars.length; i++) {
+      totalWidth += bars[i].width;
+      if (i < bars.length - 1) {
+        totalWidth += bars[i].space;
+      }
+    }
+
+    // Centering offset
+    double startX = (size.width - totalWidth) / 2;
+
+    for (int i = 0; i < bars.length; i++) {
+      final bar = bars[i];
+      canvas.drawRect(
+        Rect.fromLTWH(startX, 0, bar.width, size.height),
+        paint,
+      );
+      startX += bar.width + bar.space;
+    }
   }
 
   @override
-  bool shouldRepaint(covariant ScannerOverlayPainter oldDelegate) {
-    return oldDelegate.cutoutWidth != cutoutWidth ||
-        oldDelegate.cutoutHeight != cutoutHeight ||
-        oldDelegate.borderRadius != borderRadius;
-  }
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+class _Bar {
+  final double width;
+  final double space;
+  const _Bar({required this.width, required this.space});
 }
