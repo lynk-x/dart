@@ -295,13 +295,69 @@ class _TicketScannerSheetState extends State<TicketScannerSheet> {
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
     return BlocBuilder<TicketValidationCubit, TicketValidationState>(
       builder: (context, state) {
-        return Container(
-          height: double.infinity,
-          width: double.infinity,
-          decoration: const BoxDecoration(
-            color: Colors.black,
+        return Scaffold(
+          backgroundColor: Colors.black,
+          appBar: AppBar(
+            backgroundColor: Colors.black,
+            elevation: 0,
+            leading: IconButton(
+              icon: const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 24),
+              onPressed: () => Navigator.pop(context),
+            ),
+            titleSpacing: 0,
+            title: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Ticket Scanner',
+                  style: AppTypography.interTight(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Row(
+                  children: [
+                    Container(
+                      width: 6,
+                      height: 6,
+                      decoration: BoxDecoration(
+                        color: state.error != null ? Colors.orange : Colors.green,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      'tickets: ${state.tickets.length} • Last updated: ${_formatTime(state.lastSyncedAt)}',
+                      style: AppTypography.inter(
+                        fontSize: 11,
+                        color: Colors.white60,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            actions: [
+              if (state.isLoading)
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 16),
+                  child: Center(
+                    child: SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white70,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
           ),
-          child: Stack(
+          body: Stack(
             children: [
               // 1. Camera Feed / Native Scanner (Full screen background)
               if (_status == ScanStatus.scanning || _status == ScanStatus.processing)
@@ -451,204 +507,10 @@ class _TicketScannerSheetState extends State<TicketScannerSheet> {
                   ),
                 ),
 
-              // 5. Floating UI Overlays: Header & Footer
-              Positioned.fill(
-                child: SafeArea(
-                  child: Padding(
-                    padding: EdgeInsets.only(bottom: bottomInset),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        // Header Box (Floating)
-                        Container(
-                          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                          decoration: BoxDecoration(
-                            color: Colors.black.withValues(alpha: 0.7),
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: Colors.white10),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Row(
-                                children: [
-                                  IconButton(
-                                    icon: const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 24),
-                                    onPressed: () => Navigator.pop(context),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Text(
-                                        'Ticket Scanner',
-                                        style: AppTypography.interTight(
-                                          fontSize: 18,
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.white,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 2),
-                                      Row(
-                                        children: [
-                                          Container(
-                                            width: 6,
-                                            height: 6,
-                                            decoration: BoxDecoration(
-                                              color: state.error != null ? Colors.orange : Colors.green,
-                                              shape: BoxShape.circle,
-                                            ),
-                                          ),
-                                          const SizedBox(width: 6),
-                                          Text(
-                                            'tickets: ${state.tickets.length} • Last updated: ${_formatTime(state.lastSyncedAt)}',
-                                            style: AppTypography.inter(
-                                              fontSize: 11,
-                                              color: Colors.white60,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                              if (state.isLoading)
-                                const Padding(
-                                  padding: EdgeInsets.only(right: 8.0),
-                                  child: SizedBox(
-                                    width: 16,
-                                    height: 16,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: Colors.white70,
-                                    ),
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ),
-
-                        // Spacer to push the panel to the bottom
-                        const Spacer(),
-
-                        // Floating bottom panel containing Manual Code Entry
-                        Padding(
-                          padding: const EdgeInsets.all(16),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              if (_status != ScanStatus.scanning && _status != ScanStatus.processing) ...[
-                                TextButton.icon(
-                                  onPressed: _resetScanner,
-                                  icon: const Icon(Icons.refresh_rounded, color: Colors.black),
-                                  label: Text(
-                                    'Scan Next Ticket',
-                                    style: AppTypography.inter(
-                                      color: Colors.black,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  style: TextButton.styleFrom(
-                                    backgroundColor: context.accentColor,
-                                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(height: 16),
-                              ],
-
-                              Container(
-                                padding: const EdgeInsets.all(16),
-                                decoration: BoxDecoration(
-                                  color: Colors.black.withValues(alpha: 0.8),
-                                  borderRadius: BorderRadius.circular(16),
-                                  border: Border.all(color: Colors.white10),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withValues(alpha: 0.5),
-                                      blurRadius: 10,
-                                      spreadRadius: -2,
-                                    ),
-                                  ],
-                                ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Text(
-                                      'Manual Entry',
-                                      style: AppTypography.interTight(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.white70,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 8),
-                                    Row(
-                                      children: [
-                                        Expanded(
-                                          child: TextField(
-                                            controller: _textController,
-                                            style: const TextStyle(color: Colors.white),
-                                            decoration: InputDecoration(
-                                              hintText: 'Enter ticket code...',
-                                              hintStyle: const TextStyle(color: Colors.white38),
-                                              filled: true,
-                                              fillColor: Colors.black45,
-                                              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                                              border: OutlineInputBorder(
-                                                borderRadius: BorderRadius.circular(12),
-                                                borderSide: BorderSide.none,
-                                              ),
-                                            ),
-                                            onSubmitted: (val) {
-                                              if (val.trim().isNotEmpty) {
-                                                _processTicketCode(val.trim());
-                                              }
-                                            },
-                                          ),
-                                        ),
-                                        const SizedBox(width: 12),
-                                        InkWell(
-                                          onTap: () {
-                                            final val = _textController.text.trim();
-                                            if (val.isNotEmpty) {
-                                              _processTicketCode(val);
-                                            }
-                                          },
-                                          borderRadius: BorderRadius.circular(12),
-                                          child: Container(
-                                            padding: const EdgeInsets.all(12),
-                                            decoration: BoxDecoration(
-                                              color: context.accentColor,
-                                              borderRadius: BorderRadius.circular(12),
-                                            ),
-                                            child: const Icon(Icons.arrow_forward_rounded, color: Colors.black),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-
-              // 6. Floating Control Panel (Top-Right, vertical column)
+              // 5. Floating Control Panel (Top-Right, vertical column)
               if (_status == ScanStatus.scanning && _permissionAcknowledged)
                 Positioned(
-                  top: MediaQuery.of(context).padding.top + 76,
+                  top: 16,
                   right: 16,
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
@@ -703,6 +565,116 @@ class _TicketScannerSheetState extends State<TicketScannerSheet> {
                     ],
                   ),
                 ),
+
+              // 6. Manual Entry Panel at the bottom
+              Positioned(
+                bottom: 0,
+                left: 0,
+                right: 0,
+                child: SafeArea(
+                  child: Padding(
+                    padding: EdgeInsets.only(
+                      left: 16,
+                      right: 16,
+                      bottom: bottomInset > 0 ? bottomInset + 8 : 16,
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (_status != ScanStatus.scanning && _status != ScanStatus.processing) ...[
+                          TextButton.icon(
+                            onPressed: _resetScanner,
+                            icon: const Icon(Icons.refresh_rounded, color: Colors.black),
+                            label: Text(
+                              'Scan Next Ticket',
+                              style: AppTypography.inter(
+                                color: Colors.black,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            style: TextButton.styleFrom(
+                              backgroundColor: context.accentColor,
+                              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                        ],
+                        // Manual Entry Form
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF121212),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: Colors.white10),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                'Manual Entry',
+                                style: AppTypography.interTight(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white70,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: TextField(
+                                      controller: _textController,
+                                      style: const TextStyle(color: Colors.white),
+                                      decoration: InputDecoration(
+                                        hintText: 'Enter ticket code...',
+                                        hintStyle: const TextStyle(color: Colors.white38),
+                                        filled: true,
+                                        fillColor: Colors.black,
+                                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                        border: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(12),
+                                          borderSide: BorderSide.none,
+                                        ),
+                                      ),
+                                      onSubmitted: (val) {
+                                        if (val.trim().isNotEmpty) {
+                                          _processTicketCode(val.trim());
+                                        }
+                                      },
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  InkWell(
+                                    onTap: () {
+                                      final val = _textController.text.trim();
+                                      if (val.isNotEmpty) {
+                                        _processTicketCode(val);
+                                      }
+                                    },
+                                    borderRadius: BorderRadius.circular(12),
+                                    child: Container(
+                                      padding: const EdgeInsets.all(12),
+                                      decoration: BoxDecoration(
+                                        color: context.accentColor,
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: const Icon(Icons.arrow_forward_rounded, color: Colors.black),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
             ],
           ),
         );

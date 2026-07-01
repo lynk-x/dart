@@ -6,21 +6,69 @@ window.flutterQrScanner = {
   scanning: false,
   callback: null,
 
+  findVideoElement(id) {
+    let el = document.getElementById(id);
+    if (el) return el;
+
+    const search = (root) => {
+      if (!root) return null;
+      if (root.id === id) return root;
+
+      if (root.shadowRoot) {
+        const found = search(root.shadowRoot);
+        if (found) return found;
+      }
+
+      const children = root.childNodes || [];
+      for (let i = 0; i < children.length; i++) {
+        const found = search(children[i]);
+        if (found) return found;
+      }
+      return null;
+    };
+
+    return search(document);
+  },
+
+  waitForElement(id, timeoutMs = 2000) {
+    return new Promise((resolve) => {
+      // Check if the element already exists in the DOM
+      const el = this.findVideoElement(id);
+      if (el) {
+        return resolve(el);
+      }
+
+      // Set up a MutationObserver to listen for new node additions across the document tree
+      const observer = new MutationObserver((mutations, obs) => {
+        const found = this.findVideoElement(id);
+        if (found) {
+          obs.disconnect();
+          clearTimeout(timeout);
+          resolve(found);
+        }
+      });
+
+      observer.observe(document, {
+        childList: true,
+        subtree: true
+      });
+
+      // Set a fallback safety timeout to avoid hanging indefinitely if the view is never mounted
+      const timeout = setTimeout(() => {
+        observer.disconnect();
+        resolve(this.findVideoElement(id));
+      }, timeoutMs);
+    });
+  },
+
   async start(videoElementId, onScanCallback) {
     this.callback = onScanCallback;
     
-    // Poll for the video element to exist in the DOM (up to 2 seconds)
-    let attempts = 0;
-    this.videoElement = null;
-    while (!this.videoElement && attempts < 40) {
-      this.videoElement = document.getElementById(videoElementId);
-      if (this.videoElement) break;
-      await new Promise(resolve => setTimeout(resolve, 50));
-      attempts++;
-    }
+    // Wait for the video element using MutationObserver
+    this.videoElement = await this.waitForElement(videoElementId);
 
     if (!this.videoElement) {
-      console.error("Video element not found after polling:", videoElementId);
+      console.error("Video element not found after waiting:", videoElementId);
       return false;
     }
 
