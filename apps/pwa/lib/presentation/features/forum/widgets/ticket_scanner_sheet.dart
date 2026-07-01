@@ -14,37 +14,10 @@ import 'web_qr_scanner.dart';
 import 'package:lynk_x/presentation/shared/widgets/permission_request_sheet.dart';
 import 'scan_history_drawer.dart';
 
-enum ScanStatus {
-  idle,
-  scanning,
-  processing,
-  success,
-  alreadyScanned,
-  error,
-}
-
 enum FeedbackMode {
   sound,      // Sound + Vibration
   vibration,  // Vibration Only
   silent,     // Silent
-}
-
-class ScanHistoryItem {
-  final String code;
-  final String? attendeeName;
-  final String? username;
-  final ScanStatus status;
-  final String? errorMessage;
-  final DateTime timestamp;
-
-  const ScanHistoryItem({
-    required this.code,
-    this.attendeeName,
-    this.username,
-    required this.status,
-    this.errorMessage,
-    required this.timestamp,
-  });
 }
 
 class TicketScannerSheet extends StatefulWidget {
@@ -68,7 +41,6 @@ class _TicketScannerSheetState extends State<TicketScannerSheet> {
   
   ScanStatus _status = ScanStatus.scanning;
   FeedbackMode _feedbackMode = FeedbackMode.sound;
-  final List<ScanHistoryItem> _scanHistory = [];
   String? _attendeeName;
   String? _username;
   String? _tierName;
@@ -329,12 +301,12 @@ class _TicketScannerSheetState extends State<TicketScannerSheet> {
         success = true;
       }
     }
-    if (success && mounted) {
+    if (mounted) {
       ScaffoldMessenger.of(context).clearSnackBars();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Switched camera source'),
-          duration: Duration(seconds: 1),
+        SnackBar(
+          content: Text(success ? 'Switched camera source' : 'No alternative camera source available'),
+          duration: const Duration(seconds: 1),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -413,18 +385,19 @@ class _TicketScannerSheetState extends State<TicketScannerSheet> {
       if (success) {
         _triggerFeedback(isSuccess: true);
         if (mounted) {
+          context.read<TicketValidationCubit>().addScanHistoryItem(item);
           setState(() {
             _status = ScanStatus.success;
             _attendeeName = result['attendee_name']?.toString();
             _username = result['username']?.toString();
             _tierName = result['tier_name']?.toString();
-            _scanHistory.insert(0, item);
           });
         }
       } else {
         _triggerFeedback(isSuccess: false);
         final String err = result['error']?.toString() ?? 'Unknown error';
         if (mounted) {
+          context.read<TicketValidationCubit>().addScanHistoryItem(item);
           setState(() {
             if (err.toLowerCase().contains('already checked in') || err.toLowerCase().contains('already scanned')) {
               _status = ScanStatus.alreadyScanned;
@@ -434,7 +407,6 @@ class _TicketScannerSheetState extends State<TicketScannerSheet> {
               _status = ScanStatus.error;
               _errorMessage = err;
             }
-            _scanHistory.insert(0, item);
           });
         }
       }
@@ -447,10 +419,10 @@ class _TicketScannerSheetState extends State<TicketScannerSheet> {
         timestamp: DateTime.now(),
       );
       if (mounted) {
+        context.read<TicketValidationCubit>().addScanHistoryItem(item);
         setState(() {
           _status = ScanStatus.error;
           _errorMessage = e.toString();
-          _scanHistory.insert(0, item);
         });
       }
     }
@@ -471,16 +443,14 @@ class _TicketScannerSheetState extends State<TicketScannerSheet> {
   @override
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
-    return BlocBuilder<TicketValidationCubit, TicketValidationState>(
-      builder: (context, state) {
-        return Scaffold(
-          backgroundColor: Colors.black,
-          endDrawer: ScanHistoryDrawer(
-            history: _scanHistory,
+    return Scaffold(
+      backgroundColor: Colors.black,
+      endDrawer: BlocBuilder<TicketValidationCubit, TicketValidationState>(
+        builder: (context, state) {
+          return ScanHistoryDrawer(
+            history: state.scanHistory,
             onClearHistory: () {
-              setState(() {
-                _scanHistory.clear();
-              });
+              context.read<TicketValidationCubit>().clearScanHistory();
               if (Navigator.canPop(context)) {
                 Navigator.pop(context); // Close the drawer
               }
@@ -493,16 +463,20 @@ class _TicketScannerSheetState extends State<TicketScannerSheet> {
                 ),
               );
             },
-          ),
-          appBar: AppBar(
-            backgroundColor: Colors.black,
-            elevation: 0,
-            leading: IconButton(
-              icon: const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 32),
-              onPressed: () => Navigator.pop(context),
-            ),
-            titleSpacing: 0,
-            title: Column(
+          );
+        },
+      ),
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 32),
+          onPressed: () => Navigator.pop(context),
+        ),
+        titleSpacing: 0,
+        title: BlocBuilder<TicketValidationCubit, TicketValidationState>(
+          builder: (context, state) {
+            return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -536,10 +510,14 @@ class _TicketScannerSheetState extends State<TicketScannerSheet> {
                   ],
                 ),
               ],
-            ),
-            actions: [
-              if (state.isLoading)
-                const Padding(
+            );
+          },
+        ),
+        actions: [
+          BlocBuilder<TicketValidationCubit, TicketValidationState>(
+            builder: (context, state) {
+              if (state.isLoading) {
+                return const Padding(
                   padding: EdgeInsets.symmetric(horizontal: 16),
                   child: Center(
                     child: SizedBox(
@@ -551,17 +529,21 @@ class _TicketScannerSheetState extends State<TicketScannerSheet> {
                       ),
                     ),
                   ),
-                ),
-              Builder(
-                builder: (context) => IconButton(
-                  icon: const Icon(Icons.groups, color: Colors.white, size: 32),
-                  onPressed: () {
-                    Scaffold.of(context).openEndDrawer();
-                  },
-                ),
-              ),
-            ],
+                );
+              }
+              return const SizedBox.shrink();
+            },
           ),
+          Builder(
+            builder: (context) => IconButton(
+              icon: const Icon(Icons.groups, color: Colors.white, size: 32),
+              onPressed: () {
+                Scaffold.of(context).openEndDrawer();
+              },
+            ),
+          ),
+        ],
+      ),
           body: Stack(
             children: [
               // 1. Camera Feed / Native Scanner (Full screen background)
@@ -648,7 +630,7 @@ class _TicketScannerSheetState extends State<TicketScannerSheet> {
                       width: 260,
                       height: 70,
                       child: CustomPaint(
-                        painter: BarcodeGuidePainter(),
+                        painter: const BarcodeGuidePainter(),
                       ),
                     ),
                   ),
@@ -860,8 +842,6 @@ class _TicketScannerSheetState extends State<TicketScannerSheet> {
             ],
           ),
         );
-      },
-    );
   }
 
   Widget _buildResultCard({
@@ -956,6 +936,8 @@ class _TicketScannerSheetState extends State<TicketScannerSheet> {
 }
 
 class BarcodeGuidePainter extends CustomPainter {
+  const BarcodeGuidePainter();
+
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()

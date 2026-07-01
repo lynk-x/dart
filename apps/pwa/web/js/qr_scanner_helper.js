@@ -5,6 +5,11 @@ window.flutterQrScanner = {
   canvasContext: null,
   scanning: false,
   callback: null,
+  scanInterval: 150,
+
+  setScanInterval(ms) {
+    this.scanInterval = ms;
+  },
 
   findVideoElement(id) {
     let el = document.getElementById(id);
@@ -97,7 +102,7 @@ window.flutterQrScanner = {
       this.scanning = true;
       
       this.canvasElement = document.createElement("canvas");
-      this.canvasContext = this.canvasElement.getContext("2d");
+      this.canvasContext = this.canvasElement.getContext("2d", { willReadFrequently: true });
       
       requestAnimationFrame(() => this.tick());
       return true;
@@ -121,38 +126,56 @@ window.flutterQrScanner = {
   async switchCamera() {
     if (!this.stream) return false;
 
-    // Toggle current facingMode
-    this.facingMode = this.facingMode === "user" ? "environment" : "user";
-
-    // Stop current stream tracks
-    const tracks = this.stream.getTracks();
-    tracks.forEach(track => track.stop());
-
     try {
-      try {
-        this.stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: { exact: this.facingMode } },
-          audio: false
-        });
-      } catch (e) {
-        console.warn("Failed to get exact facingMode, trying ideal:", e);
-        this.stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: { ideal: this.facingMode } },
-          audio: false
-        });
-      }
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const videoDevices = devices.filter(d => d.kind === 'videoinput');
       
+      if (videoDevices.length <= 1) {
+        console.warn("Only one camera available, cannot switch.");
+        return false;
+      }
+
+      // Find the current active video track's deviceId
+      const activeTrack = this.stream.getVideoTracks()[0];
+      const currentDeviceId = activeTrack ? activeTrack.getSettings().deviceId : null;
+
+      let nextDevice = null;
+      if (currentDeviceId) {
+        const currentIndex = videoDevices.findIndex(d => d.deviceId === currentDeviceId);
+        if (currentIndex !== -1) {
+          // Select the next camera in the list
+          const nextIndex = (currentIndex + 1) % videoDevices.length;
+          nextDevice = videoDevices[nextIndex];
+        }
+      }
+
+      if (!nextDevice) {
+        nextDevice = videoDevices[0];
+      }
+
+      // Stop current stream tracks
+      const tracks = this.stream.getTracks();
+      tracks.forEach(track => track.stop());
+
+      // Start new stream with selected deviceId
+      this.stream = await navigator.mediaDevices.getUserMedia({
+        video: { deviceId: { exact: nextDevice.deviceId } },
+        audio: false
+      });
+
       if (this.videoElement) {
         this.videoElement.srcObject = this.stream;
         await this.videoElement.play();
         return true;
       }
     } catch (err) {
-      console.error("Failed to switch camera:", err);
-      // Fallback
+      console.error("Failed to switch camera by deviceId:", err);
+      
+      // Fallback to toggle facingMode in case exact deviceId constraint failed
+      this.facingMode = this.facingMode === "user" ? "environment" : "user";
       try {
         this.stream = await navigator.mediaDevices.getUserMedia({
-          video: true,
+          video: { facingMode: { ideal: this.facingMode } },
           audio: false
         });
         if (this.videoElement) {
@@ -241,7 +264,7 @@ window.flutterQrScanner = {
     if (this.scanning) {
       setTimeout(() => {
         requestAnimationFrame(() => this.tick());
-      }, 150); // Scan ~6-7 times per second
+      }, this.scanInterval);
     }
   }
 };

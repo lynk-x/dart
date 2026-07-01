@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:lynk_core/core.dart';
-import 'ticket_scanner_sheet.dart';
+import '../cubit/ticket_validation_state.dart';
 
 class ScanHistoryDrawer extends StatelessWidget {
   final List<ScanHistoryItem> history;

@@ -16,6 +16,17 @@ external JSPromise<JSBoolean> _jsToggleTorch(JSBoolean enabled);
 @JS('window.flutterQrScanner.switchCamera')
 external JSPromise<JSBoolean> _jsSwitchCamera();
 
+@JS('window.flutterQrScanner.setScanInterval')
+external void _jsSetScanInterval(JSNumber ms);
+
+void setWebScanInterval(int ms) {
+  try {
+    _jsSetScanInterval(ms.toJS);
+  } catch (e) {
+    debugPrint('Failed to set web scan interval: $e');
+  }
+}
+
 Future<bool> switchWebCamera() async {
   try {
     final result = await _jsSwitchCamera().toDart;

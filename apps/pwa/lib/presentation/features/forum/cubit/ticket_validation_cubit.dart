@@ -123,6 +123,15 @@ class TicketValidationCubit extends HydratedCubit<TicketValidationState> {
     emit(state.copyWith(clearError: true));
   }
 
+  void addScanHistoryItem(ScanHistoryItem item) {
+    final updatedHistory = List<ScanHistoryItem>.from(state.scanHistory)..insert(0, item);
+    emit(state.copyWith(scanHistory: updatedHistory));
+  }
+
+  void clearScanHistory() {
+    emit(state.copyWith(scanHistory: const []));
+  }
+
   @override
   TicketValidationState? fromJson(Map<String, dynamic> json) => TicketValidationState.fromJson(json);
 
