@@ -136,7 +136,8 @@ class _LynkXAppState extends State<LynkXApp> {
     try {
       _authSubscription =
           Supabase.instance.client.auth.onAuthStateChange.listen((data) {
-        if (data.event == AuthChangeEvent.signedIn) {
+        if (data.event == AuthChangeEvent.initialSession ||
+            data.event == AuthChangeEvent.signedIn) {
           if (!mounted) return;
           context.read<ProfileCubit>().loadProfile();
           context.read<NotificationCubit>().loadNotifications();
