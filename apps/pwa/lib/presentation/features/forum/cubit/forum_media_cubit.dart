@@ -217,7 +217,7 @@ class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
           'media-signer',
           body: {
             'action': 'upload',
-            'folder': 'forum_media',
+            'folder': 'forum_media/$forumId',
             'filename': fileName,
             'contentType': mimeType,
             'mediaType': type,

@@ -62,6 +62,7 @@ class _TicketScannerSheetState extends State<TicketScannerSheet> {
       _controller = MobileScannerController();
     } else {
       _controller = null;
+      setWebScanInterval(500);
     }
 
     // Auto-fetch tickets immediately and sync periodically every 30 seconds
@@ -605,6 +606,19 @@ class _TicketScannerSheetState extends State<TicketScannerSheet> {
                             torchEnabled: _torchEnabled,
                             onDetect: (code) {
                               _processTicketCode(code);
+                            },
+                            onError: (errorMsg) {
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).clearSnackBars();
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('Camera error: $errorMsg'),
+                                    duration: const Duration(seconds: 4),
+                                    behavior: SnackBarBehavior.floating,
+                                    backgroundColor: Colors.redAccent,
+                                  ),
+                                );
+                              }
                             },
                           )
                         : MobileScanner(

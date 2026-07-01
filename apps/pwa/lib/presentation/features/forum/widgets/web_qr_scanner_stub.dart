@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 
 class WebQrScanner extends StatelessWidget {
   final void Function(String) onDetect;
+  final void Function(String)? onError;
   final bool torchEnabled;
 
   const WebQrScanner({
     super.key,
     required this.onDetect,
+    this.onError,
     this.torchEnabled = false,
   });
 
@@ -25,3 +27,6 @@ Future<bool> switchWebCamera() async {
 Future<bool> toggleWebTorch(bool enabled) async {
   return false;
 }
+
+void setWebScanInterval(int ms) {}
+

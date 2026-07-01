@@ -49,11 +49,13 @@ Future<bool> toggleWebTorch(bool enabled) async {
 
 class WebQrScanner extends StatefulWidget {
   final void Function(String) onDetect;
+  final void Function(String)? onError;
   final bool torchEnabled;
 
   const WebQrScanner({
     super.key,
     required this.onDetect,
+    this.onError,
     this.torchEnabled = false,
   });
 
@@ -107,12 +109,15 @@ class _WebQrScannerState extends State<WebQrScanner> {
         setState(() {
           _isInitialized = result.toDart;
         });
-        if (result.toDart && widget.torchEnabled) {
+        if (!result.toDart) {
+          widget.onError?.call('Could not access camera or initialize stream. Please verify permissions.');
+        } else if (widget.torchEnabled) {
           _setTorch(true);
         }
       }
     } catch (e) {
       debugPrint('Failed to start web QR scanner: $e');
+      widget.onError?.call(e.toString());
     }
   }
 
