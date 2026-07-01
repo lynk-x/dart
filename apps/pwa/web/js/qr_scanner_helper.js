@@ -218,8 +218,10 @@ window.flutterQrScanner = {
     if (this.videoElement && this.videoElement.readyState === this.videoElement.HAVE_ENOUGH_DATA) {
       const width = this.videoElement.videoWidth;
       const height = this.videoElement.videoHeight;
-      this.canvasElement.width = width;
-      this.canvasElement.height = height;
+      if (this.canvasElement.width !== width || this.canvasElement.height !== height) {
+        this.canvasElement.width = width;
+        this.canvasElement.height = height;
+      }
       this.canvasContext.drawImage(this.videoElement, 0, 0, width, height);
       
       const imageData = this.canvasContext.getImageData(0, 0, width, height);
@@ -231,7 +233,10 @@ window.flutterQrScanner = {
           this.zxingReader = new ZXing.BrowserMultiFormatReader();
         }
         try {
-          const result = await this.zxingReader.decodeFromCanvas(this.canvasElement);
+          const luminanceSource = new ZXing.HTMLCanvasElementLuminanceSource(this.canvasElement);
+          const binarizer = new ZXing.HybridBinarizer(luminanceSource);
+          const bitmap = new ZXing.BinaryBitmap(binarizer);
+          const result = this.zxingReader.decodeBitmap(bitmap);
           if (result) {
             decodedText = result.getText ? result.getText() : result.text;
           }

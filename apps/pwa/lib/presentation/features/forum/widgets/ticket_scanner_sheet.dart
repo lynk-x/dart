@@ -59,7 +59,12 @@ class _TicketScannerSheetState extends State<TicketScannerSheet> {
     _loadFeedbackMode();
     _checkPermission();
     if (!kIsWeb) {
-      _controller = MobileScannerController();
+      _controller = MobileScannerController(
+        formats: const [
+          BarcodeFormat.qrCode,
+          BarcodeFormat.code128,
+        ],
+      );
     } else {
       _controller = null;
       setWebScanInterval(500);
