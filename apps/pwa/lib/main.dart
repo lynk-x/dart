@@ -23,9 +23,9 @@ void main() async {
     DeviceOrientation.portraitDown,
   ]);
 
-  const supabaseUrl = String.fromEnvironment('NEXT_PUBLIC_SUPABASE_URL');
-  const supabaseAnonKey = String.fromEnvironment('NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY');
-  const sentryDsn = String.fromEnvironment('NEXT_PUBLIC_SENTRY_DSN');
+  const supabaseUrl = String.fromEnvironment('SUPABASE_URL');
+  const supabaseAnonKey = String.fromEnvironment('SUPABASE_PUBLISHABLE_KEY');
+  const sentryDsn = String.fromEnvironment('SENTRY_DSN');
 
   try {
     if (kIsWeb) {

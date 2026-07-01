@@ -38,7 +38,7 @@ echo "--- Fetching dependencies... ---"
 flutter pub get
 
 echo "--- Building Web (Release) ---"
-flutter build web --release --wasm --dart-define=NEXT_PUBLIC_SUPABASE_URL="${NEXT_PUBLIC_SUPABASE_URL:-}" --dart-define=NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY="${NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:-}" --dart-define=NEXT_PUBLIC_SENTRY_DSN="${NEXT_PUBLIC_SENTRY_DSN:-}" --dart-define=NEXT_PUBLIC_FIREBASE_VAPID_KEY="${NEXT_PUBLIC_FIREBASE_VAPID_KEY:-}"
+flutter build web --release --wasm --dart-define=SUPABASE_URL="${SUPABASE_URL:-}" --dart-define=SUPABASE_PUBLISHABLE_KEY="${SUPABASE_PUBLISHABLE_KEY:-}" --dart-define=SENTRY_DSN="${SENTRY_DSN:-}" --dart-define=FIREBASE_VAPID_KEY="${FIREBASE_VAPID_KEY:-}"
 
 echo "--- Generating Service Worker (Workbox) ---"
 # Workbox scans build/web/, hashes every file, and generates a production
