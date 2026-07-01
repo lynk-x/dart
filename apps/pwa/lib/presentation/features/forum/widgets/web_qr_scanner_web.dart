@@ -66,28 +66,29 @@ class WebQrScanner extends StatefulWidget {
 class _WebQrScannerState extends State<WebQrScanner> {
   static const String _viewType = 'qr-video-view';
   static const String _elementId = 'qr-video-element';
+  static web.HTMLVideoElement? _cachedVideo;
   bool _isInitialized = false;
 
   @override
   void initState() {
     super.initState();
 
-    // Register the platform view factory
+    if (_cachedVideo == null) {
+      _cachedVideo = web.HTMLVideoElement()
+        ..id = _elementId
+        ..style.width = '100%'
+        ..style.height = '100%'
+        ..style.objectFit = 'cover';
+      
+      _cachedVideo!.setAttribute('playsinline', 'true');
+      _cachedVideo!.setAttribute('autoplay', 'true');
+      _cachedVideo!.setAttribute('muted', 'true');
+    }
+
+    // Register the platform view factory to return our single cached video element
     ui_web.platformViewRegistry.registerViewFactory(
       _viewType,
-      (int viewId) {
-        final video = web.HTMLVideoElement()
-          ..id = _elementId
-          ..style.width = '100%'
-          ..style.height = '100%'
-          ..style.objectFit = 'cover';
-        
-        video.setAttribute('playsinline', 'true');
-        video.setAttribute('autoplay', 'true');
-        video.setAttribute('muted', 'true');
-        
-        return video;
-      },
+      (int viewId) => _cachedVideo!,
     );
 
     // Start the camera after the platform view has been inserted into the DOM

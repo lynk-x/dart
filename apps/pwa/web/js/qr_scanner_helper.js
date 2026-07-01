@@ -15,54 +15,52 @@ window.flutterQrScanner = {
     let el = document.getElementById(id);
     if (el) return el;
 
-    const search = (root) => {
+    const search = (root, targetId) => {
       if (!root) return null;
-      if (root.id === id) return root;
+      if (root.id === targetId || (root.tagName && root.tagName.toLowerCase() === 'video' && (!targetId || root.id === targetId))) {
+        return root;
+      }
 
       if (root.shadowRoot) {
-        const found = search(root.shadowRoot);
+        const found = search(root.shadowRoot, targetId);
         if (found) return found;
       }
 
       const children = root.childNodes || [];
       for (let i = 0; i < children.length; i++) {
-        const found = search(children[i]);
+        const found = search(children[i], targetId);
         if (found) return found;
       }
       return null;
     };
 
-    return search(document);
+    let found = search(document, id);
+    if (found) return found;
+
+    return search(document, null);
   },
 
-  waitForElement(id, timeoutMs = 2000) {
+  waitForElement(id, timeoutMs = 2500) {
     return new Promise((resolve) => {
-      // Check if the element already exists in the DOM
-      const el = this.findVideoElement(id);
-      if (el) {
-        return resolve(el);
-      }
-
-      // Set up a MutationObserver to listen for new node additions across the document tree
-      const observer = new MutationObserver((mutations, obs) => {
-        const found = this.findVideoElement(id);
-        if (found) {
-          obs.disconnect();
-          clearTimeout(timeout);
-          resolve(found);
+      const startTime = Date.now();
+      
+      const check = () => {
+        const el = this.findVideoElement(id);
+        if (el) {
+          resolve(el);
+          return;
         }
-      });
-
-      observer.observe(document, {
-        childList: true,
-        subtree: true
-      });
-
-      // Set a fallback safety timeout to avoid hanging indefinitely if the view is never mounted
-      const timeout = setTimeout(() => {
-        observer.disconnect();
-        resolve(this.findVideoElement(id));
-      }, timeoutMs);
+        
+        if (Date.now() - startTime > timeoutMs) {
+          console.warn("waitForElement timed out waiting for video element:", id);
+          resolve(null);
+          return;
+        }
+        
+        setTimeout(check, 50);
+      };
+      
+      check();
     });
   },
 
@@ -215,61 +213,78 @@ window.flutterQrScanner = {
   async tick() {
     if (!this.scanning) return;
 
-    if (this.videoElement && this.videoElement.readyState === this.videoElement.HAVE_ENOUGH_DATA) {
-      const width = this.videoElement.videoWidth;
-      const height = this.videoElement.videoHeight;
-      if (this.canvasElement.width !== width || this.canvasElement.height !== height) {
-        this.canvasElement.width = width;
-        this.canvasElement.height = height;
-      }
-      this.canvasContext.drawImage(this.videoElement, 0, 0, width, height);
-      
-      const imageData = this.canvasContext.getImageData(0, 0, width, height);
-      let decodedText = null;
-
-      // Try decoding using ZXing (supports QR codes and all 1D barcode formats)
-      if (window.ZXing) {
-        if (!this.zxingReader) {
-          this.zxingReader = new ZXing.BrowserMultiFormatReader();
-        }
-        try {
-          const luminanceSource = new ZXing.HTMLCanvasElementLuminanceSource(this.canvasElement);
-          const binarizer = new ZXing.HybridBinarizer(luminanceSource);
-          const bitmap = new ZXing.BinaryBitmap(binarizer);
-          const result = this.zxingReader.decodeBitmap(bitmap);
-          if (result) {
-            decodedText = result.getText ? result.getText() : result.text;
+    try {
+      if (this.videoElement && this.videoElement.readyState === this.videoElement.HAVE_ENOUGH_DATA) {
+        const width = this.videoElement.videoWidth;
+        const height = this.videoElement.videoHeight;
+        
+        if (width > 0 && height > 0) {
+          if (this.canvasElement.width !== width || this.canvasElement.height !== height) {
+            this.canvasElement.width = width;
+            this.canvasElement.height = height;
           }
-        } catch (e) {
-          // Not found in this frame
-        }
-      }
+          this.canvasContext.drawImage(this.videoElement, 0, 0, width, height);
+          
+          const imageData = this.canvasContext.getImageData(0, 0, width, height);
+          let decodedText = null;
 
-      // Fallback to jsQR if ZXing did not find a code or is not loaded
-      if (!decodedText && window.jsQR) {
-        const code = window.jsQR(imageData.data, imageData.width, imageData.height, {
-          inversionAttempts: "dontInvert",
-        });
-        if (code && code.data) {
-          decodedText = code.data;
-        }
-      }
+          // Try decoding using ZXing (supports QR codes and all 1D barcode formats)
+          if (window.ZXing) {
+            if (!this.zxingReader) {
+              const hints = new Map();
+              hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [
+                ZXing.BarcodeFormat.QR_CODE,
+                ZXing.BarcodeFormat.CODE_128
+              ]);
+              hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
+              this.zxingReader = new ZXing.BrowserMultiFormatReader(hints);
+            }
+            try {
+              const luminanceSource = new ZXing.HTMLCanvasElementLuminanceSource(this.canvasElement);
+              const binarizer = new ZXing.HybridBinarizer(luminanceSource);
+              const bitmap = new ZXing.BinaryBitmap(binarizer);
+              const result = this.zxingReader.decodeBitmap(bitmap);
+              if (result) {
+                decodedText = result.getText ? result.getText() : result.text;
+              }
+            } catch (e) {
+              // Not found in this frame
+            }
+          }
 
-      if (decodedText) {
-        if (this.callback) {
-          try {
-            this.callback(decodedText);
-          } catch (err) {
-            console.error("Error in Dart callback:", err);
+          // Fallback to jsQR if ZXing did not find a code or is not loaded
+          if (!decodedText && window.jsQR) {
+            try {
+              const code = window.jsQR(imageData.data, imageData.width, imageData.height, {
+                inversionAttempts: "dontInvert",
+              });
+              if (code && code.data) {
+                decodedText = code.data;
+              }
+            } catch (jsqrErr) {
+              // jsQR error
+            }
+          }
+
+          if (decodedText) {
+            if (this.callback) {
+              try {
+                this.callback(decodedText);
+              } catch (err) {
+                console.error("Error in Dart callback:", err);
+              }
+            }
           }
         }
       }
-    }
-    
-    if (this.scanning) {
-      setTimeout(() => {
-        requestAnimationFrame(() => this.tick());
-      }, this.scanInterval);
+    } catch (e) {
+      console.error("Error during scanner tick frame processing:", e);
+    } finally {
+      if (this.scanning) {
+        setTimeout(() => {
+          requestAnimationFrame(() => this.tick());
+        }, this.scanInterval);
+      }
     }
   }
 };
