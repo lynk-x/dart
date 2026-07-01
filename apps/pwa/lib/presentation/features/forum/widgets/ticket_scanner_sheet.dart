@@ -55,6 +55,7 @@ class _TicketScannerSheetState extends State<TicketScannerSheet> {
   String? _redeemedAt;
   String? _errorMessage;
   Timer? _resumeTimer;
+  Timer? _syncTimer;
 
   bool _permissionAcknowledged = false;
   bool _torchEnabled = false;
@@ -69,11 +70,24 @@ class _TicketScannerSheetState extends State<TicketScannerSheet> {
     } else {
       _controller = null;
     }
+
+    // Auto-fetch tickets immediately and sync periodically every 30 seconds
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        context.read<TicketValidationCubit>().fetchTickets();
+        _syncTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
+          if (mounted) {
+            context.read<TicketValidationCubit>().fetchTickets();
+          }
+        });
+      }
+    });
   }
 
   @override
   void dispose() {
     _resumeTimer?.cancel();
+    _syncTimer?.cancel();
     if (!kIsWeb) {
       _controller?.dispose();
     }
@@ -184,6 +198,25 @@ class _TicketScannerSheetState extends State<TicketScannerSheet> {
     });
     if (!kIsWeb) {
       _controller?.toggleTorch();
+    }
+  }
+
+  Future<void> _switchCamera() async {
+    if (kIsWeb) {
+      final success = await switchWebCamera();
+      if (success) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Switched camera source'),
+              duration: Duration(seconds: 1),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      }
+    } else {
+      await _controller?.switchCamera();
     }
   }
 
@@ -518,7 +551,7 @@ class _TicketScannerSheetState extends State<TicketScannerSheet> {
                       // Torch Toggle Button (Lightning bolt)
                       _buildFloatingActionButton(
                         icon: Icon(
-                          Icons.bolt_rounded,
+                          Icons.flash_on_rounded,
                           color: _torchEnabled ? context.accentColor : Colors.white70,
                           size: 24,
                         ),
@@ -541,26 +574,15 @@ class _TicketScannerSheetState extends State<TicketScannerSheet> {
                         tooltip: 'Feedback Mode: ${_feedbackMode.name}',
                       ),
                       const SizedBox(height: 12),
-                      // Sync Registry Button
+                      // Switch Camera Button
                       _buildFloatingActionButton(
-                        icon: state.isLoading
-                            ? const SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2.5,
-                                  color: Colors.white70,
-                                ),
-                              )
-                            : const Icon(
-                                Icons.sync_rounded,
-                                color: Colors.white70,
-                                size: 22,
-                              ),
-                        onPressed: state.isLoading
-                            ? null
-                            : () => context.read<TicketValidationCubit>().fetchTickets(),
-                        tooltip: 'Sync Ticket Registry',
+                        icon: const Icon(
+                          Icons.flip_camera_ios_rounded,
+                          color: Colors.white70,
+                          size: 22,
+                        ),
+                        onPressed: _switchCamera,
+                        tooltip: 'Switch Camera',
                       ),
                     ],
                   ),
@@ -786,30 +808,8 @@ class ScannerOverlayPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final backgroundPaint = Paint()
-      ..color = Colors.black.withValues(alpha: 0.5)
-      ..style = PaintingStyle.fill;
-
-    // Outer path covering the whole widget
-    final outerPath = Path()..addRect(Rect.fromLTWH(0, 0, size.width, size.height));
-
-    // Inner path for the cutout, centered
     final left = (size.width - cutoutWidth) / 2;
     final top = (size.height - cutoutHeight) / 2;
-    final innerPath = Path()
-      ..addRRect(RRect.fromRectAndRadius(
-        Rect.fromLTWH(left, top, cutoutWidth, cutoutHeight),
-        Radius.circular(borderRadius),
-      ));
-
-    // Combine them to create a cutout (outer minus inner)
-    final cutOutPath = Path.combine(
-      PathOperation.difference,
-      outerPath,
-      innerPath,
-    );
-
-    canvas.drawPath(cutOutPath, backgroundPaint);
 
     // Draw the outer cutout border (thicker, lower opacity)
     final outerBorderPaint = Paint()

@@ -13,6 +13,19 @@ external void _jsStop();
 @JS('window.flutterQrScanner.toggleTorch')
 external JSPromise<JSBoolean> _jsToggleTorch(JSBoolean enabled);
 
+@JS('window.flutterQrScanner.switchCamera')
+external JSPromise<JSBoolean> _jsSwitchCamera();
+
+Future<bool> switchWebCamera() async {
+  try {
+    final result = await _jsSwitchCamera().toDart;
+    return result.toDart;
+  } catch (e) {
+    debugPrint('Failed to switch web camera: $e');
+    return false;
+  }
+}
+
 class WebQrScanner extends StatefulWidget {
   final void Function(String) onDetect;
   final bool torchEnabled;

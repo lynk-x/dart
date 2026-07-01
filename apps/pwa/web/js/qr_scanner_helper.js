@@ -63,6 +63,7 @@ window.flutterQrScanner = {
 
   async start(videoElementId, onScanCallback) {
     this.callback = onScanCallback;
+    this.facingMode = "environment";
     
     // Wait for the video element using MutationObserver
     this.videoElement = await this.waitForElement(videoElementId);
@@ -73,10 +74,19 @@ window.flutterQrScanner = {
     }
 
     try {
-      this.stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "environment" },
-        audio: false
-      });
+      try {
+        this.stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: this.facingMode } },
+          audio: false
+        });
+      } catch (err) {
+        console.warn("Failed to get environment camera, trying fallback to default video source:", err);
+        this.stream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+          audio: false
+        });
+      }
+
       this.videoElement.srcObject = this.stream;
       this.videoElement.setAttribute("playsinline", "true");
       this.videoElement.setAttribute("autoplay", "true");
@@ -106,6 +116,55 @@ window.flutterQrScanner = {
     if (this.videoElement) {
       this.videoElement.srcObject = null;
     }
+  },
+
+  async switchCamera() {
+    if (!this.stream) return false;
+
+    // Toggle current facingMode
+    this.facingMode = this.facingMode === "user" ? "environment" : "user";
+
+    // Stop current stream tracks
+    const tracks = this.stream.getTracks();
+    tracks.forEach(track => track.stop());
+
+    try {
+      try {
+        this.stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { exact: this.facingMode } },
+          audio: false
+        });
+      } catch (e) {
+        console.warn("Failed to get exact facingMode, trying ideal:", e);
+        this.stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: this.facingMode } },
+          audio: false
+        });
+      }
+      
+      if (this.videoElement) {
+        this.videoElement.srcObject = this.stream;
+        await this.videoElement.play();
+        return true;
+      }
+    } catch (err) {
+      console.error("Failed to switch camera:", err);
+      // Fallback
+      try {
+        this.stream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+          audio: false
+        });
+        if (this.videoElement) {
+          this.videoElement.srcObject = this.stream;
+          await this.videoElement.play();
+          return true;
+        }
+      } catch (fallbackErr) {
+        console.error("Critical: Fallback camera switch failed:", fallbackErr);
+      }
+    }
+    return false;
   },
 
   async toggleTorch(enabled) {
