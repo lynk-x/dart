@@ -26,6 +26,16 @@ Future<bool> switchWebCamera() async {
   }
 }
 
+Future<bool> toggleWebTorch(bool enabled) async {
+  try {
+    final result = await _jsToggleTorch(enabled.toJS).toDart;
+    return result.toDart;
+  } catch (e) {
+    debugPrint('Failed to toggle web torch: $e');
+    return false;
+  }
+}
+
 class WebQrScanner extends StatefulWidget {
   final void Function(String) onDetect;
   final bool torchEnabled;

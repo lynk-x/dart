@@ -270,14 +270,44 @@ class _TicketScannerSheetState extends State<TicketScannerSheet> {
     }
   }
 
-  void _toggleTorch() {
-    setState(() {
-      _torchEnabled = !_torchEnabled;
-    });
-    if (!kIsWeb) {
-      _controller?.toggleTorch();
+  Future<void> _toggleTorch() async {
+    final nextState = !_torchEnabled;
+    bool success = true;
+
+    if (kIsWeb) {
+      success = await toggleWebTorch(nextState);
+    } else {
+      if (_controller != null) {
+        try {
+          await _controller.toggleTorch();
+          success = true;
+        } catch (e) {
+          success = false;
+        }
+      } else {
+        success = false;
+      }
     }
+
+    if (!success) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).clearSnackBars();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Flashlight is not supported on this device/browser'),
+            duration: Duration(seconds: 2),
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
+      return;
+    }
+
     if (mounted) {
+      setState(() {
+        _torchEnabled = nextState;
+      });
       ScaffoldMessenger.of(context).clearSnackBars();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -468,7 +498,7 @@ class _TicketScannerSheetState extends State<TicketScannerSheet> {
             backgroundColor: Colors.black,
             elevation: 0,
             leading: IconButton(
-              icon: const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 24),
+              icon: const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 32),
               onPressed: () => Navigator.pop(context),
             ),
             titleSpacing: 0,
@@ -524,7 +554,7 @@ class _TicketScannerSheetState extends State<TicketScannerSheet> {
                 ),
               Builder(
                 builder: (context) => IconButton(
-                  icon: const Icon(Icons.history_rounded, color: Colors.white, size: 24),
+                  icon: const Icon(Icons.groups, color: Colors.white, size: 32),
                   onPressed: () {
                     Scaffold.of(context).openEndDrawer();
                   },

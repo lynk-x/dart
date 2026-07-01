@@ -21,3 +21,7 @@ class WebQrScanner extends StatelessWidget {
 Future<bool> switchWebCamera() async {
   return false;
 }
+
+Future<bool> toggleWebTorch(bool enabled) async {
+  return false;
+}
