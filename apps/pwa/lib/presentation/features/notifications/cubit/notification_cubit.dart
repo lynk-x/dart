@@ -105,12 +105,32 @@ class NotificationCubit extends Cubit<NotificationState> {
   }
 
   Future<void> deleteNotification(NotificationModel notification) async {
+    // Optimistic removal — don't rely solely on the realtime DELETE event to
+    // update the UI. Realtime's DELETE payload is unreliable for this
+    // specific case: comms.notifications previously had no PRIMARY KEY, and
+    // Supabase Realtime deliberately truncates a DELETE's old_record to PK
+    // columns only when RLS is enabled (Postgres can't evaluate RLS against a
+    // row that's already gone) — with no PK that truncation left old_record
+    // empty, so the id-keyed removal in _handleRealtimeUpdate never matched
+    // and the item appeared stuck even after a successful DB delete. Now
+    // fixed schema-side (PRIMARY KEY (id, created_at) added), but a
+    // user-initiated delete shouldn't depend on realtime delivery at all.
+    final currentState = state;
+    List<NotificationModel>? previous;
+    if (currentState is NotificationLoaded) {
+      previous = currentState.notifications;
+      final updated = previous.where((n) => n.id != notification.id).toList();
+      emit(currentState.copyWith(notifications: updated));
+    }
     try {
       await _repo.deleteNotification(notification.id, notification.createdAt);
-      // Real-time listener will handle the UI update
     } catch (_) {
-      // DB delete failed — reload to restore the dismissed item in the UI
-      loadNotifications();
+      // DB delete failed — restore the optimistically-removed item.
+      if (previous != null && !isClosed) {
+        emit(NotificationLoaded(notifications: previous));
+      } else {
+        loadNotifications();
+      }
     }
   }
 

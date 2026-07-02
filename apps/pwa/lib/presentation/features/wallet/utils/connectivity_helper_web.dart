@@ -1,17 +1,28 @@
-// ignore_for_file: avoid_web_libraries_in_flutter, deprecated_member_use
-
 import 'dart:async';
-import 'dart:html' as html;
+import 'dart:js_interop';
+import 'package:web/web.dart' as web;
 
 class ConnectivityHelper {
   /// Stream that emits true when online and false when offline.
   static Stream<bool> get onConnectivityChanged {
-    final controller = StreamController<bool>.broadcast();
-    
-    // Listen to browser-native window online/offline events
-    html.window.onOnline.listen((_) => controller.add(true));
-    html.window.onOffline.listen((_) => controller.add(false));
-    
+    late final StreamController<bool> controller;
+
+    void onOnline(web.Event _) => controller.add(true);
+    void onOffline(web.Event _) => controller.add(false);
+    final onlineListener = onOnline.toJS;
+    final offlineListener = onOffline.toJS;
+
+    controller = StreamController<bool>.broadcast(
+      onListen: () {
+        web.window.addEventListener('online', onlineListener);
+        web.window.addEventListener('offline', offlineListener);
+      },
+      onCancel: () {
+        web.window.removeEventListener('online', onlineListener);
+        web.window.removeEventListener('offline', offlineListener);
+      },
+    );
+
     return controller.stream;
   }
 }
