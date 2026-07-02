@@ -5,7 +5,7 @@ import 'package:crypto/crypto.dart';
 import 'dart:convert';
 import 'package:local_auth/local_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
 import '../utils/web_authn_helper.dart';
 import '../utils/connectivity_helper.dart';
 
@@ -107,7 +107,11 @@ class WalletCubit extends Cubit<WalletState> {
         final txs = decoded.map((e) => WalletTransaction.fromMap(Map<String, dynamic>.from(e))).toList();
         emit(state.copyWith(transactions: txs));
       }
-    } catch (_) {}
+    } catch (e, stack) {
+      // Corrupted/stale cache is safe to ignore functionally (falls through
+      // to a live fetch), but log so a systemic decode failure isn't invisible.
+      debugPrint('[WalletCubit] _loadCachedData error: $e\n$stack');
+    }
   }
 
   Future<void> _saveCachedBalances(List<WalletBalance> balances) async {
@@ -120,7 +124,9 @@ class WalletCubit extends Cubit<WalletState> {
         'credit_balance': b.creditBalance,
       }).toList());
       await prefs.setString('cached_balances', encoded);
-    } catch (_) {}
+    } catch (e, stack) {
+      debugPrint('[WalletCubit] _saveCachedBalances error: $e\n$stack');
+    }
   }
 
   Future<void> _saveCachedTransactions(List<WalletTransaction> txs) async {
@@ -140,7 +146,9 @@ class WalletCubit extends Cubit<WalletState> {
         'created_at': t.createdAt.toIso8601String(),
       }).toList());
       await prefs.setString('cached_transactions', encoded);
-    } catch (_) {}
+    } catch (e, stack) {
+      debugPrint('[WalletCubit] _saveCachedTransactions error: $e\n$stack');
+    }
   }
 
   @override
@@ -477,7 +485,12 @@ class WalletCubit extends Cubit<WalletState> {
         accountId:     accountId,
         accountReference: accountRef,
       ));
-    } catch (_) {}
+    } catch (e, stack) {
+      debugPrint('[WalletCubit] loadPayoutMethods error: $e\n$stack');
+      if (!isClosed) {
+        emit(state.copyWith(error: 'Failed to load payout methods: ${e.toFriendlyMessage()}'));
+      }
+    }
   }
 
   /// Fetch all approved payment providers that support outbound payouts.
@@ -488,12 +501,17 @@ class WalletCubit extends Cubit<WalletState> {
           .select('id, provider_name, display_name, logo_url, supports_outbound, status, metadata')
           .eq('supports_outbound', true)
           .order('display_name');
-      
+
       final providers = List<Map<String, dynamic>>.from(response);
       emit(state.copyWith(
         paymentProviders: providers,
       ));
-    } catch (_) {}
+    } catch (e, stack) {
+      debugPrint('[WalletCubit] loadPaymentProviders error: $e\n$stack');
+      if (!isClosed) {
+        emit(state.copyWith(error: 'Failed to load payment providers: ${e.toFriendlyMessage()}'));
+      }
+    }
   }
 
   /// Register a new payout method (e.g. M-Pesa phone) via RPC.
@@ -686,7 +704,11 @@ class WalletCubit extends Cubit<WalletState> {
 
       final hasPin = res['wallet_pin_hash'] != null;
       emit(state.copyWith(hasPinSet: hasPin));
-    } catch (_) {}
+    } catch (e, stack) {
+      // Background check (not directly user-triggered) — log for diagnostics
+      // but don't surface a visible error for a passive status poll.
+      debugPrint('[WalletCubit] _checkPinStatus error: $e\n$stack');
+    }
   }
 
   String _hashPin(String pin) {

@@ -143,15 +143,53 @@ class _MediaViewerState extends State<MediaViewer> {
     }
   }
 
+  /// Builds a filename like "Summer_Fest_Photo_3.jpg": the forum/event name,
+  /// sanitized to safe filesystem characters, plus the media's 1-based
+  /// gallery position, plus the original file extension (the only part of
+  /// the server-provided name worth keeping — everything else is typically
+  /// an opaque storage key).
+  String _buildFilename(ForumMedia media, int index) {
+    String forumName = 'Forum';
+    try {
+      forumName = context.read<ForumCubit>().state.forumName;
+    } catch (_) {}
+
+    final sanitizedName = forumName
+        .trim()
+        .replaceAll(RegExp(r'[^\w\s-]'), '')
+        .replaceAll(RegExp(r'\s+'), '_');
+    final safeName = sanitizedName.isEmpty ? 'Forum' : sanitizedName;
+
+    final label = media.mediaType == 'video' ? 'Video' : 'Photo';
+
+    String extension = media.mediaType == 'video' ? 'mp4' : 'jpg';
+    final uri = Uri.tryParse(media.url);
+    if (uri != null && uri.pathSegments.isNotEmpty) {
+      final lastSegment = uri.pathSegments.last;
+      final dotIndex = lastSegment.lastIndexOf('.');
+      if (dotIndex != -1 && dotIndex < lastSegment.length - 1) {
+        final candidate = lastSegment.substring(dotIndex + 1).toLowerCase();
+        // Guard against picking up a query-param fragment or an unreasonably
+        // long "extension" from an opaque storage key with dots in it.
+        if (candidate.length <= 5 && RegExp(r'^[a-z0-9]+$').hasMatch(candidate)) {
+          extension = candidate;
+        }
+      }
+    }
+
+    return '${safeName}_${label}_${index + 1}.$extension';
+  }
+
   Future<void> _downloadMedia() async {
     if (_gallery.isEmpty) return;
-    final targetUrl = _gallery[_currentIndex].url;
+    final media = _gallery[_currentIndex];
+    final targetUrl = media.url;
     final uri = Uri.tryParse(targetUrl);
     if (uri == null) return;
 
     if (!mounted) return;
     final messenger = ScaffoldMessenger.of(context);
-    
+
     // Hide any active snackbar before showing a new one
     messenger.hideCurrentSnackBar();
     messenger.showSnackBar(
@@ -161,17 +199,20 @@ class _MediaViewerState extends State<MediaViewer> {
       ),
     );
 
-    String filename = 'download';
-    if (uri.pathSegments.isNotEmpty) {
-      try {
-        filename = Uri.decodeComponent(uri.pathSegments.last);
-      } catch (_) {
-        filename = uri.pathSegments.last;
-      }
-    }
-    
+    final filename = _buildFilename(media, _currentIndex);
+
     try {
-      await downloadFile(targetUrl, filename);
+      final result = await downloadFile(targetUrl, filename);
+      if (!mounted) return;
+      messenger.hideCurrentSnackBar();
+      if (result.openedInNewTab) {
+        messenger.showSnackBar(
+          const SnackBar(
+            content: Text('Opened in a new tab — use your browser\'s Save/Download option to save it.'),
+            duration: Duration(seconds: 4),
+          ),
+        );
+      }
     } catch (e) {
       if (!mounted) return;
       messenger.hideCurrentSnackBar();

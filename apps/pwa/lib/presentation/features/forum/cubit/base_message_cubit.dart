@@ -62,7 +62,12 @@ abstract class BaseMessageCubit<T extends BaseMessageState> extends HydratedCubi
           if (msg.type == _getTypeEnum(messageType)) {
             onBroadcastMessageReceived(msg);
           }
-        } catch (_) {}
+        } catch (e, stack) {
+          // A malformed/unparseable broadcast is dropped rather than crashing
+          // the listener, but log it — otherwise a message silently vanishes
+          // from other clients' views with zero diagnostic trace.
+          debugPrint('[BaseMessageCubit] new_message broadcast parse error: $e\n$stack');
+        }
       },
     );
 
@@ -76,7 +81,9 @@ abstract class BaseMessageCubit<T extends BaseMessageState> extends HydratedCubi
           if (msgId != null) {
             updateMessageInPlace(msgId, content: content, isPinned: isPinned);
           }
-        } catch (_) {}
+        } catch (e, stack) {
+          debugPrint('[BaseMessageCubit] edit_message broadcast parse error: $e\n$stack');
+        }
       },
     );
 
@@ -89,7 +96,9 @@ abstract class BaseMessageCubit<T extends BaseMessageState> extends HydratedCubi
             final updated = state.messages.where((m) => m.id != msgId).toList();
             if (!isClosed) emit(copyWithState(messages: updated));
           }
-        } catch (_) {}
+        } catch (e, stack) {
+          debugPrint('[BaseMessageCubit] delete_message broadcast parse error: $e\n$stack');
+        }
       },
     );
 
@@ -116,7 +125,9 @@ abstract class BaseMessageCubit<T extends BaseMessageState> extends HydratedCubi
 
             updateMessageInPlace(msgId, reactions: updatedReactions);
           }
-        } catch (_) {}
+        } catch (e, stack) {
+          debugPrint('[BaseMessageCubit] message_reaction broadcast parse error: $e\n$stack');
+        }
       },
     );
 
@@ -193,7 +204,9 @@ abstract class BaseMessageCubit<T extends BaseMessageState> extends HydratedCubi
                   );
                 }
               }
-            } catch (_) {}
+            } catch (e, stack) {
+              debugPrint('[BaseMessageCubit] postgres CDC payload parse error: $e\n$stack');
+            }
           },
         );
 
@@ -360,16 +373,23 @@ abstract class BaseMessageCubit<T extends BaseMessageState> extends HydratedCubi
   /// Reports a forum message via the canonical `submit_report` RPC.
   /// `forum_messages.forum_messages` is partitioned, so the report row's FK
   /// to the message uses the composite (target_message_id, target_message_created_at).
-  Future<void> reportMessage(ChatMessage message, String reason) async {
+  /// Returns `true` on success, `false` if the caller is a guest or the RPC
+  /// failed — a silently-swallowed failure here would let a user believe
+  /// their report was submitted when it wasn't.
+  Future<bool> reportMessage(ChatMessage message, String reason) async {
+    if (userId == kGuestUserId) return false;
     try {
-      if (userId == kGuestUserId) return;
       await Supabase.instance.client.schema('api').rpc('submit_report', params: {
         'p_target_message_id': message.id,
         'p_target_message_created_at': message.createdAt.toIso8601String(),
         'p_reason_id': 'general_abuse',
         'p_description': reason,
       });
-    } catch (_) {}
+      return true;
+    } catch (e, stack) {
+      debugPrint('[BaseMessageCubit] reportMessage error: $e\n$stack');
+      return false;
+    }
   }
 
   void updateMessageInPlace(String messageId, {

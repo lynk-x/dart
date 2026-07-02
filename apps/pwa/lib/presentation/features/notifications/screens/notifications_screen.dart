@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:lynk_core/core.dart';
+import 'package:lynk_x/core/utils/safe_launch.dart';
 import 'package:lynk_x/presentation/features/notifications/widgets/notification_card.dart';
 import 'package:lynk_x/presentation/features/notifications/models/notification_model.dart';
 import 'package:lynk_x/presentation/shared/widgets/empty_state.dart';
@@ -75,7 +75,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
         break;
       default:
         if (actionUrl != null) {
-          launchUrl(Uri.parse(actionUrl));
+          safeLaunchUrl(actionUrl);
         }
         break;
     }

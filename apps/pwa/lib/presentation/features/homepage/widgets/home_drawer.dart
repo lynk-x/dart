@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:lynk_core/core.dart';
 
+import 'package:lynk_x/core/utils/safe_launch.dart';
 import 'package:lynk_x/l10n/app_localizations.dart';
 import 'package:lynk_x/app.dart';
 
@@ -440,8 +440,7 @@ class _HomeDrawerState extends State<HomeDrawer> {
                             .state
                             .getString('privacy_policy_url');
                         if (url.isNotEmpty) {
-                          launchUrl(Uri.parse(url),
-                              mode: LaunchMode.inAppBrowserView);
+                          safeLaunchUrl(url, mode: LaunchMode.inAppBrowserView);
                         }
                       },
                       child: Text(
@@ -466,8 +465,7 @@ class _HomeDrawerState extends State<HomeDrawer> {
                             .state
                             .getString('terms_conditions_url');
                         if (url.isNotEmpty) {
-                          launchUrl(Uri.parse(url),
-                              mode: LaunchMode.inAppBrowserView);
+                          safeLaunchUrl(url, mode: LaunchMode.inAppBrowserView);
                         }
                       },
                       child: Text(
@@ -492,8 +490,7 @@ class _HomeDrawerState extends State<HomeDrawer> {
                             .state
                             .getString('community_guidelines_url');
                         if (url.isNotEmpty) {
-                          launchUrl(Uri.parse(url),
-                              mode: LaunchMode.inAppBrowserView);
+                          safeLaunchUrl(url, mode: LaunchMode.inAppBrowserView);
                         }
                       },
                       child: Text(
