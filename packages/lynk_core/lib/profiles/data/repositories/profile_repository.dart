@@ -136,6 +136,7 @@ class ProfileRepository {
   Future<void> updateAvatarUrl(String userId, String? avatarUrl) async {
     await _client.schema('api').rpc('update_profile', params: {
       'p_avatar_url': avatarUrl,
+      'p_remove_avatar': avatarUrl == null,
     });
   }
 
