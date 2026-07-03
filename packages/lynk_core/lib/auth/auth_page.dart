@@ -48,7 +48,7 @@ class _AuthPageState extends State<AuthPage> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    _pendingPhone == null ? 'Find your tickets' : 'Enter your code',
+                    _pendingPhone == null ? 'First time user?' : 'Welcome back',
                     textAlign: TextAlign.center,
                     style: const TextStyle(
                       color: Colors.white,
@@ -59,7 +59,7 @@ class _AuthPageState extends State<AuthPage> {
                   const SizedBox(height: 8),
                   Text(
                     _pendingPhone == null
-                        ? 'Enter the phone number you used at checkout for an OTP'
+                        ? 'Enter the phone number you use for checkout for an OTP'
                         : 'We sent a code to $_pendingPhone.',
                     textAlign: TextAlign.center,
                     style: TextStyle(
@@ -209,59 +209,54 @@ class _PhoneFormState extends State<_PhoneForm> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              height: 48,
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: _isLoadingCountries
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: Padding(
-                        padding: EdgeInsets.all(4),
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      ),
-                    )
-                  : DropdownButtonHideUnderline(
-                      child: DropdownButton<String>(
-                        value: _selectedCountry.code,
-                        icon: const Icon(Icons.arrow_drop_down, color: Colors.black54),
-                        style: const TextStyle(color: Colors.black, fontSize: 15),
-                        items: _countries
-                            .map((c) => DropdownMenuItem(
-                                  value: c.code,
-                                  child: Text('${c.phonePrefix} (${c.code})'),
-                                ))
-                            .toList(),
-                        onChanged: (code) {
-                          final match = _countries.where((c) => c.code == code);
-                          if (match.isNotEmpty) {
-                            setState(() => _selectedCountry = match.first);
-                          }
-                        },
-                      ),
-                    ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: CustomTextField(
-                hintText: 'Phone Number',
-                controller: _phoneController,
-                keyboardType: TextInputType.phone,
-                suffixIcon: Icon(
-                  Icons.phone_android_outlined,
-                  color: Colors.grey[600],
-                  size: 20,
+        Container(
+          height: 48,
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: _isLoadingCountries
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: Padding(
+                    padding: EdgeInsets.all(4),
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                )
+              : DropdownButtonHideUnderline(
+                  child: DropdownButton<String>(
+                    value: _selectedCountry.code,
+                    isExpanded: true,
+                    icon: const Icon(Icons.arrow_drop_down, color: Colors.black54),
+                    style: const TextStyle(color: Colors.black, fontSize: 15),
+                    items: _countries
+                        .map((c) => DropdownMenuItem(
+                              value: c.code,
+                              child: Text('${c.displayName} (${c.phonePrefix})'),
+                            ))
+                        .toList(),
+                    onChanged: (code) {
+                      final match = _countries.where((c) => c.code == code);
+                      if (match.isNotEmpty) {
+                        setState(() => _selectedCountry = match.first);
+                      }
+                    },
+                  ),
                 ),
-              ),
-            ),
-          ],
+        ),
+        const SizedBox(height: 12),
+        CustomTextField(
+          hintText: 'Phone Number',
+          controller: _phoneController,
+          keyboardType: TextInputType.phone,
+          suffixIcon: Icon(
+            Icons.phone_android_outlined,
+            color: Colors.grey[600],
+            size: 20,
+          ),
         ),
         const SizedBox(height: 12),
         PrimaryButton(
