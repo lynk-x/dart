@@ -12,6 +12,7 @@ import 'package:lynk_x/presentation/features/forum/screens/sessions_screen.dart'
 import 'package:lynk_x/presentation/features/forum/widgets/ticket_scanner_sheet.dart';
 import 'package:lynk_x/presentation/features/forum/cubit/ticket_validation_cubit.dart';
 import 'package:lynk_x/presentation/features/notifications/screens/notifications_screen.dart';
+import 'package:lynk_x/presentation/features/auth/screens/claim_bridge_screen.dart';
 import 'package:lynk_x/presentation/features/ticket/screens/ticket_screen.dart';
 import 'package:lynk_x/presentation/features/ticket/screens/tickets_list_screen.dart';
 import 'package:lynk_x/presentation/features/profile/screens/edit_profile_screen.dart';
@@ -63,6 +64,7 @@ GoRouter createRouter(
 
         const publicRoutes = {
           '/auth',
+          '/auth/bridge',
           '/forgot-password',
           '/reset-password',
           '/verify-email',
@@ -112,6 +114,17 @@ GoRouter createRouter(
           color: Colors.black,
           child: const AuthPage(),
         ),
+      ),
+      GoRoute(
+        path: '/auth/bridge',
+        builder: (_, state) {
+          final claimToken = state.uri.queryParameters['claim'];
+          return Title(
+            title: 'Claiming Tickets',
+            color: Colors.black,
+            child: ClaimBridgeScreen(claimToken: claimToken),
+          );
+        },
       ),
       GoRoute(
         path: '/verify-email',

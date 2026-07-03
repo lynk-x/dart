@@ -36,6 +36,24 @@ class ForumRepository {
     };
   }
 
+  // Used by the claim-link bridge screen: claim_order returns an event_id,
+  // but the forum route resolves by forum id/reference, and forum id is a
+  // distinct generated uuid (not equal to event_id) — see
+  // social.forums(id, event_id). Returns the forum's reference/slug if set,
+  // otherwise its id, either of which /forum/:reference accepts.
+  Future<String?> getForumRouteSegmentByEventId(String eventId) async {
+    final forumData = await _client
+        .schema('api')
+        .from('v1_forums')
+        .select('id, reference')
+        .eq('event_id', eventId)
+        .maybeSingle();
+
+    if (forumData == null) return null;
+    final reference = forumData['reference'] as String?;
+    return (reference != null && reference.isNotEmpty) ? reference : forumData['id'] as String;
+  }
+
   Future<Map<String, dynamic>> getForumWithMemberStatusByReference(
       String reference, String userId) async {
     final isUuid = RegExp(r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$').hasMatch(reference);
