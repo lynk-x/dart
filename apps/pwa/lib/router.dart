@@ -65,9 +65,6 @@ GoRouter createRouter(
         const publicRoutes = {
           '/auth',
           '/auth/bridge',
-          '/forgot-password',
-          '/reset-password',
-          '/verify-email',
           '/maintenance',
           '/error'
         };
@@ -125,33 +122,6 @@ GoRouter createRouter(
             child: ClaimBridgeScreen(claimToken: claimToken),
           );
         },
-      ),
-      GoRoute(
-        path: '/verify-email',
-        builder: (_, state) {
-          final email = state.uri.queryParameters['email'] ?? '';
-          return Title(
-            title: 'Verify Email',
-            color: Colors.black,
-            child: VerifyEmailPage(email: email),
-          );
-        },
-      ),
-      GoRoute(
-        path: '/forgot-password',
-        builder: (_, __) => Title(
-          title: 'Forgot Password',
-          color: Colors.black,
-          child: const ForgotPasswordPage(),
-        ),
-      ),
-      GoRoute(
-        path: '/reset-password',
-        builder: (_, __) => Title(
-          title: 'Reset Password',
-          color: Colors.black,
-          child: const ResetPasswordPage(),
-        ),
       ),
       GoRoute(
         path: '/',

@@ -796,8 +796,8 @@ class WalletCubit extends Cubit<WalletState> {
     final prefs = await SharedPreferences.getInstance();
     if (enable) {
       if (kIsWeb) {
-        final email = _supabase.auth.currentUser?.email ?? 'user@lynk-x';
-        final hexId = await WebAuthnHelper.registerLocalCredential(email);
+        final identifier = _supabase.auth.currentUser?.phone ?? 'user@lynk-x';
+        final hexId = await WebAuthnHelper.registerLocalCredential(identifier);
         if (hexId == null) {
           emit(state.copyWith(useBiometrics: false, error: 'WebAuthn registration failed or was cancelled.'));
           return;

@@ -70,7 +70,8 @@ class SupportRepository {
   Future<String> createTicket(String userId, String contextCategory, String subject, String message) async {
     final response = await _client.schema('api').from('v1_support_tickets').insert({
       'user_id': userId,
-      'email': _client.auth.currentUser?.email ?? 'user@lynk-x.com',
+      'email': 'no-email@lynk-x.com',
+      'phone': _client.auth.currentUser?.phone,
       'subject': subject,
       'message': message,
       'metadata': {'context': contextCategory},

@@ -10,7 +10,7 @@ import 'package:lynk_core/core.dart';
 import 'package:lynk_x/services/push_notification_service.dart';
 import '../models/country.dart';
 
-enum SetupStep { identity, security, notifications }
+enum SetupStep { identity, notifications }
 
 class ProfileSetupScreen extends StatefulWidget {
   const ProfileSetupScreen({super.key});
@@ -21,8 +21,7 @@ class ProfileSetupScreen extends StatefulWidget {
 
 class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   final _formKeyIdentity = GlobalKey<FormState>();
-  final _formKeySecurity = GlobalKey<FormState>();
-  
+
   SetupStep _currentStep = SetupStep.identity;
 
   // Identity Fields
@@ -42,23 +41,12 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   /// clobber a faster later one.
   int _usernameRequestId = 0;
 
-  // Security Fields
-  final _passwordController = TextEditingController();
-  final _confirmPasswordController = TextEditingController();
-  bool _obscurePassword = true;
-
   bool _isSubmitting = false;
-  late final bool _needsPasswordSetup;
 
   @override
   void initState() {
     super.initState();
     _userNameController.addListener(_onUsernameChanged);
-    // Email/password users already set their password on the sign-up form.
-    // Only OAuth users (Google, Apple) need to set one here.
-    final provider = sb.Supabase.instance.client.auth.currentUser
-        ?.appMetadata['provider'] as String?;
-    _needsPasswordSetup = provider != null && provider != 'email';
   }
 
   @override
@@ -67,8 +55,6 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
     _debounceTimer?.cancel();
     _fullNameController.dispose();
     _userNameController.dispose();
-    _passwordController.dispose();
-    _confirmPasswordController.dispose();
     super.dispose();
   }
 
@@ -116,11 +102,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
 
   void _goToNextFromIdentity() {
     if (!_formKeyIdentity.currentState!.validate()) return;
-    if (_needsPasswordSetup) {
-      setState(() => _currentStep = SetupStep.security);
-    } else {
-      _saveIdentityAndGoToNotifications();
-    }
+    _saveIdentityAndGoToNotifications();
   }
 
   Future<void> _saveIdentityAndGoToNotifications() async {
@@ -132,35 +114,6 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
         fullName: _fullNameController.text.trim(),
         userName: _userNameController.text.trim(),
         countryCode: _selectedCountryCode,
-      );
-      if (mounted) {
-        setState(() {
-          _isSubmitting = false;
-          _currentStep = SetupStep.notifications;
-        });
-      }
-    } catch (e) {
-      setState(() => _isSubmitting = false);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
-      }
-    }
-  }
-
-  Future<void> _goToNotifications() async {
-    if (!_formKeySecurity.currentState!.validate()) return;
-
-    setState(() => _isSubmitting = true);
-    try {
-      final cubit = context.read<ProfileCubit>();
-      if (_imageFile != null) await cubit.uploadAvatar(_imageFile!);
-      await cubit.updateProfile(
-        fullName: _fullNameController.text.trim(),
-        userName: _userNameController.text.trim(),
-        countryCode: _selectedCountryCode,
-      );
-      await sb.Supabase.instance.client.auth.updateUser(
-        sb.UserAttributes(password: _passwordController.text.trim()),
       );
       if (mounted) {
         setState(() {
@@ -206,12 +159,8 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   }
 
   Widget _buildStepIndicator() {
-    final labels = _needsPasswordSetup
-        ? ['Profile', 'Security', 'Notifications']
-        : ['Profile', 'Notifications'];
-    final currentIndex = _needsPasswordSetup
-        ? SetupStep.values.indexOf(_currentStep)
-        : (_currentStep == SetupStep.notifications ? 1 : 0);
+    const labels = ['Profile', 'Notifications'];
+    final currentIndex = _currentStep == SetupStep.notifications ? 1 : 0;
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
       child: Row(
@@ -253,8 +202,6 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
     switch (_currentStep) {
       case SetupStep.identity:
         return _buildIdentityStep();
-      case SetupStep.security:
-        return _buildSecurityStep();
       case SetupStep.notifications:
         return _buildNotificationsStep();
     }
@@ -380,56 +327,11 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
             _isSubmitting
                 ? Center(child: CircularProgressIndicator(color: context.accentColor))
                 : PrimaryButton(
-                    text: _needsPasswordSetup ? 'Next: Security' : 'Continue',
+                    text: 'Continue',
                     onPressed: (_isCheckingUsername || _isUsernameAvailable == false)
                         ? null
                         : _goToNextFromIdentity,
                   ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // --- SECURITY STEP ---
-  Widget _buildSecurityStep() {
-    return SingleChildScrollView(
-      key: const ValueKey('security'),
-      padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 40.0),
-      child: Form(
-        key: _formKeySecurity,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _buildHeader('Secure your account', 'Set a strong password to access your tickets and forums anywhere.'),
-            const SizedBox(height: 60),
-            _buildTextField(
-              controller: _passwordController,
-              label: 'Password',
-              hint: '••••••••',
-              obscureText: _obscurePassword,
-              suffixIcon: IconButton(
-                icon: Icon(_obscurePassword ? Icons.visibility_off : Icons.visibility, color: Colors.white24),
-                onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
-              ),
-              validator: (v) => v == null || v.length < 8 ? 'Min 8 characters' : null,
-            ).animate().slideX(begin: -0.1).fadeIn(),
-            const SizedBox(height: 24),
-            _buildTextField(
-              controller: _confirmPasswordController,
-              label: 'Confirm Password',
-              hint: '••••••••',
-              obscureText: _obscurePassword,
-              validator: (v) => v != _passwordController.text ? 'Passwords do not match' : null,
-            ).animate().slideX(begin: -0.1).fadeIn(delay: 100.ms),
-            const SizedBox(height: 60),
-            _isSubmitting
-              ? Center(child: CircularProgressIndicator(color: context.accentColor))
-              : PrimaryButton(text: 'Create Account Password', onPressed: _goToNotifications),
-            TextButton(
-              onPressed: () => setState(() => _currentStep = SetupStep.identity),
-              child: const Text('Go Back', style: TextStyle(color: Colors.white30)),
-            ),
           ],
         ),
       ),

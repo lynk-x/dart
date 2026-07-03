@@ -132,7 +132,8 @@ class _LynkXAppState extends State<LynkXApp> {
       );
     };
 
-    // Auth state listener — handles sign-in, sign-out, and password recovery.
+    // Auth state listener — handles sign-in and sign-out (phone+OTP only, no
+    // password recovery flow).
     try {
       _authSubscription =
           Supabase.instance.client.auth.onAuthStateChange.listen((data) {
@@ -154,8 +155,6 @@ class _LynkXAppState extends State<LynkXApp> {
           context.read<NotificationCubit>().reset();
           context.read<WalletCubit>().reset();
           PushNotificationService.instance.removeToken();
-        } else if (data.event == AuthChangeEvent.passwordRecovery) {
-          _router.go('/reset-password');
         }
       });
     } catch (e) {

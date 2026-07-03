@@ -61,7 +61,8 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
       // Unify feedback into the main support_tickets table for admin visibility
       await supabase.schema('reports').from('support_tickets').insert({
         'user_id': user?.id,
-        'email': user?.email ?? 'anonymous@lynk-x.app',
+        'email': 'no-email@lynk-x.app',
+        'phone': user?.phone,
         'full_name': user?.userMetadata?['full_name'] ?? 'PWA User',
         'subject': 'PWA Feedback: $_selectedCategory',
         'message': _feedbackController.text.trim(),

@@ -16,8 +16,6 @@ class HomeDrawer extends StatefulWidget {
 }
 
 class _HomeDrawerState extends State<HomeDrawer> {
-  final User? _user = Supabase.instance.client.auth.currentUser;
-
   Future<void> _signOut() async {
     try {
       await Supabase.instance.client.auth.signOut();
@@ -90,16 +88,12 @@ class _HomeDrawerState extends State<HomeDrawer> {
               children: [
                 BlocBuilder<ProfileCubit, ProfileState>(
                   builder: (context, state) {
-                    final isUnverified =
-                        _user != null && _user.emailConfirmedAt == null;
-
                     if (state is ProfileLoaded) {
                       final profile = state.profile;
                       return Padding(
                         padding: const EdgeInsets.fromLTRB(16, 56, 16, 16),
                         child: Column(
                           children: [
-                            if (isUnverified) _buildUnverifiedBanner(),
                             Row(
                               children: [
                                 CircleAvatar(
@@ -160,7 +154,6 @@ class _HomeDrawerState extends State<HomeDrawer> {
                       padding: const EdgeInsets.fromLTRB(16, 56, 16, 16),
                       child: Column(
                         children: [
-                          if (isUnverified) _buildUnverifiedBanner(),
                           Row(
                             children: [
                               Container(
@@ -509,35 +502,6 @@ class _HomeDrawerState extends State<HomeDrawer> {
                   style: const TextStyle(color: Colors.white38, fontSize: 12),
                 ),
               ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildUnverifiedBanner() {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.amber.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.amber.withValues(alpha: 0.3)),
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.warning_amber_rounded,
-              color: Colors.amber, size: 20),
-          const SizedBox(width: 12),
-          const Expanded(
-            child: Text(
-              'Verify your email',
-              style: TextStyle(
-                color: Colors.amber,
-                fontSize: 13,
-                fontWeight: FontWeight.bold,
-              ),
             ),
           ),
         ],

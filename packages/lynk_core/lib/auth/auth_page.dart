@@ -1,11 +1,12 @@
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import '../src/widgets/primary_button.dart';
-import 'widgets/social_button.dart';
 import 'widgets/custom_text_field.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:go_router/go_router.dart';
 
+/// Phone number + OTP is the only way in — no password, no email, no OAuth.
+/// A single `signInWithOtp(phone: ...)` call covers both new and returning
+/// users (`shouldCreateUser: true`), so there's no separate login/signup mode
+/// to toggle between; the code-verification step is the only second screen.
 class AuthPage extends StatefulWidget {
   const AuthPage({super.key});
 
@@ -14,27 +15,14 @@ class AuthPage extends StatefulWidget {
 }
 
 class _AuthPageState extends State<AuthPage> {
-  bool _isLogin = true;
-  bool _useEmail = false;
+  String? _pendingPhone;
 
-  Future<void> _signInWithProvider(BuildContext context, OAuthProvider provider) async {
-    try {
-      // Web uses the current origin as the redirect; native uses the deep-link scheme.
-      final redirectTo = kIsWeb ? null : 'io.supabase.lynkx://login-callback/';
-      await Supabase.instance.client.auth.signInWithOAuth(
-        provider,
-        redirectTo: redirectTo,
-      );
-    } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Sign in failed: ${e.toString()}'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
+  void _onCodeSent(String phone) {
+    setState(() => _pendingPhone = phone);
+  }
+
+  void _onBackToPhone() {
+    setState(() => _pendingPhone = null);
   }
 
   @override
@@ -51,7 +39,6 @@ class _AuthPageState extends State<AuthPage> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // Logo
                   Center(
                     child: Image.asset(
                       'assets/images/lynk-x_combined-logo.png',
@@ -60,10 +47,8 @@ class _AuthPageState extends State<AuthPage> {
                     ),
                   ),
                   const SizedBox(height: 8),
-
-                  // Title & Subtitle
                   Text(
-                    _isLogin ? 'Welcome Back' : 'Create Account',
+                    _pendingPhone == null ? 'Welcome' : 'Enter your code',
                     textAlign: TextAlign.center,
                     style: const TextStyle(
                       color: Colors.white,
@@ -73,9 +58,9 @@ class _AuthPageState extends State<AuthPage> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    _isLogin
-                        ? 'Fill out the information below in order to access your account.'
-                        : "Let's get started by filling out the form below.",
+                    _pendingPhone == null
+                        ? 'Enter your phone number to sign in or create an account.'
+                        : 'We sent a code to $_pendingPhone.',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: Colors.white.withValues(alpha: 0.8),
@@ -84,81 +69,10 @@ class _AuthPageState extends State<AuthPage> {
                     ),
                   ),
                   const SizedBox(height: 24),
-
-                  // Toggle
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: TextButton(
-                      onPressed: () => setState(() => _useEmail = !_useEmail),
-                      style: TextButton.styleFrom(
-                        padding: EdgeInsets.zero,
-                        minimumSize: Size.zero,
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      ),
-                      child: Text(
-                        _useEmail ? 'Use Phone Number instead' : 'Use Email instead',
-                        style: const TextStyle(
-                          color: Color(0xFF00FF00),
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-
-                  // Form
-                  if (_isLogin)
-                    _LoginForm(useEmail: _useEmail)
+                  if (_pendingPhone == null)
+                    _PhoneForm(onCodeSent: _onCodeSent)
                   else
-                    _SignUpForm(useEmail: _useEmail),
-
-                  const SizedBox(height: 16),
-                  const _OrDivider(),
-                  const SizedBox(height: 16),
-
-                  // Social Buttons
-                  SocialButton(
-                    text: 'Continue with Google',
-                    icon: Icons.g_mobiledata,
-                    onPressed: () => _signInWithProvider(context, OAuthProvider.google),
-                  ),
-
-
-                  if (_isLogin) ...[
-                    const SizedBox(height: 16),
-                    Center(
-                      child: TextButton(
-                        onPressed: () => context.go('/forgot-password'),
-                        child: const Text(
-                          'Forgot Password?',
-                          style: TextStyle(
-                            color: Color(0xFF00FF00),
-                            fontWeight: FontWeight.w600,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-
-                  // Footer
-                  const SizedBox(height: 32),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      _FooterLink(
-                        text: 'Create Account',
-                        isActive: !_isLogin,
-                        onPressed: () => setState(() => _isLogin = false),
-                      ),
-                      _FooterLink(
-                        text: 'Log In',
-                        isActive: _isLogin,
-                        onPressed: () => setState(() => _isLogin = true),
-                      ),
-                    ],
-                  ),
+                    _OtpForm(phone: _pendingPhone!, onBack: _onBackToPhone),
                 ],
               ),
             ),
@@ -169,80 +83,37 @@ class _AuthPageState extends State<AuthPage> {
   }
 }
 
-class _FooterLink extends StatelessWidget {
-  final String text;
-  final bool isActive;
-  final VoidCallback onPressed;
-
-  const _FooterLink({
-    required this.text,
-    required this.isActive,
-    required this.onPressed,
-  });
+class _PhoneForm extends StatefulWidget {
+  final ValueChanged<String> onCodeSent;
+  const _PhoneForm({required this.onCodeSent});
 
   @override
-  Widget build(BuildContext context) {
-    return TextButton(
-      onPressed: onPressed,
-      style: TextButton.styleFrom(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      ),
-      child: Text(
-        text,
-        style: TextStyle(
-          color: (isActive ? const Color(0xFF00FF00) : Colors.white)
-              .withValues(alpha: isActive ? 1.0 : 0.5),
-          fontSize: 16,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-    );
-  }
+  State<_PhoneForm> createState() => _PhoneFormState();
 }
 
-class _LoginForm extends StatefulWidget {
-  final bool useEmail;
-  const _LoginForm({required this.useEmail});
-
-  @override
-  State<_LoginForm> createState() => _LoginFormState();
-}
-
-class _LoginFormState extends State<_LoginForm> {
-  final _identifierController = TextEditingController();
-  final _passwordController = TextEditingController();
+class _PhoneFormState extends State<_PhoneForm> {
+  final _phoneController = TextEditingController();
   bool _isLoading = false;
 
-  Future<void> _signIn() async {
-    final identifier = _identifierController.text.trim();
-    final password = _passwordController.text.trim();
-
-    if (identifier.isEmpty || password.isEmpty) {
+  Future<void> _sendCode() async {
+    final phone = _phoneController.text.trim();
+    if (phone.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Please enter your ${widget.useEmail ? "email" : "phone number"} and password')),
+        const SnackBar(content: Text('Please enter your phone number')),
       );
       return;
     }
     setState(() => _isLoading = true);
     try {
-      if (widget.useEmail) {
-        await Supabase.instance.client.auth.signInWithPassword(
-          email: identifier,
-          password: password,
-        );
-      } else {
-        await Supabase.instance.client.auth.signInWithPassword(
-          phone: identifier,
-          password: password,
-        );
-      }
+      await Supabase.instance.client.auth.signInWithOtp(
+        phone: phone,
+        channel: OtpChannel.sms,
+      );
+      if (mounted) widget.onCodeSent(phone);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(e.toString()),
-            backgroundColor: Colors.red,
-          ),
+          SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
         );
       }
     } finally {
@@ -256,25 +127,19 @@ class _LoginFormState extends State<_LoginForm> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         CustomTextField(
-          hintText: widget.useEmail ? 'Email Address' : 'Phone Number (e.g. +254...)',
-          controller: _identifierController,
-          keyboardType: widget.useEmail ? TextInputType.emailAddress : TextInputType.phone,
+          hintText: 'Phone Number (e.g. +254...)',
+          controller: _phoneController,
+          keyboardType: TextInputType.phone,
           suffixIcon: Icon(
-            widget.useEmail ? Icons.email_outlined : Icons.phone_android_outlined,
+            Icons.phone_android_outlined,
             color: Colors.grey[600],
             size: 20,
           ),
         ),
         const SizedBox(height: 12),
-        CustomTextField(
-          hintText: 'Password',
-          controller: _passwordController,
-          isPassword: true,
-        ),
-        const SizedBox(height: 12),
         PrimaryButton(
-          text: 'Sign In',
-          onPressed: _signIn,
+          text: 'Send Code',
+          onPressed: _sendCode,
           isLoading: _isLoading,
         ),
       ],
@@ -282,62 +147,69 @@ class _LoginFormState extends State<_LoginForm> {
   }
 }
 
-class _SignUpForm extends StatefulWidget {
-  final bool useEmail;
-  const _SignUpForm({required this.useEmail});
+class _OtpForm extends StatefulWidget {
+  final String phone;
+  final VoidCallback onBack;
+  const _OtpForm({required this.phone, required this.onBack});
 
   @override
-  State<_SignUpForm> createState() => _SignUpFormState();
+  State<_OtpForm> createState() => _OtpFormState();
 }
 
-class _SignUpFormState extends State<_SignUpForm> {
-  final _identifierController = TextEditingController();
-  final _passwordController = TextEditingController();
-  final _confirmController = TextEditingController();
+class _OtpFormState extends State<_OtpForm> {
+  final _codeController = TextEditingController();
   bool _isLoading = false;
+  bool _isResending = false;
 
-  Future<void> _signUp() async {
-    final identifier = _identifierController.text.trim();
-    final password = _passwordController.text.trim();
-    if (password != _confirmController.text.trim()) {
+  Future<void> _verify() async {
+    final code = _codeController.text.trim();
+    if (code.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Passwords do not match'),
-          backgroundColor: Colors.red,
-        ),
+        const SnackBar(content: Text('Please enter the code we sent you')),
       );
       return;
     }
-
     setState(() => _isLoading = true);
     try {
-      if (widget.useEmail) {
-        await Supabase.instance.client.auth.signUp(
-          email: identifier,
-          password: password,
-        );
-        if (mounted) {
-          context.go('/verify-email?email=${Uri.encodeComponent(identifier)}');
-        }
-      } else {
-        await Supabase.instance.client.auth.signUp(
-          phone: identifier,
-          password: password,
-        );
-        // For phone sign up, we might need a different verification screen or OTP
-        // For now, assuming standard flow
-      }
+      await Supabase.instance.client.auth.verifyOTP(
+        phone: widget.phone,
+        token: code,
+        type: OtpType.sms,
+      );
+      // Successful verification updates the auth session; app.dart's
+      // onAuthStateChange listener (signedIn) takes over from here — no
+      // explicit navigation needed, the router redirect will pick it up.
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(e.toString()),
-            backgroundColor: Colors.red,
-          ),
+          SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
         );
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _resend() async {
+    setState(() => _isResending = true);
+    try {
+      await Supabase.instance.client.auth.signInWithOtp(
+        phone: widget.phone,
+        channel: OtpChannel.sms,
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Code resent')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isResending = false);
     }
   }
 
@@ -347,52 +219,46 @@ class _SignUpFormState extends State<_SignUpForm> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         CustomTextField(
-          hintText: widget.useEmail ? 'Email Address' : 'Phone Number (e.g. +254...)',
-          controller: _identifierController,
-          keyboardType: widget.useEmail ? TextInputType.emailAddress : TextInputType.phone,
+          hintText: '6-digit code',
+          controller: _codeController,
+          keyboardType: TextInputType.number,
           suffixIcon: Icon(
-            widget.useEmail ? Icons.email_outlined : Icons.phone_android_outlined,
+            Icons.password_outlined,
             color: Colors.grey[600],
             size: 20,
           ),
         ),
         const SizedBox(height: 12),
-        CustomTextField(
-          hintText: 'Password',
-          controller: _passwordController,
-          isPassword: true,
-        ),
-        const SizedBox(height: 12),
-        CustomTextField(
-          hintText: 'Confirm Password',
-          controller: _confirmController,
-          isPassword: true,
-        ),
-        const SizedBox(height: 24),
         PrimaryButton(
-          text: 'Get Started',
-          onPressed: _signUp,
+          text: 'Verify',
+          onPressed: _verify,
           isLoading: _isLoading,
+        ),
+        const SizedBox(height: 16),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            TextButton(
+              onPressed: widget.onBack,
+              child: const Text(
+                'Change number',
+                style: TextStyle(color: Colors.white70, fontSize: 14),
+              ),
+            ),
+            TextButton(
+              onPressed: _isResending ? null : _resend,
+              child: Text(
+                _isResending ? 'Resending…' : 'Resend code',
+                style: const TextStyle(
+                  color: Color(0xFF00FF00),
+                  fontWeight: FontWeight.w600,
+                  fontSize: 14,
+                ),
+              ),
+            ),
+          ],
         ),
       ],
     );
   }
 }
-
-class _OrDivider extends StatelessWidget {
-  const _OrDivider();
-
-  @override
-  Widget build(BuildContext context) {
-    return const Center(
-      child: Text(
-        'Or sign in with',
-        style: TextStyle(
-          color: Colors.white,
-          fontSize: 14,
-        ),
-      ),
-    );
-  }
-}
-
