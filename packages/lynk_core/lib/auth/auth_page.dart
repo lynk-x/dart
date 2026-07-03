@@ -48,7 +48,7 @@ class _AuthPageState extends State<AuthPage> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    _pendingPhone == null ? 'Welcome' : 'Enter your code',
+                    _pendingPhone == null ? 'Find your tickets' : 'Enter your code',
                     textAlign: TextAlign.center,
                     style: const TextStyle(
                       color: Colors.white,
@@ -59,7 +59,7 @@ class _AuthPageState extends State<AuthPage> {
                   const SizedBox(height: 8),
                   Text(
                     _pendingPhone == null
-                        ? 'Enter your phone number to sign in or create an account.'
+                        ? 'Enter the phone number you used at checkout for an OTP'
                         : 'We sent a code to $_pendingPhone.',
                     textAlign: TextAlign.center,
                     style: TextStyle(
@@ -91,15 +91,98 @@ class _PhoneForm extends StatefulWidget {
   State<_PhoneForm> createState() => _PhoneFormState();
 }
 
+class _DialCodeCountry {
+  final String code;
+  final String displayName;
+  final String phonePrefix;
+  final int? phoneDigits;
+  const _DialCodeCountry({
+    required this.code,
+    required this.displayName,
+    required this.phonePrefix,
+    this.phoneDigits,
+  });
+}
+
 class _PhoneFormState extends State<_PhoneForm> {
   final _phoneController = TextEditingController();
   bool _isLoading = false;
+  bool _isLoadingCountries = true;
+
+  List<_DialCodeCountry> _countries = const [];
+  _DialCodeCountry _selectedCountry = const _DialCodeCountry(
+    code: 'KE', displayName: 'Kenya', phonePrefix: '+254', phoneDigits: 9,
+  );
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCountries();
+  }
+
+  // Backed by api.v1_countries' phone_prefix/phone_digits columns — the same
+  // source checkout's CountryPhoneSelect uses, so both sides normalize a
+  // phone number to the identical E.164 shape.
+  Future<void> _loadCountries() async {
+    try {
+      final data = await Supabase.instance.client
+          .schema('api')
+          .from('v1_countries')
+          .select('code, display_name, phone_prefix, phone_digits')
+          .eq('is_active', true)
+          .not('phone_prefix', 'is', null)
+          .order('display_name');
+
+      final countries = (data as List)
+          .map((row) => _DialCodeCountry(
+                code: row['code'] as String,
+                displayName: row['display_name'] as String,
+                phonePrefix: row['phone_prefix'] as String,
+                phoneDigits: row['phone_digits'] as int?,
+              ))
+          .toList();
+
+      if (!mounted) return;
+      setState(() {
+        _countries = countries;
+        final match = countries.where((c) => c.code == _selectedCountry.code);
+        if (match.isNotEmpty) _selectedCountry = match.first;
+        _isLoadingCountries = false;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _isLoadingCountries = false);
+    }
+  }
+
+  /// Normalizes the national-format input against the selected country's
+  /// dial code, mirroring web's normalizeToE164 in web/src/utils/phone.ts —
+  /// keeping login and checkout's contact phone on the same E.164 shape is
+  /// what lets a returning guest's tickets actually be found by phone.
+  String? _normalizeToE164(String raw) {
+    var cleaned = raw.replaceAll(RegExp(r'[\s\-()]'), '');
+    final dialDigits = _selectedCountry.phonePrefix.replaceAll(RegExp(r'\D'), '');
+
+    if (cleaned.startsWith('+')) cleaned = cleaned.substring(1);
+    if (cleaned.startsWith(dialDigits)) {
+      cleaned = cleaned.substring(dialDigits.length);
+    } else if (cleaned.startsWith('0')) {
+      cleaned = cleaned.substring(1);
+    }
+
+    if (!RegExp(r'^\d+$').hasMatch(cleaned)) return null;
+    final expected = _selectedCountry.phoneDigits;
+    if (expected != null && cleaned.length != expected) return null;
+    if (expected == null && (cleaned.length < 6 || cleaned.length > 14)) return null;
+
+    return '+$dialDigits$cleaned';
+  }
 
   Future<void> _sendCode() async {
-    final phone = _phoneController.text.trim();
-    if (phone.isEmpty) {
+    final raw = _phoneController.text.trim();
+    final phone = raw.isEmpty ? null : _normalizeToE164(raw);
+    if (phone == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter your phone number')),
+        const SnackBar(content: Text('Please enter a valid phone number')),
       );
       return;
     }
@@ -126,15 +209,59 @@ class _PhoneFormState extends State<_PhoneForm> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        CustomTextField(
-          hintText: 'Phone Number (e.g. +254...)',
-          controller: _phoneController,
-          keyboardType: TextInputType.phone,
-          suffixIcon: Icon(
-            Icons.phone_android_outlined,
-            color: Colors.grey[600],
-            size: 20,
-          ),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              height: 48,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: _isLoadingCountries
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: Padding(
+                        padding: EdgeInsets.all(4),
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                    )
+                  : DropdownButtonHideUnderline(
+                      child: DropdownButton<String>(
+                        value: _selectedCountry.code,
+                        icon: const Icon(Icons.arrow_drop_down, color: Colors.black54),
+                        style: const TextStyle(color: Colors.black, fontSize: 15),
+                        items: _countries
+                            .map((c) => DropdownMenuItem(
+                                  value: c.code,
+                                  child: Text('${c.phonePrefix} (${c.code})'),
+                                ))
+                            .toList(),
+                        onChanged: (code) {
+                          final match = _countries.where((c) => c.code == code);
+                          if (match.isNotEmpty) {
+                            setState(() => _selectedCountry = match.first);
+                          }
+                        },
+                      ),
+                    ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: CustomTextField(
+                hintText: 'Phone Number',
+                controller: _phoneController,
+                keyboardType: TextInputType.phone,
+                suffixIcon: Icon(
+                  Icons.phone_android_outlined,
+                  color: Colors.grey[600],
+                  size: 20,
+                ),
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 12),
         PrimaryButton(
