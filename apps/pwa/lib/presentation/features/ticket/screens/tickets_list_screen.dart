@@ -131,7 +131,7 @@ class _TicketListItem extends StatelessWidget {
     final timeFormat = DateFormat('HH:mm');
 
     return GestureDetector(
-      onTap: () => context.push('/ticket/${ticket.id}'),
+      onTap: () => context.push('/ticket/${ticket.reference}'),
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(

@@ -1,5 +1,6 @@
 class TicketModel {
   final String id;
+  final String reference;
   final String eventId;
   final String eventTitle;
   final String locationName;
@@ -17,6 +18,7 @@ class TicketModel {
 
   TicketModel({
     required this.id,
+    required this.reference,
     required this.eventId,
     required this.eventTitle,
     required this.locationName,
@@ -45,6 +47,7 @@ class TicketModel {
 
     return TicketModel(
       id: map['id'] as String,
+      reference: map['reference'] as String,
       eventId: map['event_id'] as String,
       eventTitle: event['title'] as String,
       locationName: location?['venue'] as String?
@@ -70,6 +73,7 @@ class TicketModel {
     final ticketStatus = map['ticket_status'] as String? ?? 'active';
     return TicketModel(
       id: map['ticket_id'] as String,
+      reference: map['reference'] as String,
       eventId: map['event_id'] as String,
       eventTitle: map['event_title'] as String,
       locationName: map['location_name'] as String? ?? 'Online',

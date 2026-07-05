@@ -25,13 +25,16 @@ class TicketCubit extends Cubit<TicketState> {
     return super.close();
   }
 
-  Future<void> loadTicket(String ticketId, {bool isSilent = false}) async {
+  /// [reference] is the human-readable public ticket reference (used for
+  /// routing/URLs). Internally, once the ticket is loaded, realtime
+  /// subscriptions and RPC calls key on the real ticket id instead.
+  Future<void> loadTicket(String reference, {bool isSilent = false}) async {
     if (!isSilent) emit(state.copyWith(isLoading: true, error: null));
 
     try {
 
       // 1. Fetch ticket data from the secure API proxy view via repository
-      final response = await _repo.getTicketById(ticketId);
+      final response = await _repo.getTicketByReference(reference);
       if (response == null) {
         throw Exception('Ticket not found');
       }
@@ -39,7 +42,7 @@ class TicketCubit extends Cubit<TicketState> {
       final ticket = TicketModel.fromView(response);
 
       // 2. Fetch pending listings separately via repository
-      final pendingListing = await _repo.getPendingListing(ticketId);
+      final pendingListing = await _repo.getPendingListing(ticket.id);
 
       emit(state.copyWith(
         isLoading: false,
@@ -50,26 +53,26 @@ class TicketCubit extends Cubit<TicketState> {
 
       // Subscribe to updates if not already listening for this ticket
       if (_ticketChannel == null) {
-        _subscribeToUpdates(ticketId);
+        _subscribeToUpdates(ticket.id, reference);
       }
     } catch (e) {
       if (!isSilent) emit(state.copyWith(isLoading: false, error: e.toFriendlyMessage()));
     }
   }
 
-  void _subscribeToUpdates(String ticketId) {
+  void _subscribeToUpdates(String ticketId, String reference) {
     _ticketChannel?.unsubscribe();
     // Subscribe to ticket status updates through repository
     _ticketChannel = _repo.subscribeToTicket(ticketId, (payload) {
       // When the steward scans the QR code, redeemed_at is updated.
       // Re-fetch via the view to get the fresh status and nested event data.
-      loadTicket(ticketId, isSilent: true);
+      loadTicket(reference, isSilent: true);
     });
 
     _ticketChannel!.subscribe((status, [error]) {
       if (status == RealtimeSubscribeStatus.channelError ||
           status == RealtimeSubscribeStatus.timedOut) {
-        _scheduleTicketReconnect(ticketId);
+        _scheduleTicketReconnect(ticketId, reference);
       } else if (status == RealtimeSubscribeStatus.subscribed) {
         _reconnectTimer?.cancel();
         _reconnectTimer = null;
@@ -81,25 +84,25 @@ class TicketCubit extends Cubit<TicketState> {
     // status updates reflect immediately without requiring a manual refresh.
     _listingChannel?.unsubscribe();
     _listingChannel = _repo.subscribeToTicketListing(ticketId, (payload) {
-      loadTicket(ticketId, isSilent: true);
+      loadTicket(reference, isSilent: true);
     });
     _listingChannel!.subscribe();
   }
 
-  void _scheduleTicketReconnect(String ticketId) {
+  void _scheduleTicketReconnect(String ticketId, String reference) {
     _reconnectTimer?.cancel();
     _reconnectTimer = Timer(_reconnectDelay, () {
       _reconnectDelay = _reconnectDelay * 2;
       if (_reconnectDelay > const Duration(seconds: 30)) {
         _reconnectDelay = const Duration(seconds: 30);
       }
-      _subscribeToUpdates(ticketId);
+      _subscribeToUpdates(ticketId, reference);
     });
   }
 
   Future<void> refresh() async {
     if (state.ticket != null) {
-      await loadTicket(state.ticket!.id);
+      await loadTicket(state.ticket!.reference);
     }
   }
 
@@ -129,7 +132,7 @@ class TicketCubit extends Cubit<TicketState> {
       emit(state.copyWith(purchaseStatus: PurchaseStatus.success));
       // Refresh ticket list so the newly purchased ticket appears immediately.
       if (state.ticket != null) {
-        await loadTicket(state.ticket!.id, isSilent: true);
+        await loadTicket(state.ticket!.reference, isSilent: true);
       }
     } catch (e) {
       emit(state.copyWith(
@@ -151,22 +154,22 @@ class TicketCubit extends Cubit<TicketState> {
     required String recipientUsername,
     required double askingPrice,
   }) async {
-    final ticketId = state.ticket?.id;
-    if (ticketId == null) throw Exception('No ticket loaded');
+    final ticket = state.ticket;
+    if (ticket == null) throw Exception('No ticket loaded');
 
     final result = await _repo.createResaleListing(
-      ticketId: ticketId,
+      ticketId: ticket.id,
       recipientUsername: recipientUsername,
       askingPrice: askingPrice,
     );
-    await loadTicket(ticketId, isSilent: true);
+    await loadTicket(ticket.reference, isSilent: true);
     return result;
   }
 
   Future<void> cancelResaleListing(String listingId) async {
     await _repo.cancelResaleListing(listingId);
     if (state.ticket != null) {
-      await loadTicket(state.ticket!.id, isSilent: true);
+      await loadTicket(state.ticket!.reference, isSilent: true);
     }
   }
 }

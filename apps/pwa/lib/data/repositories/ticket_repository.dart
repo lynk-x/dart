@@ -19,12 +19,12 @@ class TicketRepository {
     return List<Map<String, dynamic>>.from(data);
   }
 
-  Future<Map<String, dynamic>?> getTicketById(String ticketId) async {
+  Future<Map<String, dynamic>?> getTicketByReference(String reference) async {
     return await _client
         .schema('api')
         .from('v1_user_tickets')
         .select()
-        .eq('ticket_id', ticketId)
+        .eq('reference', reference)
         .maybeSingle();
   }
 

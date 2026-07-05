@@ -222,13 +222,13 @@ GoRouter createRouter(
         ),
       ),
       GoRoute(
-        path: '/ticket/:id',
+        path: '/ticket/:reference',
         builder: (_, state) {
-          final ticketId = state.pathParameters['id']!;
+          final ticketReference = state.pathParameters['reference']!;
           return Title(
             title: 'Ticket Details',
             color: Colors.black,
-            child: TicketPage(ticketId: ticketId),
+            child: TicketPage(ticketReference: ticketReference),
           );
         },
       ),

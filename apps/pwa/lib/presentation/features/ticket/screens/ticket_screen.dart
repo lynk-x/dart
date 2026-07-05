@@ -19,14 +19,14 @@ import 'package:lynk_x/core/utils/image_optimizer.dart';
 
 
 class TicketPage extends StatelessWidget {
-  final String? ticketId;
+  final String? ticketReference;
 
-  const TicketPage({super.key, this.ticketId});
+  const TicketPage({super.key, this.ticketReference});
 
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (context) => TicketCubit(ticketRepository)..loadTicket(ticketId ?? ''),
+      create: (context) => TicketCubit(ticketRepository)..loadTicket(ticketReference ?? ''),
       child: const TicketView(),
     );
   }
