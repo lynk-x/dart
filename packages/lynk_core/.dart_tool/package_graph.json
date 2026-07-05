@@ -18,7 +18,8 @@
         "package_info_plus",
         "supabase_flutter",
         "universal_io",
-        "url_launcher"
+        "url_launcher",
+        "web"
       ],
       "devDependencies": [
         "flutter_lints",
@@ -49,6 +50,11 @@
         "test_api",
         "vector_math"
       ]
+    },
+    {
+      "name": "web",
+      "version": "1.1.1",
+      "dependencies": []
     },
     {
       "name": "country_flags",
@@ -431,11 +437,6 @@
       "dependencies": [
         "ffi"
       ]
-    },
-    {
-      "name": "web",
-      "version": "1.1.1",
-      "dependencies": []
     },
     {
       "name": "package_info_plus_platform_interface",

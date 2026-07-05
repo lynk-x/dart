@@ -3,6 +3,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/foundation.dart';
 import 'package:lynk_core/core.dart';
+import '../../src/utils/image_conversion.dart';
 import '../data/repositories/profile_repository.dart';
 
 class ProfileCubit extends Cubit<ProfileState> {
@@ -95,8 +96,9 @@ class ProfileCubit extends Cubit<ProfileState> {
 
     emit(currentState.copyWith(isUpdating: true));
     try {
-      final bytes = await imageFile.readAsBytes();
-      final ext = imageFile.name.split('.').last.toLowerCase();
+      final rawBytes = await imageFile.readAsBytes();
+      final rawExt = imageFile.name.split('.').last.toLowerCase();
+      final (bytes, ext) = await convertImageToWebP(rawBytes, rawExt);
 
       final imageUrl = await _repo.uploadAvatar(uid, bytes, ext);
       await _repo.updateAvatarUrl(uid, imageUrl);

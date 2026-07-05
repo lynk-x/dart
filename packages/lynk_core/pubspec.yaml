@@ -20,6 +20,7 @@ dependencies:
   url_launcher: ^6.3.0
   image_picker: ^1.2.1
   country_flags: ^4.1.2
+  web: any
 
 dev_dependencies:
   flutter_test:
