@@ -439,11 +439,11 @@ class _AddMethodFormState extends State<_AddMethodForm> {
       orElse: () => {
         'provider_name': 'mpesa_daraja',
         'display_name': 'M-Pesa Mobile Money',
-        'metadata': <String, dynamic>{},
+        'ui_config': <String, dynamic>{},
       },
     );
 
-    final metadata = selectedProviderConfig['metadata'] as Map<String, dynamic>? ?? {};
+    final metadata = selectedProviderConfig['ui_config'] as Map<String, dynamic>? ?? {};
     final validationRegex = metadata['validation_regex'] as String?;
     final inputType = metadata['input_type'] as String?;
     final prefix = metadata['prefix'] as String?;

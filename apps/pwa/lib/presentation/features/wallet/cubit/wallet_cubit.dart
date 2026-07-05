@@ -497,8 +497,9 @@ class WalletCubit extends Cubit<WalletState> {
   Future<void> loadPaymentProviders() async {
     try {
       final response = await _supabase
-          .from('platform_payment_providers')
-          .select('id, provider_name, display_name, logo_url, supports_outbound, status, metadata')
+          .schema('api')
+          .from('v1_platform_payment_providers')
+          .select('id, provider_name, display_name, logo_url, supports_outbound, status, ui_config')
           .eq('supports_outbound', true)
           .order('display_name');
 

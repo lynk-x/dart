@@ -15,6 +15,7 @@ class SupportRepository {
           .from('v1_cms_pages')
           .select('content')
           .eq('slug', slug)
+          .eq('status', 'published')
           .maybeSingle();
 
       if (response != null && response['content'] != null) {

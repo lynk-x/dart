@@ -48,7 +48,7 @@ class _AuthPageState extends State<AuthPage> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    _pendingPhone == null ? 'First time user?' : 'Welcome back',
+                    _pendingPhone == null ? 'Already have Event Tickets?' : 'Welcome back',
                     textAlign: TextAlign.center,
                     style: const TextStyle(
                       color: Colors.white,
