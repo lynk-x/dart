@@ -35,13 +35,21 @@ class _InterstitialAdState extends State<InterstitialAd> {
   }
 
   void _logClickAndNavigate() async {
+    final serveToken = widget.ad.serveToken;
     final userId = Supabase.instance.client.auth.currentUser?.id;
-    if (userId != null) {
-      Supabase.instance.client.schema('ad_analytics').from('ad_analytics').insert({
-        'campaign_id': widget.ad.id,
-        'interaction_type': 'click',
-        'user_id': userId,
-      }).catchError((_) {});
+    if (userId != null && serveToken != null) {
+      unawaited(
+        Supabase.instance.client
+            .schema('api')
+            .rpc('log_ad_interaction', params: {
+              'p_serve_token': serveToken,
+              'p_interaction_type': 'click',
+            })
+            .then((_) {})
+            .catchError((e) {
+              debugPrint('[InterstitialAd] Failed to log click: $e');
+            }),
+      );
     }
 
     if (widget.ad.targetUrl != null) {

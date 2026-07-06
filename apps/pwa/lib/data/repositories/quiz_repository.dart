@@ -1,5 +1,9 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+/// Quiz/poll data access. All reads go through the `api.v1_*` views and all
+/// writes through `api.*` RPCs — the `surveys` schema is not PostgREST-exposed
+/// (and `v1_questions` deliberately omits the correct-answer column; scoring
+/// happens server-side in `api.submit_survey_response`'s insert triggers).
 class QuizRepository {
   final SupabaseClient _client;
   QuizRepository(this._client);
@@ -7,9 +11,9 @@ class QuizRepository {
   Future<Map<String, dynamic>> getQuestionnaire(
       String questionnaireId) async {
     return await _client
-        .schema('surveys')
-        .from('questionnaires')
-        .select('*, forum_channel_id')
+        .schema('api')
+        .from('v1_questionnaires')
+        .select()
         .eq('id', questionnaireId)
         .single();
   }
@@ -19,8 +23,8 @@ class QuizRepository {
     int orderIndex,
   ) async {
     return await _client
-        .schema('surveys')
-        .from('questions')
+        .schema('api')
+        .from('v1_questions')
         .select()
         .eq('questionnaire_id', questionnaireId)
         .eq('order_index', orderIndex)
@@ -54,11 +58,12 @@ class QuizRepository {
     required String userId,
     required List<int> selectedAnswer,
   }) async {
-    await _client.schema('surveys').from('responses').insert({
-      'questionnaire_id': questionnaireId,
-      'question_id': questionId,
-      'user_id': userId,
-      'selected_answer': selectedAnswer,
+    // account_id resolution, published check and per-question dedupe all
+    // happen server-side; userId is derived from the session there too.
+    await _client.schema('api').rpc('submit_survey_response', params: {
+      'p_questionnaire_id': questionnaireId,
+      'p_question_id': questionId,
+      'p_selected_answer': selectedAnswer,
     });
   }
 
@@ -68,11 +73,12 @@ class QuizRepository {
     required int questionIndex,
     String? expiresAt,
   }) async {
-    await _client.schema('surveys').from('questionnaires').update({
-      'quiz_state': quizState,
-      'current_question_index': questionIndex,
-      'state_expires_at': expiresAt,
-    }).eq('id', questionnaireId);
+    await _client.schema('api').rpc('update_quiz_state', params: {
+      'p_questionnaire_id': questionnaireId,
+      'p_quiz_state': quizState,
+      'p_question_index': questionIndex,
+      'p_expires_at': expiresAt,
+    });
   }
 
   RealtimeChannel subscribeToQuestionnaire(
@@ -96,49 +102,23 @@ class QuizRepository {
 
   Future<void> saveQuiz(Map<String, dynamic> quizData) async {
     final questionsData = quizData.remove('questions') as List<dynamic>;
-    
-    // 1. Upsert Questionnaire
-    final response = await _client
-        .schema('surveys')
-        .from('questionnaires')
-        .upsert(quizData)
-        .select('id')
-        .single();
-    
-    final questionnaireId = response['id'];
 
-    // 2. Clear old questions to replace them
-    await _client
-        .schema('surveys')
-        .from('questions')
-        .delete()
-        .eq('questionnaire_id', questionnaireId);
+    // Map each question's correctIndices list to the JSON object shape the
+    // server stores, e.g. {"0": true, "1": true}.
+    final questionsPayload = questionsData.map((raw) {
+      final q = raw as Map<String, dynamic>;
+      final correctIndices = q['correct'] as List<dynamic>;
+      return {
+        if (q['id'] != null) 'id': q['id'],
+        'question_text': q['question_text'],
+        'options': q['options'],
+        'correct': {for (var i in correctIndices) i.toString(): true},
+      };
+    }).toList();
 
-    // 3. Insert new questions
-    if (questionsData.isNotEmpty) {
-      final questionsToInsert = questionsData.asMap().entries.map((entry) {
-        final index = entry.key;
-        final q = entry.value as Map<String, dynamic>;
-        // Map correctIndices list to JSON object e.g. {"0": true, "1": true}
-        final correctIndices = q['correct'] as List<dynamic>;
-        final correctMap = {
-          for (var i in correctIndices) i.toString(): true
-        };
-        
-        return {
-          if (q['id'] != null) 'id': q['id'],
-          'questionnaire_id': questionnaireId,
-          'order_index': index,
-          'question_text': q['question_text'],
-          'options': q['options'],
-          'correct': correctMap,
-        };
-      }).toList();
-
-      await _client
-          .schema('surveys')
-          .from('questions')
-          .insert(questionsToInsert);
-    }
+    await _client.schema('api').rpc('save_quiz', params: {
+      'p_quiz': quizData,
+      'p_questions': questionsPayload,
+    });
   }
 }

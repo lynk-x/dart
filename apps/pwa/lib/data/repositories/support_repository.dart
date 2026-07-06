@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class SupportRepository {
@@ -45,14 +47,50 @@ class SupportRepository {
     }
   }
 
-  /// Streams real-time messages for a specific support ticket
+  /// Streams real-time messages for a specific support ticket.
   Stream<List<Map<String, dynamic>>> streamMessages(String ticketId) {
-    return _client
-        .schema('reports')
-        .from('support_ticket_messages')
-        .stream(primaryKey: ['id'])
-        .eq('ticket_id', ticketId)
-        .order('created_at');
+    final controller = StreamController<List<Map<String, dynamic>>>();
+    RealtimeChannel? channel;
+
+    Future<void> fetch() async {
+      try {
+        final rows = await _client
+            .schema('api')
+            .from('v1_support_ticket_messages')
+            .select()
+            .eq('ticket_id', ticketId)
+            .order('created_at', ascending: true);
+        if (!controller.isClosed) {
+          controller.add(List<Map<String, dynamic>>.from(rows));
+        }
+      } catch (e, stack) {
+        if (!controller.isClosed) controller.addError(e, stack);
+      }
+    }
+
+    controller.onListen = () {
+      fetch();
+      channel = _client
+          .channel('support_ticket_messages:$ticketId')
+          .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'reports',
+            table: 'support_ticket_messages',
+            filter: PostgresChangeFilter(
+              type: PostgresChangeFilterType.eq,
+              column: 'ticket_id',
+              value: ticketId,
+            ),
+            callback: (_) => fetch(),
+          )
+        ..subscribe();
+    };
+    controller.onCancel = () {
+      if (channel != null) _client.removeChannel(channel!);
+      controller.close();
+    };
+
+    return controller.stream;
   }
 
   /// Sends a new message to a support ticket

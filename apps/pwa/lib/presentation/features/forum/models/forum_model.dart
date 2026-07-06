@@ -191,6 +191,9 @@ class AdModel {
   final String? targetEventId;
   final String? imageUrl;
 
+  /// HMAC-signed proof-of-serve from the ad matcher (metadata.serve_token).
+  final String? serveToken;
+
   const AdModel({
     required this.id,
     this.title = 'AD',
@@ -198,6 +201,7 @@ class AdModel {
     this.targetUrl,
     this.targetEventId,
     this.imageUrl,
+    this.serveToken,
   });
 
   factory AdModel.fromMap(Map<String, dynamic> map) {
@@ -216,6 +220,7 @@ class AdModel {
       targetEventId: map['target_event_id'] as String?,
       imageUrl:
           firstAsset?['url'] as String? ?? metadata['image_url'] as String?,
+      serveToken: metadata['serve_token'] as String?,
     );
   }
 }

@@ -47,7 +47,7 @@ class _PollCardState extends State<PollCard> {
     if (userId == null) return;
 
     final existing = await _supabase
-        .schema('responses').from('responses')
+        .schema('api').from('v1_responses')
         .select('selected_answer')
         .eq('question_id', widget.questionId)
         .eq('user_id', userId)
@@ -99,11 +99,11 @@ class _PollCardState extends State<PollCard> {
     });
 
     try {
-      await _supabase.schema('responses').from('responses').insert({
-        'questionnaire_id': widget.questionnaireId,
-        'question_id': widget.questionId,
-        'user_id': userId,
-        'selected_answer': [index],
+      // account_id resolution and per-question dedupe happen server-side.
+      await _supabase.schema('api').rpc('submit_survey_response', params: {
+        'p_questionnaire_id': widget.questionnaireId,
+        'p_question_id': widget.questionId,
+        'p_selected_answer': [index],
       });
 
       setState(() {

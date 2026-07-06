@@ -58,8 +58,7 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
       final packageInfo = await PackageInfo.fromPlatform();
       final user = supabase.auth.currentUser;
 
-      // Unify feedback into the main support_tickets table for admin visibility
-      await supabase.schema('reports').from('support_tickets').insert({
+      await supabase.schema('api').from('v1_support_tickets').insert({
         'user_id': user?.id,
         'email': 'no-email@lynk-x.app',
         'phone': user?.phone,

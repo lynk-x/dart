@@ -34,7 +34,8 @@ class _PollAttachmentState extends State<PollAttachment> {
     try {
       // Fetch questionnaire metadata
       final qData = await _supabase
-          .from('questionnaires')
+          .schema('api')
+          .from('v1_questionnaires')
           .select('title, type, status')
           .eq('id', widget.questionnaireId)
           .single();
@@ -46,7 +47,8 @@ class _PollAttachmentState extends State<PollAttachment> {
 
       // Fetch questions
       final questions = await _supabase
-          .from('questions')
+          .schema('api')
+          .from('v1_questions')
           .select('id, question_text, options, order_index')
           .eq('questionnaire_id', widget.questionnaireId)
           .order('order_index', ascending: true);
