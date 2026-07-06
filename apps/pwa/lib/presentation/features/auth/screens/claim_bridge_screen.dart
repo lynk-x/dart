@@ -32,27 +32,39 @@ class _ClaimBridgeScreenState extends State<ClaimBridgeScreen> {
   }
 
   Future<void> _claim() async {
-    final token = widget.claimToken;
-    if (token == null || token.isEmpty) {
+    final raw = widget.claimToken;
+    if (raw == null || raw.isEmpty) {
       setState(() => _errorMessage = 'This link is missing its claim code.');
       return;
     }
+
+    final tokens =
+        raw.split(',').where((t) => t.trim().isNotEmpty).toList();
 
     try {
       if (Supabase.instance.client.auth.currentUser == null) {
         await Supabase.instance.client.auth.signInAnonymously();
       }
 
-      final result = await Supabase.instance.client
-          .schema('api')
-          .rpc('claim_order', params: {'p_token': token});
+      String? claimedEventId;
+      var anyAlreadyClaimed = false;
 
-      final status = (result as Map)['status'] as String?;
+      for (final token in tokens) {
+        final result = await Supabase.instance.client
+            .schema('api')
+            .rpc('claim_order', params: {'p_token': token.trim()});
 
-      if (status == 'claimed') {
-        final eventId = result['event_id'] as String;
+        final status = (result as Map)['status'] as String?;
+        if (status == 'claimed') {
+          claimedEventId ??= result['event_id'] as String?;
+        } else if (status == 'already_claimed') {
+          anyAlreadyClaimed = true;
+        }
+      }
+
+      if (claimedEventId != null) {
         final segment =
-            await forumRepository.getForumRouteSegmentByEventId(eventId);
+            await forumRepository.getForumRouteSegmentByEventId(claimedEventId);
         if (!mounted) return;
         if (segment != null) {
           context.go('/forum/$segment');
@@ -62,7 +74,7 @@ class _ClaimBridgeScreenState extends State<ClaimBridgeScreen> {
         return;
       }
 
-      if (status == 'already_claimed') {
+      if (anyAlreadyClaimed) {
         setState(() => _errorMessage =
             'These tickets have already been claimed by another account. '
             'If this was you, try recovering your tickets by phone number instead.');
