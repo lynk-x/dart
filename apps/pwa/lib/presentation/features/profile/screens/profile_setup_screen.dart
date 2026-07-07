@@ -13,7 +13,9 @@ import '../models/country.dart';
 enum SetupStep { identity, notifications }
 
 class ProfileSetupScreen extends StatefulWidget {
-  const ProfileSetupScreen({super.key});
+  final String? next;
+
+  const ProfileSetupScreen({super.key, this.next});
 
   @override
   State<ProfileSetupScreen> createState() => _ProfileSetupScreenState();
@@ -132,7 +134,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   Future<void> _finishSetup() async {
     // Request push notification permission now that the user has opted in
     await PushNotificationService.instance.init();
-    if (mounted) context.go('/');
+    if (mounted) context.go(widget.next ?? '/');
   }
 
   @override

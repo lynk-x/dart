@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:lynk_core/core.dart';
 import 'package:lynk_x/presentation/features/forum/cubit/forum_chat_cubit.dart';
 import 'package:lynk_x/presentation/features/forum/cubit/forum_chat_state.dart';
@@ -9,6 +10,7 @@ import 'package:lynk_x/presentation/features/forum/models/forum_model.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/message_input.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/typing_indicator.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/chat_message_list.dart';
+import 'package:lynk_x/presentation/shared/widgets/guest_profile_prompt_sheet.dart';
 
 /// The 'Live Chat' tab content for the Forum.
 class LiveChatTab extends StatefulWidget {
@@ -142,6 +144,14 @@ class _LiveChatTabState extends State<LiveChatTab>
               builder: (context, chatState) {
                 return MessageInput(
                   onSendMessage: (text, replyTo) {
+                    if (Supabase.instance.client.auth.currentUser?.isAnonymous ??
+                        false) {
+                      GuestProfilePromptSheet.show(
+                        context,
+                        returnTo: '/forum/${mainCubit.forumReference}',
+                      );
+                      return;
+                    }
                     if (chatState.editingMessage != null) {
                       chatCubit.editMessage(chatState.editingMessage!, text);
                       chatCubit.setEditingMessage(null);

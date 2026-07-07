@@ -91,10 +91,10 @@ GoRouter createRouter(
         if (user != null && path == '/auth') return '/';
 
         // ── Onboarding / Profile Setup Redirection ──
-        if (user != null && !isPublic && path != '/profile-setup') {
+        if (user != null && !isPublic && !path.startsWith('/profile-setup')) {
           if (profileState is ProfileLoaded &&
               profileState.profile.isIncomplete) {
-            return '/profile-setup';
+            return '/profile-setup?next=${Uri.encodeComponent(path)}';
           }
         }
       } catch (e) {
@@ -390,10 +390,10 @@ GoRouter createRouter(
       ),
       GoRoute(
         path: '/profile-setup',
-        builder: (_, __) => Title(
+        builder: (_, state) => Title(
           title: 'Profile Onboarding',
           color: Colors.black,
-          child: const ProfileSetupScreen(),
+          child: ProfileSetupScreen(next: state.uri.queryParameters['next']),
         ),
       ),
       GoRoute(
