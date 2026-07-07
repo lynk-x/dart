@@ -91,15 +91,10 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
       final uid = _supabase.auth.currentUser?.id;
 
       final results = await Future.wait<dynamic>([
-        // Plans + prices + features
+
         _supabase
-            .from('subscription_plans')
-            .select(
-                'id, interval, display_name, '
-                'subscription_prices(id, country_code, currency, amount), '
-                'plan_features(subscription_features(display_name))')
-            .eq('status', 'approved')
-            .eq('product_type', 'attendee_premium'),
+            .schema('api')
+            .rpc('get_subscription_catalog', params: {'p_product_type': 'attendee_premium'}),
 
         // Get user's owner attendee account country + the country's local currency.
         uid != null
@@ -235,7 +230,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
         .channel('sub_watch_${DateTime.now().millisecondsSinceEpoch}')
         .onPostgresChanges(
           event: PostgresChangeEvent.insert,
-          schema: 'public',
+          schema: 'finance',
           table: 'subscriptions',
           callback: (_) {
             if (!_waitingMpesa || !mounted) return;
@@ -1110,11 +1105,7 @@ class _PlanData {
     }
 
     final features = ((p['plan_features'] as List?) ?? [])
-        .map((pf) {
-          final sf = (pf as Map<String, dynamic>)['subscription_features']
-              as Map<String, dynamic>?;
-          return sf?['display_name'] as String? ?? '';
-        })
+        .map((pf) => (pf as Map<String, dynamic>)['display_name'] as String? ?? '')
         .where((f) => f.isNotEmpty)
         .toList();
 
