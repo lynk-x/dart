@@ -128,10 +128,10 @@ class PushNotificationService {
       }
 
       if (token != null) {
+        // Scoped to the caller's own device rows server-side.
         await Supabase.instance.client
-            .from('user_devices')
-            .delete()
-            .eq('fcm_token', token);
+            .schema('api')
+            .rpc('remove_user_device', params: {'p_fcm_token': token});
         debugPrint('[Push] FCM token removed successfully on sign-out');
       }
     } catch (e) {

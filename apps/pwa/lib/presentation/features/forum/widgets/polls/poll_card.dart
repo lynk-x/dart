@@ -66,7 +66,8 @@ class _PollCardState extends State<PollCard> {
 
   Future<void> _fetchResults() async {
     final data = await _supabase
-        .from('vw_poll_results')
+        .schema('api')
+        .from('v1_poll_results')
         .select('selected_option_index, response_count')
         .eq('question_id', widget.questionId);
 

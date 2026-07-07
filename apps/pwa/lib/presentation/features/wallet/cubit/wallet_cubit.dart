@@ -395,7 +395,8 @@ class WalletCubit extends Cubit<WalletState> {
 
     try {
       final row = await _supabase
-          .from('wallet_top_ups')
+          .schema('api')
+          .from('v1_wallet_top_ups')
           .select('status')
           .eq('account_id', accountId)
           .order('created_at', ascending: false)
@@ -455,15 +456,35 @@ class WalletCubit extends Cubit<WalletState> {
 
       final accountId = memberData['account_id'] as String;
 
-      // Fetch methods + provider metadata in one query via FK traversal
-      final methodRows = await _supabase
-          .from('account_payment_methods')
-          .select('id, provider_identity, metadata, platform_payment_providers(provider_name, display_name, logo_url, base_fee_usd, fee_percent)')
+      // v1 view denormalizes the provider fields and omits the encrypted
+      // provider_identity (its ciphertext used to be rendered verbatim);
+      // the metadata label is the display value now. Rows are reshaped to
+      // the embed layout the wallet widgets already consume.
+      final rawMethods = await _supabase
+          .schema('api')
+          .from('v1_account_payment_methods')
+          .select(
+              'id, metadata, provider_name, provider_display_name, provider_logo_url, provider_base_fee_usd, provider_fee_percent')
           .eq('account_id', accountId);
+
+      final methodRows = rawMethods.map((m) => <String, dynamic>{
+            'id': m['id'],
+            'metadata': m['metadata'],
+            'provider_identity':
+                (m['metadata']?['label'] as String?) ?? '••••',
+            'platform_payment_providers': <String, dynamic>{
+              'provider_name': m['provider_name'],
+              'display_name': m['provider_display_name'],
+              'logo_url': m['provider_logo_url'],
+              'base_fee_usd': m['provider_base_fee_usd'],
+              'fee_percent': m['provider_fee_percent'],
+            },
+          }).toList();
 
       // Fetch latest KYC verification for this account
       final kycRow = await _supabase
-          .from('identity_verifications')
+          .schema('api')
+          .from('v1_identity_verifications')
           .select('kyc_tier, status')
           .eq('account_id', accountId)
           .order('created_at', ascending: false)
@@ -544,11 +565,10 @@ class WalletCubit extends Cubit<WalletState> {
   /// Delete a saved payout method.
   Future<void> deletePayoutMethod(String methodId) async {
     try {
+      // Ownership/billing-permission check happens in the RPC.
       await _supabase
-          .from('account_payment_methods')
-          .delete()
-          .eq('id', methodId)
-          .eq('account_id', state.accountId!);
+          .schema('api')
+          .rpc('delete_payout_method', params: {'p_method_id': methodId});
       await loadPayoutMethods();
     } catch (e) {
       emit(state.copyWith(

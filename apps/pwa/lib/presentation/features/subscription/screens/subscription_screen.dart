@@ -115,7 +115,8 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
 
         // Active subscription
         _supabase
-            .from('subscriptions')
+            .schema('api')
+            .from('v1_subscriptions')
             .select('id, plan_id, ends_at')
             .inFilter('status', ['active', 'trialing'])
             .eq('is_latest', true)
