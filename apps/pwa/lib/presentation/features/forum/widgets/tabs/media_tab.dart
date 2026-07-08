@@ -10,8 +10,7 @@ import 'package:lynk_x/presentation/features/forum/cubit/forum_media_cubit.dart'
 import 'package:lynk_x/presentation/features/forum/cubit/forum_media_state.dart';
 import 'package:lynk_x/presentation/shared/widgets/empty_state.dart';
 import 'package:lynk_x/presentation/shared/utils/app_snackbars.dart';
-import 'package:lynk_x/presentation/shared/widgets/permission_request_sheet.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:lynk_x/presentation/shared/utils/permission_acks.dart';
 import 'package:lynk_x/presentation/features/forum/models/forum_model.dart';
 import 'package:lynk_x/core/network/lynk_cache_manager.dart';
 import 'package:lynk_x/core/utils/image_optimizer.dart';
@@ -293,32 +292,18 @@ class _MediaTabState extends State<MediaTab>
 
   Future<void> _pickAndUpload(
       BuildContext context, ImageSource source, bool isVideo) async {
-    final prefs = await SharedPreferences.getInstance();
-    final hasAcknowledged =
-        prefs.getBool('media_permission_acknowledged') ?? false;
-
-    if (!hasAcknowledged && context.mounted) {
-      showModalBottomSheet(
-        context: context,
-        backgroundColor: Colors.transparent,
-        builder: (context) => PermissionRequestSheet(
-          title: 'Access your Media',
-          description:
-              'To share photos and videos with the forum, we need access to your device library.',
-          icon: Icons.perm_media_rounded,
-          actionLabel: 'Allow Access',
-          onGranted: () async {
-            await prefs.setBool('media_permission_acknowledged', true);
-            if (context.mounted) {
-              _actuallyPickAndUpload(context, source, isVideo);
-            }
-          },
-        ),
-      );
-      return;
-    }
-    if (!context.mounted) return;
-    _actuallyPickAndUpload(context, source, isVideo);
+    await PermissionAcks.ensureAcknowledged(
+      context,
+      PermissionAckType.media,
+      title: 'Access your Media',
+      description:
+          'To share photos and videos with the forum, we need access to your device library.',
+      icon: Icons.perm_media_rounded,
+      actionLabel: 'Allow Access',
+      onReady: () {
+        if (context.mounted) _actuallyPickAndUpload(context, source, isVideo);
+      },
+    );
   }
 
   Future<void> _actuallyPickAndUpload(

@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:lynk_core/core.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:lynk_x/services/push_notification_service.dart';
 import '../widgets/delete_account_dialog.dart';
 
 class AccountPage extends StatefulWidget {
@@ -14,6 +16,40 @@ class AccountPage extends StatefulWidget {
 }
 
 class _AccountPageState extends State<AccountPage> {
+  AuthorizationStatus? _notificationStatus;
+
+  @override
+  void initState() {
+    super.initState();
+    _refreshNotificationStatus();
+  }
+
+  Future<void> _refreshNotificationStatus() async {
+    final status = await PushNotificationService.instance.checkPermissionStatus();
+    if (mounted) setState(() => _notificationStatus = status);
+  }
+
+  /// Declining at profile-setup was previously a one-shot, permanent choice —
+  /// the only later prompt was a reactive SnackBar the next time a push
+  /// permission check happened to fire. This gives a user who declined out
+  /// of caution a deliberate way to reconsider later.
+  Future<void> _onNotificationTileTap() async {
+    if (_notificationStatus == AuthorizationStatus.denied) {
+      // Browser/OS has permanently denied — re-requesting here would just
+      // silently no-op, so explain where to actually re-enable it instead.
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Notifications are blocked in your browser settings. '
+              'Enable them there, then reopen this page.'),
+          duration: Duration(seconds: 4),
+        ),
+      );
+      return;
+    }
+    await PushNotificationService.instance.init();
+    await _refreshNotificationStatus();
+  }
+
   void _showUpdatePhoneDialog(BuildContext context, String currentPhone) {
     final phoneController = TextEditingController(text: currentPhone == 'No phone number linked' ? '' : currentPhone);
     final codeController = TextEditingController();
@@ -323,6 +359,24 @@ class _AccountPageState extends State<AccountPage> {
                   icon: Icons.phone_iphone_rounded,
                   onTap: () => _showUpdatePhoneDialog(context, profile.phoneNumber ?? ''),
                   trailing: const Icon(Icons.chevron_right_rounded, color: Colors.white24),
+                ),
+                const SizedBox(height: 32),
+                _buildSectionHeader('Notifications'),
+                _buildSettingTile(
+                  title: 'Push Notifications',
+                  subtitle: switch (_notificationStatus) {
+                    AuthorizationStatus.authorized ||
+                    AuthorizationStatus.provisional =>
+                      'Enabled',
+                    AuthorizationStatus.denied => 'Blocked in browser settings',
+                    _ => 'Not enabled yet',
+                  },
+                  icon: Icons.notifications_outlined,
+                  onTap: _onNotificationTileTap,
+                  trailing: _notificationStatus == AuthorizationStatus.authorized ||
+                          _notificationStatus == AuthorizationStatus.provisional
+                      ? Icon(Icons.check_circle, color: context.accentColor, size: 20)
+                      : const Icon(Icons.chevron_right_rounded, color: Colors.white24),
                 ),
                 const SizedBox(height: 48),
                 _buildSectionHeader('Danger Zone'),

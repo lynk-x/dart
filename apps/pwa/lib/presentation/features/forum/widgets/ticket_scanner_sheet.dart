@@ -11,7 +11,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../cubit/ticket_validation_cubit.dart';
 import '../cubit/ticket_validation_state.dart';
 import 'web_qr_scanner.dart';
-import 'package:lynk_x/presentation/shared/widgets/permission_request_sheet.dart';
+import 'package:lynk_x/presentation/shared/utils/permission_acks.dart';
 import 'scan_history_drawer.dart';
 
 enum FeedbackMode {
@@ -99,7 +99,7 @@ class _TicketScannerSheetState extends State<TicketScannerSheet> {
     try {
       final prefs = await SharedPreferences.getInstance();
       final modeName = prefs.getString('scanner_feedback_mode');
-      final hasVibAcknowledged = prefs.getBool('vibration_permission_acknowledged') ?? false;
+      final hasVibAcknowledged = await PermissionAcks.isAcknowledged(PermissionAckType.vibration);
       if (mounted) {
         setState(() {
           _vibrationPermissionAcknowledged = hasVibAcknowledged;
@@ -120,8 +120,7 @@ class _TicketScannerSheetState extends State<TicketScannerSheet> {
 
   Future<void> _checkPermission() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final hasAcknowledged = prefs.getBool('camera_permission_acknowledged') ?? false;
+      final hasAcknowledged = await PermissionAcks.isAcknowledged(PermissionAckType.camera);
       if (mounted) {
         setState(() {
           _permissionAcknowledged = hasAcknowledged;
@@ -139,27 +138,21 @@ class _TicketScannerSheetState extends State<TicketScannerSheet> {
   }
 
   void _showPermissionSheet() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
+    PermissionAcks.ensureAcknowledged(
+      context,
+      PermissionAckType.camera,
+      title: 'Ticket Scanner Access',
+      description: 'To scan ticket QR codes, we need access to your device camera.',
+      icon: Icons.camera_alt_rounded,
+      actionLabel: 'Enable Camera',
       isDismissible: false,
       enableDrag: false,
-      builder: (sheetContext) => PermissionRequestSheet(
-        title: 'Ticket Scanner Access',
-        description: 'To scan ticket QR codes, we need access to your device camera.',
-        icon: Icons.camera_alt_rounded,
-        actionLabel: 'Enable Camera',
-        onGranted: () async {
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.setBool('camera_permission_acknowledged', true);
-          if (mounted) {
-            setState(() {
-              _permissionAcknowledged = true;
-            });
-            _resetScanner();
-          }
-        },
-      ),
+      onReady: () {
+        if (mounted) {
+          setState(() => _permissionAcknowledged = true);
+          _resetScanner();
+        }
+      },
     );
   }
 
@@ -167,32 +160,22 @@ class _TicketScannerSheetState extends State<TicketScannerSheet> {
     required VoidCallback onGranted,
     required VoidCallback onDenied,
   }) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
+    PermissionAcks.ensureAcknowledged(
+      context,
+      PermissionAckType.vibration,
+      title: 'Vibration Alerts',
+      description: 'To confirm ticket validation scans with haptic vibrations, we request permission to vibrate your device.',
+      icon: Icons.vibration_rounded,
+      actionLabel: 'Enable Vibration',
       isDismissible: false,
       enableDrag: false,
-      builder: (sheetContext) => PermissionRequestSheet(
-        title: 'Vibration Alerts',
-        description: 'To confirm ticket validation scans with haptic vibrations, we request permission to vibrate your device.',
-        icon: Icons.vibration_rounded,
-        actionLabel: 'Enable Vibration',
-        onGranted: () async {
-          try {
-            final prefs = await SharedPreferences.getInstance();
-            await prefs.setBool('vibration_permission_acknowledged', true);
-            if (mounted) {
-              setState(() {
-                _vibrationPermissionAcknowledged = true;
-              });
-              onGranted();
-            }
-          } catch (e) {
-            // SharedPreferences error
-          }
-        },
-        onDenied: onDenied,
-      ),
+      onReady: () {
+        if (mounted) {
+          setState(() => _vibrationPermissionAcknowledged = true);
+          onGranted();
+        }
+      },
+      onDenied: onDenied,
     );
   }
 
@@ -623,11 +606,43 @@ class _TicketScannerSheetState extends State<TicketScannerSheet> {
                                     backgroundColor: Colors.redAccent,
                                   ),
                                 );
+                                // A prior "Enable Camera" acknowledgment doesn't
+                                // mean the browser will still honor it — if the
+                                // user revoked camera access at the OS/browser
+                                // level after acknowledging, this is where that
+                                // shows up. Reset so the "Enable Camera" retry
+                                // UI reappears instead of leaving a dead camera
+                                // feed with only a transient SnackBar.
+                                if (errorMsg.toLowerCase().contains('permission') ||
+                                    errorMsg.toLowerCase().contains('denied') ||
+                                    errorMsg.toLowerCase().contains('notallowed')) {
+                                  setState(() => _permissionAcknowledged = false);
+                                }
                               }
                             },
                           )
                         : MobileScanner(
                             controller: _controller!,
+                            errorBuilder: (context, error) {
+                              if (error.errorCode == MobileScannerErrorCode.permissionDenied &&
+                                  _permissionAcknowledged) {
+                                WidgetsBinding.instance.addPostFrameCallback((_) {
+                                  if (mounted) setState(() => _permissionAcknowledged = false);
+                                });
+                              }
+                              return Container(
+                                color: Colors.black87,
+                                child: Center(
+                                  child: Text(
+                                    error.errorCode == MobileScannerErrorCode.permissionDenied
+                                        ? 'Camera permission was denied.'
+                                        : 'Could not start camera.',
+                                    style: const TextStyle(color: Colors.white70),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ),
+                              );
+                            },
                             onDetect: (capture) {
                               final List<Barcode> barcodes = capture.barcodes;
                               if (barcodes.isNotEmpty) {

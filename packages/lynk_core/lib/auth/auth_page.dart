@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../src/widgets/primary_button.dart';
 import 'widgets/custom_text_field.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../src/utils/friendly_error.dart';
 
 /// Phone number + OTP is the only way in — no password, no email, no OAuth.
 /// A single `signInWithOtp(phone: ...)` call covers both new and returning
@@ -196,7 +198,7 @@ class _PhoneFormState extends State<_PhoneForm> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
+          SnackBar(content: Text(e.toFriendlyMessage()), backgroundColor: Colors.red),
         );
       }
     } finally {
@@ -283,6 +285,35 @@ class _OtpFormState extends State<_OtpForm> {
   bool _isLoading = false;
   bool _isResending = false;
 
+
+  int _resendCooldown = 30;
+  Timer? _cooldownTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _startCooldown();
+  }
+
+  @override
+  void dispose() {
+    _cooldownTimer?.cancel();
+    super.dispose();
+  }
+
+  void _startCooldown() {
+    _resendCooldown = 30;
+    _cooldownTimer?.cancel();
+    _cooldownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      setState(() => _resendCooldown--);
+      if (_resendCooldown <= 0) timer.cancel();
+    });
+  }
+
   Future<void> _verify() async {
     final code = _codeController.text.trim();
     if (code.isEmpty) {
@@ -304,7 +335,7 @@ class _OtpFormState extends State<_OtpForm> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
+          SnackBar(content: Text(e.toFriendlyMessage()), backgroundColor: Colors.red),
         );
       }
     } finally {
@@ -323,11 +354,12 @@ class _OtpFormState extends State<_OtpForm> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Code resent')),
         );
+        _startCooldown();
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
+          SnackBar(content: Text(e.toFriendlyMessage()), backgroundColor: Colors.red),
         );
       }
     } finally {
@@ -368,11 +400,15 @@ class _OtpFormState extends State<_OtpForm> {
               ),
             ),
             TextButton(
-              onPressed: _isResending ? null : _resend,
+              onPressed: (_isResending || _resendCooldown > 0) ? null : _resend,
               child: Text(
-                _isResending ? 'Resending…' : 'Resend code',
-                style: const TextStyle(
-                  color: Color(0xFF00FF00),
+                _isResending
+                    ? 'Resending…'
+                    : (_resendCooldown > 0 ? 'Resend code (${_resendCooldown}s)' : 'Resend code'),
+                style: TextStyle(
+                  color: (_resendCooldown > 0 && !_isResending)
+                      ? Colors.white38
+                      : const Color(0xFF00FF00),
                   fontWeight: FontWeight.w600,
                   fontSize: 14,
                 ),

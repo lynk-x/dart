@@ -194,6 +194,10 @@ class FriendlyError {
             'The password provided is too short. It must be at least 6 characters.')
         case final String r?) return r;
 
+    if (_matchAny([m], ['Token has expired or is invalid', 'otp_expired', 'Token has expired'],
+            'That code is incorrect or has expired. Please check it or request a new one.')
+        case final String r?) return r;
+
     if (_matchAny([m], ['Invalid'], 'Your credentials were rejected. Please try again.')
         case final String r?) return r;
 

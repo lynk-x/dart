@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 import 'package:lynk_core/core.dart';
 import 'package:lynk_x/services/push_notification_service.dart';
+import 'package:lynk_x/presentation/shared/utils/permission_acks.dart';
 import '../models/country.dart';
 
 enum SetupStep { identity, notifications }
@@ -49,6 +50,20 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   void initState() {
     super.initState();
     _userNameController.addListener(_onUsernameChanged);
+    
+    // Prefill fields from current profile
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final profileState = context.read<ProfileCubit>().state;
+      if (profileState is ProfileLoaded) {
+        final profile = profileState.profile;
+        _fullNameController.text = profile.fullName ?? '';
+        _userNameController.text = profile.userName;
+        setState(() {
+          _selectedCountryCode = profile.countryCode ?? '';
+        });
+      }
+    });
   }
 
   @override
@@ -94,12 +109,22 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
 
 
   Future<void> _pickImage() async {
-    final picker = ImagePicker();
-    final pickedFile = await picker.pickImage(source: ImageSource.gallery, imageQuality: 70);
-    if (pickedFile != null) {
-      final bytes = await pickedFile.readAsBytes();
-      if (mounted) setState(() { _imageFile = pickedFile; _imageBytes = bytes; });
-    }
+    await PermissionAcks.ensureAcknowledged(
+      context,
+      PermissionAckType.media,
+      title: 'Access your Media',
+      description: 'To set a profile photo, we need access to your device library.',
+      icon: Icons.perm_media_rounded,
+      actionLabel: 'Allow Access',
+      onReady: () async {
+        final picker = ImagePicker();
+        final pickedFile = await picker.pickImage(source: ImageSource.gallery, imageQuality: 70);
+        if (pickedFile != null) {
+          final bytes = await pickedFile.readAsBytes();
+          if (mounted) setState(() { _imageFile = pickedFile; _imageBytes = bytes; });
+        }
+      },
+    );
   }
 
   void _goToNextFromIdentity() {
@@ -111,12 +136,22 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
     setState(() => _isSubmitting = true);
     try {
       final cubit = context.read<ProfileCubit>();
-      if (_imageFile != null) await cubit.uploadAvatar(_imageFile!);
+      if (_imageFile != null) {
+        await cubit.uploadAvatar(_imageFile!);
+        final profileState = cubit.state;
+        if (profileState is ProfileLoaded && profileState.error != null) {
+          throw Exception(profileState.error);
+        }
+      }
       await cubit.updateProfile(
         fullName: _fullNameController.text.trim(),
         userName: _userNameController.text.trim(),
         countryCode: _selectedCountryCode,
       );
+      final profileState = cubit.state;
+      if (profileState is ProfileLoaded && profileState.error != null) {
+        throw Exception(profileState.error);
+      }
       if (mounted) {
         setState(() {
           _isSubmitting = false;
@@ -132,11 +167,27 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   }
 
   Future<void> _finishSetup({required bool requestPermission}) async {
-    if (requestPermission) {
-      // Request push notification permission now that the user has opted in
-      await PushNotificationService.instance.init();
+    try {
+      if (requestPermission) {
+        // Request push notification permission now that the user has opted in
+        await PushNotificationService.instance.init();
+      }
+    } catch (e) {
+      debugPrint('[ProfileSetup] Push notifications initialization error: $e');
     }
-    if (mounted) context.go(widget.next ?? '/');
+
+    if (mounted) {
+      try {
+        // Reload profile to ensure GoRouter's redirect logic has the updated data
+        await context.read<ProfileCubit>().loadProfile();
+      } catch (e) {
+        debugPrint('[ProfileSetup] Profile reload error: $e');
+      }
+    }
+
+    if (mounted) {
+      context.go(widget.next ?? '/');
+    }
   }
 
   @override

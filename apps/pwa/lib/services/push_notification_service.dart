@@ -22,6 +22,15 @@ class PushNotificationService {
   /// The app can use this to show an explanatory prompt.
   void Function()? onPermissionDenied;
 
+  /// Current browser/OS notification permission, without prompting. Lets a
+  /// settings screen show accurate state (and explain why re-enabling
+  /// requires the OS/browser settings once a user has permanently denied)
+  /// instead of blindly re-calling requestPermission on every visit.
+  Future<AuthorizationStatus> checkPermissionStatus() async {
+    final settings = await _messaging.getNotificationSettings();
+    return settings.authorizationStatus;
+  }
+
   Future<void> init() async {
     try {
       final settings = await _messaging.requestPermission(

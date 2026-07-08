@@ -10,7 +10,8 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:lynk_x/presentation/features/wallet/widgets/wallet_pin_setup_sheet.dart';
 import 'package:lynk_x/presentation/features/wallet/widgets/transfer_sheet.dart';
-import 'package:lynk_x/presentation/shared/widgets/permission_request_sheet.dart';
+import 'package:lynk_x/presentation/features/wallet/widgets/top_up_sheet.dart';
+import 'package:lynk_x/presentation/shared/utils/permission_acks.dart';
 
 class WalletPage extends StatefulWidget {
   final String? prefilledRecipientId;
@@ -96,6 +97,19 @@ class _WalletPageState extends State<WalletPage> {
     );
   }
 
+  void _showTopUpDialog(BuildContext context) {
+    final cubit = context.read<WalletCubit>();
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => BlocProvider.value(
+        value: cubit,
+        child: TopUpSheet(currentBalances: cubit.state.balances),
+      ),
+    ).whenComplete(cubit.resetTopUp);
+  }
+
   void _showPinSetup() {
     showModalBottomSheet(
       context: context,
@@ -106,30 +120,17 @@ class _WalletPageState extends State<WalletPage> {
   }
 
   void _showScanner(BuildContext context) async {
-    final prefs = await SharedPreferences.getInstance();
-    final hasAcknowledged = prefs.getBool('camera_permission_acknowledged') ?? false;
-
-    if (!hasAcknowledged && context.mounted) {
-      showModalBottomSheet(
-        context: context,
-        backgroundColor: Colors.transparent,
-        builder: (context) => PermissionRequestSheet(
-          title: 'Scan QR Codes',
-          description: 'To pay and transfer funds via QR, we need access to your device camera.',
-          icon: Icons.camera_alt_rounded,
-          actionLabel: 'Enable Camera',
-          onGranted: () async {
-            await prefs.setBool('camera_permission_acknowledged', true);
-            if (context.mounted) {
-              _actuallyShowScanner(context);
-            }
-          },
-        ),
-      );
-      return;
-    }
-    if (!context.mounted) return;
-    _actuallyShowScanner(context);
+    await PermissionAcks.ensureAcknowledged(
+      context,
+      PermissionAckType.camera,
+      title: 'Scan QR Codes',
+      description: 'To pay and transfer funds via QR, we need access to your device camera.',
+      icon: Icons.camera_alt_rounded,
+      actionLabel: 'Enable Camera',
+      onReady: () {
+        if (context.mounted) _actuallyShowScanner(context);
+      },
+    );
   }
 
   void _actuallyShowScanner(BuildContext context) {
@@ -220,7 +221,7 @@ class _WalletPageState extends State<WalletPage> {
           const SizedBox(height: 20),
           _QRCard(accountReference: accountReference),
           const SizedBox(height: 32),
-          _QuickActionsRow(),
+          _QuickActionsRow(onTopUp: () => _showTopUpDialog(context)),
           const SizedBox(height: 32),
           // In mobile, we might still want a peek at wallets or history if space allows
           // but keeping it simple for now as per current mobile design.
@@ -277,7 +278,7 @@ class _WalletPageState extends State<WalletPage> {
                     style: AppTypography.inter(fontSize: 14, color: Colors.white54),
                   ),
                   const SizedBox(height: 32),
-                  _DesktopQuickActionsGrid(),
+                  _DesktopQuickActionsGrid(onTopUp: () => _showTopUpDialog(context)),
                 ],
               ),
             ),
@@ -411,31 +412,48 @@ class _QRCard extends StatelessWidget {
 }
 
 class _QuickActionsRow extends StatelessWidget {
+  final VoidCallback onTopUp;
+  const _QuickActionsRow({required this.onTopUp});
+
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+    return Column(
       children: [
-        _ActionIcon(
-          label: 'Send',
-          icon: Icons.send_rounded,
-          onTap: () => context.push('/wallet/list'),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [
+            _ActionIcon(
+              label: 'Send',
+              icon: Icons.send_rounded,
+              onTap: () => context.push('/wallet/list'),
+            ),
+            _ActionIcon(
+              label: 'Receive',
+              icon: Icons.download_rounded,
+              onTap: () => context.push('/wallet/list'),
+            ),
+            const SizedBox(width: 60), // Space for centered FAB
+            _ActionIcon(
+              label: 'Wallets',
+              icon: Icons.account_balance_wallet_rounded,
+              onTap: () => context.push('/wallet/list'),
+            ),
+            _ActionIcon(
+              label: 'History',
+              icon: Icons.history_rounded,
+              onTap: () => context.push('/wallet/history'),
+            ),
+          ],
         ),
+        const SizedBox(height: 28),
+        // A zero-balance first-timer has no other way to fund their wallet —
+        // Send/Receive/Wallets/History above are all no-ops until money is
+        // already in the wallet, so Top Up gets its own clearly-labeled entry
+        // point rather than being folded into one of those.
         _ActionIcon(
-          label: 'Receive',
-          icon: Icons.download_rounded,
-          onTap: () => context.push('/wallet/list'),
-        ),
-        const SizedBox(width: 60), // Space for centered FAB
-        _ActionIcon(
-          label: 'Wallets',
-          icon: Icons.account_balance_wallet_rounded,
-          onTap: () => context.push('/wallet/list'),
-        ),
-        _ActionIcon(
-          label: 'History',
-          icon: Icons.history_rounded,
-          onTap: () => context.push('/wallet/history'),
+          label: 'Top Up',
+          icon: Icons.add_circle_outline_rounded,
+          onTap: onTopUp,
         ),
       ],
     );
@@ -443,6 +461,9 @@ class _QuickActionsRow extends StatelessWidget {
 }
 
 class _DesktopQuickActionsGrid extends StatelessWidget {
+  final VoidCallback onTopUp;
+  const _DesktopQuickActionsGrid({required this.onTopUp});
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -463,6 +484,14 @@ class _DesktopQuickActionsGrid extends StatelessWidget {
             crossAxisSpacing: 16,
             childAspectRatio: 1.2,
             children: [
+              // A zero-balance first-timer has no other way to fund their
+              // wallet — every other action here is a no-op until money is
+              // already in the wallet.
+              _DesktopActionCard(
+                label: 'Top Up',
+                icon: Icons.add_circle_outline_rounded,
+                onTap: onTopUp,
+              ),
               _DesktopActionCard(
                 label: 'Send Money',
                 icon: Icons.send_rounded,

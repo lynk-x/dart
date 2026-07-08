@@ -52,7 +52,8 @@ class WelcomeBanner extends StatelessWidget {
                         color: Colors.white),
                   ),
                   Text(
-                    'Introduce yourself in the Live Chat or see the latest updates.',
+                    'Introduce yourself in Live Chat, catch the latest Updates, '
+                    'and tap the people icon above for the session schedule.',
                     style:
                         AppTypography.inter(fontSize: 12, color: Colors.white54),
                   ),

@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:lynk_core/core.dart';
 import 'package:lynk_x/presentation/shared/widgets/text_field.dart';
+import 'package:lynk_x/presentation/shared/utils/permission_acks.dart';
 import 'package:country_flags/country_flags.dart';
 import '../models/country.dart';
 import '../widgets/profile_avatar.dart';
@@ -119,6 +120,18 @@ class _EditProfilePageState extends State<EditProfilePage> {
    }
 
   Future<void> _pickImage(BuildContext context) async {
+    await PermissionAcks.ensureAcknowledged(
+      context,
+      PermissionAckType.media,
+      title: 'Access your Media',
+      description: 'To update your profile photo, we need access to your device library.',
+      icon: Icons.perm_media_rounded,
+      actionLabel: 'Allow Access',
+      onReady: () => _actuallyPickImage(context),
+    );
+  }
+
+  Future<void> _actuallyPickImage(BuildContext context) async {
     setState(() => _isOpeningGallery = true);
     try {
       final picker = ImagePicker();
