@@ -150,6 +150,54 @@ class _HomeDrawerState extends State<HomeDrawer> {
                         ),
                       );
                     }
+                    if (state is ProfileError || state is ProfileInitial) {
+                      return Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 56, 16, 16),
+                        child: Column(
+                          children: [
+                            Row(
+                              children: [
+                                const CircleAvatar(
+                                  radius: 30,
+                                  backgroundColor: AppColors.tertiary,
+                                  child: Icon(
+                                    Icons.person,
+                                    size: 30,
+                                    color: AppColors.primaryText,
+                                  ),
+                                ),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        'Guest User',
+                                        style: AppTypography.interTight(
+                                          fontSize: 20,
+                                          fontWeight: FontWeight.bold,
+                                          color: AppColors.primaryText,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      const Text(
+                                        'Sign in to sync your tickets',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.white38,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      );
+                    }
                     return Padding(
                       padding: const EdgeInsets.fromLTRB(16, 56, 16, 16),
                       child: Column(

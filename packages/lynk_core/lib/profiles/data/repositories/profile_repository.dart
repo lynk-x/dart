@@ -11,13 +11,28 @@ class ProfileRepository {
   ///
   /// Only selects columns consumed by [ProfileModel.fromMap]; avoids
   /// pulling sensitive fields (embedding, fts, strikes, etc.).
+  ///
+  /// Right after sign-up/sign-in, the client can hold a valid session before
+  /// identity.handle_new_user() (an AFTER INSERT ON auth.users trigger) has
+  /// committed the matching identity.user_profile row — a brief provisioning
+  /// race, not a real "no such user" case. Retries a few times with a short
+  /// backoff before giving up, rather than surfacing PGRST116 immediately.
   Future<ProfileModel> getProfile(String userId) async {
-    final data = await _client
-        .schema('api')
-        .from('v1_profiles')
-        .select('id, email, avatar_url, user_name, full_name, country_code, is_premium, bio, tagline, reference, phone_number, gender, date_of_birth')
-        .eq('id', userId)
-        .single();
+    Map<String, dynamic>? data;
+    for (var attempt = 0; attempt < 5; attempt++) {
+      data = await _client
+          .schema('api')
+          .from('v1_profiles')
+          .select('id, email, avatar_url, user_name, full_name, country_code, is_premium, bio, tagline, reference, phone_number, gender, date_of_birth')
+          .eq('id', userId)
+          .maybeSingle();
+      if (data != null) break;
+      await Future.delayed(Duration(milliseconds: 300 * (attempt + 1)));
+    }
+
+    if (data == null) {
+      throw ProfileNotProvisionedException();
+    }
 
     String? targetAccountId;
     String? accountStatus;

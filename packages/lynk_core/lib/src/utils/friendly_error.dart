@@ -4,10 +4,22 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
 
+/// Thrown when a row expected to already exist (e.g. the caller's own
+/// profile) isn't visible yet — typically a brief provisioning race right
+/// after sign-up/sign-in, before a DB trigger has committed the row, rather
+/// than a real "not found". See [FriendlyError.parse]'s dedicated case.
+class ProfileNotProvisionedException implements Exception {
+  @override
+  String toString() => 'ProfileNotProvisionedException';
+}
+
 /// Centralised utility that parses raw exceptions into friendly,
 /// human-readable error messages.
 class FriendlyError {
   static String parse(Object error) {
+    if (error is ProfileNotProvisionedException) {
+      return "We're still setting up your profile. Please try again in a moment.";
+    }
     return _socket(error) ??
         _timeout(error) ??
         _format(error) ??
@@ -237,6 +249,14 @@ class FriendlyError {
     if (error is! PostgrestException) return null;
     final code = error.code; // String?
     final m = error.message;  // String
+
+    // PGRST116: .single()/.maybeSingle() got zero or >1 rows. The raw
+    // message ("Cannot coerce the result to a single JSON object") is short
+    // and contains neither "Exception" nor " error", so it would otherwise
+    // slip through the Layer 0 passthrough below unmapped.
+    if (code == 'PGRST116') {
+      return 'The requested record could not be found. Please try again.';
+    }
 
     // Layer 0 — safe raw message passthrough
     if (_rawMsgIfSafe(m) case final String r?) return r;
