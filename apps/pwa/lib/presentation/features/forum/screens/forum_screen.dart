@@ -545,7 +545,7 @@ class _ForumViewState extends State<ForumView> {
       elevation: 0,
       leading: IconButton(
         icon: const Icon(Icons.arrow_back, color: Colors.white, size: 32),
-        onPressed: () => context.pop(),
+        onPressed: () => context.go('/'),
       ),
       title: RepaintBoundary(
         child: Padding(

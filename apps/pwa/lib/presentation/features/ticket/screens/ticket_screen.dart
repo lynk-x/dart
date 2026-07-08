@@ -83,7 +83,7 @@ class _TicketViewState extends State<TicketView> {
         centerTitle: true,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, size: 32, color: Colors.white),
-          onPressed: () => context.pop(),
+          onPressed: () => context.go('/tickets'),
         ),
         title: RepaintBoundary(
           child: SvgPicture.asset(
@@ -616,7 +616,7 @@ class _TicketViewState extends State<TicketView> {
             ),
           ),
 
-          const SizedBox(height: 200),
+          const SizedBox(height: 32),
           const TicketCutoutSeparator(),
           const SizedBox(height: 24),
 

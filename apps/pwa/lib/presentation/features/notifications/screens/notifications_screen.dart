@@ -162,7 +162,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, size: 32, color: Colors.white),
-          onPressed: () => context.pop(),
+          onPressed: () => context.go('/'),
         ),
         title: const Text(
           'Notifications',
