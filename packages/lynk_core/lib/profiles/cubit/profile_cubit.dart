@@ -83,6 +83,7 @@ class ProfileCubit extends Cubit<ProfileState> {
       );
       emit(ProfileLoaded(profile: updatedProfile));
     } catch (e) {
+      debugPrint('[ProfileCubit] updateProfile failed: $e');
       emit(currentState.copyWith(isUpdating: false, error: e.toFriendlyMessage()));
     }
   }
