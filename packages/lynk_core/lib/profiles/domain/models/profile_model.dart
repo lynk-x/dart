@@ -77,11 +77,12 @@ class ProfileModel {
     };
   }
 
-  bool get isIncomplete => 
-      fullName == null || 
-      fullName!.isEmpty || 
-      userName.startsWith('user_') || 
-      userName.startsWith('guest_');
+  bool get isIncomplete =>
+      fullName == null ||
+      fullName!.isEmpty ||
+      userName.isEmpty ||
+      countryCode == null ||
+      countryCode!.isEmpty;
   bool get isPremium => subscriptionTier == 'pro';
 
   ProfileModel copyWith({
