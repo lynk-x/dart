@@ -131,9 +131,11 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
     }
   }
 
-  Future<void> _finishSetup() async {
-    // Request push notification permission now that the user has opted in
-    await PushNotificationService.instance.init();
+  Future<void> _finishSetup({required bool requestPermission}) async {
+    if (requestPermission) {
+      // Request push notification permission now that the user has opted in
+      await PushNotificationService.instance.init();
+    }
     if (mounted) context.go(widget.next ?? '/');
   }
 
@@ -142,19 +144,25 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
     return Scaffold(
       backgroundColor: Colors.black,
       body: SafeArea(
-        child: Column(
-          children: [
-            _buildStepIndicator(),
-            Expanded(
-              child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 500),
-                transitionBuilder: (Widget child, Animation<double> animation) {
-                  return FadeTransition(opacity: animation, child: child);
-                },
-                child: _buildCurrentStepView(),
-              ),
+        child: Center(
+          child: ConstrainedBox(
+            // Constrain screen width to a max of 500 to keep layout readable and neat on desktop/web screens
+            constraints: const BoxConstraints(maxWidth: 500),
+            child: Column(
+              children: [
+                _buildStepIndicator(),
+                Expanded(
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 500),
+                    transitionBuilder: (Widget child, Animation<double> animation) {
+                      return FadeTransition(opacity: animation, child: child);
+                    },
+                    child: _buildCurrentStepView(),
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -296,7 +304,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _buildHeader('Build your profile', 'Tell us a bit about yourself to join the Lynk-X community.'),
+            _buildHeader('Build your profile', 'Tell us a bit about yourself.'),
             const SizedBox(height: 48),
             _buildAvatarPicker(),
             const SizedBox(height: 48),
@@ -358,15 +366,18 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
           ).animate().fadeIn(delay: 200.ms),
           const SizedBox(height: 16),
           const Text(
-            'Get live event updates, forum mentions, and ticket alerts the moment they happen.',
+            'Get live event updates, forum mentions and ticket alerts the moment they happen.',
             textAlign: TextAlign.center,
             style: TextStyle(fontSize: 16, color: Colors.white54, height: 1.5),
           ).animate().fadeIn(delay: 400.ms),
           const SizedBox(height: 60),
-          PrimaryButton(text: 'Enable Notifications', onPressed: _finishSetup),
+          PrimaryButton(
+            text: 'Enable Notifications', 
+            onPressed: () => _finishSetup(requestPermission: true),
+          ),
           const SizedBox(height: 12),
           TextButton(
-            onPressed: _finishSetup,
+            onPressed: () => _finishSetup(requestPermission: false),
             child: const Text('Skip for now', style: TextStyle(color: Colors.white38)),
           ),
           const SizedBox(height: 4),

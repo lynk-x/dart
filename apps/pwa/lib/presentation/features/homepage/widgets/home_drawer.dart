@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -77,6 +78,8 @@ class _HomeDrawerState extends State<HomeDrawer> {
         .watch<SystemConfigCubit>()
         .state
         .getString('app_version', defaultValue: '1.0.0');
+
+    const baseUrl = 'https://lynk-x.app';
 
     return Drawer(
       backgroundColor: AppColors.primaryBackground,
@@ -476,13 +479,7 @@ class _HomeDrawerState extends State<HomeDrawer> {
                   children: [
                     GestureDetector(
                       onTap: () {
-                        final url = context
-                            .read<SystemConfigCubit>()
-                            .state
-                            .getString('privacy_policy_url');
-                        if (url.isNotEmpty) {
-                          safeLaunchUrl(url, mode: LaunchMode.inAppBrowserView);
-                        }
+                        safeLaunchUrl('$baseUrl/privacy', mode: LaunchMode.inAppBrowserView);
                       },
                       child: Text(
                         l10n.privacyPolicy,
@@ -501,13 +498,7 @@ class _HomeDrawerState extends State<HomeDrawer> {
                     ),
                     GestureDetector(
                       onTap: () {
-                        final url = context
-                            .read<SystemConfigCubit>()
-                            .state
-                            .getString('terms_conditions_url');
-                        if (url.isNotEmpty) {
-                          safeLaunchUrl(url, mode: LaunchMode.inAppBrowserView);
-                        }
+                        safeLaunchUrl('$baseUrl/terms', mode: LaunchMode.inAppBrowserView);
                       },
                       child: Text(
                         l10n.termsConditions,
@@ -526,13 +517,7 @@ class _HomeDrawerState extends State<HomeDrawer> {
                     ),
                     GestureDetector(
                       onTap: () {
-                        final url = context
-                            .read<SystemConfigCubit>()
-                            .state
-                            .getString('community_guidelines_url');
-                        if (url.isNotEmpty) {
-                          safeLaunchUrl(url, mode: LaunchMode.inAppBrowserView);
-                        }
+                        safeLaunchUrl('$baseUrl/resources/guidelines', mode: LaunchMode.inAppBrowserView);
                       },
                       child: Text(
                         l10n.communityGuidelines,
