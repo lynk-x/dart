@@ -390,7 +390,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, size: 28, color: Colors.white),
-          onPressed: () => context.pop(),
+          onPressed: () => context.go('/'),
         ),
         title: RepaintBoundary(
           child: SvgPicture.asset(

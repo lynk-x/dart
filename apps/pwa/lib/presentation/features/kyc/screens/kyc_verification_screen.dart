@@ -28,7 +28,7 @@ class KycVerificationScreen extends StatelessWidget {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, size: 28, color: Colors.white),
-          onPressed: () => context.pop(),
+          onPressed: () => context.go('/'),
         ),
         title: const Text(
           'Identity Verification',
