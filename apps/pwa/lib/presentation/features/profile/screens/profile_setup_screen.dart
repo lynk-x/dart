@@ -144,25 +144,19 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
     return Scaffold(
       backgroundColor: Colors.black,
       body: SafeArea(
-        child: Center(
-          child: ConstrainedBox(
-            // Constrain screen width to a max of 500 to keep layout readable and neat on desktop/web screens
-            constraints: const BoxConstraints(maxWidth: 500),
-            child: Column(
-              children: [
-                _buildStepIndicator(),
-                Expanded(
-                  child: AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 500),
-                    transitionBuilder: (Widget child, Animation<double> animation) {
-                      return FadeTransition(opacity: animation, child: child);
-                    },
-                    child: _buildCurrentStepView(),
-                  ),
-                ),
-              ],
+        child: Column(
+          children: [
+            _buildStepIndicator(),
+            Expanded(
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 500),
+                transitionBuilder: (Widget child, Animation<double> animation) {
+                  return FadeTransition(opacity: animation, child: child);
+                },
+                child: _buildCurrentStepView(),
+              ),
             ),
-          ),
+          ],
         ),
       ),
     );
@@ -308,12 +302,14 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
             const SizedBox(height: 48),
             _buildAvatarPicker(),
             const SizedBox(height: 48),
+            _buildCountrySelector().animate().slideX(begin: -0.1).fadeIn(delay: 100.ms),
+            const SizedBox(height: 24),
             _buildTextField(
               controller: _fullNameController,
               label: 'Full Name',
               hint: 'John Doe',
               validator: (v) => v == null || v.isEmpty ? 'Required' : null,
-            ).animate().slideX(begin: -0.1).fadeIn(delay: 100.ms),
+            ).animate().slideX(begin: -0.1).fadeIn(delay: 200.ms),
             const SizedBox(height: 24),
             _buildTextField(
               controller: _userNameController,
@@ -330,9 +326,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                         ? const Icon(Icons.error, color: Colors.redAccent, size: 20)
                         : null)),
               validator: (v) => v == null || v.isEmpty ? 'Required' : (_isUsernameAvailable == false ? 'Username already taken' : null),
-            ).animate().slideX(begin: -0.1).fadeIn(delay: 200.ms),
-            const SizedBox(height: 24),
-            _buildCountrySelector().animate().slideX(begin: -0.1).fadeIn(delay: 300.ms),
+            ).animate().slideX(begin: -0.1).fadeIn(delay: 300.ms),
             const SizedBox(height: 60),
             _isSubmitting
                 ? Center(child: CircularProgressIndicator(color: context.accentColor))
@@ -443,10 +437,28 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
           controller: controller, validator: validator, obscureText: obscureText,
           style: const TextStyle(color: Colors.white),
           decoration: InputDecoration(
-            hintText: hint, hintStyle: const TextStyle(color: Colors.white10),
-            filled: true, fillColor: Colors.white.withValues(alpha: 0.04),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
-            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: context.accentColor, width: 1)),
+            hintText: hint, hintStyle: const TextStyle(color: Colors.white24),
+            filled: true, fillColor: Colors.white.withValues(alpha: 0.05),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Colors.white12),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Colors.white12),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: context.accentColor, width: 1),
+            ),
+            errorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Colors.redAccent, width: 1),
+            ),
+            focusedErrorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Colors.redAccent, width: 1.5),
+            ),
             suffixIcon: suffixIcon,
             helperText: helperText,
             helperStyle: const TextStyle(color: Colors.white38, fontSize: 11),
