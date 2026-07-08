@@ -13,5 +13,4 @@ const List<Country> kSupportedCountries = [
   Country(name: 'South Africa', code: 'ZA'),
   Country(name: 'United States', code: 'US'),
   Country(name: 'United Kingdom', code: 'GB'),
-  Country(name: 'Global', code: 'GL'),
 ];

@@ -49,6 +49,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   @override
   void initState() {
     super.initState();
+    _fullNameController.addListener(_onFullNameChanged);
     _userNameController.addListener(_onUsernameChanged);
     
     // Prefill fields from current profile
@@ -68,11 +69,16 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
 
   @override
   void dispose() {
+    _fullNameController.removeListener(_onFullNameChanged);
     _userNameController.removeListener(_onUsernameChanged);
     _debounceTimer?.cancel();
     _fullNameController.dispose();
     _userNameController.dispose();
     super.dispose();
+  }
+
+  void _onFullNameChanged() {
+    setState(() {});
   }
 
   void _onUsernameChanged() {
@@ -302,9 +308,15 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   }
 
   Widget _buildCountrySelector() {
-    final country = _selectedCountryCode != null 
-        ? kSupportedCountries.firstWhere((c) => c.code == _selectedCountryCode, orElse: () => const Country(name: 'Global', code: 'GL'))
-        : null;
+    Country? country;
+    if (_selectedCountryCode != null) {
+      for (final c in kSupportedCountries) {
+        if (c.code == _selectedCountryCode) {
+          country = c;
+          break;
+        }
+      }
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -359,6 +371,9 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
               controller: _fullNameController,
               label: 'Full Name',
               hint: 'John Doe',
+              suffixIcon: _fullNameController.text.trim().isEmpty
+                  ? null
+                  : Icon(Icons.check_circle, color: context.accentColor, size: 20),
               validator: (v) => v == null || v.isEmpty ? 'Required' : null,
             ).animate().slideX(begin: -0.1).fadeIn(delay: 200.ms),
             const SizedBox(height: 24),
