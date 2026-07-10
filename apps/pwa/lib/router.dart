@@ -62,9 +62,13 @@ GoRouter createRouter(
           // ProfileCubit not found in context
         }
 
+        // '/auth/bridge' is deliberately NOT public: checkout now signs the
+        // buyer into a real account via phone+OTP, so opening this link
+        // while signed out should hit the normal '/auth' gate below (not
+        // bootstrap an anonymous session, which the bridge screen no longer
+        // does at all).
         const publicRoutes = {
           '/auth',
-          '/auth/bridge',
           '/maintenance',
           '/error'
         };
@@ -86,9 +90,17 @@ GoRouter createRouter(
         } catch (_) {}
 
         if (user == null && !isPublic) {
-          return '/auth';
+          // Carry the originally-requested path through sign-in so routes
+          // that require auth (e.g. '/auth/bridge', reached from the
+          // checkout confirmation "Enter Event Forum" link) return the
+          // visitor to where they meant to go instead of dropping them at
+          // the home screen after verifying their OTP.
+          return '/auth?next=${Uri.encodeComponent(path)}';
         }
-        if (user != null && path == '/auth') return '/';
+        if (user != null && path == '/auth') {
+          final next = state.uri.queryParameters['next'];
+          return (next != null && next.isNotEmpty) ? next : '/';
+        }
 
         // ── Onboarding / Profile Setup Redirection ──
         if (user != null && !isPublic && !path.startsWith('/profile-setup')) {
@@ -115,11 +127,12 @@ GoRouter createRouter(
       GoRoute(
         path: '/auth/bridge',
         builder: (_, state) {
-          final claimToken = state.uri.queryParameters['claim'];
+          final eventId = state.uri.queryParameters['event_id'];
+          final eventCreatedAt = state.uri.queryParameters['event_created_at'];
           return Title(
-            title: 'Claiming Tickets',
+            title: 'Opening Forum',
             color: Colors.black,
-            child: ClaimBridgeScreen(claimToken: claimToken),
+            child: ClaimBridgeScreen(eventId: eventId, eventCreatedAt: eventCreatedAt),
           );
         },
       ),
