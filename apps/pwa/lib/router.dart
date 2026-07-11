@@ -127,12 +127,17 @@ GoRouter createRouter(
       GoRoute(
         path: '/auth/bridge',
         builder: (_, state) {
+          final forumReference = state.uri.queryParameters['forum_reference'];
           final eventId = state.uri.queryParameters['event_id'];
           final eventCreatedAt = state.uri.queryParameters['event_created_at'];
           return Title(
             title: 'Opening Forum',
             color: Colors.black,
-            child: ClaimBridgeScreen(eventId: eventId, eventCreatedAt: eventCreatedAt),
+            child: ClaimBridgeScreen(
+              forumReference: forumReference,
+              eventId: eventId,
+              eventCreatedAt: eventCreatedAt,
+            ),
           );
         },
       ),

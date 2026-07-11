@@ -12,10 +12,16 @@ import 'package:lynk_x/presentation/shared/screens/system_error_screen.dart';
 /// needed here. This screen only resolves the event id to its forum route
 /// and forwards there.
 class ClaimBridgeScreen extends StatefulWidget {
+  final String? forumReference;
   final String? eventId;
   final String? eventCreatedAt;
 
-  const ClaimBridgeScreen({super.key, required this.eventId, this.eventCreatedAt});
+  const ClaimBridgeScreen({
+    super.key,
+    this.forumReference,
+    this.eventId,
+    this.eventCreatedAt,
+  });
 
   @override
   State<ClaimBridgeScreen> createState() => _ClaimBridgeScreenState();
@@ -31,6 +37,16 @@ class _ClaimBridgeScreenState extends State<ClaimBridgeScreen> {
   }
 
   Future<void> _forward() async {
+    // Prefer the forum reference when the link carries one: it's a single
+    // opaque slug, so there's no timestamp to mangle in transit (unlike the
+    // event_id + event_created_at fallback below, which requires the
+    // timestamp to survive URL encoding round-trips intact).
+    final forumReference = widget.forumReference;
+    if (forumReference != null && forumReference.isNotEmpty) {
+      context.go('/forum/$forumReference');
+      return;
+    }
+
     final eventId = widget.eventId;
     if (eventId == null || eventId.isEmpty) {
       setState(() => _errorMessage = 'This link is missing its event.');
