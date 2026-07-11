@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import 'package:lynk_x/data/repositories/repository_providers.dart';
 import 'package:lynk_x/presentation/shared/screens/system_error_screen.dart';
 
 /// Landing screen for the "Enter Event Forum" link on the checkout
@@ -9,19 +8,11 @@ import 'package:lynk_x/presentation/shared/screens/system_error_screen.dart';
 /// account via phone+OTP (see CheckoutView on the web side), so by the time
 /// this screen loads the router's own auth gate has already ensured the
 /// visitor is signed in — no claim token or anonymous session bootstrap is
-/// needed here. This screen only resolves the event id to its forum route
-/// and forwards there.
+/// needed here. This screen only forwards to the forum's route.
 class ClaimBridgeScreen extends StatefulWidget {
   final String? forumReference;
-  final String? eventId;
-  final String? eventCreatedAt;
 
-  const ClaimBridgeScreen({
-    super.key,
-    this.forumReference,
-    this.eventId,
-    this.eventCreatedAt,
-  });
+  const ClaimBridgeScreen({super.key, this.forumReference});
 
   @override
   State<ClaimBridgeScreen> createState() => _ClaimBridgeScreenState();
@@ -37,37 +28,12 @@ class _ClaimBridgeScreenState extends State<ClaimBridgeScreen> {
   }
 
   Future<void> _forward() async {
-    // Prefer the forum reference when the link carries one: it's a single
-    // opaque slug, so there's no timestamp to mangle in transit (unlike the
-    // event_id + event_created_at fallback below, which requires the
-    // timestamp to survive URL encoding round-trips intact).
     final forumReference = widget.forumReference;
-    if (forumReference != null && forumReference.isNotEmpty) {
-      context.go('/forum/$forumReference');
-      return;
-    }
-
-    final eventId = widget.eventId;
-    if (eventId == null || eventId.isEmpty) {
+    if (forumReference == null || forumReference.isEmpty) {
       setState(() => _errorMessage = 'This link is missing its event.');
       return;
     }
-
-    try {
-      final segment = await forumRepository.getForumRouteSegmentByEventId(
-        eventId,
-        eventCreatedAt: widget.eventCreatedAt,
-      );
-      if (!mounted) return;
-      if (segment != null) {
-        context.go('/forum/$segment');
-      } else {
-        context.go('/');
-      }
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => _errorMessage = 'Something went wrong while opening the forum: $e');
-    }
+    context.go('/forum/$forumReference');
   }
 
   @override

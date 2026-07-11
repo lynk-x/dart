@@ -36,37 +36,6 @@ class ForumRepository {
     };
   }
 
-  // Used by the checkout-confirmation bridge screen: the confirmation link
-  // carries an event_id (and, when available, the event's created_at), but
-  // the forum route resolves by forum id/reference, and forum id is a
-  // distinct generated uuid (not equal to event_id) — see
-  // social.forums(id, event_id). Returns the forum's reference/slug if set,
-  // otherwise its id, either of which /forum/:reference accepts.
-  //
-  // eventCreatedAt is optional: social.forums is partitioned by created_at
-  // (its own key, not event_created_at), so it doesn't change what gets
-  // scanned here directly — it's accepted so callers that have it can filter
-  // v1_forums.event_created_at too, keeping this lookup unambiguous should
-  // event_id ever not be unique on its own (see the underlying
-  // UNIQUE (event_id, event_created_at, created_at) constraint).
-  Future<String?> getForumRouteSegmentByEventId(String eventId, {String? eventCreatedAt}) async {
-    var query = _client
-        .schema('api')
-        .from('v1_forums')
-        .select('id, reference')
-        .eq('event_id', eventId);
-
-    if (eventCreatedAt != null && eventCreatedAt.isNotEmpty) {
-      query = query.eq('event_created_at', eventCreatedAt);
-    }
-
-    final forumData = await query.maybeSingle();
-
-    if (forumData == null) return null;
-    final reference = forumData['reference'] as String?;
-    return (reference != null && reference.isNotEmpty) ? reference : forumData['id'] as String;
-  }
-
   Future<Map<String, dynamic>> getForumWithMemberStatusByReference(
       String reference, String userId) async {
     final isUuid = RegExp(r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$').hasMatch(reference);
