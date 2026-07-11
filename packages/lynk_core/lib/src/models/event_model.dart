@@ -73,6 +73,7 @@ class EventModel extends Equatable {
     final media = map['media'] as Map<String, dynamic>?;
     final thumbnailUrl = map['thumbnail_url'] as String?
         ?? map['event_thumbnail_url'] as String?
+        ?? map['event_thumbnail'] as String?
         ?? media?['thumbnail'] as String?
         ?? media?['poster'] as String?;
 

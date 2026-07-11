@@ -102,6 +102,14 @@ class _UserPresenceCardState extends State<UserPresenceCard> {
             },
             color: context.accentColor,
           ),
+          ActionBarItem(
+            label: 'View Ticket',
+            onTap: () {
+              _toggleActions();
+              context.push('/tickets');
+            },
+            color: context.accentColor,
+          ),
           if (canScan)
             ActionBarItem(
               label: 'Scan Tickets',

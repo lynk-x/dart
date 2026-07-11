@@ -233,7 +233,10 @@ class _ForumViewState extends State<ForumView> {
                   content: Row(
                     children: [
                       const Text('👋 ', style: TextStyle(fontSize: 24)),
-                      Text('${state.waveFromName} waved at you!'),
+                      Text(
+                        '${state.waveFromName} waved at you!',
+                        style: const TextStyle(color: Colors.black),
+                      ),
                     ],
                   ),
                   behavior: SnackBarBehavior.floating,
