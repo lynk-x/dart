@@ -16,13 +16,12 @@ class NotificationRepository {
         .toList();
   }
 
+  // Marks a single notification as read via RPC rather than a direct view
+
   Future<void> markAsRead(String id, DateTime createdAt) async {
     await _client
         .schema('api')
-        .from('v1_notifications')
-        .update({'is_read': true})
-        .eq('id', id)
-        .eq('created_at', createdAt.toIso8601String());
+        .rpc('mark_notifications_read', params: {'p_notification_ids': [id]});
   }
 
   Future<void> markAllAsRead(String userId) async {
