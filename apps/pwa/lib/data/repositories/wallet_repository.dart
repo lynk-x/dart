@@ -60,20 +60,20 @@ class WalletRepository {
     return result as Map<String, dynamic>;
   }
 
-  /// Requests a payout against a saved payout method
-  /// (finance.account_payment_methods row — see api.request_account_payout).
   Future<Map<String, dynamic>> requestPayout({
     required String accountId,
     required double amount,
     required String currency,
     required String payoutMethodId,
+    required String pinHash,
   }) async {
     final result =
-        await _client.schema('api').rpc('request_account_payout', params: {
+        await _client.schema('api').rpc('request_account_withdrawal', params: {
       'p_account_id': accountId,
       'p_amount': amount,
-      'p_payout_method_id': payoutMethodId,
       'p_currency': currency,
+      'p_payout_method_id': payoutMethodId,
+      'p_pin_hash': pinHash,
     });
     return result as Map<String, dynamic>;
   }

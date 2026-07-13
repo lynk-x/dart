@@ -579,7 +579,7 @@ class WalletCubit extends Cubit<WalletState> {
   }
 
   /// Request a withdrawal to a registered payout method.
-  /// Uses request_attendee_withdrawal RPC (no business_profile requirement).
+  /// Uses request_account_withdrawal RPC (no business_profile requirement).
   Future<void> requestWithdrawal({
     required double amount,
     required String currency,
@@ -601,7 +601,8 @@ class WalletCubit extends Cubit<WalletState> {
 
     try {
       final hash = _hashPin(pin);
-      await _supabase.schema('api').rpc('request_attendee_withdrawal', params: {
+      await _supabase.schema('api').rpc('request_account_withdrawal', params: {
+        'p_account_id':        null,
         'p_amount':            amount,
         'p_currency':          currency,
         'p_payout_method_id':  payoutMethodId,
