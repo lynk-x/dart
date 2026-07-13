@@ -8,6 +8,7 @@ SupabaseClient get _db => Supabase.instance.client;
 
 EventRepository get eventRepository => EventRepository(_db);
 ForumRepository get forumRepository => ForumRepository(_db);
+KycRepository get kycRepository => KycRepository(_db);
 NotificationRepository get notificationRepository => NotificationRepository(_db);
 WalletRepository get walletRepository => WalletRepository(_db);
 TicketRepository get ticketRepository => TicketRepository(_db);
