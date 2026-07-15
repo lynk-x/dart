@@ -34,12 +34,37 @@ class _PollCardState extends State<PollCard> {
   bool _isSubmitting = false;
   Map<int, int> _results = {}; // optionIndex -> count
   int _totalVotes = 0;
+  RealtimeChannel? _channel;
 
   @override
   void initState() {
     super.initState();
     _checkExistingVote();
     _fetchResults();
+    _channel = _supabase
+        .channel('poll_results_${widget.questionId}')
+        .onBroadcast(
+          event: 'poll_results',
+          callback: (payload) => _applyResults(payload['results'] as List?),
+        )
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'surveys',
+          table: 'poll_summaries',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'question_id',
+            value: widget.questionId,
+          ),
+          callback: (_) => _fetchResults(),
+        )
+        .subscribe();
+  }
+
+  @override
+  void dispose() {
+    _channel?.unsubscribe();
+    super.dispose();
   }
 
   Future<void> _checkExistingVote() async {
@@ -72,10 +97,18 @@ class _PollCardState extends State<PollCard> {
         .eq('question_id', widget.questionId);
 
     if (!mounted) return;
+    _applyResults(data);
+  }
+
+  /// Applies a list of {selected_option_index, response_count} rows, sourced
+  /// either from a fresh fetch, a broadcast from another voter, or the
+  /// submit_survey_response RPC's own return value.
+  void _applyResults(List? rows) {
+    if (!mounted || rows == null) return;
 
     final results = <int, int>{};
     int total = 0;
-    for (final row in data) {
+    for (final row in rows) {
       final idx = (row['selected_option_index'] as num).toInt();
       final count = (row['response_count'] as num).toInt();
       results[idx] = count;
@@ -101,7 +134,8 @@ class _PollCardState extends State<PollCard> {
 
     try {
       // account_id resolution and per-question dedupe happen server-side.
-      await _supabase.schema('api').rpc('submit_survey_response', params: {
+      final response =
+          await _supabase.schema('api').rpc('submit_survey_response', params: {
         'p_questionnaire_id': widget.questionnaireId,
         'p_question_id': widget.questionId,
         'p_selected_answer': [index],
@@ -110,9 +144,17 @@ class _PollCardState extends State<PollCard> {
       setState(() {
         _hasVoted = true;
         _isSubmitting = false;
-        _results[index] = (_results[index] ?? 0) + 1;
-        _totalVotes++;
       });
+      final results = (response as Map?)?['results'] as List?;
+      if (results != null) {
+        _applyResults(results);
+        _channel?.sendBroadcastMessage(
+          event: 'poll_results',
+          payload: {'results': results},
+        );
+      } else {
+        _fetchResults();
+      }
     } catch (e) {
       if (mounted) {
         setState(() => _isSubmitting = false);

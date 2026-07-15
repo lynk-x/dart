@@ -6,6 +6,7 @@ class TicketModel {
   final String locationName;
   final DateTime startsAt;
   final DateTime endsAt;
+  final String? timezone;
   final String? thumbnailUrl;
   final String tierName;
   final String ticketCode;
@@ -24,6 +25,7 @@ class TicketModel {
     required this.locationName,
     required this.startsAt,
     required this.endsAt,
+    this.timezone,
     this.thumbnailUrl,
     required this.tierName,
     required this.ticketCode,
@@ -55,6 +57,7 @@ class TicketModel {
           ?? 'Online',
       startsAt: DateTime.parse(event['starts_at'] as String),
       endsAt: DateTime.parse(event['ends_at'] as String),
+      timezone: event['timezone'] as String?,
       thumbnailUrl: media?['thumbnail'] as String?
           ?? media?['poster'] as String?
           ?? media?['hero'] as String?,
@@ -70,15 +73,16 @@ class TicketModel {
   }
 
   factory TicketModel.fromView(Map<String, dynamic> map) {
-    final ticketStatus = map['ticket_status'] as String? ?? 'active';
+    final ticketStatus = map['status'] as String? ?? 'active';
     return TicketModel(
       id: map['ticket_id'] as String,
       reference: map['reference'] as String,
       eventId: map['event_id'] as String,
       eventTitle: map['event_title'] as String,
-      locationName: map['location_name'] as String? ?? 'Online',
+      locationName: map['venue_name'] as String? ?? 'Online',
       startsAt: DateTime.parse(map['starts_at'] as String),
       endsAt: DateTime.parse(map['ends_at'] as String),
+      timezone: map['timezone'] as String?,
       thumbnailUrl: map['thumbnail_url'] as String?,
       tierName: map['tier_name'] as String,
       ticketCode: map['ticket_code'] as String,

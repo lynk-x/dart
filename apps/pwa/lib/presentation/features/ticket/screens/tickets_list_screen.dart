@@ -10,6 +10,7 @@ import 'package:lynk_x/presentation/features/ticket/cubit/tickets_list_cubit.dar
 import 'package:lynk_x/presentation/features/ticket/models/ticket_model.dart';
 import 'package:lynk_x/data/repositories/repository_providers.dart';
 import 'package:lynk_x/core/utils/image_optimizer.dart';
+import 'package:lynk_x/core/utils/timezone_abbreviation.dart';
 
 class TicketsListScreen extends StatelessWidget {
   const TicketsListScreen({super.key});
@@ -128,7 +129,8 @@ class _TicketListItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final dateFormat = DateFormat('dd MMM yyyy');
-    final timeFormat = DateFormat('HH:mm');
+    final timeFormat = DateFormat('h:mm a');
+    final tzAbbr = TimezoneAbbreviation.forIana(ticket.timezone);
 
     return GestureDetector(
       onTap: () => context.push('/ticket/${ticket.reference}'),
@@ -177,7 +179,8 @@ class _TicketListItem extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    '${dateFormat.format(ticket.startsAt)} • ${timeFormat.format(ticket.startsAt)}',
+                    '${dateFormat.format(ticket.startsAt)} • ${timeFormat.format(ticket.startsAt)}'
+                    '${tzAbbr != null ? ' $tzAbbr' : ''}',
                     style: TextStyle(
                       color: context.accentColor.withValues(alpha: 0.8),
                       fontSize: 13,

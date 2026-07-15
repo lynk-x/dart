@@ -16,6 +16,7 @@ import 'package:lynk_x/data/repositories/repository_providers.dart';
 import 'package:lynk_x/presentation/features/ticket/models/ticket_model.dart';
 import 'package:lynk_x/core/network/lynk_cache_manager.dart';
 import 'package:lynk_x/core/utils/image_optimizer.dart';
+import 'package:lynk_x/core/utils/timezone_abbreviation.dart';
 
 
 class TicketPage extends StatelessWidget {
@@ -387,13 +388,30 @@ class _TicketViewState extends State<TicketView> {
     );
   }
 
+  /// Maps ticket.status (active | used | cancelled | expired | transferred)
+  /// to a display color and label. isRedeemed (status == 'used') takes
+  /// priority over the raw status per the existing REDEEMED-label behavior.
+  (Color, String) _statusDisplay(TicketModel ticket, BuildContext context) {
+    if (ticket.isRedeemed) return (AppColors.secondaryText.withValues(alpha: 0.6), 'REDEEMED');
+    switch (ticket.status.toLowerCase()) {
+      case 'active':
+        return (context.accentColor, 'VALID');
+      case 'cancelled':
+        return (AppColors.error, 'CANCELLED');
+      case 'expired':
+        return (AppColors.error, 'EXPIRED');
+      case 'transferred':
+        return (Colors.orange, 'TRANSFERRED');
+      default:
+        return (Colors.orange, ticket.status.toUpperCase());
+    }
+  }
+
   Widget _buildTicketCard(TicketModel ticket) {
-    // Use dd/MM/yyyy and 24-hour format (international standard)
-    final dateFormat = DateFormat('dd/MM/yyyy');
-    final timeFormat = DateFormat('HH:mm');
-    final statusColor = ticket.status.toLowerCase() == 'valid'
-        ? context.accentColor
-        : Colors.orange;
+    final dateFormat = DateFormat('dd MMM yyyy');
+    final timeFormat = DateFormat('h:mm a');
+    final tzAbbr = TimezoneAbbreviation.forIana(ticket.timezone);
+    final (statusColor, statusLabel) = _statusDisplay(ticket, context);
 
     return Container(
       width: double.infinity,
@@ -464,7 +482,29 @@ class _TicketViewState extends State<TicketView> {
                           ),
                           const SizedBox(width: 4),
                           Text(
-                            '${dateFormat.format(ticket.startsAt)} • ${timeFormat.format(ticket.startsAt)}',
+                            dateFormat.format(ticket.startsAt),
+                            style: AppTypography.inter(
+                              fontSize: 14,
+                              color: AppColors.secondaryText
+                                  .withValues(alpha: 0.7),
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.access_time,
+                            size: 16,
+                            color:
+                                AppColors.secondaryText.withValues(alpha: 0.7),
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            timeFormat.format(ticket.startsAt) +
+                                (tzAbbr != null ? ' $tzAbbr' : ''),
                             style: AppTypography.inter(
                               fontSize: 14,
                               color: AppColors.secondaryText
@@ -567,9 +607,7 @@ class _TicketViewState extends State<TicketView> {
                         border: Border.all(color: statusColor),
                       ),
                       child: Text(
-                        ticket.isRedeemed
-                            ? 'REDEEMED'
-                            : ticket.status.toUpperCase(),
+                        statusLabel,
                         style: AppTypography.inter(
                           fontSize: 11,
                           fontWeight: FontWeight.bold,
@@ -616,7 +654,7 @@ class _TicketViewState extends State<TicketView> {
             ),
           ),
 
-          const SizedBox(height: 32),
+          const SizedBox(height: 46),
           const TicketCutoutSeparator(),
           const SizedBox(height: 24),
 
