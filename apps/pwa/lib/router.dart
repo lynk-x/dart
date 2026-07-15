@@ -53,6 +53,7 @@ GoRouter createRouter(
         }
 
         final path = state.uri.toString();
+        final pathNoQuery = state.uri.path;
 
         // Safe check for ProfileCubit
         ProfileState? profileState;
@@ -97,7 +98,7 @@ GoRouter createRouter(
           // the home screen after verifying their OTP.
           return '/auth?next=${Uri.encodeComponent(path)}';
         }
-        if (user != null && path == '/auth') {
+        if (user != null && pathNoQuery == '/auth') {
           final next = state.uri.queryParameters['next'];
           return (next != null && next.isNotEmpty) ? next : '/';
         }

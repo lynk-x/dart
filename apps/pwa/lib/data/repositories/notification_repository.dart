@@ -28,13 +28,12 @@ class NotificationRepository {
     await _client.schema('api').rpc('mark_all_notifications_read');
   }
 
+  // Deletes a single notification via RPC rather than a direct view delete
+
   Future<void> deleteNotification(String id, DateTime createdAt) async {
     await _client
         .schema('api')
-        .from('v1_notifications')
-        .delete()
-        .eq('id', id)
-        .eq('created_at', createdAt.toIso8601String());
+        .rpc('bulk_delete_notifications', params: {'p_notification_ids': [id]});
   }
 
   RealtimeChannel subscribeToNotifications(
