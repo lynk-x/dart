@@ -9,6 +9,7 @@ import 'package:lynk_x/presentation/features/notifications/models/notification_m
 import 'package:lynk_x/presentation/shared/widgets/empty_state.dart';
 import 'package:lynk_x/presentation/features/notifications/cubit/notification_cubit.dart';
 import 'package:lynk_x/presentation/features/notifications/cubit/notification_state.dart';
+import 'package:lynk_x/presentation/shared/utils/app_snackbars.dart';
 
 class NotificationsPage extends StatefulWidget {
   const NotificationsPage({super.key});
@@ -133,23 +134,21 @@ class _NotificationsPageState extends State<NotificationsPage> {
   }
 
   Future<void> _respondToOffer(String listingId, {required bool accept}) async {
-    final messenger = ScaffoldMessenger.of(context);
-    final accentColor = context.accentColor;
     try {
       await Supabase.instance.client.schema('api').rpc(
         accept ? 'accept_ticket_listing' : 'decline_ticket_listing',
         params: {'p_listing_id': listingId},
       );
-      messenger.showSnackBar(SnackBar(
-        content: Text(accept ? 'Ticket purchased! Check your tickets.' : 'Offer declined.'),
-        backgroundColor: accept ? accentColor : Colors.grey[700],
-      ));
-      if (accept && mounted) context.push('/tickets');
+      if (mounted) {
+        if (accept) {
+          AppSnackBars.showSuccess(context, 'Ticket purchased! Check your tickets.');
+          context.push('/tickets');
+        } else {
+          AppSnackBars.showInfo(context, 'Offer declined.');
+        }
+      }
     } catch (e) {
-      messenger.showSnackBar(SnackBar(
-        content: Text('Failed: $e'),
-        backgroundColor: Colors.red,
-      ));
+      if (mounted) AppSnackBars.showError(context, 'Failed: $e');
     }
   }
 
@@ -258,9 +257,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
                   onDelete: () {
                     final cubit = context.read<NotificationCubit>();
                     cubit.deleteNotification(notification);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('${notification.title} dismissed')),
-                    );
+                    AppSnackBars.showInfo(context, '${notification.title} dismissed');
                   },
                 ),
               );

@@ -4,6 +4,7 @@ import 'package:lynk_core/core.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lynk_x/presentation/features/forum/cubit/forum_cubit.dart';
 import 'action_bar.dart';
+import 'package:lynk_x/presentation/shared/utils/app_snackbars.dart';
 
 class UserPresenceCard extends StatefulWidget {
   final String userId;
@@ -118,12 +119,7 @@ class _UserPresenceCardState extends State<UserPresenceCard> {
                 final eventId = forumState.eventId;
                 final eventCreatedAt = forumState.eventCreatedAt;
                 if (eventId == null || eventCreatedAt == null) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('No active event associated with this forum.'),
-                      behavior: SnackBarBehavior.floating,
-                    ),
-                  );
+                  AppSnackBars.showInfo(context, 'No active event associated with this forum.');
                   return;
                 }
                 context.push(
@@ -141,12 +137,7 @@ class _UserPresenceCardState extends State<UserPresenceCard> {
               _toggleActions();
               final cubit = context.read<ForumCubit>();
               cubit.waveAtUser(widget.userId, cubit.userName);
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('You waved at ${widget.username}!'),
-                  behavior: SnackBarBehavior.floating,
-                ),
-              );
+              AppSnackBars.showSuccess(context, 'You waved at ${widget.username}!');
             },
           ),
           
@@ -157,9 +148,7 @@ class _UserPresenceCardState extends State<UserPresenceCard> {
             onTap: () {
               _toggleActions();
               context.read<ForumCubit>().makeModerator(widget.userId);
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('${widget.username} is now an admin.')),
-              );
+              AppSnackBars.showSuccess(context, '${widget.username} is now an admin.');
             },
             color: context.accentColor,
           ),
@@ -168,9 +157,7 @@ class _UserPresenceCardState extends State<UserPresenceCard> {
             onTap: () {
               _toggleActions();
               context.read<ForumCubit>().muteUser(widget.userId);
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('${widget.username} has been muted.')),
-              );
+              AppSnackBars.showSuccess(context, '${widget.username} has been muted.');
             },
             color: Colors.red,
           ),
@@ -192,7 +179,6 @@ class _UserPresenceCardState extends State<UserPresenceCard> {
 
   void _showReportModal(BuildContext context) {
     final forumCubit = context.read<ForumCubit>();
-    final messenger = ScaffoldMessenger.of(context);
 
     showModalBottomSheet(
       context: context,
@@ -226,9 +212,7 @@ class _UserPresenceCardState extends State<UserPresenceCard> {
                   onTap: () {
                     forumCubit.reportUser(widget.userId, reason);
                     Navigator.pop(bottomSheetContext);
-                    messenger.showSnackBar(
-                      const SnackBar(content: Text('User reported.')),
-                    );
+                    AppSnackBars.showSuccess(context, 'User reported.');
                   },
                 );
               }),

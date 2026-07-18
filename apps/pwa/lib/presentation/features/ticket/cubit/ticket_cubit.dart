@@ -150,6 +150,18 @@ class TicketCubit extends Cubit<TicketState> {
     ));
   }
 
+  Future<void> transferTicket(String recipientUsername) async {
+    final ticket = state.ticket;
+    if (ticket == null) throw Exception('No ticket loaded');
+
+    await _repo.transferTicket(ticket.id, recipientUsername);
+    await loadTicket(ticket.reference, isSilent: true);
+  }
+
+  /// Live "does this user exist" check while typing a recipient username
+  /// into a transfer/resale form.
+  Future<bool> checkUsernameExists(String username) => _repo.checkUsernameExists(username);
+
   Future<String> createResaleListing({
     required String recipientUsername,
     required double askingPrice,

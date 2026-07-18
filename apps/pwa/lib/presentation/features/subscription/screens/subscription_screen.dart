@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:lynk_core/core.dart';
+import 'package:lynk_x/presentation/shared/utils/app_snackbars.dart';
 
 
 class SubscriptionScreen extends StatefulWidget {
@@ -315,9 +316,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
         'p_reason': 'user_requested',
       });
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('Subscription cancelled. Access continues until period end.'),
-      ));
+      AppSnackBars.showInfo(context, 'Subscription cancelled. Access continues until period end.');
       _load();
     } catch (e) {
       if (!mounted) return;
@@ -357,18 +356,12 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
   // ── feedback helpers ──────────────────────────────────────────────────────
 
   void _showSuccess() {
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-      content: Text('Welcome to Premium!'),
-      backgroundColor: AppColors.secondary,
-    ));
+    AppSnackBars.showSuccess(context, 'Welcome to Premium!');
     _load();
   }
 
   void _showError(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(msg),
-      backgroundColor: Colors.redAccent,
-    ));
+    AppSnackBars.showError(context, msg);
   }
 
   String _fmt(DateTime dt) =>

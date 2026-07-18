@@ -11,6 +11,7 @@ import 'package:lynk_x/presentation/shared/utils/permission_acks.dart';
 import 'package:country_flags/country_flags.dart';
 import '../models/country.dart';
 import '../widgets/profile_avatar.dart';
+import 'package:lynk_x/presentation/shared/utils/app_snackbars.dart';
 
 class EditProfilePage extends StatefulWidget {
   const EditProfilePage({super.key});
@@ -147,9 +148,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
       }
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not access gallery: ${e.toFriendlyMessage()}')),
-        );
+        AppSnackBars.showError(context, 'Could not access gallery: ${e.toFriendlyMessage()}');
       }
     } finally {
       if (mounted) setState(() => _isOpeningGallery = false);
@@ -418,18 +417,11 @@ class _EditProfilePageState extends State<EditProfilePage> {
           }
 
           if (state.error != null) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(state.error!),
-                backgroundColor: Colors.red,
-              ),
-            );
+            AppSnackBars.showError(context, state.error!);
           } else {
             if (_uploadingAvatar && !state.isUpdating) {
               setState(() => _uploadingAvatar = false);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Profile photo updated')),
-              );
+              AppSnackBars.showSuccess(context, 'Profile photo updated');
             }
           }
         }

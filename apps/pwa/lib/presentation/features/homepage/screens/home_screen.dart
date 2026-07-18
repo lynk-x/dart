@@ -16,6 +16,7 @@ import 'package:lynk_x/presentation/features/notifications/cubit/notification_cu
 import 'package:lynk_x/presentation/features/notifications/cubit/notification_state.dart';
 import 'package:lynk_x/presentation/features/notifications/widgets/device_notification_modal.dart';
 import 'package:lynk_x/data/repositories/repository_providers.dart';
+import 'package:lynk_x/presentation/shared/utils/app_snackbars.dart';
 
 /// Root entry point for the Home feature.
 ///
@@ -94,9 +95,7 @@ class _HomeViewState extends State<HomeView>
     final uri = Uri.parse(kWebAppBaseUrl);
     if (!await launchUrl(uri, mode: LaunchMode.inAppBrowserView)) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not open the web app.')),
-        );
+        AppSnackBars.showError(context, 'Could not open the web app.');
       }
     }
   }

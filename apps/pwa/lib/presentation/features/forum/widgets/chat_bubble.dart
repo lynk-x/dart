@@ -13,6 +13,7 @@ import 'polls/poll_attachment.dart';
 /// A stylized chat bubble used for both Live Chat and Updates.
 import 'link_preview.dart';
 import 'parsed_message_text.dart';
+import 'package:lynk_x/presentation/shared/utils/app_snackbars.dart';
 
 /// A stylized chat bubble used for both Live Chat and Updates.
 class ChatBubble extends StatefulWidget {
@@ -168,12 +169,7 @@ class _ChatBubbleState extends State<ChatBubble> {
               onTap: () {
                 final isPinned = widget.message.isPinned;
                 widget.onPin?.call(widget.message);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(isPinned ? 'Message unpinned' : 'Message pinned'),
-                    duration: const Duration(seconds: 2),
-                  ),
-                );
+                AppSnackBars.showInfo(context, isPinned ? 'Message unpinned' : 'Message pinned');
               },
               color: Colors.white70,
             ),
@@ -190,9 +186,7 @@ class _ChatBubbleState extends State<ChatBubble> {
               label: 'Copy',
               onTap: () {
                 Clipboard.setData(ClipboardData(text: widget.message.message));
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Message copied to clipboard'), duration: Duration(seconds: 2)),
-                );
+                AppSnackBars.showSuccess(context, 'Message copied to clipboard');
               },
               color: Colors.white70,
             ),

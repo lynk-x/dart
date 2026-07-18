@@ -274,9 +274,7 @@ class _WalletTransactionsPageState extends State<WalletTransactionsPage> {
     final uri = Uri.tryParse(url);
     if (uri == null || uri.scheme != 'https') {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Invalid payment URL. Please contact support.')),
-        );
+        AppSnackBars.showError(context, 'Invalid payment URL. Please contact support.');
       }
       return;
     }
@@ -284,9 +282,7 @@ class _WalletTransactionsPageState extends State<WalletTransactionsPage> {
       await launchUrl(uri, mode: LaunchMode.inAppBrowserView);
     } else {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not open payment page.')),
-        );
+        AppSnackBars.showError(context, 'Could not open payment page.');
       }
     }
     if (context.mounted) {

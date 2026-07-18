@@ -4,18 +4,33 @@ class TicketRepository {
   final SupabaseClient _client;
   TicketRepository(this._client);
 
+  /// Keyset-paginated: pass the (created_at, ticket_id) of the last row from
+  /// the previous page as [beforeCreatedAt]/[beforeTicketId] to fetch the
+  /// next page. Omit both for the first page.
   Future<List<Map<String, dynamic>>> getUserTickets(
     String userId, {
     int limit = 20,
-    int offset = 0,
+    String? beforeCreatedAt,
+    String? beforeTicketId,
   }) async {
-    final data = await _client
+    var query = _client
         .schema('api')
         .from('v1_user_tickets')
         .select()
-        .eq('user_id', userId)
+        .eq('user_id', userId);
+
+    if (beforeCreatedAt != null && beforeTicketId != null) {
+      // (created_at, ticket_id) < (cursor) — matches the DESC ordering below.
+      query = query.or(
+        'created_at.lt.$beforeCreatedAt,'
+        'and(created_at.eq.$beforeCreatedAt,ticket_id.lt.$beforeTicketId)',
+      );
+    }
+
+    final data = await query
         .order('created_at', ascending: false)
-        .range(offset, offset + limit - 1);
+        .order('ticket_id', ascending: false)
+        .limit(limit);
     return List<Map<String, dynamic>>.from(data);
   }
 
@@ -28,11 +43,23 @@ class TicketRepository {
         .maybeSingle();
   }
 
-  Future<void> transferTicket(String ticketId, String toUserId) async {
+  Future<void> transferTicket(String ticketId, String recipientUsername) async {
     await _client.schema('api').rpc('transfer_ticket', params: {
       'p_ticket_id': ticketId,
-      'p_to_user_id': toUserId,
+      'p_recipient_username': recipientUsername,
     });
+  }
+
+  /// Used to give live "recipient found" feedback while typing a username
+  /// into a transfer/resale form, before submitting the RPC.
+  Future<bool> checkUsernameExists(String username) async {
+    final data = await _client
+        .schema('api')
+        .from('v1_profiles')
+        .select('user_name')
+        .eq('user_name', username)
+        .maybeSingle();
+    return data != null;
   }
 
   Future<List<Map<String, dynamic>>> getTicketTiers(String eventId) async {

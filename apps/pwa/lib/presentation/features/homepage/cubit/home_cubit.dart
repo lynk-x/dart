@@ -27,12 +27,16 @@ class HomeCubit extends Cubit<HomeState> {
         return;
       }
 
-      final events = await _repo.getUserForums(currentUserId, limit: _pageSize, offset: 0);
+      final raw = await _repo.getUserForums(currentUserId, limit: _pageSize);
+      final events = raw.map((json) => EventModel.fromMap(json)).toList();
+      final last = raw.isNotEmpty ? raw.last : null;
 
       emit(state.copyWith(
         events: _sort(events),
         isLoading: false,
-        hasMore: events.length >= _pageSize,
+        hasMore: raw.length >= _pageSize,
+        cursorStartsAt: last?['event_starts_at'] as String?,
+        cursorForumId: last?['forum_id'] as String?,
       ));
     } catch (e) {
       emit(state.copyWith(isLoading: false, errorMessage: e.toString()));
@@ -54,16 +58,24 @@ class HomeCubit extends Cubit<HomeState> {
         return;
       }
 
-      final startIndex = state.events.length;
-      final more = await _repo.getUserForums(currentUserId, limit: _pageSize, offset: startIndex);
+      final raw = await _repo.getUserForums(
+        currentUserId,
+        limit: _pageSize,
+        afterStartsAt: state.cursorStartsAt,
+        afterForumId: state.cursorForumId,
+      );
 
-      if (more.isEmpty) {
+      if (raw.isEmpty) {
         emit(state.copyWith(isLoadingMore: false, hasMore: false));
       } else {
+        final more = raw.map((json) => EventModel.fromMap(json)).toList();
+        final last = raw.last;
         emit(state.copyWith(
           events: _sort([...state.events, ...more]),
           isLoadingMore: false,
-          hasMore: more.length >= _pageSize,
+          hasMore: raw.length >= _pageSize,
+          cursorStartsAt: last['event_starts_at'] as String?,
+          cursorForumId: last['forum_id'] as String?,
         ));
       }
     } catch (e) {

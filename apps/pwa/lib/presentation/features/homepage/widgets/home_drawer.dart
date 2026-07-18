@@ -7,6 +7,7 @@ import 'package:lynk_core/core.dart';
 import 'package:lynk_x/core/utils/safe_launch.dart';
 import 'package:lynk_x/l10n/app_localizations.dart';
 import 'package:lynk_x/app.dart';
+import 'package:lynk_x/presentation/shared/utils/app_snackbars.dart';
 
 class HomeDrawer extends StatefulWidget {
   const HomeDrawer({super.key});
@@ -25,12 +26,7 @@ class _HomeDrawerState extends State<HomeDrawer> {
     } catch (e) {
       if (mounted) {
         final l10n = AppLocalizations.of(context)!;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('${l10n.logout} Error: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        AppSnackBars.showError(context, '${l10n.logout} Error: $e');
       }
     }
   }

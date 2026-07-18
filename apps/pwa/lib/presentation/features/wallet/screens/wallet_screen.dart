@@ -12,6 +12,7 @@ import 'package:lynk_x/presentation/features/wallet/widgets/wallet_pin_setup_she
 import 'package:lynk_x/presentation/features/wallet/widgets/transfer_sheet.dart';
 import 'package:lynk_x/presentation/features/wallet/widgets/top_up_sheet.dart';
 import 'package:lynk_x/presentation/shared/utils/permission_acks.dart';
+import 'package:lynk_x/presentation/shared/utils/app_snackbars.dart';
 
 class WalletPage extends StatefulWidget {
   final String? prefilledRecipientId;
@@ -378,12 +379,7 @@ class _QRCard extends StatelessWidget {
             onTap: () {
               final fullUrl = 'https://lynk-x.app/pay/$accountReference';
               Clipboard.setData(ClipboardData(text: fullUrl));
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Payment link copied to clipboard!'),
-                  duration: Duration(seconds: 2),
-                ),
-              );
+              AppSnackBars.showSuccess(context, 'Payment link copied to clipboard!');
             },
             borderRadius: BorderRadius.circular(8),
             child: Padding(

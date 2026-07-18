@@ -5,9 +5,11 @@ import 'package:crypto/crypto.dart';
 import 'dart:convert';
 import 'package:local_auth/local_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import '../utils/web_authn_helper.dart';
 import '../utils/connectivity_helper.dart';
+import '../utils/wallet_cache.dart';
+import '../utils/balance_realtime_subscriber.dart';
 
 import 'package:lynk_x/data/repositories/repositories.dart';
 import 'package:lynk_x/presentation/features/wallet/models/wallet_model.dart';
@@ -17,38 +19,47 @@ import 'wallet_state.dart';
 /// WalletCubit — owns wallet balance, transaction history, and top-up flow.
 ///
 /// Architecture notes:
-/// - Fetches the user's account_wallets and paginated transactions from Supabase.
-/// - Subscribes to a Realtime channel on account_wallets so the balance tile
-///   updates instantly after a payment webhook is processed (no pull-to-refresh).
+/// - Fetches the user's account_wallets and paginated transactions via
+///   WalletRepository (all Supabase access lives there, not in this cubit).
+/// - Subscribes to a Realtime channel on account_wallets (via
+///   BalanceRealtimeSubscriber) so the balance tile updates instantly after
+///   a payment webhook is processed (no pull-to-refresh).
 /// - Top-up initiates an RPC call that returns a payment gateway URL; the app
 ///   opens it in an in-app browser / WebView and polls the status on resume.
 /// - Page size is 20 (matches delivery_queue batch size for consistency).
 class WalletCubit extends Cubit<WalletState> {
   final WalletRepository _repo;
-  WalletCubit(this._repo) : super(const WalletState());
+  final AccountRepository _accountRepo;
+  final WalletCache _cache;
+  final BalanceRealtimeSubscriber _balanceSubscriber;
+
+  WalletCubit(this._repo, {AccountRepository? accountRepository, WalletCache? cache})
+      : _accountRepo = accountRepository ?? AccountRepository(Supabase.instance.client),
+        _cache = cache ?? const WalletCache(),
+        _balanceSubscriber = BalanceRealtimeSubscriber(_repo),
+        super(const WalletState());
 
   final _supabase = Supabase.instance.client;
   final _localAuth = LocalAuthentication();
 
-  // Realtime subscription for live balance updates
-  RealtimeChannel? _balanceChannel;
-
   // Auth state subscription — re-subscribes balance channel on session recovery
   StreamSubscription<AuthState>? _authSubscription;
-  
+
   // Connectivity subscription — instantly restores realtime connection when returning online
   StreamSubscription<bool>? _connectivitySubscription;
 
-  // Pagination
+  // Pagination — keyset cursor: (created_at, id) of the last transaction
+  // row from the most recent fetch. Null cursor means "first page."
   static const int _pageSize = 20;
-  int _currentPage = 0;
+  String? _cursorCreatedAt;
+  String? _cursorId;
 
   // ── Lifecycle ──────────────────────────────────────────────────────────────
 
   /// Fetch initial wallet data and subscribe to realtime balance updates.
   Future<void> init() async {
     await _authSubscription?.cancel();
-    _balanceChannel?.unsubscribe();
+    _balanceSubscriber.unsubscribe();
 
     emit(state.copyWith(isLoading: true, clearError: true));
     await _loadCachedData();
@@ -72,18 +83,19 @@ class WalletCubit extends Cubit<WalletState> {
     await _connectivitySubscription?.cancel();
     _connectivitySubscription = ConnectivityHelper.onConnectivityChanged.listen((isOnline) {
       if (isOnline) {
-        _reconnectTimer?.cancel();
-        _reconnectTimer = null;
-        _reconnectDelay = const Duration(seconds: 2);
-        
-        _balanceChannel?.unsubscribe();
-        _subscribeToBalanceUpdates();
+        final accountId = state.accountId;
+        if (accountId != null) {
+          _balanceSubscriber.reconnectNow(
+            accountId: accountId,
+            onUpdate: (_) => _fetchBalances(),
+            onStatus: _handleBalanceChannelStatus,
+          );
+        }
       }
     });
     _authSubscription = _supabase.auth.onAuthStateChange.listen((event) {
       if (event.event == AuthChangeEvent.tokenRefreshed ||
           event.event == AuthChangeEvent.signedIn) {
-        _balanceChannel?.unsubscribe();
         _subscribeToBalanceUpdates();
         _fetchBalances();
       }
@@ -91,72 +103,18 @@ class WalletCubit extends Cubit<WalletState> {
   }
 
   Future<void> _loadCachedData() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      
-      final balancesStr = prefs.getString('cached_balances');
-      if (balancesStr != null) {
-        final decoded = jsonDecode(balancesStr) as List;
-        final balances = decoded.map((e) => WalletBalance.fromMap(Map<String, dynamic>.from(e))).toList();
-        emit(state.copyWith(balances: balances));
-      }
+    final balances = await _cache.loadBalances();
+    if (balances != null) emit(state.copyWith(balances: balances));
 
-      final txStr = prefs.getString('cached_transactions');
-      if (txStr != null) {
-        final decoded = jsonDecode(txStr) as List;
-        final txs = decoded.map((e) => WalletTransaction.fromMap(Map<String, dynamic>.from(e))).toList();
-        emit(state.copyWith(transactions: txs));
-      }
-    } catch (e, stack) {
-      // Corrupted/stale cache is safe to ignore functionally (falls through
-      // to a live fetch), but log so a systemic decode failure isn't invisible.
-      debugPrint('[WalletCubit] _loadCachedData error: $e\n$stack');
-    }
-  }
-
-  Future<void> _saveCachedBalances(List<WalletBalance> balances) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final encoded = jsonEncode(balances.map((b) => {
-        'currency': b.currency,
-        'cash_balance': b.cashBalance,
-        'escrow_balance': b.pendingBalance,
-        'credit_balance': b.creditBalance,
-      }).toList());
-      await prefs.setString('cached_balances', encoded);
-    } catch (e, stack) {
-      debugPrint('[WalletCubit] _saveCachedBalances error: $e\n$stack');
-    }
-  }
-
-  Future<void> _saveCachedTransactions(List<WalletTransaction> txs) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final topTxs = txs.take(20).toList(); // Only cache latest 20
-      final encoded = jsonEncode(topTxs.map((t) => {
-        'id': t.id,
-        'entry_type': t.entryType,
-        'category': t.category,
-        'reason': t.reason,
-        'amount': t.amount,
-        'currency': t.currency,
-        'status': t.status,
-        'event_id': t.eventId,
-        'reference': t.reference,
-        'created_at': t.createdAt.toIso8601String(),
-      }).toList());
-      await prefs.setString('cached_transactions', encoded);
-    } catch (e, stack) {
-      debugPrint('[WalletCubit] _saveCachedTransactions error: $e\n$stack');
-    }
+    final txs = await _cache.loadTransactions();
+    if (txs != null) emit(state.copyWith(transactions: txs));
   }
 
   @override
   Future<void> close() {
     _authSubscription?.cancel();
     _connectivitySubscription?.cancel();
-    _balanceChannel?.unsubscribe();
-    _reconnectTimer?.cancel();
+    _balanceSubscriber.dispose();
     return super.close();
   }
 
@@ -164,8 +122,6 @@ class WalletCubit extends Cubit<WalletState> {
 
   Future<void> _fetchBalances() async {
     try {
-
-
       final accountId = state.accountId ?? await _resolveAccountId();
       if (accountId == null) {
         emit(state.copyWith(isLoading: false));
@@ -187,7 +143,7 @@ class WalletCubit extends Cubit<WalletState> {
           .toList();
 
       emit(state.copyWith(balances: balances, accountId: accountId, accountReference: accountRef, isLoading: false));
-      _saveCachedBalances(balances);
+      _cache.saveBalances(balances);
     } catch (e) {
       emit(state.copyWith(
         isLoading: false,
@@ -199,34 +155,22 @@ class WalletCubit extends Cubit<WalletState> {
   Future<String?> _resolveAccountId() async {
     final userId = _supabase.auth.currentUser?.id;
     if (userId == null) return null;
-    final row = await _supabase
-        .schema('api')
-        .from('v1_account_memberships')
-        .select('account_id')
-        .eq('user_id', userId)
-        .eq('role_slug', 'owner')
-        .order('created_at', ascending: true)
-        .limit(1)
-        .maybeSingle();
-    return row?['account_id'] as String?;
+    return _accountRepo.resolveOwnerAccountId(userId);
   }
 
   Future<String?> _resolveAccountReference(String accountId) async {
     try {
-      final row = await _supabase
-          .schema('api')
-          .from('v1_accounts')
-          .select('reference')
-          .eq('id', accountId)
-          .maybeSingle();
-      return row?['reference'] as String?;
+      return await _repo.getAccountReference(accountId);
     } catch (_) {
       return null;
     }
   }
 
   Future<void> _fetchTransactions({bool reset = false}) async {
-    if (reset) _currentPage = 0;
+    if (reset) {
+      _cursorCreatedAt = null;
+      _cursorId = null;
+    }
 
     emit(state.copyWith(
       isLoadingMore: !reset,
@@ -234,20 +178,18 @@ class WalletCubit extends Cubit<WalletState> {
     ));
 
     try {
-
-
       final accountId = state.accountId;
       if (accountId == null) {
         emit(state.copyWith(isLoading: false, isLoadingMore: false));
         return;
       }
 
-      final from = _currentPage * _pageSize;
       final rows = await _repo.getTimeline(
         accountId,
         limit: _pageSize,
-        offset: from,
         currency: state.selectedCurrency,
+        beforeCreatedAt: _cursorCreatedAt,
+        beforeId: _cursorId,
       );
 
       final typed = rows
@@ -264,10 +206,14 @@ class WalletCubit extends Cubit<WalletState> {
       ));
 
       if (reset) {
-        _saveCachedTransactions(updated);
+        _cache.saveTransactions(updated);
       }
 
-      if (rows.isNotEmpty) _currentPage++;
+      if (rows.isNotEmpty) {
+        final last = rows.last;
+        _cursorCreatedAt = last['created_at'] as String?;
+        _cursorId = last['id'] as String?;
+      }
     } catch (e) {
       emit(state.copyWith(
         isLoading:     false,
@@ -300,45 +246,31 @@ class WalletCubit extends Cubit<WalletState> {
   ///
   /// Filters by the user's account_id so the channel only emits relevant rows
   /// (RLS already enforces this server-side, but client-side filtering avoids
-  /// waking the cubit on every other user's wallet update). On RLS denial,
-  /// the subscribe callback receives `RealtimeSubscribeStatus.channelError` —
-  /// surface it through state so the UI can show a stale-data hint.
-  Timer? _reconnectTimer;
-  Duration _reconnectDelay = const Duration(seconds: 2);
-
+  /// waking the cubit on every other user's wallet update). Reconnect on
+  /// error/timeout with exponential backoff is owned by
+  /// [BalanceRealtimeSubscriber]; this method just wires it to state.
   void _subscribeToBalanceUpdates() {
     final accountId = state.accountId;
     if (accountId == null) return; // No account loaded yet — caller will retry.
 
-    _balanceChannel = _repo.subscribeToBalance(accountId, (_) => _fetchBalances())
-        .subscribe((status, [error]) {
-          if (status == RealtimeSubscribeStatus.channelError ||
-              status == RealtimeSubscribeStatus.timedOut) {
-            // Surface to state — most commonly an RLS denial or network blip.
-            // Keeps the UI honest about whether realtime is live.
-            emit(state.copyWith(
-              error: 'Realtime balance updates unavailable. Reconnecting...',
-            ));
-            _scheduleBalanceReconnect();
-          } else if (status == RealtimeSubscribeStatus.subscribed) {
-            emit(state.copyWith(clearError: true));
-            _reconnectTimer?.cancel();
-            _reconnectTimer = null;
-            _reconnectDelay = const Duration(seconds: 2);
-          }
-        });
+    _balanceSubscriber.subscribe(
+      accountId: accountId,
+      onUpdate: (_) => _fetchBalances(),
+      onStatus: _handleBalanceChannelStatus,
+    );
   }
 
-  void _scheduleBalanceReconnect() {
-    _reconnectTimer?.cancel();
-    _reconnectTimer = Timer(_reconnectDelay, () {
-      _reconnectDelay = _reconnectDelay * 2;
-      if (_reconnectDelay > const Duration(seconds: 30)) {
-        _reconnectDelay = const Duration(seconds: 30);
-      }
-      _balanceChannel?.unsubscribe();
-      _subscribeToBalanceUpdates();
-    });
+  void _handleBalanceChannelStatus(RealtimeSubscribeStatus status) {
+    if (status == RealtimeSubscribeStatus.channelError ||
+        status == RealtimeSubscribeStatus.timedOut) {
+      // Surface to state — most commonly an RLS denial or network blip.
+      // Keeps the UI honest about whether realtime is live.
+      emit(state.copyWith(
+        error: 'Realtime balance updates unavailable. Reconnecting...',
+      ));
+    } else if (status == RealtimeSubscribeStatus.subscribed) {
+      emit(state.copyWith(clearError: true));
+    }
   }
 
   // ── Top-up Flow ────────────────────────────────────────────────────────────
@@ -364,16 +296,22 @@ class WalletCubit extends Cubit<WalletState> {
     emit(state.copyWith(topUpStatus: TopUpStatus.submitting, clearTopUpError: true));
 
     try {
-      final response = await _supabase.schema('api').rpc('initiate_wallet_topup', params: {
-        'p_account_id': state.accountId,
-        'p_amount': amount,
-        'p_currency': currency,
-        'p_provider_name': providerName,
-        'p_payer_identity': payerIdentity,
-      });
+      final accountId = state.accountId;
+      if (accountId == null) {
+        emit(state.copyWith(topUpStatus: TopUpStatus.error, topUpError: 'No wallet account found.'));
+        return;
+      }
 
-      final paymentUrl = (response as Map<String, dynamic>?)?['payment_url'] as String?;
-      
+      final response = await _repo.initiateTopUp(
+        accountId: accountId,
+        amount: amount,
+        currency: currency,
+        providerName: providerName,
+        payerIdentity: payerIdentity,
+      );
+
+      final paymentUrl = response['payment_url'] as String?;
+
       // If it's M-Pesa or a direct push provider, we might just wait for realtime.
       if (paymentUrl == null || paymentUrl.isEmpty) {
         emit(state.copyWith(topUpStatus: TopUpStatus.waitingPayment));
@@ -394,29 +332,18 @@ class WalletCubit extends Cubit<WalletState> {
     if (accountId == null) return;
 
     try {
-      final row = await _supabase
-          .schema('api')
-          .from('v1_wallet_top_ups')
-          .select('status')
-          .eq('account_id', accountId)
-          .order('created_at', ascending: false)
-          .limit(1)
-          .maybeSingle();
-
-      if (row != null) {
-        final status = row['status'] as String?;
-        if (status == 'completed' || status == 'success') {
-          emit(state.copyWith(topUpStatus: TopUpStatus.success));
-          await refresh();
-        } else if (status == 'failed') {
-          emit(state.copyWith(
-            topUpStatus: TopUpStatus.error,
-            topUpError: 'Top-up transaction failed.',
-          ));
-        } else {
-          // Still pending, just fetch balance to check if updated
-          await _fetchBalances();
-        }
+      final status = await _repo.getLatestTopUpStatus(accountId);
+      if (status == 'completed' || status == 'success') {
+        emit(state.copyWith(topUpStatus: TopUpStatus.success));
+        await refresh();
+      } else if (status == 'failed') {
+        emit(state.copyWith(
+          topUpStatus: TopUpStatus.error,
+          topUpError: 'Top-up transaction failed.',
+        ));
+      } else if (status != null) {
+        // Still pending, just fetch balance to check if updated
+        await _fetchBalances();
       }
     } catch (_) {
       // Fail silently to let the periodic timer retry without distracting the user
@@ -442,72 +369,23 @@ class WalletCubit extends Cubit<WalletState> {
       if (userId == null) return;
 
       // Resolve personal account (oldest owner membership = personal account)
-      final memberData = await _supabase
-          .schema('api')
-          .from('v1_account_memberships')
-          .select('account_id')
-          .eq('user_id', userId)
-          .eq('role_slug', 'owner')
-          .order('created_at', ascending: true)
-          .limit(1)
-          .maybeSingle();
+      final accountId = await _accountRepo.resolveOwnerAccountId(userId);
+      if (accountId == null) return;
 
-      if (memberData == null) return;
-
-      final accountId = memberData['account_id'] as String;
-
-      // v1 view denormalizes the provider fields and omits the encrypted
-      // provider_identity (its ciphertext used to be rendered verbatim);
-      // the metadata label is the display value now. Rows are reshaped to
-      // the embed layout the wallet widgets already consume.
-      final rawMethods = await _supabase
-          .schema('api')
-          .from('v1_account_payment_methods')
-          .select(
-              'id, metadata, provider_name, provider_display_name, provider_logo_url, provider_base_fee_usd, provider_fee_percent')
-          .eq('account_id', accountId);
-
-      final methodRows = rawMethods.map((m) => <String, dynamic>{
-            'id': m['id'],
-            'metadata': m['metadata'],
-            'provider_identity':
-                (m['metadata']?['label'] as String?) ?? '••••',
-            'platform_payment_providers': <String, dynamic>{
-              'provider_name': m['provider_name'],
-              'display_name': m['provider_display_name'],
-              'logo_url': m['provider_logo_url'],
-              'base_fee_usd': m['provider_base_fee_usd'],
-              'fee_percent': m['provider_fee_percent'],
-            },
-          }).toList();
-
-      // Fetch latest KYC verification for this account
-      final kycRow = await _supabase
-          .schema('api')
-          .from('v1_identity_verifications')
-          .select('kyc_tier, status')
-          .eq('account_id', accountId)
-          .order('created_at', ascending: false)
-          .limit(1)
-          .maybeSingle();
-
-      final kycTier = (kycRow != null && kycRow['status'] == 'approved')
-          ? kycRow['kyc_tier'] as String?
-          : null;
-
+      final methodRows = await _repo.getPayoutMethods(accountId);
+      final kycTier = await _repo.getApprovedKycTier(accountId);
       final accountRef = state.accountReference ?? await _resolveAccountReference(accountId);
 
       // Load active payment providers in parallel
       await loadPaymentProviders();
 
       emit(state.copyWith(
-        payoutMethods: List<Map<String, dynamic>>.from(methodRows),
+        payoutMethods: methodRows,
         kycTier:       kycTier,
         accountId:     accountId,
         accountReference: accountRef,
       ));
-    } catch (e, stack) {
-      debugPrint('[WalletCubit] loadPayoutMethods error: $e\n$stack');
+    } catch (e) {
       if (!isClosed) {
         emit(state.copyWith(error: 'Failed to load payout methods: ${e.toFriendlyMessage()}'));
       }
@@ -517,19 +395,11 @@ class WalletCubit extends Cubit<WalletState> {
   /// Fetch all approved payment providers that support outbound payouts.
   Future<void> loadPaymentProviders() async {
     try {
-      final response = await _supabase
-          .schema('api')
-          .from('v1_platform_payment_providers')
-          .select('id, provider_name, display_name, logo_url, supports_outbound, status, ui_config')
-          .eq('supports_outbound', true)
-          .order('display_name');
-
-      final providers = List<Map<String, dynamic>>.from(response);
+      final providers = await _repo.getActivePaymentProviders();
       emit(state.copyWith(
         paymentProviders: providers,
       ));
-    } catch (e, stack) {
-      debugPrint('[WalletCubit] loadPaymentProviders error: $e\n$stack');
+    } catch (e) {
       if (!isClosed) {
         emit(state.copyWith(error: 'Failed to load payment providers: ${e.toFriendlyMessage()}'));
       }
@@ -547,11 +417,7 @@ class WalletCubit extends Cubit<WalletState> {
       clearWithdrawError: true,
     ));
     try {
-      await _supabase.schema('api').rpc('add_payout_method', params: {
-        'p_provider_name': providerName,
-        'p_identity':      identity,
-        'p_label':         label,
-      });
+      await _repo.addPayoutMethod(providerName: providerName, identity: identity, label: label);
       emit(state.copyWith(withdrawStatus: WithdrawStatus.idle));
       await loadPayoutMethods(); // Refresh list so new method appears
     } catch (e) {
@@ -565,10 +431,7 @@ class WalletCubit extends Cubit<WalletState> {
   /// Delete a saved payout method.
   Future<void> deletePayoutMethod(String methodId) async {
     try {
-      // Ownership/billing-permission check happens in the RPC.
-      await _supabase
-          .schema('api')
-          .rpc('delete_payout_method', params: {'p_method_id': methodId});
+      await _repo.deletePayoutMethod(methodId);
       await loadPayoutMethods();
     } catch (e) {
       emit(state.copyWith(
@@ -601,13 +464,12 @@ class WalletCubit extends Cubit<WalletState> {
 
     try {
       final hash = _hashPin(pin);
-      await _supabase.schema('api').rpc('request_account_withdrawal', params: {
-        'p_account_id':        null,
-        'p_amount':            amount,
-        'p_currency':          currency,
-        'p_payout_method_id':  payoutMethodId,
-        'p_pin_hash':          hash,
-      });
+      await _repo.requestWithdrawal(
+        amount: amount,
+        currency: currency,
+        payoutMethodId: payoutMethodId,
+        pinHash: hash,
+      );
 
       emit(state.copyWith(withdrawStatus: WithdrawStatus.success));
       await _fetchBalances(); // Reflect the escrow hold immediately
@@ -641,12 +503,12 @@ class WalletCubit extends Cubit<WalletState> {
 
     try {
       final hash = _hashPin(pin);
-      await _supabase.schema('api').rpc('transfer_funds', params: {
-        'p_amount':               amount,
-        'p_currency':             currency,
-        'p_recipient_account_id': recipientAccountId,
-        'p_pin_hash':             hash,
-      });
+      await _repo.transferFunds(
+        amount: amount,
+        currency: currency,
+        recipientAccountId: recipientAccountId,
+        pinHash: hash,
+      );
 
       emit(state.copyWith(withdrawStatus: WithdrawStatus.success));
       await _fetchBalances(); // Reflect the debit immediately
@@ -660,12 +522,7 @@ class WalletCubit extends Cubit<WalletState> {
 
   Future<Map<String, dynamic>?> resolveRecipientDetails(String identifier) async {
     try {
-      final isUuid = RegExp(r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$').hasMatch(identifier);
-      final query = _supabase.schema('api').from('v1_accounts').select('id, reference, display_name');
-      final response = isUuid 
-          ? await query.eq('id', identifier).maybeSingle()
-          : await query.eq('reference', identifier).maybeSingle();
-      return response;
+      return await _repo.resolveRecipientDetails(identifier);
     } catch (_) {
       return null;
     }
@@ -682,11 +539,7 @@ class WalletCubit extends Cubit<WalletState> {
   void reset() {
     _authSubscription?.cancel();
     _authSubscription = null;
-    _balanceChannel?.unsubscribe();
-    _balanceChannel = null;
-    _reconnectTimer?.cancel();
-    _reconnectTimer = null;
-    _reconnectDelay = const Duration(seconds: 2);
+    _balanceSubscriber.dispose();
     emit(const WalletState());
   }
 
@@ -703,7 +556,7 @@ class WalletCubit extends Cubit<WalletState> {
   Future<void> createWallet(String currency) async {
     try {
       emit(state.copyWith(isLoading: true));
-      await _supabase.schema('api').rpc('create_wallet', params: {'p_currency': currency});
+      await _repo.createWallet(currency);
       await _fetchBalances();
     } catch (e) {
       emit(state.copyWith(
@@ -717,19 +570,13 @@ class WalletCubit extends Cubit<WalletState> {
 
   Future<void> _checkPinStatus() async {
     try {
-      final res = await _supabase
-          .schema('api')
-          .from('v1_profiles')
-          .select('wallet_pin_hash')
-          .eq('id', _supabase.auth.currentUser?.id ?? '')
-          .single();
-
-      final hasPin = res['wallet_pin_hash'] != null;
+      final userId = _supabase.auth.currentUser?.id;
+      if (userId == null) return;
+      final hasPin = await _repo.hasWalletPinSet(userId);
       emit(state.copyWith(hasPinSet: hasPin));
-    } catch (e, stack) {
-      // Background check (not directly user-triggered) — log for diagnostics
-      // but don't surface a visible error for a passive status poll.
-      debugPrint('[WalletCubit] _checkPinStatus error: $e\n$stack');
+    } catch (_) {
+      // Background check (not directly user-triggered) — don't surface a
+      // visible error for a passive status poll.
     }
   }
 
@@ -743,7 +590,7 @@ class WalletCubit extends Cubit<WalletState> {
     try {
       emit(state.copyWith(isLoading: true));
       final hash = _hashPin(pin);
-      await _supabase.schema('api').rpc('set_wallet_pin', params: {'p_pin_hash': hash});
+      await _repo.setWalletPin(hash);
       emit(state.copyWith(hasPinSet: true, isWalletUnlocked: true, isLoading: false));
     } catch (e) {
       emit(state.copyWith(isLoading: false, error: 'Failed to set PIN: ${e.toFriendlyMessage()}'));
@@ -753,7 +600,7 @@ class WalletCubit extends Cubit<WalletState> {
   Future<bool> unlockWithPin(String pin) async {
     try {
       final hash = _hashPin(pin);
-      final isValid = await _supabase.schema('api').rpc('verify_wallet_pin', params: {'p_pin_hash': hash}) as bool;
+      final isValid = await _repo.verifyWalletPin(hash);
       if (isValid) {
         emit(state.copyWith(isWalletUnlocked: true));
         return true;

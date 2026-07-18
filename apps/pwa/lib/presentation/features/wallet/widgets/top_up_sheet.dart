@@ -7,6 +7,7 @@ import 'package:lynk_core/core.dart';
 import 'package:lynk_x/presentation/features/wallet/cubit/wallet_cubit.dart';
 import 'package:lynk_x/presentation/features/wallet/cubit/wallet_state.dart';
 import 'package:lynk_x/presentation/features/wallet/models/wallet_model.dart';
+import 'package:lynk_x/presentation/shared/utils/app_snackbars.dart';
 
 class TopUpSheet extends StatefulWidget {
   final List<WalletBalance> currentBalances;
@@ -67,18 +68,14 @@ class _TopUpSheetState extends State<TopUpSheet> {
   void _submit() {
     final amount = _parsedAmount;
     if (amount == null || amount <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a valid amount')),
-      );
+      AppSnackBars.showInfo(context, 'Please enter a valid amount');
       return;
     }
     final cubit = context.read<WalletCubit>();
     if (_isMpesa) {
       final phone = _phoneController.text.trim();
       if (phone.length < 9) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please enter a valid phone number')),
-        );
+        AppSnackBars.showInfo(context, 'Please enter a valid phone number');
         return;
       }
       cubit.initiateTopUp(

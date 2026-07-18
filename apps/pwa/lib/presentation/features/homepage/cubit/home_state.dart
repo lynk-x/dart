@@ -18,12 +18,20 @@ class HomeState extends Equatable {
   /// Non-null when a Supabase or network error occurs during a fetch.
   final String? errorMessage;
 
+  /// Keyset cursor: (event_starts_at, forum_id) of the last row from the
+  /// most recent fetch, in raw fetch order (not the display-sorted order in
+  /// [events]). Null until the first page has loaded.
+  final String? cursorStartsAt;
+  final String? cursorForumId;
+
   const HomeState({
     this.events = const [],
     this.isLoading = false,
     this.isLoadingMore = false,
     this.hasMore = true,
     this.errorMessage,
+    this.cursorStartsAt,
+    this.cursorForumId,
   });
 
   HomeState copyWith({
@@ -33,6 +41,8 @@ class HomeState extends Equatable {
     bool? hasMore,
     String? errorMessage,
     bool clearError = false,
+    String? cursorStartsAt,
+    String? cursorForumId,
   }) {
     return HomeState(
       events: events ?? this.events,
@@ -40,10 +50,19 @@ class HomeState extends Equatable {
       isLoadingMore: isLoadingMore ?? this.isLoadingMore,
       hasMore: hasMore ?? this.hasMore,
       errorMessage: clearError ? null : errorMessage ?? this.errorMessage,
+      cursorStartsAt: cursorStartsAt ?? this.cursorStartsAt,
+      cursorForumId: cursorForumId ?? this.cursorForumId,
     );
   }
 
   @override
-  List<Object?> get props =>
-      [events, isLoading, isLoadingMore, hasMore, errorMessage];
+  List<Object?> get props => [
+        events,
+        isLoading,
+        isLoadingMore,
+        hasMore,
+        errorMessage,
+        cursorStartsAt,
+        cursorForumId,
+      ];
 }

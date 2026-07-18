@@ -10,12 +10,19 @@ class TicketsListState {
   final List<TicketModel> tickets;
   final String? error;
 
+  /// Keyset cursor: (created_at, ticket_id) of the last row from the most
+  /// recent fetch. Null until the first page has loaded.
+  final String? cursorCreatedAt;
+  final String? cursorTicketId;
+
   const TicketsListState({
     this.isLoading = false,
     this.isLoadingMore = false,
     this.hasMore = true,
     this.tickets = const [],
     this.error,
+    this.cursorCreatedAt,
+    this.cursorTicketId,
   });
 
   TicketsListState copyWith({
@@ -24,6 +31,8 @@ class TicketsListState {
     bool? hasMore,
     List<TicketModel>? tickets,
     String? error,
+    String? cursorCreatedAt,
+    String? cursorTicketId,
   }) {
     return TicketsListState(
       isLoading: isLoading ?? this.isLoading,
@@ -31,6 +40,8 @@ class TicketsListState {
       hasMore: hasMore ?? this.hasMore,
       tickets: tickets ?? this.tickets,
       error: error,
+      cursorCreatedAt: cursorCreatedAt ?? this.cursorCreatedAt,
+      cursorTicketId: cursorTicketId ?? this.cursorTicketId,
     );
   }
 }
@@ -43,16 +54,8 @@ class TicketsListCubit extends Cubit<TicketsListState> {
   static const int _pageSize = 20;
 
   Future<void> loadTickets() async {
-    emit(state.copyWith(
-      isLoading: true,
-      isLoadingMore: false,
-      hasMore: true,
-      tickets: const [],
-      error: null,
-    ));
+    emit(TicketsListState(isLoading: true));
     try {
-
-
       final user = Supabase.instance.client.auth.currentUser;
       if (user == null) {
         emit(state.copyWith(isLoading: false, error: 'User not logged in'));
@@ -62,17 +65,19 @@ class TicketsListCubit extends Cubit<TicketsListState> {
       final rawTickets = await _repo.getUserTickets(
         user.id,
         limit: _pageSize,
-        offset: 0,
       );
 
       final tickets = rawTickets
           .map((data) => TicketModel.fromView(data))
           .toList();
+      final last = rawTickets.isNotEmpty ? rawTickets.last : null;
 
       emit(state.copyWith(
         isLoading: false,
         tickets: tickets,
         hasMore: tickets.length == _pageSize,
+        cursorCreatedAt: last?['created_at'] as String?,
+        cursorTicketId: last?['ticket_id'] as String?,
       ));
     } catch (e) {
       emit(state.copyWith(isLoading: false, error: e.toString()));
@@ -85,8 +90,6 @@ class TicketsListCubit extends Cubit<TicketsListState> {
     if (state.isLoading || state.isLoadingMore || !state.hasMore) return;
     emit(state.copyWith(isLoadingMore: true));
     try {
-
-
       final user = Supabase.instance.client.auth.currentUser;
       if (user == null) {
         emit(state.copyWith(isLoadingMore: false, error: 'User not logged in'));
@@ -96,18 +99,26 @@ class TicketsListCubit extends Cubit<TicketsListState> {
       final rawMore = await _repo.getUserTickets(
         user.id,
         limit: _pageSize,
-        offset: state.tickets.length,
+        beforeCreatedAt: state.cursorCreatedAt,
+        beforeTicketId: state.cursorTicketId,
       );
 
       final more = rawMore
           .map((data) => TicketModel.fromView(data))
           .toList();
 
-      emit(state.copyWith(
-        isLoadingMore: false,
-        tickets: [...state.tickets, ...more],
-        hasMore: more.length == _pageSize,
-      ));
+      if (rawMore.isEmpty) {
+        emit(state.copyWith(isLoadingMore: false, hasMore: false));
+      } else {
+        final last = rawMore.last;
+        emit(state.copyWith(
+          isLoadingMore: false,
+          tickets: [...state.tickets, ...more],
+          hasMore: more.length == _pageSize,
+          cursorCreatedAt: last['created_at'] as String?,
+          cursorTicketId: last['ticket_id'] as String?,
+        ));
+      }
     } catch (e) {
       emit(state.copyWith(isLoadingMore: false, error: e.toString()));
     }

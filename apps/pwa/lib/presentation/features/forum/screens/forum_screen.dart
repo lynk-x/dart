@@ -31,6 +31,7 @@ import 'package:lynk_x/presentation/features/forum/widgets/reaction_bar.dart';
 
 import 'package:lynk_x/presentation/features/forum/widgets/welcome_banner.dart';
 import 'package:lynk_x/data/repositories/repository_providers.dart';
+import 'package:lynk_x/presentation/shared/utils/app_snackbars.dart';
 
 class ForumPage extends StatelessWidget {
   /// The forum to display. Provided as a path parameter via `/forum/:reference`.
@@ -297,12 +298,7 @@ class _ForumViewState extends State<ForumView> {
           onEventProgressTap: () {
             final state = cubit.state;
             if (state.forumId == null || state.forumId!.isEmpty) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('No forum found.'),
-                  behavior: SnackBarBehavior.floating,
-                ),
-              );
+              AppSnackBars.showInfo(context, 'No forum found.');
               return;
             }
             Navigator.of(context).pop();
@@ -445,19 +441,17 @@ class _ForumViewState extends State<ForumView> {
                                         isReadOnly: forumState.isReadOnly,
                                         forumName: forumState.forumName,
                                         onLockToggle: () {
-                                          final messenger =
-                                              ScaffoldMessenger.of(context);
                                           final nextStatus =
                                               forumState.isReadOnly
                                                   ? 'open'
                                                   : 'read_only';
                                           cubit.updateForumStatus(nextStatus);
-                                          messenger.showSnackBar(SnackBar(
-                                            content: Text(forumState.isReadOnly
+                                          AppSnackBars.showInfo(
+                                            context,
+                                            forumState.isReadOnly
                                                 ? 'Chat unlocked'
-                                                : 'Chat locked'),
-                                            behavior: SnackBarBehavior.floating,
-                                          ));
+                                                : 'Chat locked',
+                                          );
                                         },
                                         onSearch: (q) {
                                           context

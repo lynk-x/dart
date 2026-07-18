@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:lynk_x/presentation/shared/utils/app_snackbars.dart';
 
 /// The type of content being reported — maps to the reports table constraint
 /// that requires exactly one target.
@@ -148,21 +149,12 @@ class _ReportSheetState extends State<_ReportSheet> {
       }
       if (mounted) {
         Navigator.of(context).pop();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Report submitted. Our team will review it shortly.'),
-          ),
-        );
+        AppSnackBars.showSuccess(context, 'Report submitted. Our team will review it shortly.');
       }
     } catch (e) {
       if (mounted) {
         setState(() => _isSubmitting = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to submit report: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        AppSnackBars.showError(context, 'Failed to submit report: $e');
       }
     }
   }

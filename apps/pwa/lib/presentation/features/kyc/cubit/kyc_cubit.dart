@@ -30,17 +30,20 @@ String _resolveDocumentType(String? raw) {
 /// attempt via api.submit_identity_verification.
 class KycCubit extends Cubit<KycState> {
   final KycRepository _repo;
+  final AccountRepository _accountRepo;
   final SupabaseClient _supabase;
 
-  KycCubit({KycRepository? repository, SupabaseClient? supabase})
+  KycCubit({KycRepository? repository, AccountRepository? accountRepository, SupabaseClient? supabase})
       : _repo = repository ?? kycRepository,
+        _accountRepo = accountRepository ?? AccountRepository(supabase ?? Supabase.instance.client),
         _supabase = supabase ?? Supabase.instance.client,
         super(const KycState());
 
   Future<void> load() async {
     emit(state.copyWith(isLoading: true, clearError: true));
     try {
-      final accountId = await _resolveAccountId();
+      final userId = _supabase.auth.currentUser?.id;
+      final accountId = userId == null ? null : await _accountRepo.resolveOwnerAccountId(userId);
       if (accountId == null) {
         emit(state.copyWith(isLoading: false, error: 'No account found for this profile.'));
         return;
@@ -77,20 +80,6 @@ class KycCubit extends Cubit<KycState> {
     } catch (e) {
       emit(state.copyWith(isLoading: false, error: e.toFriendlyMessage()));
     }
-  }
-
-  Future<String?> _resolveAccountId() async {
-    final userId = _supabase.auth.currentUser?.id;
-    if (userId == null) return null;
-    final row = await _supabase
-        .schema('api')
-        .from('v1_account_memberships')
-        .select('account_id')
-        .eq('user_id', userId)
-        .order('created_at', ascending: true)
-        .limit(1)
-        .maybeSingle();
-    return row?['account_id'] as String?;
   }
 
   // ── Step navigation ────────────────────────────────────────────────────

@@ -8,15 +8,17 @@ import 'package:barcode_widget/barcode_widget.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:intl/intl.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:lynk_core/core.dart';
 import 'package:lynk_x/core/utils/breakpoints.dart';
 import 'package:lynk_x/presentation/features/ticket/cubit/ticket_cubit.dart';
 import 'package:lynk_x/data/repositories/repository_providers.dart';
 import 'package:lynk_x/presentation/features/ticket/models/ticket_model.dart';
+import 'package:lynk_x/presentation/features/ticket/widgets/resell_ticket_sheet.dart';
+import 'package:lynk_x/presentation/features/ticket/widgets/transfer_ticket_dialog.dart';
 import 'package:lynk_x/core/network/lynk_cache_manager.dart';
 import 'package:lynk_x/core/utils/image_optimizer.dart';
 import 'package:lynk_x/core/utils/timezone_abbreviation.dart';
+import 'package:lynk_x/presentation/shared/utils/app_snackbars.dart';
 
 
 class TicketPage extends StatelessWidget {
@@ -109,20 +111,7 @@ class _TicketViewState extends State<TicketView> {
       body: BlocListener<TicketCubit, TicketState>(
         listenWhen: (p, c) => p.ticket?.isRedeemed == false && c.ticket?.isRedeemed == true,
         listener: (context, state) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Row(
-                children: [
-                  Icon(Icons.check_circle, color: Colors.white),
-                  SizedBox(width: 12),
-                  Text('Ticket Redeemed Safely — Enjoy the event!'),
-                ],
-              ),
-              backgroundColor: context.accentColor,
-              behavior: SnackBarBehavior.floating,
-              duration: const Duration(seconds: 4),
-            ),
-          );
+          AppSnackBars.showSuccess(context, 'Ticket Redeemed Safely — Enjoy the event!');
         },
         child: BlocBuilder<TicketCubit, TicketState>(
         builder: (context, state) {
@@ -243,7 +232,7 @@ class _TicketViewState extends State<TicketView> {
                 ),
                 onTap: () {
                   Navigator.pop(context);
-                  _showTransferDialog(context, ticket);
+                  showTransferTicketDialog(context, ticket);
                 },
               ),
               const Divider(color: Colors.white12, height: 1),
@@ -271,7 +260,7 @@ class _TicketViewState extends State<TicketView> {
                   ),
                   onTap: () {
                     Navigator.pop(context);
-                    _showResellSheet(context, ticket);
+                    showResellTicketSheet(context, ticket);
                   },
                 ),
             ],
@@ -297,41 +286,15 @@ class _TicketViewState extends State<TicketView> {
 
   Future<void> _cancelResaleListing(BuildContext context, String listingId) async {
     final cubit = context.read<TicketCubit>();
-    final messenger = ScaffoldMessenger.of(context);
     setState(() => _isCancellingResale = true);
-    final accentColor = context.accentColor;
     try {
       await cubit.cancelResaleListing(listingId);
-      messenger.showSnackBar(
-        SnackBar(content: const Text('Resale offer cancelled.'), backgroundColor: accentColor),
-      );
+      if (mounted) AppSnackBars.showSuccess(context, 'Resale offer cancelled.');
     } catch (e) {
-      messenger.showSnackBar(
-        SnackBar(content: Text('Failed to cancel: $e'), backgroundColor: Colors.red),
-      );
+      if (mounted) AppSnackBars.showError(context, 'Failed to cancel: $e');
     } finally {
       if (mounted) setState(() => _isCancellingResale = false);
     }
-  }
-
-  void _showResellSheet(BuildContext context, TicketModel ticket) {
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => _ResellTicketSheet(ticket: ticket, parentContext: context),
-    );
-  }
-
-  /// Shows a dialog to transfer the ticket to another user.
-  void _showTransferDialog(BuildContext context, TicketModel ticket) {
-    showDialog<void>(
-      context: context,
-      builder: (_) => _TransferTicketDialog(
-        ticket: ticket,
-        parentContext: context,
-      ),
-    );
   }
 
   Widget _buildPendingOfferBanner(BuildContext context, Map<String, dynamic> listing) {
@@ -690,438 +653,6 @@ class _TicketViewState extends State<TicketView> {
                 ),
               ],
             ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _TransferTicketDialog extends StatefulWidget {
-  final TicketModel ticket;
-  final BuildContext parentContext;
-
-  const _TransferTicketDialog({
-    required this.ticket,
-    required this.parentContext,
-  });
-
-  @override
-  State<_TransferTicketDialog> createState() => _TransferTicketDialogState();
-}
-
-class _TransferTicketDialogState extends State<_TransferTicketDialog> {
-  final _controller = TextEditingController();
-  Timer? _debounceTimer;
-  bool _isChecking = false;
-  bool? _recipientFound;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller.addListener(_onInputChanged);
-  }
-
-  @override
-  void dispose() {
-    _controller.removeListener(_onInputChanged);
-    _debounceTimer?.cancel();
-    _controller.dispose();
-    super.dispose();
-  }
-
-  void _onInputChanged() {
-    final value = _controller.text.trim();
-
-    if (value.isEmpty || value.length < 3) {
-      _debounceTimer?.cancel();
-      if (mounted) setState(() { _recipientFound = null; _isChecking = false; });
-      return;
-    }
-
-    // Email addresses: skip lookup, let the RPC validate
-    if (value.contains('@')) {
-      _debounceTimer?.cancel();
-      if (mounted) setState(() { _recipientFound = null; _isChecking = false; });
-      return;
-    }
-
-    if (_debounceTimer?.isActive ?? false) _debounceTimer?.cancel();
-    setState(() => _isChecking = true);
-
-    final checkedValue = value;
-    _debounceTimer = Timer(const Duration(milliseconds: 500), () async {
-      if (!mounted) return;
-      try {
-        final data = await Supabase.instance.client
-            .schema('api')
-            .from('v1_profiles')
-            .select('user_name')
-            .eq('user_name', checkedValue)
-            .maybeSingle();
-        if (mounted && _controller.text.trim() == checkedValue) {
-          setState(() {
-            _recipientFound = data != null;
-            _isChecking = false;
-          });
-        }
-      } catch (_) {
-        if (mounted && _controller.text.trim() == checkedValue) {
-          setState(() => _isChecking = false);
-        }
-      }
-    });
-  }
-
-  bool get _canTransfer {
-    final value = _controller.text.trim();
-    if (value.isEmpty || _isChecking) return false;
-    if (value.contains('@')) return true; // email — let RPC decide
-    return _recipientFound == true;
-  }
-
-  Future<void> _doTransfer() async {
-    final recipient = _controller.text.trim();
-    final messenger = ScaffoldMessenger.of(widget.parentContext);
-    final cubit = widget.parentContext.read<TicketCubit>();
-    final accentColor = widget.parentContext.accentColor;
-    final parentMounted = widget.parentContext.mounted;
-    
-    Navigator.pop(context);
-
-    try {
-      await Supabase.instance.client.schema('api').rpc('transfer_ticket', params: {
-        'p_ticket_id': widget.ticket.id,
-        'p_recipient_username': recipient,
-      });
-      messenger.showSnackBar(
-        SnackBar(
-          content: const Text('Ticket transferred successfully!'),
-          backgroundColor: accentColor,
-        ),
-      );
-      if (parentMounted) {
-        await cubit.refresh();
-      }
-    } catch (e) {
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text('Transfer failed: ${e.toFriendlyMessage()}'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
-  }
-
-  Widget? _suffixIcon() {
-    if (_isChecking) {
-      return const SizedBox(
-        width: 20,
-        height: 20,
-        child: Padding(
-          padding: EdgeInsets.all(12),
-          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white24),
-        ),
-      );
-    }
-    if (_controller.text.contains('@')) return null;
-    if (_recipientFound == true) return Icon(Icons.check_circle, color: context.accentColor, size: 20);
-    if (_recipientFound == false) return const Icon(Icons.error, color: Colors.redAccent, size: 20);
-    return null;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final value = _controller.text.trim();
-    return AlertDialog(
-      backgroundColor: AppColors.tertiary,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      title: const Text(
-        'Transfer Ticket',
-        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-      ),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Enter the username or email of the recipient.',
-            style: TextStyle(color: Colors.white60),
-          ),
-          const SizedBox(height: 16),
-          TextField(
-            controller: _controller,
-            autofocus: true,
-            style: const TextStyle(color: Colors.white),
-            decoration: InputDecoration(
-              hintText: 'username or email',
-              hintStyle: const TextStyle(color: Colors.white30),
-              filled: true,
-              fillColor: Colors.white10,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide.none,
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: context.accentColor, width: 1),
-              ),
-              suffixIcon: _suffixIcon(),
-            ),
-          ),
-          if (value.length >= 3 && !value.contains('@') && !_isChecking) ...[
-            const SizedBox(height: 8),
-            if (_recipientFound == false)
-              const Text(
-                'No user found with that username.',
-                style: TextStyle(color: Colors.redAccent, fontSize: 12),
-              )
-            else if (_recipientFound == true)
-              Text(
-                'Recipient found.',
-                style: TextStyle(
-                  color: context.accentColor.withValues(alpha: 0.8),
-                  fontSize: 12,
-                ),
-              ),
-          ],
-        ],
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel', style: TextStyle(color: Colors.white60)),
-        ),
-        TextButton(
-          onPressed: _canTransfer ? _doTransfer : null,
-          child: Text(
-            'Transfer',
-            style: TextStyle(
-              color: _canTransfer
-                  ? context.accentColor
-                  : context.accentColor.withValues(alpha: 0.3),
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _ResellTicketSheet extends StatefulWidget {
-  final TicketModel ticket;
-  final BuildContext parentContext;
-
-  const _ResellTicketSheet({required this.ticket, required this.parentContext});
-
-  @override
-  State<_ResellTicketSheet> createState() => _ResellTicketSheetState();
-}
-
-class _ResellTicketSheetState extends State<_ResellTicketSheet> {
-  final _usernameController = TextEditingController();
-  final _priceController = TextEditingController();
-  Timer? _debounceTimer;
-  bool _isChecking = false;
-  bool? _recipientFound;
-  bool _isSubmitting = false;
-
-  double? get _maxPrice => widget.ticket.purchasedPrice;
-  String get _currency => widget.ticket.purchasedCurrency ?? '';
-
-  @override
-  void initState() {
-    super.initState();
-    _usernameController.addListener(_onUsernameChanged);
-    // Pre-fill price with max allowed
-    if (_maxPrice != null) {
-      _priceController.text = _maxPrice!.toStringAsFixed(2);
-    }
-  }
-
-  @override
-  void dispose() {
-    _usernameController.removeListener(_onUsernameChanged);
-    _debounceTimer?.cancel();
-    _usernameController.dispose();
-    _priceController.dispose();
-    super.dispose();
-  }
-
-  void _onUsernameChanged() {
-    final value = _usernameController.text.trim();
-    if (value.length < 3) {
-      _debounceTimer?.cancel();
-      if (mounted) setState(() { _recipientFound = null; _isChecking = false; });
-      return;
-    }
-    if (_debounceTimer?.isActive ?? false) _debounceTimer?.cancel();
-    setState(() => _isChecking = true);
-    final checkedValue = value;
-    _debounceTimer = Timer(const Duration(milliseconds: 500), () async {
-      if (!mounted) return;
-      try {
-        final data = await Supabase.instance.client
-            .schema('api')
-            .from('v1_profiles')
-            .select('user_name')
-            .eq('user_name', checkedValue)
-            .maybeSingle();
-        if (mounted && _usernameController.text.trim() == checkedValue) {
-          setState(() {
-            _recipientFound = data != null;
-            _isChecking = false;
-          });
-        }
-      } catch (_) {
-        if (mounted && _usernameController.text.trim() == checkedValue) {
-          setState(() => _isChecking = false);
-        }
-      }
-    });
-  }
-
-  bool get _canSubmit {
-    if (_isChecking || _isSubmitting) return false;
-    if (_recipientFound != true) return false;
-    final price = double.tryParse(_priceController.text.trim());
-    if (price == null || price <= 0) return false;
-    if (_maxPrice != null && price > _maxPrice!) return false;
-    return true;
-  }
-
-  Future<void> _submit() async {
-    final price = double.tryParse(_priceController.text.trim());
-    if (price == null) return;
-
-    final messenger = ScaffoldMessenger.of(widget.parentContext);
-    final cubit = widget.parentContext.read<TicketCubit>();
-    final accentColor = widget.parentContext.accentColor;
-    setState(() => _isSubmitting = true);
-
-    try {
-      await cubit.createResaleListing(
-        recipientUsername: _usernameController.text.trim(),
-        askingPrice: price,
-      );
-      if (mounted) Navigator.pop(context);
-      messenger.showSnackBar(
-        SnackBar(
-          content: const Text('Resale offer sent! Buyer has 48 hours to accept.'),
-          backgroundColor: accentColor,
-        ),
-      );
-    } catch (e) {
-      if (mounted) setState(() => _isSubmitting = false);
-      messenger.showSnackBar(
-        SnackBar(content: Text('Failed: ${e.toFriendlyMessage()}'), backgroundColor: Colors.red),
-      );
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
-    return Container(
-      padding: EdgeInsets.fromLTRB(20, 24, 20, 24 + bottomInset),
-      decoration: const BoxDecoration(
-        color: AppColors.tertiary,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Center(
-            child: Container(
-              width: 40, height: 4,
-              margin: const EdgeInsets.only(bottom: 20),
-              decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(2)),
-            ),
-          ),
-          const Text(
-            'Resell Ticket',
-            style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 4),
-          if (_maxPrice != null)
-            Text(
-              'Max price: $_currency ${_maxPrice!.toStringAsFixed(2)} (original purchase price)',
-              style: const TextStyle(color: Colors.white54, fontSize: 12),
-            ),
-          const SizedBox(height: 20),
-          // Recipient
-          const Text('Recipient Username', style: TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w600)),
-          const SizedBox(height: 8),
-          TextField(
-            controller: _usernameController,
-            style: const TextStyle(color: Colors.white),
-            decoration: InputDecoration(
-              hintText: 'username',
-              hintStyle: const TextStyle(color: Colors.white30),
-              filled: true,
-              fillColor: Colors.white.withValues(alpha: 0.06),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: context.accentColor, width: 1)),
-              suffixIcon: _isChecking
-                  ? const SizedBox(width: 20, height: 20, child: Padding(padding: EdgeInsets.all(12), child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white24)))
-                  : (_recipientFound == true
-                      ? Icon(Icons.check_circle, color: context.accentColor, size: 20)
-                      : (_recipientFound == false ? const Icon(Icons.error, color: Colors.redAccent, size: 20) : null)),
-            ),
-          ),
-          if (_recipientFound == false) ...[
-            const SizedBox(height: 6),
-            const Text('No user found with that username.', style: TextStyle(color: Colors.redAccent, fontSize: 12)),
-          ] else if (_recipientFound == true) ...[
-            const SizedBox(height: 6),
-            Text('Recipient found.', style: TextStyle(color: context.accentColor.withValues(alpha: 0.8), fontSize: 12)),
-          ],
-          const SizedBox(height: 16),
-          // Price
-          const Text('Asking Price', style: TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w600)),
-          const SizedBox(height: 8),
-          TextField(
-            controller: _priceController,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            style: const TextStyle(color: Colors.white),
-            onChanged: (_) => setState(() {}),
-            decoration: InputDecoration(
-              hintText: '0.00',
-              hintStyle: const TextStyle(color: Colors.white30),
-              prefixText: _currency.isNotEmpty ? '$_currency ' : null,
-              prefixStyle: const TextStyle(color: Colors.white54),
-              filled: true,
-              fillColor: Colors.white.withValues(alpha: 0.06),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: context.accentColor, width: 1)),
-            ),
-          ),
-          if (_maxPrice != null && (double.tryParse(_priceController.text.trim()) ?? 0) > _maxPrice!) ...[
-            const SizedBox(height: 6),
-            Text(
-              'Price cannot exceed the original purchase price of $_currency ${_maxPrice!.toStringAsFixed(2)}',
-              style: const TextStyle(color: Colors.redAccent, fontSize: 12),
-            ),
-          ] else ...[
-            const SizedBox(height: 8),
-            const Text(
-              'Payment is wallet-to-wallet. No platform fee.',
-              style: TextStyle(color: Colors.white38, fontSize: 11),
-            ),
-          ],
-          const SizedBox(height: 24),
-          _isSubmitting
-              ? Center(child: CircularProgressIndicator(color: context.accentColor))
-              : PrimaryButton(
-                  text: 'Send Resale Offer',
-                  onPressed: _canSubmit ? _submit : null,
-                ),
-          const SizedBox(height: 8),
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel', style: TextStyle(color: Colors.white38)),
           ),
         ],
       ),

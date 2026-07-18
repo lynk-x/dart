@@ -10,6 +10,7 @@ import 'package:lynk_x/presentation/features/notifications/cubit/notification_cu
 import 'package:lynk_x/presentation/features/wallet/cubit/wallet_cubit.dart';
 import 'package:lynk_x/l10n/app_localizations.dart';
 import 'package:lynk_x/data/repositories/repository_providers.dart';
+import 'package:lynk_x/presentation/shared/utils/app_snackbars.dart';
 import 'services/push_notification_service.dart';
 import 'package:lynk_x/core/utils/embedding_manager.dart';
 
@@ -122,13 +123,9 @@ class _LynkXAppState extends State<LynkXApp> {
     // why they won't receive alerts.
     PushNotificationService.instance.onPermissionDenied = () {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Notifications are disabled. Enable them in your browser settings to receive alerts.',
-          ),
-          duration: Duration(seconds: 5),
-        ),
+      AppSnackBars.showInfo(
+        context,
+        'Notifications are disabled. Enable them in your browser settings to receive alerts.',
       );
     };
 

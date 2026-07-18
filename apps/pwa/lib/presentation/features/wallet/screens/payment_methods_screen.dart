@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:lynk_core/core.dart';
 import '../cubit/wallet_cubit.dart';
 import '../cubit/wallet_state.dart';
+import 'package:lynk_x/presentation/shared/utils/app_snackbars.dart';
 
 class PaymentMethodsScreen extends StatefulWidget {
   const PaymentMethodsScreen({super.key});
@@ -59,9 +60,7 @@ class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
         listenWhen: (prev, curr) => prev.withdrawError != curr.withdrawError && curr.withdrawError != null,
         listener: (context, state) {
           if (state.withdrawError != null) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(state.withdrawError!), backgroundColor: Colors.redAccent),
-            );
+            AppSnackBars.showError(context, state.withdrawError!);
           }
         },
         builder: (context, state) {
@@ -292,24 +291,14 @@ class _AddMethodSheetState extends State<_AddMethodSheet> {
                 if (validationRegex != null && validationRegex.isNotEmpty) {
                   final regExp = RegExp(validationRegex);
                   if (!regExp.hasMatch(raw)) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('Invalid format. Must match pattern: $hintText'),
-                        backgroundColor: Colors.redAccent,
-                      ),
-                    );
+                    AppSnackBars.showError(context, 'Invalid format. Must match pattern: $hintText');
                     return;
                   }
                 }
 
                 // If isPhone, enforce simple validation length check
                 if (isPhone && raw.length < 9) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Invalid phone number length.'),
-                      backgroundColor: Colors.redAccent,
-                    ),
-                  );
+                  AppSnackBars.showError(context, 'Invalid phone number length.');
                   return;
                 }
 

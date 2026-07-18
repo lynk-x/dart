@@ -1,3 +1,4 @@
+export 'account_repository.dart';
 export 'event_repository.dart';
 export 'forum_repository.dart';
 export 'kyc_repository.dart';

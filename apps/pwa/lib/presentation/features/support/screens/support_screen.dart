@@ -4,6 +4,7 @@ import 'package:lynk_x/presentation/features/support/screens/live_chat_screen.da
 import 'package:lynk_x/data/repositories/repository_providers.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:go_router/go_router.dart';
+import 'package:lynk_x/presentation/shared/utils/app_snackbars.dart';
 
 enum SupportContext { wallet, events, general }
 
@@ -45,8 +46,7 @@ class _SupportScreenState extends State<SupportScreen> {
   Future<void> _startLiveChat() async {
     final userId = Supabase.instance.client.auth.currentUser?.id;
     if (userId == null) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Please log in first')));
+      AppSnackBars.showInfo(context, 'Please log in first');
       return;
     }
 
@@ -65,8 +65,7 @@ class _SupportScreenState extends State<SupportScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Failed to start chat: $e')));
+        AppSnackBars.showError(context, 'Failed to start chat: $e');
       }
     } finally {
       if (mounted) setState(() => _isLoadingChat = false);
@@ -77,16 +76,9 @@ class _SupportScreenState extends State<SupportScreen> {
     // Since we don't have a live phone number yet, we gracefully inform the user
     // and route them to our primary support channel (Live Chat).
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text(
-              'Phone support is currently offline. Please use Live Chat!'),
-          backgroundColor: AppColors.surface,
-          behavior: SnackBarBehavior.floating,
-          duration: const Duration(seconds: 4),
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        ),
+      AppSnackBars.showInfo(
+        context,
+        'Phone support is currently offline. Please use Live Chat!',
       );
     }
   }

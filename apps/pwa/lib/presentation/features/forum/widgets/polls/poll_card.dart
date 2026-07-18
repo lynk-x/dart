@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:lynk_x/presentation/shared/utils/app_snackbars.dart';
 
 
 /// Displays a single poll question with live-updating results.
@@ -158,10 +159,7 @@ class _PollCardState extends State<PollCard> {
     } catch (e) {
       if (mounted) {
         setState(() => _isSubmitting = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to submit vote: $e'),
-              backgroundColor: Colors.red),
-        );
+        AppSnackBars.showError(context, 'Failed to submit vote: $e');
       }
     }
   }

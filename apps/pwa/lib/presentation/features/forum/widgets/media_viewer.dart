@@ -10,6 +10,7 @@ import 'package:lynk_x/presentation/features/forum/cubit/forum_media_state.dart'
 import 'package:lynk_x/presentation/features/forum/cubit/forum_cubit.dart';
 import 'package:lynk_x/core/utils/download_helper.dart';
 import 'package:lynk_core/core.dart';
+import 'package:lynk_x/presentation/shared/utils/app_snackbars.dart';
 
 class MediaViewer extends StatefulWidget {
   final String? imageUrl;
@@ -188,40 +189,22 @@ class _MediaViewerState extends State<MediaViewer> {
     if (uri == null) return;
 
     if (!mounted) return;
-    final messenger = ScaffoldMessenger.of(context);
-
-    // Hide any active snackbar before showing a new one
-    messenger.hideCurrentSnackBar();
-    messenger.showSnackBar(
-      const SnackBar(
-        content: Text('Starting download...'),
-        duration: Duration(seconds: 2),
-      ),
-    );
+    AppSnackBars.showInfo(context, 'Starting download...');
 
     final filename = _buildFilename(media, _currentIndex);
 
     try {
       final result = await downloadFile(targetUrl, filename);
       if (!mounted) return;
-      messenger.hideCurrentSnackBar();
       if (result.openedInNewTab) {
-        messenger.showSnackBar(
-          const SnackBar(
-            content: Text('Opened in a new tab — use your browser\'s Save/Download option to save it.'),
-            duration: Duration(seconds: 4),
-          ),
+        AppSnackBars.showInfo(
+          context,
+          'Opened in a new tab — use your browser\'s Save/Download option to save it.',
         );
       }
     } catch (e) {
       if (!mounted) return;
-      messenger.hideCurrentSnackBar();
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text('Download failed: ${e.toString()}'),
-          backgroundColor: Colors.redAccent,
-        ),
-      );
+      AppSnackBars.showError(context, 'Download failed: ${e.toString()}');
     }
   }
 

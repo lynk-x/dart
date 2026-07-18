@@ -6,6 +6,7 @@ import 'package:lynk_core/profiles/data/repositories/profile_repository.dart';
 /// so this file is safe to import before Supabase.initialize() completes.
 SupabaseClient get _db => Supabase.instance.client;
 
+AccountRepository get accountRepository => AccountRepository(_db);
 EventRepository get eventRepository => EventRepository(_db);
 ForumRepository get forumRepository => ForumRepository(_db);
 KycRepository get kycRepository => KycRepository(_db);

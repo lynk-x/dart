@@ -10,6 +10,7 @@ import 'package:lynk_core/core.dart';
 import 'package:lynk_x/services/push_notification_service.dart';
 import 'package:lynk_x/presentation/shared/utils/permission_acks.dart';
 import '../models/country.dart';
+import 'package:lynk_x/presentation/shared/utils/app_snackbars.dart';
 
 enum SetupStep { identity, notifications }
 
@@ -167,7 +168,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
     } catch (e) {
       setState(() => _isSubmitting = false);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+        AppSnackBars.showError(context, 'Error: $e');
       }
     }
   }

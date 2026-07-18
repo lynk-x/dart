@@ -13,6 +13,7 @@ import '../cubit/ticket_validation_state.dart';
 import 'web_qr_scanner.dart';
 import 'package:lynk_x/presentation/shared/utils/permission_acks.dart';
 import 'scan_history_drawer.dart';
+import 'package:lynk_x/presentation/shared/utils/app_snackbars.dart';
 
 enum FeedbackMode {
   sound,      // Sound + Vibration
@@ -253,14 +254,7 @@ class _TicketScannerSheetState extends State<TicketScannerSheet> {
     if (!success) {
       if (mounted) {
         ScaffoldMessenger.of(context).clearSnackBars();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Flashlight is not supported on this device/browser'),
-            duration: Duration(seconds: 2),
-            behavior: SnackBarBehavior.floating,
-            backgroundColor: Colors.redAccent,
-          ),
-        );
+        AppSnackBars.showError(context, 'Flashlight is not supported on this device/browser');
       }
       return;
     }
@@ -598,14 +592,7 @@ class _TicketScannerSheetState extends State<TicketScannerSheet> {
                             onError: (errorMsg) {
                               if (mounted) {
                                 ScaffoldMessenger.of(context).clearSnackBars();
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text('Camera error: $errorMsg'),
-                                    duration: const Duration(seconds: 4),
-                                    behavior: SnackBarBehavior.floating,
-                                    backgroundColor: Colors.redAccent,
-                                  ),
-                                );
+                                AppSnackBars.showError(context, 'Camera error: $errorMsg');
                                 // A prior "Enable Camera" acknowledgment doesn't
                                 // mean the browser will still honor it — if the
                                 // user revoked camera access at the OS/browser

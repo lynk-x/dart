@@ -3,6 +3,7 @@ import 'package:lynk_core/core.dart';
 import 'package:lynk_x/presentation/features/support/screens/support_screen.dart';
 import 'package:lynk_x/data/repositories/repository_providers.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:lynk_x/presentation/shared/utils/app_snackbars.dart';
 
 class LiveChatScreen extends StatefulWidget {
   final SupportContext supportContext;
@@ -91,11 +92,8 @@ class _LiveChatScreenState extends State<LiveChatScreen> {
       try {
         await supportRepository.sendMessage(widget.ticketId!, _currentUserId, text);
       } catch (e) {
-        // Simple error handling for UI
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Failed to send message: $e')),
-          );
+          AppSnackBars.showError(context, 'Failed to send message: $e');
         }
       }
     } else {

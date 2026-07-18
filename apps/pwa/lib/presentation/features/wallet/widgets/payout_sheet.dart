@@ -6,6 +6,7 @@ import 'package:lynk_core/core.dart';
 import 'package:lynk_x/presentation/features/wallet/cubit/wallet_cubit.dart';
 import 'package:lynk_x/presentation/features/wallet/cubit/wallet_state.dart';
 import 'package:lynk_x/presentation/features/wallet/models/wallet_model.dart';
+import 'package:lynk_x/presentation/shared/utils/app_snackbars.dart';
 
 class PayoutSheet extends StatefulWidget {
   final List<WalletBalance> currentBalances;
@@ -66,13 +67,7 @@ class _PayoutSheetState extends State<PayoutSheet> {
       listener: (ctx, state) {
         if (state.withdrawStatus == WithdrawStatus.success) {
           Navigator.pop(ctx);
-          ScaffoldMessenger.of(ctx).showSnackBar(
-            SnackBar(
-              content: const Text('Withdrawal submitted. Funds will be sent once processed.'),
-              backgroundColor: ctx.accentColor,
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
+          AppSnackBars.showSuccess(ctx, 'Withdrawal submitted. Funds will be sent once processed.');
         }
       },
       builder: (context, state) {
@@ -307,12 +302,12 @@ class _PayoutSheetState extends State<PayoutSheet> {
                     onPressed: (isSubmitting || _selectedMethodId == null) ? null : () {
                       final amount = double.tryParse(_amountController.text.trim());
                       if (amount == null || amount <= 0) {
-                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enter a valid amount')));
+                        AppSnackBars.showInfo(context, 'Please enter a valid amount');
                         return;
                       }
                        final pin = _pinController.text.trim();
                        if (pin.length < 4) {
-                         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enter your wallet PIN')));
+                         AppSnackBars.showInfo(context, 'Please enter your wallet PIN');
                          return;
                        }
                        context.read<WalletCubit>().requestWithdrawal(
@@ -522,24 +517,14 @@ class _AddMethodFormState extends State<_AddMethodForm> {
                 if (validationRegex != null && validationRegex.isNotEmpty) {
                   final regExp = RegExp(validationRegex);
                   if (!regExp.hasMatch(raw)) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('Invalid format. Must match pattern: $hintText'),
-                        backgroundColor: Colors.redAccent,
-                      ),
-                    );
+                    AppSnackBars.showError(context, 'Invalid format. Must match pattern: $hintText');
                     return;
                   }
                 }
 
                 // If isPhone, enforce simple validation length check
                 if (isPhone && raw.length < 9) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Invalid phone number length.'),
-                      backgroundColor: Colors.redAccent,
-                    ),
-                  );
+                  AppSnackBars.showError(context, 'Invalid phone number length.');
                   return;
                 }
 

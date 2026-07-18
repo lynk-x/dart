@@ -5,6 +5,7 @@ import 'package:lynk_core/core.dart';
 import 'package:lynk_x/presentation/features/wallet/cubit/wallet_cubit.dart';
 import 'package:lynk_x/presentation/features/wallet/cubit/wallet_state.dart';
 import 'package:lynk_x/presentation/features/wallet/models/wallet_model.dart';
+import 'package:lynk_x/presentation/shared/utils/app_snackbars.dart';
 
 class TransferSheet extends StatefulWidget {
   final String recipientAccountId;
@@ -75,35 +76,27 @@ class _TransferSheetState extends State<TransferSheet> {
 
   void _submit() {
     if (_recipientDetails == null && !_isResolvingRecipient) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Recipient account not found')),
-      );
+      AppSnackBars.showInfo(context, 'Recipient account not found');
       return;
     }
 
     final amount = _parsedAmount;
     if (amount == null || amount <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a valid amount')),
-      );
+      AppSnackBars.showInfo(context, 'Please enter a valid amount');
       return;
     }
 
     final balance = widget.currentBalances.cast<WalletBalance?>()
         .firstWhere((b) => b?.currency == _currency, orElse: () => null);
-    
+
     if (balance == null || balance.cashBalance < amount) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Insufficient balance')),
-      );
+      AppSnackBars.showInfo(context, 'Insufficient balance');
       return;
     }
 
     final pin = _pinController.text.trim();
     if (pin.length < 4) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter your wallet PIN')),
-      );
+      AppSnackBars.showInfo(context, 'Please enter your wallet PIN');
       return;
     }
 
@@ -122,12 +115,7 @@ class _TransferSheetState extends State<TransferSheet> {
       listener: (context, state) {
         if (state.withdrawStatus == WithdrawStatus.success) {
           Navigator.pop(context);
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Transfer successful!'),
-              backgroundColor: Colors.green,
-            ),
-          );
+          AppSnackBars.showSuccess(context, 'Transfer successful!');
         }
       },
       builder: (context, state) {

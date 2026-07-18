@@ -9,6 +9,7 @@ import 'package:lynk_x/presentation/shared/utils/permission_acks.dart';
 import '../cubit/wallet_cubit.dart';
 import '../cubit/wallet_state.dart';
 import '../utils/web_authn_helper.dart';
+import 'package:lynk_x/presentation/shared/utils/app_snackbars.dart';
 
 class WalletSettingsPage extends StatefulWidget {
   const WalletSettingsPage({super.key});
@@ -107,9 +108,7 @@ class _WalletSettingsPageState extends State<WalletSettingsPage> {
         if (!didAuth) return;
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Verification failed: ${e.toString()}')),
-          );
+          AppSnackBars.showError(context, 'Verification failed: ${e.toString()}');
         }
         return;
       }

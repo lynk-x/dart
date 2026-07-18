@@ -7,6 +7,7 @@ import 'package:lynk_core/core.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:lynk_x/services/push_notification_service.dart';
 import '../widgets/delete_account_dialog.dart';
+import 'package:lynk_x/presentation/shared/utils/app_snackbars.dart';
 
 class AccountPage extends StatefulWidget {
   const AccountPage({super.key});
@@ -37,12 +38,9 @@ class _AccountPageState extends State<AccountPage> {
     if (_notificationStatus == AuthorizationStatus.denied) {
       // Browser/OS has permanently denied — re-requesting here would just
       // silently no-op, so explain where to actually re-enable it instead.
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Notifications are blocked in your browser settings. '
-              'Enable them there, then reopen this page.'),
-          duration: Duration(seconds: 4),
-        ),
+      AppSnackBars.showInfo(
+        context,
+        'Notifications are blocked in your browser settings. Enable them there, then reopen this page.',
       );
       return;
     }
@@ -77,12 +75,7 @@ class _AccountPageState extends State<AccountPage> {
                 });
               } catch (e) {
                 if (sheetContext.mounted) {
-                  ScaffoldMessenger.of(sheetContext).showSnackBar(
-                    SnackBar(
-                      content: Text('Error: ${e.toFriendlyMessage()}'),
-                      backgroundColor: Colors.redAccent,
-                    ),
-                  );
+                  AppSnackBars.showError(sheetContext, 'Error: ${e.toFriendlyMessage()}');
                 }
                 setDialogState(() => isUpdating = false);
               }
@@ -103,21 +96,11 @@ class _AccountPageState extends State<AccountPage> {
                 }
                 if (sheetContext.mounted) {
                   Navigator.pop(sheetContext);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: const Text('Phone number updated successfully'),
-                      backgroundColor: context.accentColor,
-                    ),
-                  );
+                  AppSnackBars.showSuccess(context, 'Phone number updated successfully');
                 }
               } catch (e) {
                 if (sheetContext.mounted) {
-                  ScaffoldMessenger.of(sheetContext).showSnackBar(
-                    SnackBar(
-                      content: Text('Error: ${e.toFriendlyMessage()}'),
-                      backgroundColor: Colors.redAccent,
-                    ),
-                  );
+                  AppSnackBars.showError(sheetContext, 'Error: ${e.toFriendlyMessage()}');
                 }
               } finally {
                 setDialogState(() => isUpdating = false);
@@ -321,9 +304,7 @@ class _AccountPageState extends State<AccountPage> {
                   onTap: () {
                     if (profile.accountReference != null) {
                       Clipboard.setData(ClipboardData(text: profile.accountReference!));
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Account reference copied to clipboard')),
-                      );
+                      AppSnackBars.showSuccess(context, 'Account reference copied to clipboard');
                     }
                   },
                   trailing: const Icon(Icons.copy_rounded, color: Colors.white24, size: 20),

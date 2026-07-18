@@ -7,6 +7,7 @@ import 'package:lynk_core/core.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lynk_x/l10n/app_localizations.dart';
 import 'package:lynk_x/core/utils/breakpoints.dart';
+import 'package:lynk_x/presentation/shared/utils/app_snackbars.dart';
 
 class FeedbackScreen extends StatefulWidget {
   const FeedbackScreen({super.key});
@@ -45,9 +46,7 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
 
   Future<void> _submitFeedback() async {
     if (_feedbackController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter your feedback')),
-      );
+      AppSnackBars.showInfo(context, 'Please enter your feedback');
       return;
     }
 
@@ -107,9 +106,7 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
     } catch (e) {
       if (mounted) {
         setState(() => _isSubmitting = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error submitting feedback: $e')),
-        );
+        AppSnackBars.showError(context, 'Error submitting feedback: $e');
       }
     }
   }

@@ -6,6 +6,7 @@ import 'package:lynk_core/core.dart';
 import 'package:go_router/go_router.dart';
 import '../cubit/forum_sessions_cubit.dart';
 import '../cubit/forum_sessions_state.dart';
+import 'package:lynk_x/presentation/shared/utils/app_snackbars.dart';
 
 class SessionsScreen extends StatelessWidget {
   final String? forumId;
@@ -302,15 +303,11 @@ class SessionsView extends StatelessWidget {
                   onPressed: () {
                     final title = titleController.text.trim();
                     if (title.isEmpty) {
-                      ScaffoldMessenger.of(bottomContext).showSnackBar(
-                        const SnackBar(content: Text('Session title is required.')),
-                      );
+                      AppSnackBars.showInfo(bottomContext, 'Session title is required.');
                       return;
                     }
                     if (!endsAt.isAfter(startsAt)) {
-                      ScaffoldMessenger.of(bottomContext).showSnackBar(
-                        const SnackBar(content: Text('End time must be after start time.')),
-                      );
+                      AppSnackBars.showInfo(bottomContext, 'End time must be after start time.');
                       return;
                     }
 

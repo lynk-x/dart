@@ -7,7 +7,6 @@ import 'package:lynk_x/presentation/features/homepage/screens/home_screen.dart';
 import 'package:lynk_x/presentation/features/notifications/cubit/notification_cubit.dart';
 import 'package:lynk_x/data/repositories/event_repository.dart';
 import 'package:lynk_x/data/repositories/notification_repository.dart';
-import 'package:lynk_core/core.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class _FakeSupabaseClient extends Fake implements SupabaseClient {}
@@ -16,8 +15,8 @@ class _FakeEventRepository extends EventRepository {
   _FakeEventRepository() : super(_FakeSupabaseClient());
 
   @override
-  Future<List<EventModel>> getUserForums(String userId,
-          {int limit = 15, int offset = 0}) async =>
+  Future<List<Map<String, dynamic>>> getUserForums(String userId,
+          {int limit = 15, String? afterStartsAt, String? afterForumId}) async =>
       [];
 }
 
