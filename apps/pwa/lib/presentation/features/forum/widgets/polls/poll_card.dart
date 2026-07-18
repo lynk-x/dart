@@ -170,9 +170,8 @@ class _PollCardState extends State<PollCard> {
       margin: const EdgeInsets.symmetric(vertical: 8),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.04),
+        color: const Color(0xFF20F928),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -182,16 +181,16 @@ class _PollCardState extends State<PollCard> {
             children: [
               Icon(
                 widget.isQuiz ? Icons.quiz_outlined : Icons.poll_outlined,
-                color: const Color(0xFF00FF00),
+                color: Colors.black,
                 size: 20,
               ),
               const SizedBox(width: 8),
               Text(
                 widget.isQuiz ? 'Quiz' : 'Poll',
-                style: TextStyle(
-                  color: const Color(0xFF00FF00),
+                style: const TextStyle(
+                  color: Colors.black,
                   fontSize: 12,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
             ],
@@ -202,9 +201,9 @@ class _PollCardState extends State<PollCard> {
           Text(
             widget.questionText,
             style: const TextStyle(
-              color: Colors.white,
+              color: Colors.black,
               fontSize: 15,
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.w700,
             ),
           ),
           const SizedBox(height: 14),
@@ -230,8 +229,9 @@ class _PollCardState extends State<PollCard> {
               child: Text(
                 '$_totalVotes vote${_totalVotes == 1 ? '' : 's'}',
                 style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.4),
+                  color: Colors.black.withValues(alpha: 0.6),
                   fontSize: 12,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ),
@@ -252,16 +252,15 @@ class _PollCardState extends State<PollCard> {
             width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             decoration: BoxDecoration(
+              color: Colors.white,
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(
-                color: Colors.white.withValues(alpha: 0.15),
-              ),
             ),
             child: Text(
               option,
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.8),
+              style: const TextStyle(
+                color: Colors.black,
                 fontSize: 14,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ),
@@ -270,31 +269,32 @@ class _PollCardState extends State<PollCard> {
     );
   }
 
+  /// Selected option inverts to a solid black chip with a light proportional
+  /// fill; unselected options stay on a grey base with a darker proportional
+  /// fill — one fill rule (light base + darker fill = magnitude), selection
+  /// itself signalled separately via the black border/fill and check badge.
   Widget _buildResultBar(String option, double pct, int votes, bool isSelected) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Container(
         width: double.infinity,
         decoration: BoxDecoration(
+          color: isSelected ? Colors.black : Colors.black.withValues(alpha: 0.18),
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: isSelected
-                ? const Color(0xFF00FF00).withValues(alpha: 0.4)
-                : Colors.white.withValues(alpha: 0.08),
-          ),
+          border: isSelected ? Border.all(color: Colors.black, width: 2) : null,
         ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(9),
           child: Stack(
             children: [
-              // Background bar
+              // Proportional fill
               FractionallySizedBox(
                 widthFactor: pct,
                 child: Container(
                   height: 42,
                   color: isSelected
-                      ? const Color(0xFF00FF00).withValues(alpha: 0.15)
-                      : Colors.white.withValues(alpha: 0.05),
+                      ? Colors.white.withValues(alpha: 0.22)
+                      : Colors.black.withValues(alpha: 0.16),
                 ),
               ),
               // Content
@@ -307,22 +307,26 @@ class _PollCardState extends State<PollCard> {
                       const Padding(
                         padding: EdgeInsets.only(right: 8),
                         child: Icon(Icons.check_circle,
-                            color: Color(0xFF00FF00), size: 16),
+                            color: Color(0xFF20F928), size: 16),
                       ),
                     Expanded(
                       child: Text(
                         option,
                         style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.8),
+                          color: isSelected
+                              ? Colors.white
+                              : Colors.black.withValues(alpha: 0.55),
                           fontSize: 14,
-                          fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                          fontWeight: isSelected ? FontWeight.w800 : FontWeight.normal,
                         ),
                       ),
                     ),
                     Text(
                       '${(pct * 100).round()}%',
                       style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.5),
+                        color: isSelected
+                            ? Colors.white
+                            : Colors.black.withValues(alpha: 0.55),
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
                       ),

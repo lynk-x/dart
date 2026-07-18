@@ -55,9 +55,11 @@ class LeaderboardScreen extends StatelessWidget {
               
               const SizedBox(height: 40),
               
-              // Leaderboard List
+              // Leaderboard List — ranks animate to their new position when
+              // the list is re-sorted (e.g. after a question's scores land),
+              // rather than the whole list just snapping to new order.
               Expanded(
-                child: isLoading 
+                child: isLoading
                   ? Center(child: CircularProgressIndicator(color: context.accentColor))
                   : leaderboard.isEmpty
                     ? Center(
@@ -66,23 +68,7 @@ class LeaderboardScreen extends StatelessWidget {
                           style: AppTypography.bodyLarge.copyWith(color: AppColors.alternate),
                         ),
                       )
-                    : ListView.separated(
-                        itemCount: leaderboard.length,
-                        separatorBuilder: (context, index) => const SizedBox(height: 12),
-                        itemBuilder: (context, index) {
-                          final entry = leaderboard[index];
-                          final isUser = entry['is_current_user'] == true;
-                          
-                          return _LeaderboardItem(
-                            rank: index + 1,
-                            name: entry['display_name'] ?? 'Player',
-                            score: entry['total_score'] ?? 0,
-                            isUser: isUser,
-                          ).animate()
-                           .fadeIn(delay: (index * 100).ms)
-                           .slideX(begin: 0.1, end: 0);
-                        },
-                      ),
+                    : _AnimatedLeaderboardList(leaderboard: leaderboard),
               ),
               
               const SizedBox(height: 40),
@@ -153,6 +139,52 @@ class LeaderboardScreen extends StatelessWidget {
   }
 }
 
+/// Animates each row to its new rank position when [leaderboard]'s order
+/// changes between rebuilds (e.g. scores landing after a question), instead
+/// of the list just snapping to the new order. Rows are identified by
+/// `user_id` so Flutter can tell "this row moved" from "this row is new".
+class _AnimatedLeaderboardList extends StatelessWidget {
+  static const double _rowHeight = 68;
+  static const double _rowGap = 12;
+
+  final List<Map<String, dynamic>> leaderboard;
+
+  const _AnimatedLeaderboardList({required this.leaderboard});
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      child: SizedBox(
+        height: leaderboard.length * _rowHeight + (leaderboard.length - 1) * _rowGap,
+        child: Stack(
+          children: [
+            for (int index = 0; index < leaderboard.length; index++)
+              AnimatedPositioned(
+                key: ValueKey(leaderboard[index]['user_id'] ?? leaderboard[index]['display_name']),
+                duration: const Duration(milliseconds: 600),
+                curve: Curves.easeOutCubic,
+                top: index * (_rowHeight + _rowGap),
+                left: 0,
+                right: 0,
+                height: _rowHeight,
+                child: Builder(builder: (context) {
+                  final entry = leaderboard[index];
+                  final isUser = entry['is_current_user'] == true;
+                  return _LeaderboardItem(
+                    rank: index + 1,
+                    name: entry['display_name'] ?? 'Player',
+                    score: entry['total_score'] ?? 0,
+                    isUser: isUser,
+                  ).animate().fadeIn(delay: (index * 60).ms);
+                }),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _LeaderboardItem extends StatelessWidget {
   final int rank;
   final String name;
@@ -192,12 +224,24 @@ class _LeaderboardItem extends StatelessWidget {
           ),
           const SizedBox(width: 12),
           Expanded(
-            child: Text(
-              name,
-              style: AppTypography.bodyLarge.copyWith(
-                color: Colors.white,
-                fontWeight: isUser ? FontWeight.w900 : FontWeight.w700,
-              ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Flexible(
+                  child: Text(
+                    name,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTypography.bodyLarge.copyWith(
+                      color: Colors.white,
+                      fontWeight: isUser ? FontWeight.w900 : FontWeight.w700,
+                    ),
+                  ),
+                ),
+                if (rank == 1) ...[
+                  const SizedBox(width: 5),
+                  const Icon(Icons.emoji_events, color: AppColors.secondary, size: 16),
+                ],
+              ],
             ),
           ),
           Text(

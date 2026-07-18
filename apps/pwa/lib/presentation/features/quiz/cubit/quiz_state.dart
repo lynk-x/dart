@@ -59,6 +59,15 @@ class QuizState extends Equatable {
     );
   }
 
+  /// Correct option indices for the current question — null until
+  /// api.v1_questions starts returning them (quiz_state past 'playing').
+  /// See QuizRepository's doc comment for why this is gated server-side.
+  List<int>? get correctOptionIndices {
+    final raw = currentQuestion?['correct_options'];
+    if (raw is! List) return null;
+    return raw.map((e) => (e as num).toInt()).toList();
+  }
+
   @override
   List<Object?> get props => [
         status,

@@ -1,9 +1,10 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// Quiz/poll data access. All reads go through the `api.v1_*` views and all
-/// writes through `api.*` RPCs — the `surveys` schema is not PostgREST-exposed
-/// (and `v1_questions` deliberately omits the correct-answer column; scoring
-/// happens server-side in `api.submit_survey_response`'s insert triggers).
+/// writes through `api.*` RPCs — the `surveys` schema is not PostgREST-exposed.
+/// `v1_questions.correct_options` is null until the questionnaire moves past
+/// 'playing' (reveal/leaderboard/podium/finished); scoring itself always
+/// happens server-side in `api.submit_survey_response`'s insert triggers.
 class QuizRepository {
   final SupabaseClient _client;
   QuizRepository(this._client);

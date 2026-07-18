@@ -59,9 +59,13 @@ class QuizCubit extends Cubit<QuizState> {
     final newIndex = data['current_question_index'] as int? ?? -1;
     final expiresAt = data['state_expires_at'] as String?;
 
-    // If question index changed or state moved to playing, fetch question
+    // If question index changed or state moved to playing, fetch question.
+    // Also re-fetch on entering 'reveal': api.v1_questions only populates
+    // correct_options once quiz_state is past 'playing', so the copy fetched
+    // during 'playing' never carries it.
     if (newIndex != state.currentQuestionIndex ||
-        (newStatus == QuizStatus.playing && state.currentQuestion == null)) {
+        (newStatus == QuizStatus.playing && state.currentQuestion == null) ||
+        newStatus == QuizStatus.reveal) {
       await _fetchCurrentQuestion(newIndex);
     }
 
@@ -103,6 +107,12 @@ class QuizCubit extends Cubit<QuizState> {
       if (diff <= 0) {
         emit(state.copyWith(timeLeft: 0));
         timer.cancel();
+        // Only the host drives quiz_state transitions (every method above
+        // guards on state.isHost) — auto-revealing from every client's
+        // local timer would race multiple writers against the same row.
+        if (state.isHost && state.status == QuizStatus.playing) {
+          showReveal();
+        }
       } else {
         emit(state.copyWith(timeLeft: diff));
       }
@@ -165,6 +175,15 @@ class QuizCubit extends Cubit<QuizState> {
     } else {
       await _updateRemoteState('playing', nextIndex, 30);
     }
+  }
+
+  /// Reveals the correct answer for the current question before moving on
+  /// to standings. api.v1_questions only exposes correct_options once
+  /// quiz_state is past 'playing', so this is the point clients first learn
+  /// which option(s) were correct.
+  Future<void> showReveal() async {
+    if (!state.isHost) return;
+    await _updateRemoteState('reveal', state.currentQuestionIndex, 0);
   }
 
   Future<void> showLeaderboard() async {

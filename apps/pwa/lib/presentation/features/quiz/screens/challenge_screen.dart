@@ -12,6 +12,12 @@ class ChallengeScreen extends StatefulWidget {
   final bool isHost;
   final VoidCallback? onPause;
   final VoidCallback? onNext;
+  final VoidCallback? onBack;
+  // Reveal support: null until the backend exposes which option(s) were
+  // correct (api.v1_questions only populates this once quiz_state moves
+  // past 'playing' — see QuizRepository's doc comment). When null, no
+  // answer renders correct/wrong styling.
+  final List<int>? correctOptionIndices;
 
   const ChallengeScreen({
     super.key,
@@ -22,6 +28,8 @@ class ChallengeScreen extends StatefulWidget {
     this.isHost = false,
     this.onPause,
     this.onNext,
+    this.onBack,
+    this.correctOptionIndices,
   });
 
   @override
@@ -31,21 +39,39 @@ class ChallengeScreen extends StatefulWidget {
 class _ChallengeScreenState extends State<ChallengeScreen> {
   @override
   Widget build(BuildContext context) {
-    final options = widget.question['options'] is List 
-        ? widget.question['options'] as List 
+    final options = widget.question['options'] is List
+        ? widget.question['options'] as List
         : [];
 
     return Scaffold(
       backgroundColor: AppColors.primaryBackground,
+      appBar: AppBar(
+        backgroundColor: AppColors.primaryBackground,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: widget.onBack,
+        ),
+        title: RepaintBoundary(
+          child: SvgPicture.asset(
+            'assets/images/official_lynk-x_combined-logo.svg',
+            width: 140,
+            fit: BoxFit.contain,
+          ),
+        ),
+        centerTitle: true,
+        actions: const [SizedBox(width: 48)],
+      ),
       bottomNavigationBar: widget.isHost ? _buildHostControls() : null,
       body: SafeArea(
+        top: false,
         bottom: false,
         child: Column(
           children: [
             // Question Header
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
               decoration: BoxDecoration(
                 color: AppColors.surface,
                 border: Border(bottom: BorderSide(color: AppColors.outline)),
@@ -76,9 +102,9 @@ class _ChallengeScreenState extends State<ChallengeScreen> {
                     ),
                   ).animate(target: widget.timeLeft < 5 ? 1 : 0)
                    .shake(hz: 4, curve: Curves.easeInOut),
-                  
-                  const SizedBox(height: 24),
-                  
+
+                  const SizedBox(height: 20),
+
                   Text(
                     widget.question['question_text'] ?? '',
                     textAlign: TextAlign.center,
@@ -92,35 +118,34 @@ class _ChallengeScreenState extends State<ChallengeScreen> {
               ),
             ),
 
-            // Options Grid
+            // Options — vertical stacked list, one full-width row per answer.
             Expanded(
-              child: Padding(
-                padding: const EdgeInsets.all(12.0),
-                child: GridView.builder(
-                  physics: const NeverScrollableScrollPhysics(),
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    crossAxisSpacing: 10,
-                    mainAxisSpacing: 10,
-                    childAspectRatio: 0.85,
-                  ),
-                  itemCount: options.length,
-                  itemBuilder: (context, index) {
-                    final isSelected = widget.selectedIndex == index;
-                    final isDisabled = widget.selectedIndex != null || widget.isHost;
-                    
-                    return _AnswerButton(
-                      text: options[index].toString(),
-                      index: index,
-                      isSelected: isSelected,
-                      isDisabled: isDisabled,
-                      onTap: () {
-                        HapticFeedback.mediumImpact();
-                        widget.onOptionSelected(index);
-                      },
-                    );
-                  },
-                ),
+              child: ListView.separated(
+                padding: const EdgeInsets.all(16.0),
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: options.length,
+                separatorBuilder: (context, index) => const SizedBox(height: 10),
+                itemBuilder: (context, index) {
+                  final isSelected = widget.selectedIndex == index;
+                  final isDisabled = widget.selectedIndex != null || widget.isHost;
+                  final isCorrect = widget.correctOptionIndices?.contains(index) ?? false;
+                  final isWrongPick = widget.correctOptionIndices != null &&
+                      isSelected &&
+                      !isCorrect;
+
+                  return _AnswerButton(
+                    text: options[index].toString(),
+                    index: index,
+                    isSelected: isSelected,
+                    isDisabled: isDisabled,
+                    isCorrect: isCorrect,
+                    isWrongPick: isWrongPick,
+                    onTap: () {
+                      HapticFeedback.mediumImpact();
+                      widget.onOptionSelected(index);
+                    },
+                  );
+                },
               ),
             ),
           ],
@@ -175,11 +200,18 @@ class _ChallengeScreenState extends State<ChallengeScreen> {
   }
 }
 
+/// Full-width answer row. Differentiation between options comes from a
+/// lettered badge, not a per-option identity color+shape system — the
+/// vertical list + letter badges deliberately diverge from Kahoot's 2x2
+/// grid + triangle/diamond/circle/square vocabulary, while keeping its
+/// red/blue/yellow/green badge palette (a kept, deliberate choice).
 class _AnswerButton extends StatelessWidget {
   final String text;
   final int index;
   final bool isSelected;
   final bool isDisabled;
+  final bool isCorrect;
+  final bool isWrongPick;
   final VoidCallback onTap;
 
   const _AnswerButton({
@@ -187,82 +219,97 @@ class _AnswerButton extends StatelessWidget {
     required this.index,
     required this.isSelected,
     required this.isDisabled,
+    this.isCorrect = false,
+    this.isWrongPick = false,
     required this.onTap,
   });
 
-  static const List<Color> _colors = [
+  static const List<Color> _badgeColors = [
     Color(0xFFE21B3C), // Red
     Color(0xFF1368CE), // Blue
     Color(0xFFD89E00), // Yellow
     Color(0xFF26890C), // Green
-    Color(0xFF8C17FF), // Purple
-    Color(0xFFFF33A1), // Pink
   ];
 
-  static const List<String> _shapes = [
-    '<svg viewBox="0 0 50 50"><polygon points="25,5 50,45 0,45" fill="white" /></svg>',
-    '<svg viewBox="0 0 50 50"><polygon points="25,0 50,25 25,50 0,25" fill="white" /></svg>',
-    '<svg viewBox="0 0 50 50"><circle cx="25" cy="25" r="22" fill="white" /></svg>',
-    '<svg viewBox="0 0 50 50"><rect x="5" y="5" width="40" height="40" fill="white" /></svg>',
-    '<svg viewBox="0 0 50 50"><path d="M25,0 L47,13 L47,38 L25,50 L3,38 L3,13 Z" fill="white" /></svg>',
-    '<svg viewBox="0 0 50 50"><path d="M25,0 L32,15 L50,18 L38,32 L40,50 L25,40 L10,50 L12,32 L0,18 L18,15 Z" fill="white" /></svg>',
-  ];
+  String get _letter => String.fromCharCode(65 + index); // A, B, C, D…
 
   @override
   Widget build(BuildContext context) {
-    final color = _colors[index % _colors.length];
-    
+    final badgeColor = _badgeColors[index % _badgeColors.length];
+    final isRevealed = isCorrect || isWrongPick;
+
+    Color borderColor = AppColors.outline.withValues(alpha: 0.15);
+    if (isCorrect) {
+      borderColor = context.accentColor;
+    } else if (isWrongPick) {
+      borderColor = AppColors.error;
+    } else if (isSelected) {
+      borderColor = context.accentColor;
+    }
+
     return GestureDetector(
       onTap: isDisabled ? null : onTap,
       child: AnimatedOpacity(
         duration: const Duration(milliseconds: 200),
-        opacity: isDisabled && !isSelected ? 0.3 : 1.0,
-        child: Container(
+        opacity: isDisabled && !isSelected && !isRevealed ? 0.3 : 1.0,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          width: double.infinity,
+          padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: color,
-            borderRadius: BorderRadius.circular(16),
-            border: isSelected ? Border.all(color: Colors.white, width: 4) : null,
-            boxShadow: [
-              BoxShadow(
-                color: color.withValues(alpha: 0.3),
-                blurRadius: 8,
-                offset: const Offset(0, 4),
-              )
-            ],
+            color: isCorrect
+                ? context.accentColor
+                : isWrongPick
+                    ? AppColors.error.withValues(alpha: 0.12)
+                    : AppColors.surface,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: borderColor,
+              width: (isSelected || isRevealed) ? 2 : 1.5,
+            ),
           ),
-          child: Stack(
+          child: Row(
             children: [
-              // Shape Icon
-              Positioned(
-                left: 12,
-                top: 12,
-                child: SizedBox(
-                  width: 32,
-                  height: 32,
-                  child: SvgPicture.string(
-                    _shapes[index % _shapes.length],
-                    colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn),
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: badgeColor,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  _letter,
+                  style: AppTypography.bodyLarge.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w900,
                   ),
                 ),
               ),
-              // Text
-              Center(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                  child: Text(
-                    text,
-                    textAlign: TextAlign.center,
-                    style: AppTypography.bodyLarge.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w900,
-                    ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Text(
+                  text,
+                  style: AppTypography.bodyLarge.copyWith(
+                    color: isCorrect ? Colors.black : AppColors.primaryText,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
               ),
+              if (isCorrect)
+                const Padding(
+                  padding: EdgeInsets.only(left: 8),
+                  child: Icon(Icons.check_circle, color: Colors.black, size: 22),
+                )
+              else if (isSelected && !isRevealed)
+                Padding(
+                  padding: const EdgeInsets.only(left: 8),
+                  child: Icon(Icons.check_circle, color: context.accentColor, size: 22),
+                ),
             ],
           ),
         ),
-      ).animate().fadeIn(delay: (index * 100).ms).scale(begin: const Offset(0.8, 0.8)),
+      ).animate().fadeIn(delay: (index * 80).ms).slideX(begin: 0.08, end: 0),
     );
   }
 }
