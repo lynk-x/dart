@@ -15,6 +15,7 @@ import 'package:lynk_x/data/repositories/repository_providers.dart';
 import 'package:lynk_x/presentation/features/ticket/models/ticket_model.dart';
 import 'package:lynk_x/presentation/features/ticket/widgets/resell_ticket_sheet.dart';
 import 'package:lynk_x/presentation/features/ticket/widgets/transfer_ticket_dialog.dart';
+import 'package:lynk_x/presentation/features/ticket/widgets/request_refund_dialog.dart';
 import 'package:lynk_x/core/network/lynk_cache_manager.dart';
 import 'package:lynk_x/core/utils/image_optimizer.dart';
 import 'package:lynk_x/core/utils/timezone_abbreviation.dart';
@@ -176,6 +177,13 @@ class _TicketViewState extends State<TicketView> {
                       maxWidth: Breakpoints.maxCardWidth,
                     ),
                   ],
+                  if (state.pendingRefundRequest != null) ...[
+                    const SizedBox(height: 16),
+                    Breakpoints.constrain(
+                      _buildPendingRefundBanner(state.pendingRefundRequest!),
+                      maxWidth: Breakpoints.maxCardWidth,
+                    ),
+                  ],
                   const SizedBox(height: 24),
                   Text(
                     'Show this ticket at the entrance',
@@ -198,6 +206,7 @@ class _TicketViewState extends State<TicketView> {
   void _showTicketOptions(BuildContext context, TicketState ticketState) {
     final ticket = ticketState.ticket!;
     final pendingListing = ticketState.pendingListing;
+    final pendingRefundRequest = ticketState.pendingRefundRequest;
     final isValid = ticket.status.toLowerCase() == 'valid';
 
     showModalBottomSheet<void>(
@@ -261,6 +270,30 @@ class _TicketViewState extends State<TicketView> {
                   onTap: () {
                     Navigator.pop(context);
                     showResellTicketSheet(context, ticket);
+                  },
+                ),
+              const Divider(color: Colors.white12, height: 1),
+              // Request Refund / pending status
+              if (pendingRefundRequest != null)
+                const ListTile(
+                  leading: Icon(Icons.hourglass_top, color: Colors.orange),
+                  title: Text('Refund Request Pending', style: TextStyle(color: Colors.orange)),
+                  subtitle: Text(
+                    'Awaiting organizer review',
+                    style: TextStyle(color: Colors.white54, fontSize: 12),
+                  ),
+                )
+              else
+                ListTile(
+                  leading: const Icon(Icons.request_quote_outlined, color: Colors.white70),
+                  title: const Text('Request Refund', style: TextStyle(color: Colors.white)),
+                  subtitle: const Text(
+                    'Tickets are non-refundable — the organizer may grant an exception',
+                    style: TextStyle(color: Colors.white54, fontSize: 12),
+                  ),
+                  onTap: () {
+                    Navigator.pop(context);
+                    showRequestRefundDialog(context, ticket);
                   },
                 ),
             ],
@@ -346,6 +379,38 @@ class _TicketViewState extends State<TicketView> {
               style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 8)),
               child: const Text('Cancel', style: TextStyle(color: Colors.orange, fontSize: 12)),
             ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPendingRefundBanner(Map<String, dynamic> request) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.orange.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.orange.withValues(alpha: 0.35)),
+      ),
+      child: const Row(
+        children: [
+          Icon(Icons.hourglass_top, color: Colors.orange, size: 20),
+          SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Refund Request Pending',
+                  style: TextStyle(color: Colors.orange, fontSize: 13, fontWeight: FontWeight.w600),
+                ),
+                Text(
+                  'Awaiting organizer review',
+                  style: TextStyle(color: Colors.white38, fontSize: 11),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );

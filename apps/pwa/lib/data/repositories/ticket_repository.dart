@@ -183,4 +183,33 @@ class TicketRepository {
       params: {'p_listing_id': listingId},
     );
   }
+
+  /// Submits a refund request for organizer review. Tickets are
+  /// non-refundable by default (all sales final — attendees who can't
+  /// attend should use ticket resale instead); this is a discretionary
+  /// request, not a guaranteed refund. The ticket stays valid until the
+  /// organizer approves/rejects it from their dashboard.
+  Future<Map<String, dynamic>> requestRefund({
+    required String ticketId,
+    required String reason,
+  }) async {
+    final result = await _client.schema('api').rpc(
+      'request_ticket_refund',
+      params: {'p_ticket_id': ticketId, 'p_reason': reason},
+    );
+    return Map<String, dynamic>.from(result as Map);
+  }
+
+  /// The caller's own pending refund request for [ticketId], if any — used
+  /// to show request status on the ticket screen instead of letting the
+  /// attendee submit a duplicate.
+  Future<Map<String, dynamic>?> getPendingRefundRequest(String ticketId) async {
+    return await _client
+        .schema('api')
+        .from('v1_refund_requests')
+        .select('id, status, amount, currency, reason, created_at')
+        .eq('ticket_id', ticketId)
+        .eq('status', 'pending')
+        .maybeSingle();
+  }
 }

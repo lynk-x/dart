@@ -41,14 +41,21 @@ class TicketCubit extends Cubit<TicketState> {
 
       final ticket = TicketModel.fromView(response);
 
-      // 2. Fetch pending listings separately via repository
-      final pendingListing = await _repo.getPendingListing(ticket.id);
+      // 2. Fetch pending listings and pending refund request separately via repository
+      final results = await Future.wait([
+        _repo.getPendingListing(ticket.id),
+        _repo.getPendingRefundRequest(ticket.id),
+      ]);
+      final pendingListing = results[0];
+      final pendingRefundRequest = results[1];
 
       emit(state.copyWith(
         isLoading: false,
         ticket: ticket,
         pendingListing: pendingListing,
         clearPendingListing: pendingListing == null,
+        pendingRefundRequest: pendingRefundRequest,
+        clearPendingRefundRequest: pendingRefundRequest == null,
       ));
 
       // Subscribe to updates if not already listening for this ticket
@@ -183,5 +190,38 @@ class TicketCubit extends Cubit<TicketState> {
     if (state.ticket != null) {
       await loadTicket(state.ticket!.reference, isSilent: true);
     }
+  }
+
+  /// Submits a refund request for organizer review. Ticket stays valid
+  /// until approved/rejected from the organizer dashboard.
+  Future<void> requestRefund(String reason) async {
+    final ticket = state.ticket;
+    if (ticket == null) throw Exception('No ticket loaded');
+
+    emit(state.copyWith(
+      refundRequestStatus: RefundRequestStatus.submitting,
+      clearRefundRequestError: true,
+    ));
+    try {
+      final result = await _repo.requestRefund(ticketId: ticket.id, reason: reason);
+      if (result['success'] != true) {
+        throw Exception(result['error'] as String? ?? 'Failed to submit refund request');
+      }
+      emit(state.copyWith(refundRequestStatus: RefundRequestStatus.success));
+      await loadTicket(ticket.reference, isSilent: true);
+    } catch (e) {
+      emit(state.copyWith(
+        refundRequestStatus: RefundRequestStatus.failure,
+        refundRequestError: e.toFriendlyMessage(),
+      ));
+    }
+  }
+
+  /// Reset refund-request state — call when the dialog closes.
+  void resetRefundRequest() {
+    emit(state.copyWith(
+      refundRequestStatus: RefundRequestStatus.idle,
+      clearRefundRequestError: true,
+    ));
   }
 }
