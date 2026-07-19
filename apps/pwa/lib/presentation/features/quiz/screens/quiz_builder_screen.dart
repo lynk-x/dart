@@ -7,6 +7,7 @@ import 'package:lynk_x/presentation/shared/utils/app_snackbars.dart';
 
 import '../cubit/quiz_builder_cubit.dart';
 import '../cubit/quiz_builder_state.dart';
+import '../models/quiz_builder_model.dart';
 import '../widgets/builder/question_editor_card.dart';
 
 class QuizBuilderPage extends StatelessWidget {
@@ -79,16 +80,14 @@ class _QuizBuilderViewState extends State<QuizBuilderView> {
             elevation: 0,
             leading: IconButton(
               icon: const Icon(Icons.close, color: Colors.white),
-              onPressed: () => _showExitConfirmation(context),
+              onPressed: () => _handleExit(context),
             ),
             title: Text(
-              draft.status.toUpperCase(),
+              isQuiz ? 'Create Quiz' : 'Create Poll',
               style: AppTypography.inter(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w600,
-                  color: draft.status == 'published'
-                      ? Colors.greenAccent
-                      : Colors.orangeAccent),
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white),
             ),
             centerTitle: true,
             actions: [
@@ -118,6 +117,30 @@ class _QuizBuilderViewState extends State<QuizBuilderView> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: (draft.status == 'published'
+                                  ? Colors.greenAccent
+                                  : Colors.orangeAccent)
+                              .withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          draft.status.toUpperCase(),
+                          style: AppTypography.inter(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                              color: draft.status == 'published'
+                                  ? Colors.greenAccent
+                                  : Colors.orangeAccent),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
                     TextField(
                       controller: _titleController,
                       style: const TextStyle(color: Colors.white),
@@ -190,35 +213,34 @@ class _QuizBuilderViewState extends State<QuizBuilderView> {
             label: const Text('Add Question',
                 style: TextStyle(color: Colors.black)),
           ),
-          bottomNavigationBar: Container(
-            padding: const EdgeInsets.all(16),
-            color: AppColors.surface,
-            child: SafeArea(
-              child: OutlinedButton(
-                onPressed:
-                    state.isSaving ? null : () => cubit.saveAndPublish(false),
-                style: OutlinedButton.styleFrom(
-                  side: BorderSide(color: context.accentColor),
-                ),
-                child: Text('Save Draft',
-                    style: TextStyle(color: context.accentColor)),
-              ),
-            ),
-          ),
         );
       },
     );
   }
 
-  void _showExitConfirmation(BuildContext context) {
+  bool _hasUnsavedProgress(DraftQuiz draft) {
+    return draft.title.trim().isNotEmpty ||
+        draft.info.trim().isNotEmpty ||
+        draft.questions.any((q) =>
+            q.text.trim().isNotEmpty ||
+            q.options.any((o) => o.trim().isNotEmpty));
+  }
+
+  void _handleExit(BuildContext context) {
+    final cubit = context.read<QuizBuilderCubit>();
+    if (!_hasUnsavedProgress(cubit.state.draft)) {
+      context.pop();
+      return;
+    }
+
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: AppColors.surface,
-        title:
-            const Text('Discard Draft?', style: TextStyle(color: Colors.white)),
+        title: const Text('Unsaved changes',
+            style: TextStyle(color: Colors.white)),
         content: const Text(
-          'Any unsaved changes will be lost. Are you sure you want to exit?',
+          'You have unsaved progress on this quiz. Save it as a draft before leaving?',
           style: TextStyle(color: Colors.white70),
         ),
         actions: [
@@ -234,6 +256,18 @@ class _QuizBuilderViewState extends State<QuizBuilderView> {
             },
             child: const Text('Discard',
                 style: TextStyle(color: Colors.redAccent)),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              await cubit.saveAndPublish(false);
+              if (context.mounted && cubit.state.error == null) {
+                context.pop();
+              }
+            },
+            child: Text('Save Draft',
+                style: TextStyle(
+                    color: context.accentColor, fontWeight: FontWeight.bold)),
           ),
         ],
       ),

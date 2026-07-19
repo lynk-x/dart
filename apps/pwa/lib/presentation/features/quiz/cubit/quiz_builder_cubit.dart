@@ -11,7 +11,7 @@ class QuizBuilderCubit extends Cubit<QuizBuilderState> {
     required String forumId,
   })  : _repo = repo,
         super(QuizBuilderState(
-          draft: DraftQuiz(forumId: forumId, title: 'New Quiz', info: ''),
+          draft: DraftQuiz(forumId: forumId, title: '', info: ''),
         ));
 
   void updateSettings(String title, String info, String type) {
@@ -54,14 +54,14 @@ class QuizBuilderCubit extends Cubit<QuizBuilderState> {
     final updatedQuestions = List<DraftQuestion>.from(state.draft.questions);
     final currentQ = updatedQuestions[qIndex];
     if (currentQ.options.length <= 2) return; // Enforce minimum 2 options
-    
+
     final newOptions = List<String>.from(currentQ.options)..removeAt(oIndex);
     // Remove if correct index was deleted and shift indices
     final newCorrectIndices = currentQ.correctIndices
         .where((i) => i != oIndex)
         .map((i) => i > oIndex ? i - 1 : i)
         .toList();
-        
+
     updatedQuestions[qIndex] = currentQ.copyWith(
       options: newOptions,
       correctIndices: newCorrectIndices,
@@ -97,8 +97,9 @@ class QuizBuilderCubit extends Cubit<QuizBuilderState> {
       // Polls don't have correct answers.
       newCorrectIndices = [];
     }
-    
-    updatedQuestions[qIndex] = currentQ.copyWith(correctIndices: newCorrectIndices);
+
+    updatedQuestions[qIndex] =
+        currentQ.copyWith(correctIndices: newCorrectIndices);
     emit(state.copyWith(
         draft: state.draft.copyWith(questions: updatedQuestions)));
   }
@@ -113,12 +114,18 @@ class QuizBuilderCubit extends Cubit<QuizBuilderState> {
 
   String? _validate() {
     if (state.draft.title.trim().isEmpty) return 'Quiz title is required.';
-    if (state.draft.questions.isEmpty) return 'Quiz must have at least 1 question.';
+    if (state.draft.questions.isEmpty) {
+      return 'Quiz must have at least 1 question.';
+    }
     for (var i = 0; i < state.draft.questions.length; i++) {
       final q = state.draft.questions[i];
       if (q.text.trim().isEmpty) return 'Question ${i + 1} is empty.';
-      if (q.options.length < 2) return 'Question ${i + 1} must have at least 2 options.';
-      if (q.options.any((o) => o.trim().isEmpty)) return 'Question ${i + 1} has empty options.';
+      if (q.options.length < 2) {
+        return 'Question ${i + 1} must have at least 2 options.';
+      }
+      if (q.options.any((o) => o.trim().isEmpty)) {
+        return 'Question ${i + 1} has empty options.';
+      }
       if (state.draft.type == 'quiz' && q.correctIndices.isEmpty) {
         return 'Question ${i + 1} must have at least 1 correct answer.';
       }
@@ -139,7 +146,8 @@ class QuizBuilderCubit extends Cubit<QuizBuilderState> {
         status: publish ? 'published' : 'draft',
       );
       await _repo.saveQuiz(updatedDraft.toMap());
-      emit(state.copyWith(isSaving: false, isSuccess: true, draft: updatedDraft));
+      emit(state.copyWith(
+          isSaving: false, isSuccess: true, draft: updatedDraft));
     } catch (e) {
       emit(state.copyWith(isSaving: false, error: e.toString()));
     }

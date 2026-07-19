@@ -99,7 +99,7 @@ class _PollCardEditorViewState extends State<_PollCardEditorView> {
         _syncOptionControllers(question.options);
 
         return ConstrainedBox(
-          constraints: const BoxConstraints(maxHeight: 480),
+          constraints: const BoxConstraints(maxHeight: 420),
           child: Container(
             margin: const EdgeInsets.symmetric(vertical: 8),
             padding: const EdgeInsets.all(16),
@@ -107,134 +107,147 @@ class _PollCardEditorViewState extends State<_PollCardEditorView> {
               color: const Color(0xFF20F928),
               borderRadius: BorderRadius.circular(16),
             ),
-            child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Header
-                  Row(
-                    children: [
-                      const Icon(Icons.poll_outlined,
-                          color: Colors.black, size: 24),
-                      const SizedBox(width: 10),
-                      const Text(
-                        'Poll',
-                        style: TextStyle(
-                            color: Colors.black,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w800),
-                      ),
-                      const Spacer(),
-                      IconButton(
-                        icon: const Icon(Icons.close,
-                            color: Colors.black, size: 20),
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
-                        onPressed: widget.onCancel,
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header — pinned above the scroll area so it's never
+                // scrolled out of view when a lower option field is
+                // focused and the keyboard brings it into view.
+                Row(
+                  children: [
+                    const Icon(Icons.poll_outlined,
+                        color: Colors.black, size: 24),
+                    const SizedBox(width: 10),
+                    const Text(
+                      'Poll',
+                      style: TextStyle(
+                          color: Colors.black,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800),
+                    ),
+                    const Spacer(),
+                    IconButton(
+                      icon: const Icon(Icons.close,
+                          color: Colors.black, size: 20),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      onPressed: widget.onCancel,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
 
-                  // Question
-                  _EditorField(
-                    controller: _questionController,
-                    hint: 'Ask a question…',
-                    onChanged: (val) => cubit.updateQuestionText(0, val),
-                    bold: true,
-                    fontSize: 16,
-                    filled: true,
-                    multiline: true,
-                  ),
-                  const SizedBox(height: 10),
+                // Question — also pinned; only one field, always fits.
+                _EditorField(
+                  controller: _questionController,
+                  hint: 'Ask a question…',
+                  onChanged: (val) => cubit.updateQuestionText(0, val),
+                  bold: true,
+                  fontSize: 16,
+                  filled: true,
+                  multiline: true,
+                ),
+                const SizedBox(height: 10),
 
-                  // Options
-                  ...question.options.asMap().entries.map((entry) {
-                    final i = entry.key;
-                    return Padding(
-                      padding: const EdgeInsets.only(left: 16, bottom: 8),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: _EditorField(
-                              controller: _optionControllers[i],
-                              hint: 'Option ${i + 1}',
-                              onChanged: (val) =>
-                                  cubit.updateOptionText(0, i, val),
-                              fontSize: 14,
-                              filled: true,
+                Flexible(
+                  child: SingleChildScrollView(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Options
+                        ...question.options.asMap().entries.map((entry) {
+                          final i = entry.key;
+                          return Padding(
+                            padding: const EdgeInsets.only(left: 16, bottom: 8),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: _EditorField(
+                                    controller: _optionControllers[i],
+                                    hint: 'Option ${i + 1}',
+                                    onChanged: (val) =>
+                                        cubit.updateOptionText(0, i, val),
+                                    fontSize: 14,
+                                    filled: true,
+                                  ),
+                                ),
+                                if (question.options.length > 2)
+                                  IconButton(
+                                    icon: const Icon(
+                                        Icons.remove_circle_outline,
+                                        color: Colors.black54,
+                                        size: 20),
+                                    onPressed: () => cubit.removeOption(0, i),
+                                  ),
+                              ],
+                            ),
+                          );
+                        }),
+
+                        // Add option
+                        if (question.options.length < 6)
+                          Padding(
+                            padding: const EdgeInsets.only(left: 16),
+                            child: TextButton.icon(
+                              onPressed: () => cubit.addOption(0),
+                              icon: const Icon(Icons.add,
+                                  color: Colors.black, size: 18),
+                              label: const Text('Add option',
+                                  style: TextStyle(
+                                      color: Colors.black,
+                                      fontWeight: FontWeight.w600)),
+                              style: TextButton.styleFrom(
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 4),
+                                minimumSize: const Size(0, 32),
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                alignment: Alignment.centerLeft,
+                              ),
                             ),
                           ),
-                          if (question.options.length > 2)
-                            IconButton(
-                              icon: const Icon(Icons.remove_circle_outline,
-                                  color: Colors.black54, size: 20),
-                              onPressed: () => cubit.removeOption(0, i),
-                            ),
-                        ],
-                      ),
-                    );
-                  }),
-
-                  // Add option
-                  if (question.options.length < 6)
-                    Padding(
-                      padding: const EdgeInsets.only(left: 16),
-                      child: TextButton.icon(
-                        onPressed: () => cubit.addOption(0),
-                        icon: const Icon(Icons.add,
-                            color: Colors.black, size: 18),
-                        label: const Text('Add option',
-                            style: TextStyle(
-                                color: Colors.black,
-                                fontWeight: FontWeight.w600)),
-                        style: TextButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 4),
-                          minimumSize: const Size(0, 32),
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                          alignment: Alignment.centerLeft,
-                        ),
-                      ),
-                    ),
-
-                  const SizedBox(height: 12),
-
-                  // Publish
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: state.isSaving
-                          ? null
-                          : () {
-                              cubit.updateSettings(
-                                _questionController.text.trim().isEmpty
-                                    ? 'Poll'
-                                    : _questionController.text.trim(),
-                                '',
-                                'poll',
-                              );
-                              cubit.saveAndPublish(true);
-                            },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.black,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10)),
-                      ),
-                      child: state.isSaving
-                          ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(
-                                  strokeWidth: 2, color: Colors.white),
-                            )
-                          : const Text('Post Poll',
-                              style: TextStyle(fontWeight: FontWeight.w700)),
+                      ],
                     ),
                   ),
-                ],
-              ),
+                ),
+
+                const SizedBox(height: 12),
+
+                // Publish — pinned below the scroll area, always visible.
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: state.isSaving
+                        ? null
+                        : () {
+                            cubit.updateSettings(
+                              _questionController.text.trim().isEmpty
+                                  ? 'Poll'
+                                  : _questionController.text.trim(),
+                              '',
+                              'poll',
+                            );
+                            cubit.saveAndPublish(true);
+                          },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.black,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10)),
+                    ),
+                    child: state.isSaving
+                        ? const SizedBox(
+                            width: 18,
+                            height: 24,
+                            child: CircularProgressIndicator(
+                                strokeWidth: 2, color: Colors.white),
+                          )
+                        : const Text('Post Poll',
+                            style: TextStyle(fontWeight: FontWeight.w700)),
+                  ),
+                ),
+              ],
             ),
           ),
         );
