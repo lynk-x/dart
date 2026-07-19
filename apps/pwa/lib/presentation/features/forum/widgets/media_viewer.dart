@@ -8,6 +8,8 @@ import 'package:lynk_x/presentation/features/forum/models/forum_model.dart';
 import 'package:lynk_x/presentation/features/forum/cubit/forum_media_cubit.dart';
 import 'package:lynk_x/presentation/features/forum/cubit/forum_media_state.dart';
 import 'package:lynk_x/presentation/features/forum/cubit/forum_cubit.dart';
+import 'package:lynk_x/presentation/features/forum/cubit/forum_ads_cubit.dart';
+import 'package:lynk_x/presentation/features/forum/widgets/interstitial_ad.dart';
 import 'package:lynk_x/core/utils/download_helper.dart';
 import 'package:lynk_core/core.dart';
 import 'package:lynk_x/presentation/shared/utils/app_snackbars.dart';
@@ -37,9 +39,13 @@ class MediaViewer extends StatefulWidget {
         
     ForumMediaCubit? forumMediaCubit;
     ForumCubit? forumCubit;
+    ForumAdsCubit? forumAdsCubit;
     try {
       forumMediaCubit = context.read<ForumMediaCubit>();
       forumCubit = context.read<ForumCubit>();
+    } catch (_) {}
+    try {
+      forumAdsCubit = context.read<ForumAdsCubit>();
     } catch (_) {}
 
     Navigator.of(context, rootNavigator: true).push(
@@ -58,6 +64,9 @@ class MediaViewer extends StatefulWidget {
           }
           if (forumCubit != null) {
             viewer = BlocProvider.value(value: forumCubit, child: viewer);
+          }
+          if (forumAdsCubit != null) {
+            viewer = BlocProvider.value(value: forumAdsCubit, child: viewer);
           }
           return viewer;
         },
@@ -188,7 +197,30 @@ class _MediaViewerState extends State<MediaViewer> {
     final uri = Uri.tryParse(targetUrl);
     if (uri == null) return;
 
+    ForumAdsCubit? adsCubit;
+    try {
+      adsCubit = context.read<ForumAdsCubit>();
+    } catch (_) {}
+
+    if (adsCubit != null && adsCubit.shouldShowDownloadInterstitial()) {
+      final ad = adsCubit.state.interstitialAd;
+      if (ad != null && mounted) {
+        await Navigator.of(context, rootNavigator: true).push(
+          MaterialPageRoute(
+            builder: (_) => InterstitialAd(
+              ad: ad,
+              onClose: () => Navigator.of(context).pop(),
+            ),
+          ),
+        );
+      }
+    }
+
     if (!mounted) return;
+    await _startDownload(targetUrl, media);
+  }
+
+  Future<void> _startDownload(String targetUrl, ForumMedia media) async {
     AppSnackBars.showInfo(context, 'Starting download...');
 
     final filename = _buildFilename(media, _currentIndex);

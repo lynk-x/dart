@@ -236,9 +236,18 @@ class _ChatBubbleState extends State<ChatBubble> {
   Widget _buildSenderInfo() {
     return Padding(
       padding: const EdgeInsets.only(left: 4, bottom: 4),
-      child: Text(
-        '${widget.message.sender} • ${DateFormat('HH:mm').format(widget.message.createdAt)}',
-        style: AppTypography.inter(color: Colors.white38, fontSize: 10),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (widget.message.isPremium) ...[
+            const Icon(Icons.star_rounded, size: 12, color: AppColors.secondary),
+            const SizedBox(width: 3),
+          ],
+          Text(
+            '${widget.message.sender} • ${DateFormat('HH:mm').format(widget.message.createdAt)}',
+            style: AppTypography.inter(color: Colors.white38, fontSize: 10),
+          ),
+        ],
       ),
     );
   }

@@ -54,7 +54,7 @@ class _UserPresenceCardState extends State<UserPresenceCard> {
                   : const Color(0xFF1E1E1E),
               borderRadius: BorderRadius.circular(8),
               border: Border.all(
-                color: widget.isPremium ? AppColors.primary : Colors.white12,
+                color: widget.isPremium ? AppColors.secondary : Colors.white12,
               ),
             ),
             child: Column(

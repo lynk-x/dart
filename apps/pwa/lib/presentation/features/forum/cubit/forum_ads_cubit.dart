@@ -7,6 +7,7 @@ import 'package:lynk_x/presentation/features/forum/models/forum_model.dart';
 import 'forum_ads_state.dart';
 
 class ForumAdsCubit extends Cubit<ForumAdsState> {
+  static const int downloadInterstitialFrequency = 3;
   final String forumId;
   final String userId;
   final String? eventId;
@@ -14,6 +15,7 @@ class ForumAdsCubit extends Cubit<ForumAdsState> {
   bool isPremium;
   final Set<String> _viewedAds = {};
   final Map<String, Timer> _impressionTimers = {};
+  int _downloadCount = 0;
 
   ForumAdsCubit({
     required this.forumId,
@@ -22,6 +24,13 @@ class ForumAdsCubit extends Cubit<ForumAdsState> {
     this.eventId,
     this.eventCreatedAt,
   }) : super(const ForumAdsState());
+
+  bool shouldShowDownloadInterstitial() {
+    if (isPremium) return false;
+    if (state.interstitialAd == null) return false;
+    _downloadCount++;
+    return _downloadCount % downloadInterstitialFrequency == 1;
+  }
 
   Future<void> init() async {
     await loadAds();
