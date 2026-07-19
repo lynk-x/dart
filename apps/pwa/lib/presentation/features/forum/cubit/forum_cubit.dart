@@ -25,7 +25,8 @@ class ForumCubit extends Cubit<ForumState> {
     required this.forumReference,
   })  : _repo = repo,
         super(const ForumState()) {
-    final user = Supabase.instance.client.auth.currentUser; // keep — auth, not data
+    final user =
+        Supabase.instance.client.auth.currentUser; // keep — auth, not data
     userId = user?.id ?? kGuestUserId;
     userName = 'A User';
   }
@@ -73,24 +74,23 @@ class ForumCubit extends Cubit<ForumState> {
     _statusChannel?.unsubscribe();
 
     _statusChannel = _repo.subscribeToMemberChanges(fId, userId, (payload) {
-          final data = payload.newRecord;
-          if (data['forum_id'] == fId) {
-            final String? roleId = data['role_id'] as String?;
-            final bool isMuted = data['is_muted'] == true;
-            final bool hasMutedLiveChatsMedia =
-                data['has_muted_live_chats_media'] == true;
+      final data = payload.newRecord;
+      if (data['forum_id'] == fId) {
+        final String? roleId = data['role_id'] as String?;
+        final bool isMuted = data['is_muted'] == true;
+        final bool hasMutedLiveChatsMedia =
+            data['has_muted_live_chats_media'] == true;
 
-            if (!isClosed) {
-              emit(state.copyWith(
-                isMuted: isMuted,
-                hasMutedLiveChatsMedia: hasMutedLiveChatsMedia,
-                isModerator: roleId == 'moderator' || roleId == 'organizer',
-                isOrganizer: roleId == 'organizer',
-              ));
-            }
-          }
-        })
-        .subscribe();
+        if (!isClosed) {
+          emit(state.copyWith(
+            isMuted: isMuted,
+            hasMutedLiveChatsMedia: hasMutedLiveChatsMedia,
+            isModerator: roleId == 'moderator' || roleId == 'organizer',
+            isOrganizer: roleId == 'organizer',
+          ));
+        }
+      }
+    }).subscribe();
   }
 
   void _setupForumStatusListener() {
@@ -141,7 +141,8 @@ class ForumCubit extends Cubit<ForumState> {
       DateTime? channelCreatedAtFromDb;
 
       try {
-        final result = await _repo.getForumWithMemberStatusByReference(forumReference, userId);
+        final result = await _repo.getForumWithMemberStatusByReference(
+            forumReference, userId);
         final forumData = result['forum'] as Map<String, dynamic>?;
         final memberData = result['member'] as Map<String, dynamic>?;
         final channelData = result['channel'] as Map<String, dynamic>?;
@@ -149,7 +150,8 @@ class ForumCubit extends Cubit<ForumState> {
         if (forumData != null) {
           forumId = forumData['id'] as String;
           _channel?.unsubscribe();
-          _channel = Supabase.instance.client.channel('forum_reactions_$forumId'); // keep — broadcast channel, not data
+          _channel = Supabase.instance.client.channel(
+              'forum_reactions_$forumId'); // keep — broadcast channel, not data
 
           forumStatus = forumData['status'] as String? ?? 'open';
           eventIdFromDb = forumData['event_id'] as String?;
@@ -175,7 +177,8 @@ class ForumCubit extends Cubit<ForumState> {
 
         if (memberData != null) {
           isMuted = memberData['is_muted'] == true;
-          hasMutedLiveChatsMedia = memberData['has_muted_live_chats_media'] == true;
+          hasMutedLiveChatsMedia =
+              memberData['has_muted_live_chats_media'] == true;
           final role = memberData['role_id'] as String?;
           isModerator = role == 'moderator' || role == 'organizer';
           isOrganizer = role == 'organizer';
@@ -254,6 +257,10 @@ class ForumCubit extends Cubit<ForumState> {
   }
 
   void setTabIndex(int index) => emit(state.copyWith(currentTabIndex: index));
+
+  void openPollComposer() => emit(state.copyWith(isComposingPoll: true));
+
+  void closePollComposer() => emit(state.copyWith(isComposingPoll: false));
 
   // ── Moderation ─────────────────────────────────────────────────────────────
 
@@ -355,9 +362,11 @@ class ForumCubit extends Cubit<ForumState> {
     }
   }
 
-  Future<void> _syncForumProgress(String forumId, DateTime? forumCreatedAt) async {
+  Future<void> _syncForumProgress(
+      String forumId, DateTime? forumCreatedAt) async {
     try {
-      final sessions = await _repo.getForumSessions(forumId, forumCreatedAt: forumCreatedAt);
+      final sessions =
+          await _repo.getForumSessions(forumId, forumCreatedAt: forumCreatedAt);
 
       if (sessions.isEmpty) return;
 
@@ -378,8 +387,9 @@ class ForumCubit extends Cubit<ForumState> {
           final totalDuration =
               lastSessionEnd.difference(firstSessionStart).inSeconds;
           final elapsed = now.difference(firstSessionStart).inSeconds;
-          final progress =
-              (totalDuration == 0) ? 1.0 : (elapsed / totalDuration).clamp(0.0, 1.0);
+          final progress = (totalDuration == 0)
+              ? 1.0
+              : (elapsed / totalDuration).clamp(0.0, 1.0);
           if (!isClosed) emit(state.copyWith(eventProgress: progress));
         }
       }

@@ -28,7 +28,6 @@ import 'package:lynk_x/presentation/features/forum/widgets/tabs/live_chat_tab.da
 import 'package:lynk_x/presentation/features/forum/widgets/tabs/media_tab.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/reaction_background.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/reaction_bar.dart';
-import 'package:lynk_x/presentation/features/forum/widgets/polls/poll_card_editor.dart';
 
 import 'package:lynk_x/presentation/features/forum/widgets/welcome_banner.dart';
 import 'package:lynk_x/data/repositories/repository_providers.dart';
@@ -80,55 +79,55 @@ class ForumPage extends StatelessWidget {
                   return ads;
                 },
               ),
-               BlocProvider(
-                 create: (context) {
-                   final cubit = ForumPresenceCubit(
-                     forumId: fId,
-                     userId: mainCubit.userId,
-                     userName: mainCubit.userName,
-                     isOrganizer: state.isOrganizer,
-                     isPremium: state.isPremium,
-                   );
-                   final flagEnabled = context
-                       .read<FeatureFlagCubit>()
-                       .isEnabled('enable_realtime_presence');
-                   if (flagEnabled) {
-                     cubit.init();
-                   }
-                   return cubit;
-                 },
-               ),
-                 BlocProvider(
-                   create: (context) {
-                     final cubit = ForumUpdatesCubit(
-                       forumId: fId,
-                       userId: mainCubit.userId,
-                       userName: mainCubit.userName,
-                     )..init();
-                     cubit.syncForumContext(
-                       forumCreatedAt: state.forumCreatedAt,
-                       channelId: state.channelId,
-                       channelCreatedAt: state.channelCreatedAt,
-                     );
-                     return cubit;
-                   },
-                 ),
-                 BlocProvider(
-                   create: (context) {
-                     final cubit = ForumChatCubit(
-                       forumId: fId,
-                       userId: mainCubit.userId,
-                       userName: mainCubit.userName,
-                       repo: forumRepository,
-                     )..init();
-                     cubit.syncForumContext(
-                       forumCreatedAt: state.forumCreatedAt,
-                       channelId: state.channelId,
-                       channelCreatedAt: state.channelCreatedAt,
-                     );
-                     return cubit;
-                   },
-                 ),
+              BlocProvider(
+                create: (context) {
+                  final cubit = ForumPresenceCubit(
+                    forumId: fId,
+                    userId: mainCubit.userId,
+                    userName: mainCubit.userName,
+                    isOrganizer: state.isOrganizer,
+                    isPremium: state.isPremium,
+                  );
+                  final flagEnabled = context
+                      .read<FeatureFlagCubit>()
+                      .isEnabled('enable_realtime_presence');
+                  if (flagEnabled) {
+                    cubit.init();
+                  }
+                  return cubit;
+                },
+              ),
+              BlocProvider(
+                create: (context) {
+                  final cubit = ForumUpdatesCubit(
+                    forumId: fId,
+                    userId: mainCubit.userId,
+                    userName: mainCubit.userName,
+                  )..init();
+                  cubit.syncForumContext(
+                    forumCreatedAt: state.forumCreatedAt,
+                    channelId: state.channelId,
+                    channelCreatedAt: state.channelCreatedAt,
+                  );
+                  return cubit;
+                },
+              ),
+              BlocProvider(
+                create: (context) {
+                  final cubit = ForumChatCubit(
+                    forumId: fId,
+                    userId: mainCubit.userId,
+                    userName: mainCubit.userName,
+                    repo: forumRepository,
+                  )..init();
+                  cubit.syncForumContext(
+                    forumCreatedAt: state.forumCreatedAt,
+                    channelId: state.channelId,
+                    channelCreatedAt: state.channelCreatedAt,
+                  );
+                  return cubit;
+                },
+              ),
               BlocProvider(
                 create: (context) => ForumMediaCubit(
                   forumId: fId,
@@ -357,8 +356,8 @@ class _ForumViewState extends State<ForumView> {
                           Widget? extraHeaderWidgets;
 
                           final featureFlags = context.read<FeatureFlagCubit>();
-                          final showUpdates =
-                              featureFlags.isEnabled('enable_forum_announcements');
+                          final showUpdates = featureFlags
+                              .isEnabled('enable_forum_announcements');
                           final showChat =
                               featureFlags.isEnabled('enable_forum_live_chat');
                           final chatTabIndex = showUpdates ? 1 : 0;
@@ -366,10 +365,12 @@ class _ForumViewState extends State<ForumView> {
                           if (forumState.currentTabIndex == 0 && showUpdates) {
                             final updatesCubit =
                                 context.read<ForumUpdatesCubit>();
-                            final selectedCategory = context.select<ForumUpdatesCubit, String?>(
+                            final selectedCategory =
+                                context.select<ForumUpdatesCubit, String?>(
                               (c) => c.state.selectedCategory,
                             );
-                            final pinnedMessage = context.select<ForumUpdatesCubit, ChatMessage?>(
+                            final pinnedMessage =
+                                context.select<ForumUpdatesCubit, ChatMessage?>(
                               (c) {
                                 for (final m in c.state.messages) {
                                   if (m.isPinned) return m;
@@ -408,15 +409,20 @@ class _ForumViewState extends State<ForumView> {
                                   ),
                               ],
                             );
-                          } else if (forumState.currentTabIndex == chatTabIndex && showChat) {
-                            extraHeight += 44.0; // ReactionBar height + vertical padding
+                          } else if (forumState.currentTabIndex ==
+                                  chatTabIndex &&
+                              showChat) {
+                            extraHeight +=
+                                44.0; // ReactionBar height + vertical padding
                             extraHeaderWidgets = ColoredBox(
                               color: AppColors.primaryBackground,
                               child: Padding(
-                                padding: const EdgeInsets.symmetric(vertical: 8.0),
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 8.0),
                                 child: ReactionBar(
-                                  onEmojiTap: (emoji) =>
-                                      context.read<ForumCubit>().handleEmojiTap(emoji),
+                                  onEmojiTap: (emoji) => context
+                                      .read<ForumCubit>()
+                                      .handleEmojiTap(emoji),
                                 ),
                               ),
                             );
@@ -778,20 +784,24 @@ class _ForumViewState extends State<ForumView> {
               const SizedBox(height: 4),
               _CreateOptionCard(
                 icon: Icons.poll_outlined,
-                accentColor: const Color(0xFF3B82F6), // blue — distinct from the poll card's own green
+                accentColor: const Color(
+                    0xFF3B82F6), // blue — distinct from the poll card's own green
                 title: 'Create Poll',
-                description: 'Ask a quick question and watch results come in live.',
+                description:
+                    'Ask a quick question and watch results come in live.',
                 onTap: () {
                   Navigator.pop(sheetContext);
-                  _showPollEditorSheet(forumId);
+                  context.read<ForumCubit>().openPollComposer();
                 },
               ),
               const SizedBox(height: 12),
               _CreateOptionCard(
                 icon: Icons.quiz_outlined,
-                accentColor: const Color(0xFFFF8A3D), // amber — distinct from subscription gold
+                accentColor: const Color(
+                    0xFFFF8A3D), // amber — distinct from subscription gold
                 title: 'Create Quiz',
-                description: 'Run a timed, scored quiz with a live leaderboard.',
+                description:
+                    'Run a timed, scored quiz with a live leaderboard.',
                 onTap: () {
                   Navigator.pop(sheetContext);
                   context.push(
@@ -807,27 +817,6 @@ class _ForumViewState extends State<ForumView> {
     );
   }
 
-  void _showPollEditorSheet(String forumId) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (sheetContext) => Padding(
-        padding: EdgeInsets.only(
-          left: 16,
-          right: 16,
-          bottom: MediaQuery.of(sheetContext).viewInsets.bottom + 16,
-          top: 16,
-        ),
-        child: PollCardEditor(
-          forumId: forumId,
-          onCancel: () => Navigator.pop(sheetContext),
-          onPublished: () => Navigator.pop(sheetContext),
-        ),
-      ),
-    );
-  }
-
   void _viewMedia(String? url) {
     if (url == null) return;
     MediaViewer.show(context, imageUrl: url);
@@ -836,7 +825,8 @@ class _ForumViewState extends State<ForumView> {
   void _viewForumMedia(ForumMedia item) {
     final mediaCubit = context.read<ForumMediaCubit>();
     final forumCubit = context.read<ForumCubit>();
-    final isAuthorized = forumCubit.state.isOrganizer || forumCubit.state.isModerator;
+    final isAuthorized =
+        forumCubit.state.isOrganizer || forumCubit.state.isModerator;
     final isUploader = item.uploaderId == forumCubit.userId;
 
     MediaViewer.show(
@@ -916,7 +906,8 @@ class _CreateOptionCard extends StatelessWidget {
                         ),
                         const SizedBox(width: 8),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
                             color: accentColor,
                             borderRadius: BorderRadius.circular(4),
@@ -944,7 +935,8 @@ class _CreateOptionCard extends StatelessWidget {
                   ],
                 ),
               ),
-              Icon(Icons.chevron_right_rounded, color: Colors.white.withValues(alpha: 0.3)),
+              Icon(Icons.chevron_right_rounded,
+                  color: Colors.white.withValues(alpha: 0.3)),
             ],
           ),
         ),

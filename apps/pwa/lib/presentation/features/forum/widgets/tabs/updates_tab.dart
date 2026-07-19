@@ -7,6 +7,7 @@ import 'package:lynk_x/presentation/features/forum/cubit/forum_updates_cubit.dar
 import 'package:lynk_x/presentation/features/forum/cubit/forum_updates_state.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/message_input.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/chat_bubble.dart';
+import 'package:lynk_x/presentation/features/forum/widgets/polls/poll_card_editor.dart';
 import 'package:lynk_x/presentation/shared/widgets/empty_state.dart';
 
 /// The 'Updates' tab content for the Forum.
@@ -77,7 +78,8 @@ class _UpdatesTabState extends State<UpdatesTab>
           p.isOrganizer != c.isOrganizer ||
           p.isMuted != c.isMuted ||
           p.isReadOnly != c.isReadOnly ||
-          p.members != c.members,
+          p.members != c.members ||
+          p.isComposingPoll != c.isComposingPoll,
       builder: (context, mainState) {
         return BlocBuilder<ForumUpdatesCubit, ForumUpdatesState>(
           builder: (context, updatesState) {
@@ -135,7 +137,8 @@ class _UpdatesTabState extends State<UpdatesTab>
                                       onPin: (msg) => mainCubit.pinMessage(msg),
                                       onDelete: (msg) =>
                                           updatesCubit.deleteMessage(msg),
-                                      onEdit: (msg) => updatesCubit.setEditingMessage(msg),
+                                      onEdit: (msg) =>
+                                          updatesCubit.setEditingMessage(msg),
                                       onReport: (msg) => updatesCubit
                                           .reportMessage(msg, 'Spam'),
                                       onMute: (msg) =>
@@ -176,11 +179,21 @@ class _UpdatesTabState extends State<UpdatesTab>
                     ),
                   ),
                 ),
+                if (mainState.isComposingPoll && mainState.forumId != null)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                    child: PollCardEditor(
+                      forumId: mainState.forumId!,
+                      onCancel: () => mainCubit.closePollComposer(),
+                      onPublished: () => mainCubit.closePollComposer(),
+                    ),
+                  ),
                 if (mainState.isOrganizer)
                   MessageInput(
                     onSendMessage: (text, _) {
                       if (updatesState.editingMessage != null) {
-                        updatesCubit.editMessage(updatesState.editingMessage!, text);
+                        updatesCubit.editMessage(
+                            updatesState.editingMessage!, text);
                         updatesCubit.setEditingMessage(null);
                       } else {
                         updatesCubit.sendMessage(

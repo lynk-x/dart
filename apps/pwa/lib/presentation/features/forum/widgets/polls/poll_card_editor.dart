@@ -27,8 +27,9 @@ class PollCardEditor extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (context) => QuizBuilderCubit(repo: quizRepository, forumId: forumId)
-        ..addQuestion(),
+      create: (context) =>
+          QuizBuilderCubit(repo: quizRepository, forumId: forumId)
+            ..addQuestion(),
       child: _PollCardEditorView(onCancel: onCancel, onPublished: onPublished),
     );
   }
@@ -68,7 +69,8 @@ class _PollCardEditorViewState extends State<_PollCardEditorView> {
     // Keep controller count in sync with draft option count (add/remove),
     // without clobbering text the user is actively typing in existing ones.
     while (_optionControllers.length < options.length) {
-      _optionControllers.add(TextEditingController(text: options[_optionControllers.length]));
+      _optionControllers
+          .add(TextEditingController(text: options[_optionControllers.length]));
     }
     while (_optionControllers.length > options.length) {
       _optionControllers.removeLast().dispose();
@@ -80,7 +82,8 @@ class _PollCardEditorViewState extends State<_PollCardEditorView> {
     final cubit = context.read<QuizBuilderCubit>();
 
     return BlocConsumer<QuizBuilderCubit, QuizBuilderState>(
-      listenWhen: (prev, curr) => prev.error != curr.error || prev.isSuccess != curr.isSuccess,
+      listenWhen: (prev, curr) =>
+          prev.error != curr.error || prev.isSuccess != curr.isSuccess,
       listener: (context, state) {
         if (state.error != null) {
           AppSnackBars.showError(context, state.error!);
@@ -90,124 +93,149 @@ class _PollCardEditorViewState extends State<_PollCardEditorView> {
         }
       },
       builder: (context, state) {
-        final DraftQuestion question =
-            state.draft.questions.isNotEmpty ? state.draft.questions.first : const DraftQuestion();
+        final DraftQuestion question = state.draft.questions.isNotEmpty
+            ? state.draft.questions.first
+            : const DraftQuestion();
         _syncOptionControllers(question.options);
 
-        return Container(
-          margin: const EdgeInsets.symmetric(vertical: 8),
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: const Color(0xFF20F928),
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Header
-              Row(
+        return ConstrainedBox(
+          constraints: const BoxConstraints(maxHeight: 480),
+          child: Container(
+            margin: const EdgeInsets.symmetric(vertical: 8),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: const Color(0xFF20F928),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(Icons.poll_outlined, color: Colors.black, size: 20),
-                  const SizedBox(width: 8),
-                  const Text(
-                    'Poll',
-                    style: TextStyle(color: Colors.black, fontSize: 12, fontWeight: FontWeight.w700),
+                  // Header
+                  Row(
+                    children: [
+                      const Icon(Icons.poll_outlined,
+                          color: Colors.black, size: 24),
+                      const SizedBox(width: 10),
+                      const Text(
+                        'Poll',
+                        style: TextStyle(
+                            color: Colors.black,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800),
+                      ),
+                      const Spacer(),
+                      IconButton(
+                        icon: const Icon(Icons.close,
+                            color: Colors.black, size: 20),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        onPressed: widget.onCancel,
+                      ),
+                    ],
                   ),
-                  const Spacer(),
-                  IconButton(
-                    icon: const Icon(Icons.close, color: Colors.black, size: 20),
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                    onPressed: widget.onCancel,
+                  const SizedBox(height: 12),
+
+                  // Question
+                  _EditorField(
+                    controller: _questionController,
+                    hint: 'Ask a question…',
+                    onChanged: (val) => cubit.updateQuestionText(0, val),
+                    bold: true,
+                    fontSize: 16,
+                    filled: true,
+                    multiline: true,
+                  ),
+                  const SizedBox(height: 10),
+
+                  // Options
+                  ...question.options.asMap().entries.map((entry) {
+                    final i = entry.key;
+                    return Padding(
+                      padding: const EdgeInsets.only(left: 16, bottom: 8),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: _EditorField(
+                              controller: _optionControllers[i],
+                              hint: 'Option ${i + 1}',
+                              onChanged: (val) =>
+                                  cubit.updateOptionText(0, i, val),
+                              fontSize: 14,
+                              filled: true,
+                            ),
+                          ),
+                          if (question.options.length > 2)
+                            IconButton(
+                              icon: const Icon(Icons.remove_circle_outline,
+                                  color: Colors.black54, size: 20),
+                              onPressed: () => cubit.removeOption(0, i),
+                            ),
+                        ],
+                      ),
+                    );
+                  }),
+
+                  // Add option
+                  if (question.options.length < 6)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 16),
+                      child: TextButton.icon(
+                        onPressed: () => cubit.addOption(0),
+                        icon: const Icon(Icons.add,
+                            color: Colors.black, size: 18),
+                        label: const Text('Add option',
+                            style: TextStyle(
+                                color: Colors.black,
+                                fontWeight: FontWeight.w600)),
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          minimumSize: const Size(0, 32),
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          alignment: Alignment.centerLeft,
+                        ),
+                      ),
+                    ),
+
+                  const SizedBox(height: 12),
+
+                  // Publish
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: state.isSaving
+                          ? null
+                          : () {
+                              cubit.updateSettings(
+                                _questionController.text.trim().isEmpty
+                                    ? 'Poll'
+                                    : _questionController.text.trim(),
+                                '',
+                                'poll',
+                              );
+                              cubit.saveAndPublish(true);
+                            },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.black,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10)),
+                      ),
+                      child: state.isSaving
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                  strokeWidth: 2, color: Colors.white),
+                            )
+                          : const Text('Post Poll',
+                              style: TextStyle(fontWeight: FontWeight.w700)),
+                    ),
                   ),
                 ],
               ),
-              const SizedBox(height: 10),
-
-              // Question
-              _EditorField(
-                controller: _questionController,
-                hint: 'Ask a question…',
-                onChanged: (val) => cubit.updateQuestionText(0, val),
-                bold: true,
-                fontSize: 15,
-              ),
-              const SizedBox(height: 10),
-
-              // Options
-              ...question.options.asMap().entries.map((entry) {
-                final i = entry.key;
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: _EditorField(
-                          controller: _optionControllers[i],
-                          hint: 'Option ${i + 1}',
-                          onChanged: (val) => cubit.updateOptionText(0, i, val),
-                          fontSize: 14,
-                          filled: true,
-                        ),
-                      ),
-                      if (question.options.length > 2)
-                        IconButton(
-                          icon: const Icon(Icons.remove_circle_outline, color: Colors.black54, size: 20),
-                          onPressed: () => cubit.removeOption(0, i),
-                        ),
-                    ],
-                  ),
-                );
-              }),
-
-              // Add option
-              if (question.options.length < 6)
-                TextButton.icon(
-                  onPressed: () => cubit.addOption(0),
-                  icon: const Icon(Icons.add, color: Colors.black, size: 18),
-                  label: const Text('Add option', style: TextStyle(color: Colors.black, fontWeight: FontWeight.w600)),
-                  style: TextButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    minimumSize: const Size(0, 32),
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    alignment: Alignment.centerLeft,
-                  ),
-                ),
-
-              const SizedBox(height: 12),
-
-              // Publish
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: state.isSaving
-                      ? null
-                      : () {
-                          cubit.updateSettings(
-                            _questionController.text.trim().isEmpty
-                                ? 'Poll'
-                                : _questionController.text.trim(),
-                            '',
-                            'poll',
-                          );
-                          cubit.saveAndPublish(true);
-                        },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.black,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  ),
-                  child: state.isSaving
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                        )
-                      : const Text('Post Poll', style: TextStyle(fontWeight: FontWeight.w700)),
-                ),
-              ),
-            ],
+            ),
           ),
         );
       },
@@ -221,6 +249,7 @@ class _EditorField extends StatelessWidget {
   final ValueChanged<String> onChanged;
   final bool bold;
   final bool filled;
+  final bool multiline;
   final double fontSize;
 
   const _EditorField({
@@ -229,6 +258,7 @@ class _EditorField extends StatelessWidget {
     required this.onChanged,
     this.bold = false,
     this.filled = false,
+    this.multiline = false,
     required this.fontSize,
   });
 
@@ -236,15 +266,19 @@ class _EditorField extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: filled
-          ? BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(10))
+          ? BoxDecoration(
+              color: Colors.white, borderRadius: BorderRadius.circular(10))
           : null,
-      padding: filled ? const EdgeInsets.symmetric(horizontal: 12) : EdgeInsets.zero,
-      height: filled ? 42 : null,
-      alignment: filled ? Alignment.centerLeft : null,
+      padding: filled
+          ? EdgeInsets.symmetric(horizontal: 12, vertical: multiline ? 12 : 0)
+          : EdgeInsets.zero,
+      height: filled && !multiline ? 42 : null,
+      alignment: filled && !multiline ? Alignment.centerLeft : null,
       child: TextField(
         controller: controller,
         onChanged: onChanged,
-        maxLines: filled ? 1 : null,
+        maxLines: multiline ? null : (filled ? 1 : null),
+        minLines: multiline ? 1 : null,
         style: TextStyle(
           color: Colors.black,
           fontSize: fontSize,
@@ -252,7 +286,9 @@ class _EditorField extends StatelessWidget {
         ),
         decoration: InputDecoration(
           hintText: hint,
-          hintStyle: TextStyle(color: Colors.black.withValues(alpha: 0.4), fontWeight: FontWeight.normal),
+          hintStyle: TextStyle(
+              color: Colors.black.withValues(alpha: 0.4),
+              fontWeight: FontWeight.normal),
           border: InputBorder.none,
           isDense: true,
           contentPadding: EdgeInsets.zero,
