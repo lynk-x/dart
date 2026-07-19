@@ -11,6 +11,10 @@ import 'package:lynk_x/presentation/features/forum/screens/forum_screen.dart';
 import 'package:lynk_x/presentation/features/forum/screens/sessions_screen.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/ticket_scanner_sheet.dart';
 import 'package:lynk_x/presentation/features/forum/cubit/ticket_validation_cubit.dart';
+import 'package:lynk_x/presentation/features/quiz/cubit/quiz_cubit.dart';
+import 'package:lynk_x/presentation/features/quiz/screens/quiz_orchestrator_screen.dart';
+import 'package:lynk_x/presentation/features/quiz/screens/quiz_builder_screen.dart';
+import 'package:lynk_x/data/repositories/repository_providers.dart';
 import 'package:lynk_x/presentation/features/notifications/screens/notifications_screen.dart';
 import 'package:lynk_x/presentation/features/auth/screens/claim_bridge_screen.dart';
 import 'package:lynk_x/presentation/features/ticket/screens/ticket_screen.dart';
@@ -220,6 +224,72 @@ GoRouter createRouter(
                       eventCreatedAt: eventCreatedAt,
                     ),
                   ),
+                ),
+              );
+            },
+          ),
+          GoRoute(
+            // Declared before 'quiz/:questionnaireId' so the literal segment
+            // 'create' is matched first rather than captured as an id.
+            path: 'quiz/create',
+            builder: (context, state) {
+              final extras = state.extra as Map<String, dynamic>?;
+              final forumId = extras?['forumId'] as String?;
+              final isOrganizer = extras?['isOrganizer'] as bool? ?? false;
+
+              if (forumId == null || !isOrganizer) {
+                return Title(
+                  title: 'Error',
+                  color: Colors.black,
+                  child: const SystemErrorScreen(
+                    title: 'Not Available',
+                    message: 'Only forum organizers can create a quiz.',
+                  ),
+                );
+              }
+
+              return Title(
+                title: 'Create Quiz',
+                color: Colors.black,
+                child: QuizBuilderPage(forumId: forumId),
+              );
+            },
+          ),
+          GoRoute(
+            path: 'quiz/:questionnaireId',
+            builder: (context, state) {
+              final questionnaireId = state.pathParameters['questionnaireId']!;
+              final extras = state.extra as Map<String, dynamic>?;
+              // isHost can't be read from ForumCubit here — this route is a
+              // sibling of ForumPage, not nested inside its widget tree, so
+              // the join button must pass the caller's organizer status
+              // explicitly (same reason 'scanner' above takes isOrganizer
+              // via extras rather than reading ForumCubit).
+              final isHost = extras?['isHost'] as bool? ?? false;
+              final userId = Supabase.instance.client.auth.currentUser?.id;
+
+              if (userId == null) {
+                return Title(
+                  title: 'Error',
+                  color: Colors.black,
+                  child: const SystemErrorScreen(
+                    title: 'Sign In Required',
+                    message: 'You need to be signed in to join a quiz.',
+                  ),
+                );
+              }
+
+              return Title(
+                title: 'Quiz',
+                color: Colors.black,
+                child: BlocProvider<QuizCubit>(
+                  create: (context) => QuizCubit(
+                    questionnaireId: questionnaireId,
+                    userId: userId,
+                    repo: quizRepository,
+                    isHost: isHost,
+                  )..init(),
+                  child: const QuizOrchestratorScreen(),
                 ),
               );
             },

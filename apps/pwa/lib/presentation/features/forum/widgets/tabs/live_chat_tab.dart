@@ -19,6 +19,7 @@ class LiveChatTab extends StatefulWidget {
   final int emojiTrigger;
   final VoidCallback onActionTap;
   final Function(String?) onMediaTap;
+  final VoidCallback? onCreatePollOrQuiz;
 
   const LiveChatTab({
     super.key,
@@ -27,6 +28,7 @@ class LiveChatTab extends StatefulWidget {
     required this.emojiTrigger,
     required this.onActionTap,
     required this.onMediaTap,
+    this.onCreatePollOrQuiz,
   });
 
   @override
@@ -164,6 +166,7 @@ class _LiveChatTabState extends State<LiveChatTab>
                     }
                   },
                   onActionTap: widget.onActionTap,
+                  onCreatePollOrQuiz: widget.onCreatePollOrQuiz,
                   mentionedMedia: chatState.mentionedMedia,
                   onCancelMention: () => chatCubit.setMentionedMedia(null),
                   replyTo: chatState.replyingTo,

@@ -194,7 +194,7 @@ class ForumUpdatesCubit extends BaseMessageCubit<ForumUpdatesState> {
 
   @override
   void sendMessage(String text,
-      {required bool isOrganizer, required bool isPremium}) async {
+      {required bool isOrganizer, required bool isPremium, String? questionnaireId}) async {
     if (!isOrganizer) return; // Only organizers send updates
     final messageId = BaseMessageCubit.uuid.v4();
     final now = DateTime.now();
@@ -229,6 +229,7 @@ class ForumUpdatesCubit extends BaseMessageCubit<ForumUpdatesState> {
       category: category,
       imageUrl: imageUrl,
       thumbnailUrl: thumbnailUrl,
+      questionnaireId: questionnaireId,
       isSending: true,
     );
 
@@ -266,6 +267,7 @@ class ForumUpdatesCubit extends BaseMessageCubit<ForumUpdatesState> {
         'created_at': messageCreatedAt,
         if (mediaId != null) 'media_id': mediaId,
         if (mediaCreatedAt != null) 'media_created_at': mediaCreatedAt,
+        if (questionnaireId != null) 'questionnaire_id': questionnaireId,
       },
     ));
 
@@ -285,6 +287,7 @@ class ForumUpdatesCubit extends BaseMessageCubit<ForumUpdatesState> {
             'url': imageUrl,
             'thumbnail_url': thumbnailUrl,
           },
+        if (questionnaireId != null) 'questionnaire_id': questionnaireId,
         'user_profile': {
           'full_name': userName,
           'is_premium': isPremium,

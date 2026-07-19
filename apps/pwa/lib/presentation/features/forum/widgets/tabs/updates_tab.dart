@@ -14,12 +14,14 @@ class UpdatesTab extends StatefulWidget {
   final ScrollController scrollController;
   final VoidCallback onActionTap;
   final Function(String?) onMediaTap;
+  final VoidCallback? onCreatePollOrQuiz;
 
   const UpdatesTab({
     super.key,
     required this.scrollController,
     required this.onActionTap,
     required this.onMediaTap,
+    this.onCreatePollOrQuiz,
   });
 
   @override
@@ -189,6 +191,7 @@ class _UpdatesTabState extends State<UpdatesTab>
                       }
                     },
                     onActionTap: widget.onActionTap,
+                    onCreatePollOrQuiz: widget.onCreatePollOrQuiz,
                     mentionedMedia: updatesState.mentionedMedia,
                     onCancelMention: () => updatesCubit.setMentionedMedia(null),
                     editingMessage: updatesState.editingMessage,

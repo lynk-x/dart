@@ -1,8 +1,28 @@
 import 'package:flutter/material.dart';
 import 'package:lynk_core/core.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:audioplayers/audioplayers.dart';
 
-class PodiumScreen extends StatelessWidget {
+/// Delay before revealing the podium entry that is [placesFromLast] steps
+/// before the winner (0 = the lowest-ranked of the three, increasing toward
+/// 1st place). Gaps widen as the winner approaches — 3rd place gets a beat
+/// of suspense, 2nd place waits longer still, and 1st place lands at the
+/// 4.3s mark (within the requested 4.3-4.5s window) for maximum suspense.
+const List<Duration> _podiumRevealGaps = [
+  Duration(milliseconds: 1500),
+  Duration(milliseconds: 2900),
+  Duration(milliseconds: 4300),
+];
+
+Duration _podiumRevealDelay(int placesFromLast) {
+  if (placesFromLast < 0) return Duration.zero;
+  if (placesFromLast >= _podiumRevealGaps.length) return _podiumRevealGaps.last;
+  return _podiumRevealGaps[placesFromLast];
+}
+
+const Duration _podiumRevealCompleteDelay = Duration(milliseconds: 6000);
+
+class PodiumScreen extends StatefulWidget {
   final List<Map<String, dynamic>> winners;
   final int finalScore;
   final VoidCallback onExit;
@@ -15,6 +35,27 @@ class PodiumScreen extends StatelessWidget {
     required this.onExit,
     this.isHost = false,
   });
+
+  @override
+  State<PodiumScreen> createState() => _PodiumScreenState();
+}
+
+class _PodiumScreenState extends State<PodiumScreen> {
+  final AudioPlayer _audioPlayer = AudioPlayer();
+
+  @override
+  void initState() {
+    super.initState();
+    // Starts as soon as the podium mounts, running alongside the full
+    // 6-second reveal sequence (3rd -> 2nd -> 1st).
+    _audioPlayer.play(AssetSource('audio/liveQuiz_podium_sound.mp3'));
+  }
+
+  @override
+  void dispose() {
+    _audioPlayer.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -39,21 +80,29 @@ class PodiumScreen extends StatelessWidget {
               
               const SizedBox(height: 40),
               
-              // Winners List
+              // Winners List — laid out 1st-on-top as usual, but revealed in
+              // the opposite order (3rd, then 2nd, then 1st) with a longer
+              // pause before each step, so suspense builds toward the winner
+              // instead of the winner appearing first and the tension
+              // deflating from there.
               Expanded(
                 child: ListView.separated(
                   physics: const NeverScrollableScrollPhysics(),
-                  itemCount: winners.length > 3 ? 3 : winners.length,
+                  itemCount: widget.winners.length > 3 ? 3 : widget.winners.length,
                   separatorBuilder: (context, index) => const SizedBox(height: 16),
                   itemBuilder: (context, index) {
-                    final winner = winners[index];
+                    final winner = widget.winners[index];
+                    final placesFromLast =
+                        (widget.winners.length > 3 ? 3 : widget.winners.length) - 1 - index;
+                    final revealDelay = _podiumRevealDelay(placesFromLast);
+
                     return _PodiumItem(
                       rank: index + 1,
                       name: winner['display_name'] ?? 'Player',
                       score: winner['total_score'] ?? 0,
                     ).animate()
-                     .fadeIn(delay: (index * 200).ms)
-                     .slideY(begin: 0.2, end: 0);
+                     .fadeIn(delay: revealDelay, duration: 500.ms)
+                     .slideY(begin: 0.2, end: 0, duration: 500.ms);
                   },
                 ),
               ),
@@ -73,7 +122,7 @@ class PodiumScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      "$finalScore",
+                      "${widget.finalScore}",
                       style: AppTypography.h1.copyWith(
                         color: const Color(0xFFFFD700),
                         fontSize: 64,
@@ -93,7 +142,7 @@ class PodiumScreen extends StatelessWidget {
                     width: double.infinity,
                     height: 60,
                     child: ElevatedButton(
-                      onPressed: onExit,
+                      onPressed: widget.onExit,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.surface,
                         foregroundColor: Colors.white,
@@ -103,7 +152,7 @@ class PodiumScreen extends StatelessWidget {
                         ),
                       ),
                       child: Text(
-                        isHost ? "CLOSE QUIZ" : "BACK TO FORUM",
+                        widget.isHost ? "CLOSE QUIZ" : "BACK TO FORUM",
                         style: AppTypography.labelLarge.copyWith(
                           fontWeight: FontWeight.bold,
                           letterSpacing: 1.5,
@@ -112,7 +161,7 @@ class PodiumScreen extends StatelessWidget {
                     ),
                   ),
                 ),
-              ).animate().fadeIn(delay: 800.ms),
+              ).animate().fadeIn(delay: _podiumRevealCompleteDelay),
               
               const SizedBox(height: 20),
             ],

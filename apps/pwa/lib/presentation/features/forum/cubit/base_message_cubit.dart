@@ -453,7 +453,8 @@ abstract class BaseMessageCubit<T extends BaseMessageState> extends HydratedCubi
     sendMessage(message.message, isOrganizer: isOrganizer, isPremium: isPremium);
   }
 
-  void sendMessage(String text, {required bool isOrganizer, required bool isPremium});
+  void sendMessage(String text,
+      {required bool isOrganizer, required bool isPremium, String? questionnaireId});
 
   @override
   Future<void> close() {

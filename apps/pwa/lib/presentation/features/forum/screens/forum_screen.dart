@@ -28,6 +28,7 @@ import 'package:lynk_x/presentation/features/forum/widgets/tabs/live_chat_tab.da
 import 'package:lynk_x/presentation/features/forum/widgets/tabs/media_tab.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/reaction_background.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/reaction_bar.dart';
+import 'package:lynk_x/presentation/features/forum/widgets/polls/poll_card_editor.dart';
 
 import 'package:lynk_x/presentation/features/forum/widgets/welcome_banner.dart';
 import 'package:lynk_x/data/repositories/repository_providers.dart';
@@ -704,6 +705,7 @@ class _ForumViewState extends State<ForumView> {
                         scrollController: _updatesScrollController,
                         onActionTap: () => _navigateToTab(2),
                         onMediaTap: (url) => _viewMedia(url),
+                        onCreatePollOrQuiz: _showCreatePollOrQuizSheet,
                       )
                     : const SizedBox.shrink(),
                 showChat
@@ -713,6 +715,7 @@ class _ForumViewState extends State<ForumView> {
                         emojiTrigger: state.emojiTrigger,
                         onActionTap: () => _navigateToTab(2),
                         onMediaTap: (url) => _viewMedia(url),
+                        onCreatePollOrQuiz: _showCreatePollOrQuizSheet,
                       )
                     : const SizedBox.shrink(),
                 showMedia
@@ -737,6 +740,94 @@ class _ForumViewState extends State<ForumView> {
     );
   }
 
+  void _showCreatePollOrQuizSheet() {
+    final forumId = context.read<ForumCubit>().state.forumId;
+    final forumReference = context.read<ForumCubit>().forumReference;
+    final isOrganizer = context.read<ForumCubit>().state.isOrganizer;
+    if (forumId == null || !isOrganizer) return;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Add to Forum',
+                      style: AppTypography.interTight(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close, color: Colors.white54),
+                    onPressed: () => Navigator.pop(sheetContext),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              _CreateOptionCard(
+                icon: Icons.poll_outlined,
+                accentColor: const Color(0xFF3B82F6), // blue — distinct from the poll card's own green
+                title: 'Create Poll',
+                description: 'Ask a quick question and watch results come in live.',
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  _showPollEditorSheet(forumId);
+                },
+              ),
+              const SizedBox(height: 12),
+              _CreateOptionCard(
+                icon: Icons.quiz_outlined,
+                accentColor: const Color(0xFFFF8A3D), // amber — distinct from subscription gold
+                title: 'Create Quiz',
+                description: 'Run a timed, scored quiz with a live leaderboard.',
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  context.push(
+                    '/forum/$forumReference/quiz/create',
+                    extra: {'forumId': forumId, 'isOrganizer': true},
+                  );
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showPollEditorSheet(String forumId) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (sheetContext) => Padding(
+        padding: EdgeInsets.only(
+          left: 16,
+          right: 16,
+          bottom: MediaQuery.of(sheetContext).viewInsets.bottom + 16,
+          top: 16,
+        ),
+        child: PollCardEditor(
+          forumId: forumId,
+          onCancel: () => Navigator.pop(sheetContext),
+          onPublished: () => Navigator.pop(sheetContext),
+        ),
+      ),
+    );
+  }
+
   void _viewMedia(String? url) {
     if (url == null) return;
     MediaViewer.show(context, imageUrl: url);
@@ -758,6 +849,106 @@ class _ForumViewState extends State<ForumView> {
       onReject: (isAuthorized || isUploader)
           ? () => mediaCubit.deleteMedia(item)
           : null,
+    );
+  }
+}
+
+/// A large tappable card for the "Add to Forum" sheet — used for both
+/// Create Poll and Create Quiz, differentiated by [accentColor] so each
+/// previews the visual identity of what it creates without reusing the
+/// poll card's own green or the subscription screen's gold.
+class _CreateOptionCard extends StatelessWidget {
+  final IconData icon;
+  final Color accentColor;
+  final String title;
+  final String description;
+  final VoidCallback onTap;
+
+  const _CreateOptionCard({
+    required this.icon,
+    required this.accentColor,
+    required this.title,
+    required this.description,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: accentColor.withValues(alpha: 0.3)),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: accentColor.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                alignment: Alignment.center,
+                child: Icon(icon, color: accentColor, size: 26),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(
+                          title,
+                          style: AppTypography.interTight(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: accentColor,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            'NEW',
+                            style: AppTypography.inter(
+                              fontSize: 9,
+                              fontWeight: FontWeight.w800,
+                              color: Colors.black,
+                              letterSpacing: 0.4,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      description,
+                      style: AppTypography.inter(
+                        fontSize: 12,
+                        color: Colors.white.withValues(alpha: 0.6),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(Icons.chevron_right_rounded, color: Colors.white.withValues(alpha: 0.3)),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

@@ -12,6 +12,7 @@ class MessageInput extends StatefulWidget {
   final VoidCallback? onCancelMention;
   final VoidCallback? onCancelEdit;
   final VoidCallback? onActionTap;
+  final VoidCallback? onCreatePollOrQuiz;
   final ValueChanged<String>? onChanged;
   final List<Map<String, dynamic>> members;
   final bool isReadOnly;
@@ -28,6 +29,7 @@ class MessageInput extends StatefulWidget {
     this.onCancelMention,
     this.onCancelEdit,
     this.onActionTap,
+    this.onCreatePollOrQuiz,
     this.onChanged,
     this.members = const [],
     this.isReadOnly = false,
@@ -247,7 +249,12 @@ class _MessageInputState extends State<MessageInput> {
           if (detectedCategory != null) _buildCategoryPreview(detectedCategory),
           Row(
             children: [
-              // Action button hidden for MVP
+              if (widget.isOrganizer && widget.onCreatePollOrQuiz != null)
+                IconButton(
+                  tooltip: 'Create poll or quiz',
+                  icon: const Icon(Icons.add_circle_outline_rounded, color: Colors.white, size: 24),
+                  onPressed: widget.onCreatePollOrQuiz,
+                ),
               Expanded(
                 child: Container(
                   padding:
