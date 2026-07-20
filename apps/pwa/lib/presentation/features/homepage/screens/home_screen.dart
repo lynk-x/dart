@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart' hide Badge;
-import 'package:flutter/services.dart';
+import 'package:web/web.dart' as web;
 import 'package:badges/badges.dart' as badges;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -49,7 +49,6 @@ class _HomeViewState extends State<HomeView>
     with AutomaticKeepAliveClientMixin {
   final ScrollController _scrollController = ScrollController();
   bool _showWelcomeBanner = false;
-  DateTime? _lastBackPressTime;
 
   @override
   bool get wantKeepAlive => true;
@@ -122,175 +121,198 @@ class _HomeViewState extends State<HomeView>
           return;
         }
 
-        // 3. Root-level Exit Logic: Double-tap to exit pattern
-        final now = DateTime.now();
-        if (_lastBackPressTime == null || 
-            now.difference(_lastBackPressTime!) > const Duration(seconds: 2)) {
-          _lastBackPressTime = now;
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Text('Press back again to exit', style: TextStyle(color: Colors.white)),
-              backgroundColor: AppColors.surface,
-              duration: const Duration(seconds: 2),
-              behavior: SnackBarBehavior.floating,
-              margin: const EdgeInsets.only(bottom: 20, left: 20, right: 20),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        // 3. Root-level exit: single back-press shows a confirmation modal
+        // rather than a double-tap pattern — a modal is unambiguous on its
+        // own, so there's no need to make the user press back twice.
+        final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (dialogContext) => AlertDialog(
+            backgroundColor: AppColors.surface,
+            title: const Text('Leave Lynk-X?',
+                style: TextStyle(color: Colors.white)),
+            content: const Text(
+              'You\'ll be taken back to what you were doing before this app.',
+              style: TextStyle(color: Colors.white70),
             ),
-          );
-          return;
-        }
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext, false),
+                child: const Text('Cancel',
+                    style: TextStyle(color: Colors.white54)),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext, true),
+                child: Text('Leave',
+                    style: TextStyle(
+                        color: context.accentColor,
+                        fontWeight: FontWeight.bold)),
+              ),
+            ],
+          ),
+        );
+        if (confirmed != true) return;
 
-        // Final exit
-        await SystemNavigator.pop();
+
+        web.window.history.back();
       },
       child: Scaffold(
         backgroundColor: AppColors.primaryBackground,
         drawer: const HomeDrawer(),
         appBar: _buildAppBar(),
         body: BlocBuilder<HomeCubit, HomeState>(
-        builder: (context, state) {
-          // Full-screen loader on first load
-          if (state.isLoading) {
-            return Center(
-              child: CircularProgressIndicator(color: context.accentColor),
-            );
-          }
+          builder: (context, state) {
+            // Full-screen loader on first load
+            if (state.isLoading) {
+              return Center(
+                child: CircularProgressIndicator(color: context.accentColor),
+              );
+            }
 
-          // Surface fetch errors without crashing the whole screen
-          if (state.errorMessage != null && state.events.isEmpty) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(32),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.wifi_off_rounded, size: 48, color: Colors.white24),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Could not load events',
-                      style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      state.errorMessage!,
-                      style: const TextStyle(color: Colors.white38, fontSize: 13),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 24),
-                    ElevatedButton.icon(
-                      onPressed: context.read<HomeCubit>().refresh,
-                      icon: const Icon(Icons.refresh, size: 18),
-                      label: const Text('Try again'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: context.accentColor,
-                        foregroundColor: Colors.black,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            // Surface fetch errors without crashing the whole screen
+            if (state.errorMessage != null && state.events.isEmpty) {
+              return Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(32),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.wifi_off_rounded,
+                          size: 48, color: Colors.white24),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Could not load events',
+                        style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold),
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 8),
+                      Text(
+                        state.errorMessage!,
+                        style: const TextStyle(
+                            color: Colors.white38, fontSize: 13),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 24),
+                      ElevatedButton.icon(
+                        onPressed: context.read<HomeCubit>().refresh,
+                        icon: const Icon(Icons.refresh, size: 18),
+                        label: const Text('Try again'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: context.accentColor,
+                          foregroundColor: Colors.black,
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12)),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            );
-          }
+              );
+            }
 
-          return Column(
-            children: [
-              if (_showWelcomeBanner) _buildWelcomeBanner(),
-              Expanded(
-                child: RefreshIndicator(
-                  onRefresh: context.read<HomeCubit>().refresh,
-                  color: context.accentColor,
-                  backgroundColor: AppColors.tertiary,
-                  child: LayoutBuilder(
-                    builder: (context, constraints) {
-                      if (state.events.isEmpty) {
-                        return SingleChildScrollView(
-                          physics: const AlwaysScrollableScrollPhysics(),
-                          controller: _scrollController,
-                          child: Container(
-                            height: constraints.maxHeight,
-                            alignment: Alignment.center,
-                            padding: const EdgeInsets.all(24.0),
-                            child: Text(
-                              "You haven't joined any events yet.\nBook your first event to get started!",
-                              textAlign: TextAlign.center,
-                              style: AppTypography.inter(
-                                fontSize: 16,
-                                color: Colors.grey[500],
-                              ),
-                            ),
-                          ),
-                        );
-                      }
-
-                      final isWide = constraints.maxWidth > 600;
-                      
-                      if (isWide) {
-                        return GridView.builder(
-                          controller: _scrollController,
-                          padding: const EdgeInsets.all(16),
-                          gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                            maxCrossAxisExtent: 400,
-                            mainAxisSpacing: 16,
-                            crossAxisSpacing: 16,
-                            childAspectRatio: 1.0, // Square shape
-                          ),
-                          itemCount: state.events.length + (state.isLoadingMore ? 1 : 0),
-                          itemBuilder: (context, index) {
-                            if (index == state.events.length) {
-                              return Center(
-                                child: CircularProgressIndicator(color: context.accentColor),
-                              );
-                            }
-                            return ForumWidget(event: state.events[index], isGrid: true);
-                          },
-                        );
-                      }
-
-                      return ListView.builder(
-                        controller: _scrollController,
-                        padding: const EdgeInsets.all(12),
-                        itemCount:
-                            state.events.length + (state.isLoadingMore ? 1 : 0),
-                        itemBuilder: (context, index) {
-                          // Bottom pagination spinner
-                          if (index == state.events.length) {
-                            return Padding(
-                              padding: const EdgeInsets.all(16.0),
-                              child: Center(
-                                child: CircularProgressIndicator(
-                                  color: context.accentColor,
+            return Column(
+              children: [
+                if (_showWelcomeBanner) _buildWelcomeBanner(),
+                Expanded(
+                  child: RefreshIndicator(
+                    onRefresh: context.read<HomeCubit>().refresh,
+                    color: context.accentColor,
+                    backgroundColor: AppColors.tertiary,
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        if (state.events.isEmpty) {
+                          return SingleChildScrollView(
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            controller: _scrollController,
+                            child: Container(
+                              height: constraints.maxHeight,
+                              alignment: Alignment.center,
+                              padding: const EdgeInsets.all(24.0),
+                              child: Text(
+                                "You haven't joined any events yet.\nBook your first event to get started!",
+                                textAlign: TextAlign.center,
+                                style: AppTypography.inter(
+                                  fontSize: 16,
+                                  color: Colors.grey[500],
                                 ),
                               ),
-                            );
-                          }
-                          return ForumWidget(event: state.events[index]);
-                        },
-                      );
-                    },
+                            ),
+                          );
+                        }
+
+                        final isWide = constraints.maxWidth > 600;
+
+                        if (isWide) {
+                          return GridView.builder(
+                            controller: _scrollController,
+                            padding: const EdgeInsets.all(16),
+                            gridDelegate:
+                                const SliverGridDelegateWithMaxCrossAxisExtent(
+                              maxCrossAxisExtent: 400,
+                              mainAxisSpacing: 16,
+                              crossAxisSpacing: 16,
+                              childAspectRatio: 1.0, // Square shape
+                            ),
+                            itemCount: state.events.length +
+                                (state.isLoadingMore ? 1 : 0),
+                            itemBuilder: (context, index) {
+                              if (index == state.events.length) {
+                                return Center(
+                                  child: CircularProgressIndicator(
+                                      color: context.accentColor),
+                                );
+                              }
+                              return ForumWidget(
+                                  event: state.events[index], isGrid: true);
+                            },
+                          );
+                        }
+
+                        return ListView.builder(
+                          controller: _scrollController,
+                          padding: const EdgeInsets.all(12),
+                          itemCount: state.events.length +
+                              (state.isLoadingMore ? 1 : 0),
+                          itemBuilder: (context, index) {
+                            // Bottom pagination spinner
+                            if (index == state.events.length) {
+                              return Padding(
+                                padding: const EdgeInsets.all(16.0),
+                                child: Center(
+                                  child: CircularProgressIndicator(
+                                    color: context.accentColor,
+                                  ),
+                                ),
+                              );
+                            }
+                            return ForumWidget(event: state.events[index]);
+                          },
+                        );
+                      },
+                    ),
                   ),
                 ),
-              ),
-              Container(
-                decoration: const BoxDecoration(
-                  border: Border(
-                    top: BorderSide(color: Colors.white12, width: 0.5),
+                Container(
+                  decoration: const BoxDecoration(
+                    border: Border(
+                      top: BorderSide(color: Colors.white12, width: 0.5),
+                    ),
+                  ),
+                  padding: const EdgeInsets.all(16.0),
+                  child: PrimaryButton(
+                    icon: Icons.search,
+                    text: 'Look up new events',
+                    onPressed: _launchWebApp,
                   ),
                 ),
-                padding: const EdgeInsets.all(16.0),
-                child: PrimaryButton(
-                  icon: Icons.search,
-                  text: 'Look up new events',
-                  onPressed: _launchWebApp,
-                ),
-              ),
-            ],
-          );
-        },
+              ],
+            );
+          },
+        ),
       ),
-    ),
-  );
-}
+    );
+  }
 
   Widget _buildWelcomeBanner() {
     return Container(
@@ -342,7 +364,8 @@ class _HomeViewState extends State<HomeView>
             ),
           ),
           IconButton(
-            icon: Icon(Icons.close, color: Colors.white.withValues(alpha: 0.3), size: 16),
+            icon: Icon(Icons.close,
+                color: Colors.white.withValues(alpha: 0.3), size: 16),
             onPressed: _dismissWelcomeBanner,
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
@@ -372,7 +395,7 @@ class _HomeViewState extends State<HomeView>
       title: RepaintBoundary(
         child: SvgPicture.asset(
           'assets/images/official_lynk-x_combined-logo.svg',
-        width: 200,
+          width: 200,
           fit: BoxFit.contain,
         ),
       ),

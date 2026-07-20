@@ -35,6 +35,8 @@ class UserPresenceCard extends StatefulWidget {
 
   String get roleLabel => _roleLabels[roleId] ?? 'Member';
 
+  bool get isTargetModerator => isOrganizer ? false : roleId == 'moderator';
+
   @override
   State<UserPresenceCard> createState() => _UserPresenceCardState();
 }
@@ -106,6 +108,14 @@ class _UserPresenceCardState extends State<UserPresenceCard> {
     final forumState = forumCubit.state;
     final bool canScan = forumState.isOrganizer || forumState.isModerator;
 
+    final bool targetIsOrganizer = widget.isOrganizer;
+    final bool targetIsModerator = widget.isTargetModerator;
+    final bool canMute =
+        !widget.isPrimary && !targetIsOrganizer && !targetIsModerator;
+    final bool canMakeAdmin =
+        !widget.isPrimary && !targetIsOrganizer && !targetIsModerator;
+    final bool canReport = !widget.isPrimary && !targetIsOrganizer;
+
     return ActionBar(
       padding: const EdgeInsets.only(bottom: 12),
       items: [
@@ -159,7 +169,7 @@ class _UserPresenceCardState extends State<UserPresenceCard> {
                   context, 'You waved at ${widget.username}!');
             },
           ),
-        if (forumState.isOrganizer && !widget.isPrimary)
+        if (forumState.isOrganizer && canMakeAdmin)
           ActionBarItem(
             label: 'Make Admin',
             onTap: () async {
@@ -177,7 +187,7 @@ class _UserPresenceCardState extends State<UserPresenceCard> {
             },
             color: context.accentColor,
           ),
-        if (forumState.isModerator && !widget.isPrimary)
+        if (forumState.isModerator && canMute)
           ActionBarItem(
             label: 'Mute',
             onTap: () async {
@@ -195,7 +205,7 @@ class _UserPresenceCardState extends State<UserPresenceCard> {
             },
             color: Colors.red,
           ),
-        if (!widget.isPrimary) ...[
+        if (canReport) ...[
           ActionBarItem(
             label: 'Report',
             color: Colors.red,
