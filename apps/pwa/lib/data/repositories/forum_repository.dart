@@ -9,7 +9,8 @@ class ForumRepository {
     final forumData = await _client
         .schema('api')
         .from('v1_forums')
-        .select('id, account_id, status, event_id, event_created_at, event_title, created_at, reference')
+        .select(
+            'id, account_id, status, event_id, event_created_at, event_title, created_at, reference')
         .eq('id', forumId)
         .maybeSingle();
 
@@ -38,11 +39,11 @@ class ForumRepository {
 
   Future<Map<String, dynamic>> getForumWithMemberStatusByReference(
       String reference, String userId) async {
-    final isUuid = RegExp(r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$').hasMatch(reference);
-    final query = _client
-        .schema('api')
-        .from('v1_forums')
-        .select('id, account_id, status, event_id, event_created_at, event_title, created_at, reference');
+    final isUuid = RegExp(
+            r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$')
+        .hasMatch(reference);
+    final query = _client.schema('api').from('v1_forums').select(
+        'id, account_id, status, event_id, event_created_at, event_title, created_at, reference');
 
     final forumData = await (isUuid
         ? query.eq('id', reference).maybeSingle()
@@ -85,17 +86,22 @@ class ForumRepository {
     final data = await _client
         .schema('api')
         .from('v1_forum_members')
-        .select('user_id, user_name, avatar_url, is_premium')
+        .select('user_id, user_name, avatar_url, is_premium, role_id')
         .eq('forum_id', forumId);
-        
-    return data.map((item) => {
-      'user_profile': {
-        'id': item['user_id'],
-        'user_name': item['user_name'],
-        'avatar_url': item['avatar_url'],
-        'is_premium': item['is_premium'],
-      }
-    }).toList();
+
+    return data
+        .map((item) => {
+              'user_profile': {
+                'id': item['user_id'],
+                'user_name': item['user_name'],
+                'avatar_url': item['avatar_url'],
+                'is_premium': item['is_premium'],
+                'role_id': item['role_id'],
+                'is_organizer': item['role_id'] == 'organizer',
+                'is_moderator': item['role_id'] == 'moderator',
+              }
+            })
+        .toList();
   }
 
   Future<List<Map<String, dynamic>>> getForumSessions(
@@ -129,8 +135,7 @@ class ForumRepository {
     await _client
         .schema('social')
         .from('forums')
-        .update({'status': status})
-        .eq('id', forumId);
+        .update({'status': status}).eq('id', forumId);
   }
 
   Future<void> updateMemberRole(
@@ -144,7 +149,9 @@ class ForumRepository {
   }
 
   Future<void> markForumAsRead(String forumId) async {
-    await _client.schema('api').rpc('mark_forum_as_read', params: {'p_forum_id': forumId});
+    await _client
+        .schema('api')
+        .rpc('mark_forum_as_read', params: {'p_forum_id': forumId});
   }
 
   Future<void> moderateUser({
@@ -187,10 +194,7 @@ class ForumRepository {
           .eq('created_at', existing['created_at'] as String);
       return false;
     } else {
-      await _client
-          .schema('social')
-          .from('message_reactions')
-          .insert({
+      await _client.schema('social').from('message_reactions').insert({
         'message_id': messageId,
         'message_created_at': messageCreatedAt,
         'user_id': userId,
@@ -204,16 +208,14 @@ class ForumRepository {
     await _client
         .schema('social')
         .from('forum_messages')
-        .update({'is_pinned': true})
-        .eq('id', messageId);
+        .update({'is_pinned': true}).eq('id', messageId);
   }
 
   Future<void> unpinMessage(String messageId) async {
     await _client
         .schema('social')
         .from('forum_messages')
-        .update({'is_pinned': false})
-        .eq('id', messageId);
+        .update({'is_pinned': false}).eq('id', messageId);
   }
 
   Future<void> submitReport({
@@ -254,10 +256,8 @@ class ForumRepository {
     String? messageType,
     String? hashtag,
   }) async {
-    var query = _client
-        .from('vw_forum_messages')
-        .select()
-        .eq('forum_id', forumId);
+    var query =
+        _client.from('vw_forum_messages').select().eq('forum_id', forumId);
 
     if (messageType != null) {
       query = query.eq('message_type', messageType);
@@ -290,8 +290,7 @@ class ForumRepository {
     return List<Map<String, dynamic>>.from(data);
   }
 
-  Future<Map<String, dynamic>> sendMessage(
-      Map<String, dynamic> payload) async {
+  Future<Map<String, dynamic>> sendMessage(Map<String, dynamic> payload) async {
     final data = await _client
         .schema('social')
         .from('forum_messages')
@@ -314,9 +313,7 @@ class ForumRepository {
     String forumId,
     void Function(PostgresChangePayload) callback,
   ) {
-    return _client
-        .channel('forum_messages_$forumId')
-        .onPostgresChanges(
+    return _client.channel('forum_messages_$forumId').onPostgresChanges(
           event: PostgresChangeEvent.all,
           schema: 'social',
           table: 'forum_messages',
@@ -333,9 +330,7 @@ class ForumRepository {
     String forumId,
     void Function(PostgresChangePayload) callback,
   ) {
-    return _client
-        .channel('forum_status_$forumId')
-        .onPostgresChanges(
+    return _client.channel('forum_status_$forumId').onPostgresChanges(
           event: PostgresChangeEvent.update,
           schema: 'social',
           table: 'forums',
@@ -353,9 +348,7 @@ class ForumRepository {
     String userId,
     void Function(PostgresChangePayload) callback,
   ) {
-    return _client
-        .channel('forum_member_${forumId}_$userId')
-        .onPostgresChanges(
+    return _client.channel('forum_member_${forumId}_$userId').onPostgresChanges(
           event: PostgresChangeEvent.all,
           schema: 'social',
           table: 'forum_members',
@@ -372,9 +365,7 @@ class ForumRepository {
     String forumId,
     void Function(PostgresChangePayload) callback,
   ) {
-    return _client
-        .channel('forum_media_$forumId')
-        .onPostgresChanges(
+    return _client.channel('forum_media_$forumId').onPostgresChanges(
           event: PostgresChangeEvent.all,
           schema: 'social',
           table: 'forum_media',

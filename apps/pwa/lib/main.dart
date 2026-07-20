@@ -8,20 +8,51 @@ import 'package:hydrated_bloc/hydrated_bloc.dart';
 import 'package:flutter_web_plugins/url_strategy.dart';
 import 'app.dart';
 
+/// Fallback [Storage] used when [HydratedStorage.build] fails (e.g.
+/// IndexedDB unavailable in private/incognito mode, or blocked by a
+/// privacy extension). Keeps the app bootable without persisted state.
+class _InMemoryStorage implements Storage {
+  final Map<String, dynamic> _data = {};
+
+  @override
+  dynamic read(String key) => _data[key];
+
+  @override
+  Future<void> write(String key, dynamic value) async => _data[key] = value;
+
+  @override
+  Future<void> delete(String key) async => _data.remove(key);
+
+  @override
+  Future<void> clear() async => _data.clear();
+
+  @override
+  Future<void> close() async {}
+}
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   usePathUrlStrategy();
 
   // Initialize HydratedStorage for persistent state (Web only for PWA)
-  HydratedBloc.storage = await HydratedStorage.build(
-    storageDirectory: HydratedStorageDirectory.web,
-  );
+  try {
+    HydratedBloc.storage = await HydratedStorage.build(
+      storageDirectory: HydratedStorageDirectory.web,
+    );
+  } catch (e) {
+    debugPrint('[Main] HydratedStorage initialization failed: $e');
+    HydratedBloc.storage = _InMemoryStorage();
+  }
 
   // Lock orientation to portrait
-  await SystemChrome.setPreferredOrientations([
-    DeviceOrientation.portraitUp,
-    DeviceOrientation.portraitDown,
-  ]);
+  try {
+    await SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.portraitDown,
+    ]);
+  } catch (e) {
+    debugPrint('[Main] setPreferredOrientations failed: $e');
+  }
 
   const supabaseUrl = String.fromEnvironment('SUPABASE_URL');
   const supabaseAnonKey = String.fromEnvironment('SUPABASE_PUBLISHABLE_KEY');
@@ -46,8 +77,12 @@ void main() async {
   }
 
   try {
-    final url = supabaseUrl.isNotEmpty ? supabaseUrl : 'https://placeholder.supabase.co';
-    final key = supabaseAnonKey.isNotEmpty ? supabaseAnonKey : 'placeholder_publishable_key';
+    final url = supabaseUrl.isNotEmpty
+        ? supabaseUrl
+        : 'https://placeholder.supabase.co';
+    final key = supabaseAnonKey.isNotEmpty
+        ? supabaseAnonKey
+        : 'placeholder_publishable_key';
     await Supabase.initialize(url: url, publishableKey: key);
   } catch (e) {
     debugPrint('[Main] Supabase initialization failed: $e');
@@ -58,8 +93,9 @@ void main() async {
       await SentryFlutter.init(
         (options) {
           options.dsn = sentryDsn;
-          options.environment =
-              const bool.fromEnvironment('dart.vm.product') ? 'production' : 'debug';
+          options.environment = const bool.fromEnvironment('dart.vm.product')
+              ? 'production'
+              : 'debug';
           options.tracesSampleRate = 0.1;
           options.attachScreenshot = true;
           options.screenshotQuality = SentryScreenshotQuality.low;

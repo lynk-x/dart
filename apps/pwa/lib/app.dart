@@ -39,7 +39,7 @@ class _LynkXAppWrapperState extends State<LynkXAppWrapper> {
     return MultiBlocProvider(
       providers: [
         BlocProvider(create: (context) => FeatureFlagCubit()..init()),
-        BlocProvider(create: (context) => SystemConfigCubit()..init()),
+        BlocProvider(create: (context) => SystemConfigCubit()),
         BlocProvider(
             create: (context) =>
                 ProfileCubit(profileRepository)..loadProfile()),
@@ -140,6 +140,11 @@ class _LynkXAppState extends State<LynkXApp> {
           context.read<ProfileCubit>().loadProfile();
           context.read<NotificationCubit>().loadNotifications();
           PushNotificationService.instance.init();
+
+          final user = Supabase.instance.client.auth.currentUser;
+          if (user != null && !user.isAnonymous) {
+            context.read<SystemConfigCubit>().fetchConfigs();
+          }
         } else if (data.event == AuthChangeEvent.tokenRefreshed) {
           // Session token was silently refreshed (e.g. app foregrounded after
           // expiry). Re-sync profile and wallet so they hold fresh data.
@@ -171,7 +176,8 @@ class _LynkXAppState extends State<LynkXApp> {
       _isSupabaseInitialized = true;
     } catch (_) {
       const supabaseUrl = String.fromEnvironment('SUPABASE_URL');
-      const supabaseAnonKey = String.fromEnvironment('SUPABASE_PUBLISHABLE_KEY');
+      const supabaseAnonKey =
+          String.fromEnvironment('SUPABASE_PUBLISHABLE_KEY');
       if (supabaseUrl.isNotEmpty && supabaseAnonKey.isNotEmpty) {
         try {
           await Supabase.initialize(

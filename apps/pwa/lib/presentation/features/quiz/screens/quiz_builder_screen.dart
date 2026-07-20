@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lynk_core/core.dart';
 import 'package:lynk_x/data/repositories/repository_providers.dart';
@@ -82,12 +83,12 @@ class _QuizBuilderViewState extends State<QuizBuilderView> {
               icon: const Icon(Icons.close, color: Colors.white),
               onPressed: () => _handleExit(context),
             ),
-            title: Text(
-              isQuiz ? 'Create Quiz' : 'Create Poll',
-              style: AppTypography.inter(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.white),
+            title: RepaintBoundary(
+              child: SvgPicture.asset(
+                'assets/images/official_lynk-x_combined-logo.svg',
+                width: 140,
+                fit: BoxFit.contain,
+              ),
             ),
             centerTitle: true,
             actions: [
@@ -117,28 +118,38 @@ class _QuizBuilderViewState extends State<QuizBuilderView> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: (draft.status == 'published'
-                                  ? Colors.greenAccent
-                                  : Colors.orangeAccent)
-                              .withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(6),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            isQuiz ? 'Create Quiz' : 'Create Poll',
+                            style: AppTypography.inter(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white),
+                          ),
                         ),
-                        child: Text(
-                          draft.status.toUpperCase(),
-                          style: AppTypography.inter(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w600,
-                              color: draft.status == 'published'
-                                  ? Colors.greenAccent
-                                  : Colors.orangeAccent),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: (draft.status == 'published'
+                                    ? Colors.greenAccent
+                                    : Colors.orangeAccent)
+                                .withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            draft.status.toUpperCase(),
+                            style: AppTypography.inter(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                                color: draft.status == 'published'
+                                    ? Colors.greenAccent
+                                    : Colors.orangeAccent),
+                          ),
                         ),
-                      ),
+                      ],
                     ),
                     const SizedBox(height: 8),
                     TextField(

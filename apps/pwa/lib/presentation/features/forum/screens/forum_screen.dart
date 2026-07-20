@@ -985,6 +985,7 @@ class _ForumPresenceDrawerWrapper extends StatelessWidget {
     final forumState = context.watch<ForumCubit>().state;
 
     return PresenceDrawer(
+      members: forumState.members,
       onlineUsers: presenceState.onlineUsers,
       eventProgress: forumState.eventProgress,
       isPremium: forumState.isPremium,

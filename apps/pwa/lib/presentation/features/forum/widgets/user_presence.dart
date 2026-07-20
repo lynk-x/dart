@@ -9,7 +9,8 @@ import 'package:lynk_x/presentation/shared/utils/app_snackbars.dart';
 class UserPresenceCard extends StatefulWidget {
   final String userId;
   final String username;
-  final String status;
+  final String? roleId;
+  final bool isOnline;
   final bool isPrimary;
   final bool isOrganizer;
   final bool isPremium;
@@ -18,11 +19,21 @@ class UserPresenceCard extends StatefulWidget {
     super.key,
     required this.userId,
     required this.username,
-    required this.status,
+    required this.isOnline,
+    this.roleId,
     this.isPrimary = false,
     this.isOrganizer = false,
     this.isPremium = false,
   });
+
+  static const Map<String, String> _roleLabels = {
+    'organizer': 'Organizer',
+    'moderator': 'Moderator',
+    'vip_member': 'VIP Member',
+    'member': 'Member',
+  };
+
+  String get roleLabel => _roleLabels[roleId] ?? 'Member';
 
   @override
   State<UserPresenceCard> createState() => _UserPresenceCardState();
@@ -39,50 +50,54 @@ class _UserPresenceCardState extends State<UserPresenceCard> {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        GestureDetector(
-          onTap: _toggleActions,
-          child: Container(
-            width: double.infinity,
-            margin: const EdgeInsets.only(bottom: 8),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            decoration: BoxDecoration(
-              color: widget.isPrimary
-                  ? context.accentColor
-                  : const Color(0xFF1E1E1E),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(
-                color: widget.isPremium ? AppColors.secondary : Colors.white12,
+    return Opacity(
+      opacity: widget.isOnline ? 1.0 : 0.45,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          GestureDetector(
+            onTap: _toggleActions,
+            child: Container(
+              width: double.infinity,
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: widget.isPrimary
+                    ? context.accentColor
+                    : const Color(0xFF1E1E1E),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color:
+                      widget.isPremium ? AppColors.secondary : Colors.white12,
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    widget.username,
+                    style: AppTypography.interTight(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: widget.isPrimary ? Colors.black : Colors.white,
+                    ),
+                  ),
+                  Text(
+                    widget.roleLabel,
+                    style: AppTypography.inter(
+                      fontSize: 12,
+                      color: widget.isPrimary
+                          ? Colors.black.withValues(alpha: 0.7)
+                          : Colors.white.withValues(alpha: 0.6),
+                    ),
+                  ),
+                ],
               ),
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  widget.username,
-                  style: AppTypography.interTight(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: widget.isPrimary ? Colors.black : Colors.white,
-                  ),
-                ),
-                Text(
-                  widget.status,
-                  style: AppTypography.inter(
-                    fontSize: 12,
-                    color: widget.isPrimary 
-                        ? Colors.black.withValues(alpha: 0.7)
-                        : Colors.white.withValues(alpha: 0.6),
-                  ),
-                ),
-              ],
-            ),
           ),
-        ),
-        if (_showActions) _buildActionRow(),
-      ],
+          if (_showActions) _buildActionRow(),
+        ],
+      ),
     );
   }
 
@@ -103,14 +118,17 @@ class _UserPresenceCardState extends State<UserPresenceCard> {
             },
             color: context.accentColor,
           ),
-          ActionBarItem(
-            label: 'View Ticket',
-            onTap: () {
-              _toggleActions();
-              context.push('/tickets');
-            },
-            color: context.accentColor,
-          ),
+          // Organizers/moderators run the event rather than attend it, so a
+          // ticket to scan into their own event isn't applicable to them.
+          if (!canScan)
+            ActionBarItem(
+              label: 'View Ticket',
+              onTap: () {
+                _toggleActions();
+                context.push('/tickets');
+              },
+              color: context.accentColor,
+            ),
           if (canScan)
             ActionBarItem(
               label: 'Scan Tickets',
@@ -119,7 +137,8 @@ class _UserPresenceCardState extends State<UserPresenceCard> {
                 final eventId = forumState.eventId;
                 final eventCreatedAt = forumState.eventCreatedAt;
                 if (eventId == null || eventCreatedAt == null) {
-                  AppSnackBars.showInfo(context, 'No active event associated with this forum.');
+                  AppSnackBars.showInfo(
+                      context, 'No active event associated with this forum.');
                   return;
                 }
                 context.push(
@@ -129,7 +148,6 @@ class _UserPresenceCardState extends State<UserPresenceCard> {
               color: context.accentColor,
             ),
         ],
-
         if (!widget.isPrimary)
           ActionBarItem(
             label: 'Wave 👋',
@@ -137,32 +155,46 @@ class _UserPresenceCardState extends State<UserPresenceCard> {
               _toggleActions();
               final cubit = context.read<ForumCubit>();
               cubit.waveAtUser(widget.userId, cubit.userName);
-              AppSnackBars.showSuccess(context, 'You waved at ${widget.username}!');
+              AppSnackBars.showSuccess(
+                  context, 'You waved at ${widget.username}!');
             },
           ),
-          
-        if (context.read<ForumCubit>().state.isOrganizer &&
-            !widget.isPrimary) ...[
+        if (forumState.isOrganizer && !widget.isPrimary)
           ActionBarItem(
             label: 'Make Admin',
-            onTap: () {
+            onTap: () async {
               _toggleActions();
-              context.read<ForumCubit>().makeModerator(widget.userId);
-              AppSnackBars.showSuccess(context, '${widget.username} is now an admin.');
+              final success =
+                  await context.read<ForumCubit>().makeModerator(widget.userId);
+              if (!mounted) return;
+              if (success) {
+                AppSnackBars.showSuccess(
+                    context, '${widget.username} is now an admin.');
+              } else {
+                AppSnackBars.showError(
+                    context, 'Could not make ${widget.username} an admin.');
+              }
             },
             color: context.accentColor,
           ),
+        if (forumState.isModerator && !widget.isPrimary)
           ActionBarItem(
             label: 'Mute',
-            onTap: () {
+            onTap: () async {
               _toggleActions();
-              context.read<ForumCubit>().muteUser(widget.userId);
-              AppSnackBars.showSuccess(context, '${widget.username} has been muted.');
+              final success =
+                  await context.read<ForumCubit>().muteUser(widget.userId);
+              if (!mounted) return;
+              if (success) {
+                AppSnackBars.showSuccess(
+                    context, '${widget.username} has been muted.');
+              } else {
+                AppSnackBars.showError(
+                    context, 'Could not mute ${widget.username}.');
+              }
             },
             color: Colors.red,
           ),
-        ],
-
         if (!widget.isPrimary) ...[
           ActionBarItem(
             label: 'Report',
