@@ -20,6 +20,24 @@ class QuizBuilderCubit extends Cubit<QuizBuilderState> {
     ));
   }
 
+  void updateGameConfig({
+    int? timePerQuestionSeconds,
+    QuizScoringMode? scoringMode,
+    bool? shuffleAnswers,
+    bool? shuffleQuestions,
+    bool? revealAnswer,
+  }) {
+    emit(state.copyWith(
+      draft: state.draft.copyWith(
+        timePerQuestionSeconds: timePerQuestionSeconds,
+        scoringMode: scoringMode,
+        shuffleAnswers: shuffleAnswers,
+        shuffleQuestions: shuffleQuestions,
+        revealAnswer: revealAnswer,
+      ),
+    ));
+  }
+
   void addQuestion() {
     final updatedQuestions = List<DraftQuestion>.from(state.draft.questions)
       ..add(const DraftQuestion());

@@ -9,8 +9,7 @@ class QuizRepository {
   final SupabaseClient _client;
   QuizRepository(this._client);
 
-  Future<Map<String, dynamic>> getQuestionnaire(
-      String questionnaireId) async {
+  Future<Map<String, dynamic>> getQuestionnaire(String questionnaireId) async {
     return await _client
         .schema('api')
         .from('v1_questionnaires')
@@ -32,9 +31,10 @@ class QuizRepository {
         .maybeSingle();
   }
 
-  Future<List<Map<String, dynamic>>> getLeaderboard(String quizId, {int limit = 5}) async {
-    final data = await _client
-        .schema('api').rpc('get_quiz_leaderboard', params: {'p_quiz_id': quizId, 'p_limit': limit});
+  Future<List<Map<String, dynamic>>> getLeaderboard(String quizId,
+      {int limit = 5}) async {
+    final data = await _client.schema('api').rpc('get_quiz_leaderboard',
+        params: {'p_quiz_id': quizId, 'p_limit': limit});
     return List<Map<String, dynamic>>.from(data as List);
   }
 
@@ -45,7 +45,8 @@ class QuizRepository {
     final data = await _client
         .schema('api')
         .from('v1_quiz_leaderboard')
-        .select('user_id, display_name, avatar_url, total_score, answers_count, last_answered_at')
+        .select(
+            'user_id, display_name, avatar_url, total_score, answers_count, last_answered_at')
         .eq('questionnaire_id', questionnaireId)
         .order('total_score', ascending: false)
         .order('last_answered_at', ascending: true)
@@ -73,12 +74,17 @@ class QuizRepository {
     required String quizState,
     required int questionIndex,
     String? expiresAt,
+    // Only meaningful (and only applied) on the lobby -> playing transition;
+    // the RPC ignores it otherwise. Randomizes surveys.questions.order_index
+    // once, server-side, so every player sees the same shuffled order.
+    bool shuffleQuestions = false,
   }) async {
     await _client.schema('api').rpc('update_quiz_state', params: {
       'p_questionnaire_id': questionnaireId,
       'p_quiz_state': quizState,
       'p_question_index': questionIndex,
       'p_expires_at': expiresAt,
+      'p_shuffle_questions': shuffleQuestions,
     });
   }
 
@@ -86,9 +92,7 @@ class QuizRepository {
     String questionnaireId,
     void Function(PostgresChangePayload) callback,
   ) {
-    return _client
-        .channel('quiz_live_$questionnaireId')
-        .onPostgresChanges(
+    return _client.channel('quiz_live_$questionnaireId').onPostgresChanges(
           event: PostgresChangeEvent.update,
           schema: 'surveys',
           table: 'questionnaires',

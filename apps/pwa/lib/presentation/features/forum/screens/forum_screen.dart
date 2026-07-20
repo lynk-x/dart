@@ -28,6 +28,7 @@ import 'package:lynk_x/presentation/features/forum/widgets/tabs/live_chat_tab.da
 import 'package:lynk_x/presentation/features/forum/widgets/tabs/media_tab.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/reaction_background.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/reaction_bar.dart';
+import 'package:lynk_x/presentation/features/forum/widgets/polls/poll_card_editor.dart';
 
 import 'package:lynk_x/presentation/features/forum/widgets/welcome_banner.dart';
 import 'package:lynk_x/data/repositories/repository_providers.dart';
@@ -791,7 +792,7 @@ class _ForumViewState extends State<ForumView> {
                     'Ask a quick question and watch results come in live.',
                 onTap: () {
                   Navigator.pop(sheetContext);
-                  context.read<ForumCubit>().openPollComposer();
+                  _showPollEditorSheet(forumId);
                 },
               ),
               const SizedBox(height: 12),
@@ -812,6 +813,27 @@ class _ForumViewState extends State<ForumView> {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  void _showPollEditorSheet(String forumId) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (sheetContext) => Padding(
+        padding: EdgeInsets.only(
+          left: 16,
+          right: 16,
+          bottom: MediaQuery.of(sheetContext).viewInsets.bottom + 16,
+          top: 16,
+        ),
+        child: PollCardEditor(
+          forumId: forumId,
+          onCancel: () => Navigator.pop(sheetContext),
+          onPublished: () => Navigator.pop(sheetContext),
         ),
       ),
     );

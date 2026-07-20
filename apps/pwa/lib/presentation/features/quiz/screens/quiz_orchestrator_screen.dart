@@ -39,10 +39,18 @@ class QuizOrchestratorScreen extends StatelessWidget {
 
           case QuizStatus.playing:
           case QuizStatus.reveal:
+            // options is swapped for the (possibly per-user-shuffled)
+            // display order; ChallengeScreen only ever deals in display
+            // positions — index translation to/from stored order happens
+            // in QuizState/QuizCubit, not here or in ChallengeScreen.
+            final displayQuestion = {
+              ...?state.currentQuestion,
+              'options': state.displayOptions,
+            };
             return ChallengeScreen(
-              question: state.currentQuestion ?? const {},
+              question: displayQuestion,
               timeLeft: state.timeLeft,
-              selectedIndex: state.myAnswerIndex,
+              selectedIndex: state.myAnswerDisplayIndex,
               onOptionSelected: cubit.submitAnswer,
               isHost: state.isHost,
               // Pausing has no server-side counterpart today (no 'paused'
@@ -53,13 +61,19 @@ class QuizOrchestratorScreen extends StatelessWidget {
                   ? cubit.showLeaderboard
                   : null,
               onBack: () => context.pop(),
-              correctOptionIndices: state.correctOptionIndices,
+              // null (not just empty) when info.reveal_answer is false, so
+              // ChallengeScreen's existing "no reveal styling" path applies
+              // even past 'playing' — see its own doc comment.
+              correctOptionIndices: _revealAnswerEnabled(state)
+                  ? state.correctOptionIndices
+                  : null,
             );
 
           case QuizStatus.leaderboard:
             final questionsCount =
                 state.questionnaire?['info']?['questions_count'] as int? ?? 0;
-            final annotated = _withCurrentUserFlag(state.leaderboard, cubit.userId);
+            final annotated =
+                _withCurrentUserFlag(state.leaderboard, cubit.userId);
             final myEntry = _findCurrentUser(annotated);
             return LeaderboardScreen(
               leaderboard: annotated,
@@ -71,7 +85,8 @@ class QuizOrchestratorScreen extends StatelessWidget {
             );
 
           case QuizStatus.podium:
-            final annotated = _withCurrentUserFlag(state.leaderboard, cubit.userId);
+            final annotated =
+                _withCurrentUserFlag(state.leaderboard, cubit.userId);
             final myEntry = _findCurrentUser(annotated);
             return PodiumScreen(
               winners: annotated,
@@ -107,13 +122,21 @@ class QuizOrchestratorScreen extends StatelessWidget {
           case QuizStatus.error:
             return SystemErrorScreen(
               title: 'Quiz Error',
-              message: state.errorMessage ?? 'Something went wrong loading this quiz.',
+              message: state.errorMessage ??
+                  'Something went wrong loading this quiz.',
               buttonText: 'Back to forum',
               onAction: () => context.pop(),
             );
         }
       },
     );
+  }
+
+  /// Whether the reveal step should show correct/wrong styling at all —
+  /// configurable via the builder's "Reveal correct answer" toggle, default
+  /// true (today's only behavior) so unset/legacy quizzes are unchanged.
+  bool _revealAnswerEnabled(QuizState state) {
+    return state.questionnaire?['info']?['reveal_answer'] as bool? ?? true;
   }
 
   /// The leaderboard RPC (`get_quiz_leaderboard`) does not return an
@@ -131,7 +154,8 @@ class QuizOrchestratorScreen extends StatelessWidget {
         .toList();
   }
 
-  Map<String, dynamic>? _findCurrentUser(List<Map<String, dynamic>> leaderboard) {
+  Map<String, dynamic>? _findCurrentUser(
+      List<Map<String, dynamic>> leaderboard) {
     for (final entry in leaderboard) {
       if (entry['is_current_user'] == true) return entry;
     }

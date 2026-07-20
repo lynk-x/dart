@@ -30,7 +30,6 @@ class ForumState extends Equatable {
   final String? waveFromName;
   final String? waveFromUserId;
   final int waveTrigger;
-  final bool isComposingPoll;
 
   bool get isReadOnly => forumStatus == 'read_only';
 
@@ -60,7 +59,6 @@ class ForumState extends Equatable {
     this.waveFromName,
     this.waveFromUserId,
     this.waveTrigger = 0,
-    this.isComposingPoll = false,
   });
 
   ForumState copyWith({
@@ -90,7 +88,6 @@ class ForumState extends Equatable {
     String? waveFromName,
     String? waveFromUserId,
     int? waveTrigger,
-    bool? isComposingPoll,
   }) {
     return ForumState(
       forumId: forumId ?? this.forumId,
@@ -120,7 +117,6 @@ class ForumState extends Equatable {
       waveFromName: waveFromName ?? this.waveFromName,
       waveFromUserId: waveFromUserId ?? this.waveFromUserId,
       waveTrigger: waveTrigger ?? this.waveTrigger,
-      isComposingPoll: isComposingPoll ?? this.isComposingPoll,
     );
   }
 
@@ -151,6 +147,5 @@ class ForumState extends Equatable {
         waveFromName,
         waveFromUserId,
         waveTrigger,
-        isComposingPoll,
       ];
 }

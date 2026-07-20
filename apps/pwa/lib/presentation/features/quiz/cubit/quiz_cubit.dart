@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -35,16 +36,19 @@ class QuizCubit extends Cubit<QuizState> {
       _setupRealtimeListener();
 
       // 3. Initial sync if already playing
-      if (state.status == QuizStatus.playing || state.status == QuizStatus.reveal) {
+      if (state.status == QuizStatus.playing ||
+          state.status == QuizStatus.reveal) {
         await _fetchCurrentQuestion(state.currentQuestionIndex);
         _startLocalTimer(data['state_expires_at']);
       }
 
-      if (state.status == QuizStatus.leaderboard || state.status == QuizStatus.podium) {
+      if (state.status == QuizStatus.leaderboard ||
+          state.status == QuizStatus.podium) {
         await fetchLeaderboard();
       }
     } catch (e) {
-      emit(state.copyWith(status: QuizStatus.error, errorMessage: e.toString()));
+      emit(
+          state.copyWith(status: QuizStatus.error, errorMessage: e.toString()));
     }
   }
 
@@ -76,10 +80,32 @@ class QuizCubit extends Cubit<QuizState> {
     emit(state.copyWith(
       status: newStatus,
       currentQuestionIndex: newIndex,
-      clearMyAnswer: newIndex != state.currentQuestionIndex, // Clear selection on new question
+      clearMyAnswer: newIndex !=
+          state.currentQuestionIndex, // Clear selection on new question
     ));
 
     _startLocalTimer(expiresAt);
+  }
+
+  bool get _shuffleAnswers =>
+      state.questionnaire?['info']?['shuffle_answers'] as bool? ?? false;
+
+  /// Per-user, per-question shuffle order for answer options —
+  /// deterministic (seeded from userId + questionId) rather than stored, so
+  /// re-fetching the same question (e.g. the reveal re-fetch in
+  /// _handleUpdate, which needs correct_options) reproduces the exact same
+  /// order instead of reshuffling under the user mid-question.
+  List<int> _computeOptionOrder(Map<String, dynamic> question) {
+    final options = question['options'];
+    final count = options is List ? options.length : 0;
+    final identity = List<int>.generate(count, (i) => i);
+    if (!_shuffleAnswers || count < 2) return identity;
+
+    final questionId = question['id'] as String? ?? '';
+    final seed = userId.hashCode ^ questionId.hashCode;
+    final shuffled = List<int>.from(identity);
+    shuffled.shuffle(Random(seed));
+    return shuffled;
   }
 
   Future<void> _fetchCurrentQuestion(int index) async {
@@ -87,7 +113,10 @@ class QuizCubit extends Cubit<QuizState> {
     try {
       final data = await _repo.getQuestion(questionnaireId, index);
       if (data != null) {
-        emit(state.copyWith(currentQuestion: data));
+        emit(state.copyWith(
+          currentQuestion: data,
+          optionOrder: _computeOptionOrder(data),
+        ));
       }
     } catch (e) {
       debugPrint('Error fetching question: $e');
@@ -119,8 +148,13 @@ class QuizCubit extends Cubit<QuizState> {
     });
   }
 
-  Future<void> submitAnswer(int optionIndex) async {
-    if (state.status != QuizStatus.playing || state.myAnswerIndex != null) return;
+  /// [displayIndex] is the tapped position in the on-screen (possibly
+  /// shuffled) options list — translated to the underlying stored index
+  /// before submitting, since scoring/correct-answer checks are all keyed
+  /// to stored order server-side.
+  Future<void> submitAnswer(int displayIndex) async {
+    if (state.status != QuizStatus.playing || state.myAnswerIndex != null)
+      return;
 
     final question = state.currentQuestion;
     final questionId = question?['id'] as String?;
@@ -129,6 +163,8 @@ class QuizCubit extends Cubit<QuizState> {
       return;
     }
 
+    final storedIndex = state.storedIndexForDisplay(displayIndex);
+
     try {
       // responses.responses columns: question_id NOT NULL, selected_answer jsonb
       // (array of indices). The legacy 'answers' name was wrong.
@@ -136,13 +172,14 @@ class QuizCubit extends Cubit<QuizState> {
         questionnaireId: questionnaireId,
         questionId: questionId,
         userId: userId,
-        selectedAnswer: [optionIndex],
+        selectedAnswer: [storedIndex],
       );
       // Only record the answer locally after the server confirms it, so the
       // UI never shows an answer as submitted when the RPC failed.
-      emit(state.copyWith(myAnswerIndex: optionIndex));
+      emit(state.copyWith(myAnswerIndex: storedIndex));
     } catch (e) {
-      emit(state.copyWith(clearMyAnswer: true, errorMessage: "Failed to submit answer"));
+      emit(state.copyWith(
+          clearMyAnswer: true, errorMessage: "Failed to submit answer"));
       debugPrint('Error submitting answer: $e');
     }
   }
@@ -158,22 +195,34 @@ class QuizCubit extends Cubit<QuizState> {
 
   // --- Host Controls ---
 
+  /// Seconds allotted per question — configurable per-quiz via
+  /// info.time_per_question_seconds (the builder's "Time per question"
+  /// setting); 30 is the same default the runtime always used before that
+  /// setting existed, so an unset/legacy quiz behaves identically.
+  int get _timePerQuestionSeconds =>
+      state.questionnaire?['info']?['time_per_question_seconds'] as int? ?? 30;
+
+  bool get _shuffleQuestions =>
+      state.questionnaire?['info']?['shuffle_questions'] as bool? ?? false;
+
   Future<void> startQuiz() async {
     if (!state.isHost) return;
-    await _updateRemoteState('playing', 0, 30); // 30s for first question
+    await _updateRemoteState('playing', 0, _timePerQuestionSeconds,
+        shuffleQuestions: _shuffleQuestions);
   }
 
   Future<void> nextQuestion() async {
     if (!state.isHost) return;
 
     // Check if there are more questions
-    final questionsCount = state.questionnaire?['info']?['questions_count'] as int? ?? 0;
+    final questionsCount =
+        state.questionnaire?['info']?['questions_count'] as int? ?? 0;
     final nextIndex = state.currentQuestionIndex + 1;
 
     if (nextIndex >= questionsCount) {
       await showPodium();
     } else {
-      await _updateRemoteState('playing', nextIndex, 30);
+      await _updateRemoteState('playing', nextIndex, _timePerQuestionSeconds);
     }
   }
 
@@ -201,9 +250,17 @@ class QuizCubit extends Cubit<QuizState> {
     await _updateRemoteState('finished', state.currentQuestionIndex, 0);
   }
 
-  Future<void> _updateRemoteState(String quizState, int questionIndex, int seconds) async {
+  Future<void> _updateRemoteState(
+    String quizState,
+    int questionIndex,
+    int seconds, {
+    bool shuffleQuestions = false,
+  }) async {
     final expiresAt = seconds > 0
-        ? DateTime.now().toUtc().add(Duration(seconds: seconds)).toIso8601String()
+        ? DateTime.now()
+            .toUtc()
+            .add(Duration(seconds: seconds))
+            .toIso8601String()
         : null;
 
     await _repo.updateQuizState(
@@ -211,18 +268,26 @@ class QuizCubit extends Cubit<QuizState> {
       quizState: quizState,
       questionIndex: questionIndex,
       expiresAt: expiresAt,
+      shuffleQuestions: shuffleQuestions,
     );
   }
 
   QuizStatus _mapStatus(String? status) {
     switch (status) {
-      case 'lobby': return QuizStatus.lobby;
-      case 'playing': return QuizStatus.playing;
-      case 'reveal': return QuizStatus.reveal;
-      case 'leaderboard': return QuizStatus.leaderboard;
-      case 'podium': return QuizStatus.podium;
-      case 'finished': return QuizStatus.finished;
-      default: return QuizStatus.lobby;
+      case 'lobby':
+        return QuizStatus.lobby;
+      case 'playing':
+        return QuizStatus.playing;
+      case 'reveal':
+        return QuizStatus.reveal;
+      case 'leaderboard':
+        return QuizStatus.leaderboard;
+      case 'podium':
+        return QuizStatus.podium;
+      case 'finished':
+        return QuizStatus.finished;
+      default:
+        return QuizStatus.lobby;
     }
   }
 

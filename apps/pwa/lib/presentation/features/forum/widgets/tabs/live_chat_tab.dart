@@ -10,7 +10,6 @@ import 'package:lynk_x/presentation/features/forum/models/forum_model.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/message_input.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/typing_indicator.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/chat_message_list.dart';
-import 'package:lynk_x/presentation/features/forum/widgets/polls/poll_card_editor.dart';
 import 'package:lynk_x/presentation/shared/widgets/guest_profile_prompt_sheet.dart';
 
 /// The 'Live Chat' tab content for the Forum.
@@ -85,8 +84,7 @@ class _LiveChatTabState extends State<LiveChatTab>
           p.isOrganizer != c.isOrganizer ||
           p.isMuted != c.isMuted ||
           p.isReadOnly != c.isReadOnly ||
-          p.members != c.members ||
-          p.isComposingPoll != c.isComposingPoll,
+          p.members != c.members,
       builder: (context, mainState) {
         return Column(
           children: [
@@ -143,15 +141,6 @@ class _LiveChatTabState extends State<LiveChatTab>
                     : const SizedBox.shrink();
               },
             ),
-            if (mainState.isComposingPoll && mainState.forumId != null)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                child: PollCardEditor(
-                  forumId: mainState.forumId!,
-                  onCancel: () => mainCubit.closePollComposer(),
-                  onPublished: () => mainCubit.closePollComposer(),
-                ),
-              ),
             BlocBuilder<ForumChatCubit, ForumChatState>(
               buildWhen: (p, c) =>
                   p.editingMessage != c.editingMessage ||

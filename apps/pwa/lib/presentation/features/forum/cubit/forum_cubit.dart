@@ -258,10 +258,6 @@ class ForumCubit extends Cubit<ForumState> {
 
   void setTabIndex(int index) => emit(state.copyWith(currentTabIndex: index));
 
-  void openPollComposer() => emit(state.copyWith(isComposingPoll: true));
-
-  void closePollComposer() => emit(state.copyWith(isComposingPoll: false));
-
   // ── Moderation ─────────────────────────────────────────────────────────────
 
   /// Returns `true` on success, `false` if permission denied or RPC failed.

@@ -122,7 +122,7 @@ class _QuizBuilderViewState extends State<QuizBuilderView> {
                       children: [
                         Expanded(
                           child: Text(
-                            isQuiz ? 'Create Quiz' : 'Create Poll',
+                            isQuiz ? 'Create a LiveQuiz' : 'Create Poll',
                             style: AppTypography.inter(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w700,
@@ -186,6 +186,10 @@ class _QuizBuilderViewState extends State<QuizBuilderView> {
                         ),
                       ),
                     ),
+                    if (isQuiz) ...[
+                      const SizedBox(height: 16),
+                      _GameSettingsSection(draft: draft, cubit: cubit),
+                    ],
                   ],
                 ),
               ),
@@ -279,6 +283,164 @@ class _QuizBuilderViewState extends State<QuizBuilderView> {
             child: Text('Save Draft',
                 style: TextStyle(
                     color: context.accentColor, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Game configuration controls — time per question, scoring mode, shuffle,
+/// and reveal-answer toggle. Quiz-only (polls have no timer/scoring/reveal
+/// concept), so this is never shown when draft.type == 'poll'.
+class _GameSettingsSection extends StatelessWidget {
+  final DraftQuiz draft;
+  final QuizBuilderCubit cubit;
+
+  const _GameSettingsSection({required this.draft, required this.cubit});
+
+  static const _timeOptions = [10, 15, 20, 30, 45, 60, 90, 120];
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Game settings',
+              style: AppTypography.inter(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white70)),
+          const SizedBox(height: 12),
+
+          // Time per question
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('Time per question',
+                  style:
+                      AppTypography.inter(fontSize: 14, color: Colors.white)),
+              DropdownButton<int>(
+                value: draft.timePerQuestionSeconds,
+                dropdownColor: AppColors.surface,
+                underline: const SizedBox.shrink(),
+                style: AppTypography.inter(fontSize: 14, color: Colors.white),
+                items: _timeOptions
+                    .map((s) => DropdownMenuItem(
+                          value: s,
+                          child: Text('${s}s'),
+                        ))
+                    .toList(),
+                onChanged: (val) {
+                  if (val != null) {
+                    cubit.updateGameConfig(timePerQuestionSeconds: val);
+                  }
+                },
+              ),
+            ],
+          ),
+          const Divider(color: Colors.white12, height: 24),
+
+          // Scoring mode
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('Scoring',
+                  style:
+                      AppTypography.inter(fontSize: 14, color: Colors.white)),
+              SegmentedButton<QuizScoringMode>(
+                segments: const [
+                  ButtonSegment(
+                    value: QuizScoringMode.flat,
+                    label: Text('Flat'),
+                  ),
+                  ButtonSegment(
+                    value: QuizScoringMode.speed,
+                    label: Text('Speed bonus'),
+                  ),
+                ],
+                selected: {draft.scoringMode},
+                onSelectionChanged: (selection) {
+                  cubit.updateGameConfig(scoringMode: selection.first);
+                },
+                style: SegmentedButton.styleFrom(
+                  backgroundColor: Colors.transparent,
+                  foregroundColor: Colors.white70,
+                  selectedForegroundColor: Colors.black,
+                  selectedBackgroundColor: context.accentColor,
+                  side: const BorderSide(color: Colors.white24),
+                ),
+              ),
+            ],
+          ),
+          const Divider(color: Colors.white12, height: 24),
+
+          _SettingSwitch(
+            label: 'Shuffle answers',
+            subtitle: 'Each player sees options in a different order',
+            value: draft.shuffleAnswers,
+            onChanged: (v) => cubit.updateGameConfig(shuffleAnswers: v),
+          ),
+          _SettingSwitch(
+            label: 'Shuffle questions',
+            subtitle: 'Randomize question order when the quiz starts',
+            value: draft.shuffleQuestions,
+            onChanged: (v) => cubit.updateGameConfig(shuffleQuestions: v),
+          ),
+          _SettingSwitch(
+            label: 'Reveal correct answer',
+            subtitle: 'Show right/wrong styling before moving to standings',
+            value: draft.revealAnswer,
+            onChanged: (v) => cubit.updateGameConfig(revealAnswer: v),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SettingSwitch extends StatelessWidget {
+  final String label;
+  final String subtitle;
+  final bool value;
+  final ValueChanged<bool> onChanged;
+
+  const _SettingSwitch({
+    required this.label,
+    required this.subtitle,
+    required this.value,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label,
+                    style:
+                        AppTypography.inter(fontSize: 14, color: Colors.white)),
+                Text(subtitle,
+                    style: AppTypography.inter(
+                        fontSize: 11, color: Colors.white38)),
+              ],
+            ),
+          ),
+          Switch(
+            value: value,
+            onChanged: onChanged,
+            activeTrackColor: context.accentColor,
           ),
         ],
       ),
