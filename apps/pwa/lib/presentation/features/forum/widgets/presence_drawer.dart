@@ -106,7 +106,6 @@ class PresenceDrawer extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final roster = _mergedRoster();
-    final onlineCount = roster.where((u) => u['is_online'] == true).length;
     return Drawer(
       width: (MediaQuery.of(context).size.width * 0.85).clamp(280, 320),
       backgroundColor: Colors.black,

@@ -153,8 +153,9 @@ class QuizCubit extends Cubit<QuizState> {
   /// before submitting, since scoring/correct-answer checks are all keyed
   /// to stored order server-side.
   Future<void> submitAnswer(int displayIndex) async {
-    if (state.status != QuizStatus.playing || state.myAnswerIndex != null)
+    if (state.status != QuizStatus.playing || state.myAnswerIndex != null) {
       return;
+    }
 
     final question = state.currentQuestion;
     final questionId = question?['id'] as String?;

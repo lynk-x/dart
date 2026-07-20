@@ -20,7 +20,8 @@ class QuizBuilderPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocProvider(
       create: (context) =>
-          QuizBuilderCubit(repo: quizRepository, forumId: forumId),
+          QuizBuilderCubit(repo: quizRepository, forumId: forumId)
+            ..addQuestion(),
       child: const QuizBuilderView(),
     );
   }
@@ -36,6 +37,7 @@ class QuizBuilderView extends StatefulWidget {
 class _QuizBuilderViewState extends State<QuizBuilderView> {
   late final TextEditingController _titleController;
   late final TextEditingController _infoController;
+  bool _topSectionExpanded = true;
 
   @override
   void initState() {
@@ -118,78 +120,106 @@ class _QuizBuilderViewState extends State<QuizBuilderView> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            isQuiz ? 'Create a LiveQuiz' : 'Create Poll',
-                            style: AppTypography.inter(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w700,
-                                color: Colors.white),
+                    InkWell(
+                      onTap: () => setState(
+                          () => _topSectionExpanded = !_topSectionExpanded),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              isQuiz ? 'Create a LiveQuiz' : 'Create Poll',
+                              style: AppTypography.inter(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.white),
+                            ),
                           ),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: (draft.status == 'published'
-                                    ? Colors.greenAccent
-                                    : Colors.orangeAccent)
-                                .withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: (draft.status == 'published'
+                                      ? Colors.greenAccent
+                                      : Colors.orangeAccent)
+                                  .withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              draft.status.toUpperCase(),
+                              style: AppTypography.inter(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w600,
+                                  color: draft.status == 'published'
+                                      ? Colors.greenAccent
+                                      : Colors.orangeAccent),
+                            ),
                           ),
-                          child: Text(
-                            draft.status.toUpperCase(),
-                            style: AppTypography.inter(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w600,
-                                color: draft.status == 'published'
-                                    ? Colors.greenAccent
-                                    : Colors.orangeAccent),
+                          Icon(
+                            _topSectionExpanded
+                                ? Icons.unfold_less
+                                : Icons.unfold_more,
+                            color: Colors.white54,
+                            size: 20,
                           ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: _titleController,
-                      style: const TextStyle(color: Colors.white),
-                      onChanged: (val) => cubit.updateSettings(
-                          val, _infoController.text, draft.type),
-                      decoration: InputDecoration(
-                        labelText: 'Title',
-                        labelStyle: const TextStyle(color: Colors.white54),
-                        filled: true,
-                        fillColor: Colors.white.withValues(alpha: 0.05),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide.none,
-                        ),
+                        ],
                       ),
                     ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: _infoController,
-                      style: const TextStyle(color: Colors.white),
-                      maxLines: 2,
-                      onChanged: (val) => cubit.updateSettings(
-                          _titleController.text, val, draft.type),
-                      decoration: InputDecoration(
-                        labelText: 'Description (optional)',
-                        labelStyle: const TextStyle(color: Colors.white54),
-                        filled: true,
-                        fillColor: Colors.white.withValues(alpha: 0.05),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide.none,
-                        ),
-                      ),
+                    AnimatedSize(
+                      duration: const Duration(milliseconds: 200),
+                      curve: Curves.easeInOut,
+                      alignment: Alignment.topCenter,
+                      child: !_topSectionExpanded
+                          ? const SizedBox.shrink()
+                          : Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const SizedBox(height: 8),
+                                TextField(
+                                  controller: _titleController,
+                                  style: const TextStyle(color: Colors.white),
+                                  onChanged: (val) => cubit.updateSettings(
+                                      val, _infoController.text, draft.type),
+                                  decoration: InputDecoration(
+                                    labelText: 'Title',
+                                    labelStyle:
+                                        const TextStyle(color: Colors.white54),
+                                    filled: true,
+                                    fillColor:
+                                        Colors.white.withValues(alpha: 0.05),
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                      borderSide: BorderSide.none,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                TextField(
+                                  controller: _infoController,
+                                  style: const TextStyle(color: Colors.white),
+                                  maxLines: 2,
+                                  onChanged: (val) => cubit.updateSettings(
+                                      _titleController.text, val, draft.type),
+                                  decoration: InputDecoration(
+                                    labelText: 'Description (optional)',
+                                    labelStyle:
+                                        const TextStyle(color: Colors.white54),
+                                    filled: true,
+                                    fillColor:
+                                        Colors.white.withValues(alpha: 0.05),
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                      borderSide: BorderSide.none,
+                                    ),
+                                  ),
+                                ),
+                                if (isQuiz) ...[
+                                  const SizedBox(height: 16),
+                                  _GameSettingsSection(
+                                      draft: draft, cubit: cubit),
+                                ],
+                              ],
+                            ),
                     ),
-                    if (isQuiz) ...[
-                      const SizedBox(height: 16),
-                      _GameSettingsSection(draft: draft, cubit: cubit),
-                    ],
                   ],
                 ),
               ),
@@ -197,7 +227,7 @@ class _QuizBuilderViewState extends State<QuizBuilderView> {
                 child: ReorderableListView.builder(
                   padding: const EdgeInsets.all(16),
                   itemCount: draft.questions.length,
-                  onReorder: cubit.reorderQuestions,
+                  onReorderItem: cubit.reorderQuestions,
                   itemBuilder: (context, index) {
                     final q = draft.questions[index];
                     return QuestionEditorCard(
@@ -299,7 +329,14 @@ class _GameSettingsSection extends StatelessWidget {
 
   const _GameSettingsSection({required this.draft, required this.cubit});
 
-  static const _timeOptions = [10, 15, 20, 30, 45, 60, 90, 120];
+  static const _timeOptions = [10, 15, 20, 30, 45, 60];
+
+  static const Map<QuizScoringMode, String> _scoringDescriptions = {
+    QuizScoringMode.flat:
+        'Every correct answer earns the same points, no matter how fast it was answered.',
+    QuizScoringMode.speed:
+        'Correct answers earn up to +50% more points the faster they\'re submitted.',
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -358,7 +395,7 @@ class _GameSettingsSection extends StatelessWidget {
                 segments: const [
                   ButtonSegment(
                     value: QuizScoringMode.flat,
-                    label: Text('Flat'),
+                    label: Text('Standard'),
                   ),
                   ButtonSegment(
                     value: QuizScoringMode.speed,
@@ -379,6 +416,11 @@ class _GameSettingsSection extends StatelessWidget {
               ),
             ],
           ),
+          const SizedBox(height: 6),
+          Text(
+            _scoringDescriptions[draft.scoringMode] ?? '',
+            style: AppTypography.inter(fontSize: 11, color: Colors.white38),
+          ),
           const Divider(color: Colors.white12, height: 24),
 
           _SettingSwitch(
@@ -393,7 +435,7 @@ class _GameSettingsSection extends StatelessWidget {
             value: draft.shuffleQuestions,
             onChanged: (v) => cubit.updateGameConfig(shuffleQuestions: v),
           ),
-          _SettingSwitch(
+          _SettingCheckbox(
             label: 'Reveal correct answer',
             subtitle: 'Show right/wrong styling before moving to standings',
             value: draft.revealAnswer,
@@ -441,8 +483,58 @@ class _SettingSwitch extends StatelessWidget {
             value: value,
             onChanged: onChanged,
             activeTrackColor: context.accentColor,
+            activeThumbColor: Colors.black,
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _SettingCheckbox extends StatelessWidget {
+  final String label;
+  final String subtitle;
+  final bool value;
+  final ValueChanged<bool> onChanged;
+
+  const _SettingCheckbox({
+    required this.label,
+    required this.subtitle,
+    required this.value,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: InkWell(
+        onTap: () => onChanged(!value),
+        borderRadius: BorderRadius.circular(8),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(label,
+                      style: AppTypography.inter(
+                          fontSize: 14, color: Colors.white)),
+                  Text(subtitle,
+                      style: AppTypography.inter(
+                          fontSize: 11, color: Colors.white38)),
+                ],
+              ),
+            ),
+            Checkbox(
+              value: value,
+              onChanged: (v) => onChanged(v ?? false),
+              activeColor: context.accentColor,
+              checkColor: Colors.black,
+              side: const BorderSide(color: Colors.white38),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -322,9 +322,9 @@ class _TicketViewState extends State<TicketView> {
     setState(() => _isCancellingResale = true);
     try {
       await cubit.cancelResaleListing(listingId);
-      if (mounted) AppSnackBars.showSuccess(context, 'Resale offer cancelled.');
+      if (context.mounted) AppSnackBars.showSuccess(context, 'Resale offer cancelled.');
     } catch (e) {
-      if (mounted) AppSnackBars.showError(context, 'Failed to cancel: $e');
+      if (context.mounted) AppSnackBars.showError(context, 'Failed to cancel: $e');
     } finally {
       if (mounted) setState(() => _isCancellingResale = false);
     }
