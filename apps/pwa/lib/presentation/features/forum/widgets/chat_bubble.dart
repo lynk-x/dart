@@ -8,7 +8,7 @@ import 'package:lynk_x/presentation/features/forum/models/forum_model.dart';
 import 'package:lynk_x/core/network/lynk_cache_manager.dart';
 import 'package:lynk_x/core/utils/image_optimizer.dart';
 import 'action_bar.dart';
-import 'polls/poll_attachment.dart';
+import 'polls/poll_quiz_body.dart';
 
 /// A stylized chat bubble used for both Live Chat and Updates.
 import 'link_preview.dart';
@@ -287,13 +287,7 @@ class _ChatBubbleState extends State<ChatBubble> {
               ),
             if (widget.message.category != null)
               _CategoryBadge(category: widget.message.category!),
-            _buildMessageContent(textColor),
-            if (widget.message.type.isPollOrQuiz &&
-                context.read<FeatureFlagCubit>().isEnabled('enable_forum_polls'))
-              PollAttachment(
-                messageId: widget.message.id,
-                messageType: widget.message.type,
-              ),
+            _buildBody(textColor),
           ],
         ),
       ),
@@ -302,6 +296,39 @@ class _ChatBubbleState extends State<ChatBubble> {
 
   void _handleMentionTap(String username) {
     widget.onMentionTap?.call(username);
+  }
+
+  /// The one place message.type is decided — a poll/quiz still shows its
+  /// title as plain text (unchanged from a chat/announcement bubble), with
+  /// the poll's vote card or the quiz's join card stacked underneath it.
+  Widget _buildBody(Color textColor) {
+    final pollsEnabled = context.read<FeatureFlagCubit>().isEnabled('enable_forum_polls');
+
+    switch (widget.message.type) {
+      case MessageType.chat:
+      case MessageType.announcement:
+        return _buildMessageContent(textColor);
+
+      case MessageType.livechatPoll:
+      case MessageType.updatePoll:
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildMessageContent(textColor),
+            if (pollsEnabled) PollBody(messageId: widget.message.id),
+          ],
+        );
+
+      case MessageType.livechatQuiz:
+      case MessageType.updateQuiz:
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildMessageContent(textColor),
+            if (pollsEnabled) QuizBody(messageId: widget.message.id),
+          ],
+        );
+    }
   }
 
   Widget _buildMessageContent(Color textColor) {

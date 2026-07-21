@@ -5,36 +5,25 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'poll_card.dart';
 import '../../cubit/forum_cubit.dart';
-import '../../models/forum_model.dart';
 
-/// Loads and renders a poll/quiz attached to a forum message.
+/// Poll body: loads and renders a poll attached to a forum message.
 ///
-/// A poll/quiz IS its announcing forum_messages row — see surveys.polls /
-/// surveys.quiz_sessions, both keyed on message_id. This widget fetches the
-/// poll/quiz config (from whichever table messageType indicates) + its
-/// questions. Polls render a [PollCard] per question inline; quizzes are a
-/// session to join rather than a question to answer inline, so they render a
-/// single join-launcher card instead. A poll/quiz with `status != 'published'`
-/// is hidden.
-class PollAttachment extends StatefulWidget {
+/// A poll IS its announcing forum_messages row — see surveys.polls, keyed on
+/// message_id. Renders a [PollCard] per question (a poll is always exactly
+/// one question in practice, but this stays list-shaped to match the
+/// underlying table). Hidden while `status != 'published'`.
+class PollBody extends StatefulWidget {
   final String messageId;
-  final MessageType messageType;
 
-  const PollAttachment({
-    super.key,
-    required this.messageId,
-    required this.messageType,
-  });
+  const PollBody({super.key, required this.messageId});
 
   @override
-  State<PollAttachment> createState() => _PollAttachmentState();
+  State<PollBody> createState() => _PollBodyState();
 }
 
-class _PollAttachmentState extends State<PollAttachment> {
+class _PollBodyState extends State<PollBody> {
   SupabaseClient get _supabase => Supabase.instance.client;
   bool _isLoading = true;
-  String _quizState = 'lobby';
-  int _questionsCount = 0;
   List<Map<String, dynamic>> _questions = [];
 
   @override
@@ -45,29 +34,6 @@ class _PollAttachmentState extends State<PollAttachment> {
 
   Future<void> _load() async {
     try {
-      if (widget.messageType.isQuiz) {
-        final sessionData = await _supabase
-            .schema('api')
-            .from('v1_quiz_sessions')
-            .select('status, quiz_state, questions_count')
-            .eq('message_id', widget.messageId)
-            .single();
-
-        if (sessionData['status'] != 'published') {
-          if (mounted) setState(() => _isLoading = false);
-          return;
-        }
-
-        if (mounted) {
-          setState(() {
-            _quizState = sessionData['quiz_state'] as String? ?? 'lobby';
-            _questionsCount = sessionData['questions_count'] as int? ?? 0;
-            _isLoading = false;
-          });
-        }
-        return;
-      }
-
       final pollData = await _supabase
           .schema('api')
           .from('v1_polls')
@@ -93,7 +59,11 @@ class _PollAttachmentState extends State<PollAttachment> {
           _isLoading = false;
         });
       }
-    } catch (_) {
+    } catch (e, stack) {
+      // Never fail silently — a swallowed error looks identical to "no poll
+      // attached," which is indistinguishable from a message_type mismatch
+      // without this trace.
+      debugPrint('[PollBody] load error for ${widget.messageId}: $e\n$stack');
       if (mounted) setState(() => _isLoading = false);
     }
   }
@@ -101,24 +71,7 @@ class _PollAttachmentState extends State<PollAttachment> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Padding(
-        padding: EdgeInsets.all(16),
-        child: Center(
-          child: SizedBox(
-            width: 20,
-            height: 20,
-            child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF00FF00)),
-          ),
-        ),
-      );
-    }
-
-    if (widget.messageType.isQuiz) {
-      return _QuizJoinCard(
-        messageId: widget.messageId,
-        questionsCount: _questionsCount,
-        quizState: _quizState,
-      );
+      return const _AttachmentLoadingIndicator();
     }
 
     if (_questions.isEmpty) return const SizedBox.shrink();
@@ -126,10 +79,8 @@ class _PollAttachmentState extends State<PollAttachment> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: _questions.map((q) {
-        final options = (q['options'] as List?)
-                ?.map((o) => o.toString())
-                .toList() ??
-            [];
+        final options =
+            (q['options'] as List?)?.map((o) => o.toString()).toList() ?? [];
         return PollCard(
           messageId: widget.messageId,
           questionId: q['id'] as String,
@@ -138,6 +89,92 @@ class _PollAttachmentState extends State<PollAttachment> {
           isQuiz: false,
         );
       }).toList(),
+    );
+  }
+}
+
+/// Quiz body: loads and renders a quiz's join-launcher card attached to a
+/// forum message.
+///
+/// A quiz IS its announcing forum_messages row — see surveys.quiz_sessions,
+/// keyed on message_id. A quiz is a session to join rather than a question
+/// to answer inline, so this renders a single join card, not a [PollCard].
+/// Hidden while `status != 'published'`.
+class QuizBody extends StatefulWidget {
+  final String messageId;
+
+  const QuizBody({super.key, required this.messageId});
+
+  @override
+  State<QuizBody> createState() => _QuizBodyState();
+}
+
+class _QuizBodyState extends State<QuizBody> {
+  SupabaseClient get _supabase => Supabase.instance.client;
+  bool _isLoading = true;
+  bool _isPublished = false;
+  String _quizState = 'lobby';
+  int _questionsCount = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final sessionData = await _supabase
+          .schema('api')
+          .from('v1_quiz_sessions')
+          .select('status, quiz_state, questions_count')
+          .eq('message_id', widget.messageId)
+          .single();
+
+      if (mounted) {
+        setState(() {
+          _isPublished = sessionData['status'] == 'published';
+          _quizState = sessionData['quiz_state'] as String? ?? 'lobby';
+          _questionsCount = sessionData['questions_count'] as int? ?? 0;
+          _isLoading = false;
+        });
+      }
+    } catch (e, stack) {
+      debugPrint('[QuizBody] load error for ${widget.messageId}: $e\n$stack');
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const _AttachmentLoadingIndicator();
+    }
+
+    if (!_isPublished) return const SizedBox.shrink();
+
+    return _QuizJoinCard(
+      messageId: widget.messageId,
+      questionsCount: _questionsCount,
+      quizState: _quizState,
+    );
+  }
+}
+
+class _AttachmentLoadingIndicator extends StatelessWidget {
+  const _AttachmentLoadingIndicator();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Padding(
+      padding: EdgeInsets.all(16),
+      child: Center(
+        child: SizedBox(
+          width: 20,
+          height: 20,
+          child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF00FF00)),
+        ),
+      ),
     );
   }
 }
