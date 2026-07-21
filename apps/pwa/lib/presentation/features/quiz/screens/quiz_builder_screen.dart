@@ -227,7 +227,7 @@ class _QuizBuilderViewState extends State<QuizBuilderView> {
                 child: ReorderableListView.builder(
                   padding: const EdgeInsets.all(16),
                   itemCount: draft.questions.length,
-                  onReorderItem: cubit.reorderQuestions,
+                  onReorder: cubit.reorderQuestions,
                   itemBuilder: (context, index) {
                     final q = draft.questions[index];
                     return QuestionEditorCard(
