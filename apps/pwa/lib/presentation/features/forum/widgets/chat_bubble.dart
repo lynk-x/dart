@@ -8,7 +8,8 @@ import 'package:lynk_x/presentation/features/forum/models/forum_model.dart';
 import 'package:lynk_x/core/network/lynk_cache_manager.dart';
 import 'package:lynk_x/core/utils/image_optimizer.dart';
 import 'action_bar.dart';
-import 'polls/poll_quiz_body.dart';
+import 'polls/poll_body.dart';
+import 'polls/quiz_card.dart';
 
 /// A stylized chat bubble used for both Live Chat and Updates.
 import 'link_preview.dart';
@@ -317,13 +318,13 @@ class _ChatBubbleState extends State<ChatBubble> {
       case MessageType.livechatPoll:
       case MessageType.updatePoll:
         return pollsEnabled
-            ? PollBody(messageId: widget.message.id)
+            ? PollBody(messageId: widget.message.id, isMe: widget.message.isMe)
             : const SizedBox.shrink();
 
       case MessageType.livechatQuiz:
       case MessageType.updateQuiz:
         return pollsEnabled
-            ? QuizBody(messageId: widget.message.id)
+            ? QuizBody(messageId: widget.message.id, isMe: widget.message.isMe)
             : const SizedBox.shrink();
     }
   }

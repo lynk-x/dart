@@ -1,109 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:lynk_core/core.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import 'poll_card.dart';
 import '../../cubit/forum_cubit.dart';
-
-/// Poll body: loads and renders a poll attached to a forum message.
-///
-/// A poll IS its announcing forum_messages row — see surveys.polls, keyed on
-/// message_id. Renders a [PollCard] per question (a poll is always exactly
-/// one question in practice, but this stays list-shaped to match the
-/// underlying table). Hidden while `status != 'published'`.
-class PollBody extends StatefulWidget {
-  final String messageId;
-
-  const PollBody({super.key, required this.messageId});
-
-  @override
-  State<PollBody> createState() => _PollBodyState();
-}
-
-class _PollBodyState extends State<PollBody> {
-  SupabaseClient get _supabase => Supabase.instance.client;
-  bool _isLoading = true;
-  List<Map<String, dynamic>> _questions = [];
-
-  @override
-  void initState() {
-    super.initState();
-    _load();
-  }
-
-  Future<void> _load() async {
-    try {
-      final pollData = await _supabase
-          .schema('api')
-          .from('v1_polls')
-          .select('status')
-          .eq('message_id', widget.messageId)
-          .single();
-
-      if (pollData['status'] != 'published') {
-        if (mounted) setState(() => _isLoading = false);
-        return;
-      }
-
-      final questions = await _supabase
-          .schema('api')
-          .from('v1_questions')
-          .select('id, question_text, options, order_index')
-          .eq('message_id', widget.messageId)
-          .order('order_index', ascending: true);
-
-      if (mounted) {
-        setState(() {
-          _questions = List<Map<String, dynamic>>.from(questions);
-          _isLoading = false;
-        });
-      }
-    } catch (e, stack) {
-      // Never fail silently — a swallowed error looks identical to "no poll
-      // attached," which is indistinguishable from a message_type mismatch
-      // without this trace.
-      debugPrint('[PollBody] load error for ${widget.messageId}: $e\n$stack');
-      if (mounted) setState(() => _isLoading = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (_isLoading) {
-      return const _AttachmentLoadingIndicator();
-    }
-
-    if (_questions.isEmpty) return const SizedBox.shrink();
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: _questions.map((q) {
-        final options =
-            (q['options'] as List?)?.map((o) => o.toString()).toList() ?? [];
-        return PollCard(
-          messageId: widget.messageId,
-          questionId: q['id'] as String,
-          questionText: q['question_text'] as String,
-          options: options,
-          isQuiz: false,
-        );
-      }).toList(),
-    );
-  }
-}
 
 /// Quiz body: loads and renders a quiz's join-launcher card attached to a
 /// forum message.
 ///
 /// A quiz IS its announcing forum_messages row — see surveys.quiz_sessions,
 /// keyed on message_id. A quiz is a session to join rather than a question
-/// to answer inline, so this renders a single join card, not a [PollCard].
+/// to answer inline, so this renders a single join card, not a PollCard.
 /// Hidden while `status != 'published'`.
 class QuizBody extends StatefulWidget {
   final String messageId;
+  final bool isMe;
 
-  const QuizBody({super.key, required this.messageId});
+  const QuizBody({super.key, required this.messageId, this.isMe = true});
 
   @override
   State<QuizBody> createState() => _QuizBodyState();
@@ -115,7 +29,6 @@ class _QuizBodyState extends State<QuizBody> {
   bool _isPublished = false;
   String _title = '';
   String _quizState = 'lobby';
-  int _questionsCount = 0;
 
   @override
   void initState() {
@@ -128,7 +41,7 @@ class _QuizBodyState extends State<QuizBody> {
       final sessionData = await _supabase
           .schema('api')
           .from('v1_quiz_sessions')
-          .select('title, status, quiz_state, questions_count')
+          .select('title, status, quiz_state')
           .eq('message_id', widget.messageId)
           .single();
 
@@ -137,12 +50,10 @@ class _QuizBodyState extends State<QuizBody> {
           _title = sessionData['title'] as String? ?? '';
           _isPublished = sessionData['status'] == 'published';
           _quizState = sessionData['quiz_state'] as String? ?? 'lobby';
-          _questionsCount = sessionData['questions_count'] as int? ?? 0;
           _isLoading = false;
         });
       }
-    } catch (e, stack) {
-      debugPrint('[QuizBody] load error for ${widget.messageId}: $e\n$stack');
+    } catch (_) {
       if (mounted) setState(() => _isLoading = false);
     }
   }
@@ -150,7 +61,7 @@ class _QuizBodyState extends State<QuizBody> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const _AttachmentLoadingIndicator();
+      return const _QuizLoadingIndicator();
     }
 
     if (!_isPublished) return const SizedBox.shrink();
@@ -158,14 +69,14 @@ class _QuizBodyState extends State<QuizBody> {
     return _QuizJoinCard(
       messageId: widget.messageId,
       title: _title,
-      questionsCount: _questionsCount,
       quizState: _quizState,
+      isMe: widget.isMe,
     );
   }
 }
 
-class _AttachmentLoadingIndicator extends StatelessWidget {
-  const _AttachmentLoadingIndicator();
+class _QuizLoadingIndicator extends StatelessWidget {
+  const _QuizLoadingIndicator();
 
   @override
   Widget build(BuildContext context) {
@@ -185,14 +96,14 @@ class _AttachmentLoadingIndicator extends StatelessWidget {
 class _QuizJoinCard extends StatelessWidget {
   final String messageId;
   final String title;
-  final int questionsCount;
   final String quizState;
+  final bool isMe;
 
   const _QuizJoinCard({
     required this.messageId,
     required this.title,
-    required this.questionsCount,
     required this.quizState,
+    required this.isMe,
   });
 
   bool get _isLive => quizState == 'playing' || quizState == 'reveal' || quizState == 'leaderboard';
@@ -215,28 +126,31 @@ class _QuizJoinCard extends StatelessWidget {
       forumReference = forumCubit.forumReference;
     } catch (_) {}
 
+    // Same rule as PollCard: your own quiz reads in the accent color,
+    // everyone else's in the neutral "their message" tone.
+    final cardColor = isMe ? context.accentColor : AppColors.tertiary;
+    final onCardColor = isMe ? Colors.black : Colors.white;
+
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 8),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        // Opaque, not translucent — this card renders directly on the forum
-        // background (no bubble wrapper behind it), so a `withValues(alpha:)`
-        // overlay would tint to whatever's underneath instead of reading as
-        // its own surface.
-        color: const Color(0xFF1E1E1E),
+        // Same solid card style as PollCard — opaque, not translucent, since
+        // this renders directly on the forum background with no bubble
+        // wrapper behind it.
+        color: cardColor,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Icon(Icons.quiz_outlined, color: Color(0xFF00FF00), size: 20),
+              Icon(Icons.quiz_outlined, color: onCardColor, size: 20),
               const SizedBox(width: 8),
-              const Text(
+              Text(
                 'Quiz',
-                style: TextStyle(color: Color(0xFF00FF00), fontSize: 12, fontWeight: FontWeight.w600),
+                style: TextStyle(color: onCardColor, fontSize: 12, fontWeight: FontWeight.w700),
               ),
               if (_isLive) ...[
                 const SizedBox(width: 8),
@@ -250,20 +164,12 @@ class _QuizJoinCard extends StatelessWidget {
               ],
             ],
           ),
-          if (title.isNotEmpty) ...[
-            const SizedBox(height: 10),
+          const SizedBox(height: 10),
+          if (title.isNotEmpty)
             Text(
               title,
-              style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w600),
+              style: TextStyle(color: onCardColor, fontSize: 15, fontWeight: FontWeight.w700),
             ),
-          ],
-          if (questionsCount > 0) ...[
-            const SizedBox(height: 4),
-            Text(
-              '$questionsCount question${questionsCount == 1 ? '' : 's'}',
-              style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 12),
-            ),
-          ],
           const SizedBox(height: 14),
           SizedBox(
             width: double.infinity,
@@ -275,10 +181,10 @@ class _QuizJoinCard extends StatelessWidget {
                         extra: {'isHost': isOrganizer},
                       ),
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF20F928),
+                backgroundColor: Colors.white,
                 foregroundColor: Colors.black,
-                disabledBackgroundColor: Colors.white.withValues(alpha: 0.08),
-                disabledForegroundColor: Colors.white.withValues(alpha: 0.4),
+                disabledBackgroundColor: onCardColor.withValues(alpha: 0.18),
+                disabledForegroundColor: onCardColor.withValues(alpha: 0.4),
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               ),

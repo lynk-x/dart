@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lynk_core/core.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:lynk_x/presentation/shared/utils/app_snackbars.dart';
 
@@ -15,6 +16,9 @@ class PollCard extends StatefulWidget {
   final String questionText;
   final List<String> options;
   final bool isQuiz;
+  // Same rule ChatBubble uses for plain text: your own poll/quiz reads in
+  // the accent color, everyone else's in the neutral "their message" tone.
+  final bool isMe;
 
   const PollCard({
     super.key,
@@ -23,6 +27,7 @@ class PollCard extends StatefulWidget {
     required this.questionText,
     required this.options,
     this.isQuiz = false,
+    this.isMe = true,
   });
 
   @override
@@ -167,11 +172,14 @@ class _PollCardState extends State<PollCard> {
 
   @override
   Widget build(BuildContext context) {
+    final cardColor = widget.isMe ? context.accentColor : AppColors.tertiary;
+    final onCardColor = widget.isMe ? Colors.black : Colors.white;
+
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 8),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF20F928),
+        color: cardColor,
         borderRadius: BorderRadius.circular(16),
       ),
       child: Column(
@@ -182,14 +190,14 @@ class _PollCardState extends State<PollCard> {
             children: [
               Icon(
                 widget.isQuiz ? Icons.quiz_outlined : Icons.poll_outlined,
-                color: Colors.black,
+                color: onCardColor,
                 size: 20,
               ),
               const SizedBox(width: 8),
               Text(
                 widget.isQuiz ? 'Quiz' : 'Poll',
-                style: const TextStyle(
-                  color: Colors.black,
+                style: TextStyle(
+                  color: onCardColor,
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
                 ),
@@ -201,8 +209,8 @@ class _PollCardState extends State<PollCard> {
           // Question
           Text(
             widget.questionText,
-            style: const TextStyle(
-              color: Colors.black,
+            style: TextStyle(
+              color: onCardColor,
               fontSize: 15,
               fontWeight: FontWeight.w700,
             ),
@@ -230,7 +238,7 @@ class _PollCardState extends State<PollCard> {
               child: Text(
                 '$_totalVotes vote${_totalVotes == 1 ? '' : 's'}',
                 style: TextStyle(
-                  color: Colors.black.withValues(alpha: 0.6),
+                  color: onCardColor.withValues(alpha: 0.6),
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
                 ),
@@ -271,16 +279,27 @@ class _PollCardState extends State<PollCard> {
   }
 
   /// Selected option inverts to a solid black chip with a light proportional
-  /// fill; unselected options stay on a grey base with a darker proportional
-  /// fill — one fill rule (light base + darker fill = magnitude), selection
-  /// itself signalled separately via the black border/fill and check badge.
+  /// fill; unselected options stay on a base tone with a stronger
+  /// proportional fill — one fill rule (light base + darker fill =
+  /// magnitude), selection itself signalled separately via the black
+  /// border/fill and check badge. The unselected base/text tones flip
+  /// between dark-on-green (own message) and light-on-tertiary (others'),
+  /// matching the card backdrop; the selected state's solid black chip
+  /// already contrasts against both, so it stays unified.
   Widget _buildResultBar(String option, double pct, int votes, bool isSelected) {
+    final unselectedBase =
+        widget.isMe ? Colors.black.withValues(alpha: 0.18) : Colors.white.withValues(alpha: 0.18);
+    final unselectedFill =
+        widget.isMe ? Colors.black.withValues(alpha: 0.16) : Colors.white.withValues(alpha: 0.16);
+    final unselectedText =
+        widget.isMe ? Colors.black.withValues(alpha: 0.55) : Colors.white.withValues(alpha: 0.7);
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Container(
         width: double.infinity,
         decoration: BoxDecoration(
-          color: isSelected ? Colors.black : Colors.black.withValues(alpha: 0.18),
+          color: isSelected ? Colors.black : unselectedBase,
           borderRadius: BorderRadius.circular(10),
           border: isSelected ? Border.all(color: Colors.black, width: 2) : null,
         ),
@@ -293,9 +312,7 @@ class _PollCardState extends State<PollCard> {
                 widthFactor: pct,
                 child: Container(
                   height: 42,
-                  color: isSelected
-                      ? Colors.white.withValues(alpha: 0.22)
-                      : Colors.black.withValues(alpha: 0.16),
+                  color: isSelected ? Colors.white.withValues(alpha: 0.22) : unselectedFill,
                 ),
               ),
               // Content
@@ -314,9 +331,7 @@ class _PollCardState extends State<PollCard> {
                       child: Text(
                         option,
                         style: TextStyle(
-                          color: isSelected
-                              ? Colors.white
-                              : Colors.black.withValues(alpha: 0.55),
+                          color: isSelected ? Colors.white : unselectedText,
                           fontSize: 14,
                           fontWeight: isSelected ? FontWeight.w800 : FontWeight.normal,
                         ),
@@ -325,9 +340,7 @@ class _PollCardState extends State<PollCard> {
                     Text(
                       '${(pct * 100).round()}%',
                       style: TextStyle(
-                        color: isSelected
-                            ? Colors.white
-                            : Colors.black.withValues(alpha: 0.55),
+                        color: isSelected ? Colors.white : unselectedText,
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
                       ),
