@@ -303,6 +303,8 @@ class _ChatBubbleState extends State<ChatBubble> {
   /// the poll's vote card or the quiz's join card stacked underneath it.
   Widget _buildBody(Color textColor) {
     final pollsEnabled = context.read<FeatureFlagCubit>().isEnabled('enable_forum_polls');
+    debugPrint('[ChatBubble] id=${widget.message.id} '
+        'type=${widget.message.type} pollsEnabled=$pollsEnabled');
 
     switch (widget.message.type) {
       case MessageType.chat:
