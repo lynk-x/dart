@@ -113,6 +113,7 @@ class _QuizBodyState extends State<QuizBody> {
   SupabaseClient get _supabase => Supabase.instance.client;
   bool _isLoading = true;
   bool _isPublished = false;
+  String _title = '';
   String _quizState = 'lobby';
   int _questionsCount = 0;
 
@@ -127,12 +128,13 @@ class _QuizBodyState extends State<QuizBody> {
       final sessionData = await _supabase
           .schema('api')
           .from('v1_quiz_sessions')
-          .select('status, quiz_state, questions_count')
+          .select('title, status, quiz_state, questions_count')
           .eq('message_id', widget.messageId)
           .single();
 
       if (mounted) {
         setState(() {
+          _title = sessionData['title'] as String? ?? '';
           _isPublished = sessionData['status'] == 'published';
           _quizState = sessionData['quiz_state'] as String? ?? 'lobby';
           _questionsCount = sessionData['questions_count'] as int? ?? 0;
@@ -155,6 +157,7 @@ class _QuizBodyState extends State<QuizBody> {
 
     return _QuizJoinCard(
       messageId: widget.messageId,
+      title: _title,
       questionsCount: _questionsCount,
       quizState: _quizState,
     );
@@ -181,11 +184,13 @@ class _AttachmentLoadingIndicator extends StatelessWidget {
 
 class _QuizJoinCard extends StatelessWidget {
   final String messageId;
+  final String title;
   final int questionsCount;
   final String quizState;
 
   const _QuizJoinCard({
     required this.messageId,
+    required this.title,
     required this.questionsCount,
     required this.quizState,
   });
@@ -214,7 +219,11 @@ class _QuizJoinCard extends StatelessWidget {
       margin: const EdgeInsets.symmetric(vertical: 8),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.04),
+        // Opaque, not translucent — this card renders directly on the forum
+        // background (no bubble wrapper behind it), so a `withValues(alpha:)`
+        // overlay would tint to whatever's underneath instead of reading as
+        // its own surface.
+        color: const Color(0xFF1E1E1E),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
       ),
@@ -241,6 +250,13 @@ class _QuizJoinCard extends StatelessWidget {
               ],
             ],
           ),
+          if (title.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Text(
+              title,
+              style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w600),
+            ),
+          ],
           if (questionsCount > 0) ...[
             const SizedBox(height: 4),
             Text(

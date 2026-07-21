@@ -253,6 +253,14 @@ class _ChatBubbleState extends State<ChatBubble> {
   }
 
   Widget _buildBubble() {
+    if (widget.message.type.isPollOrQuiz) {
+      return ConstrainedBox(
+        constraints:
+            BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
+        child: _buildBody(Colors.white),
+      );
+    }
+
     final bgColor = widget.message.isMe
         ? context.accentColor
         : AppColors.tertiary;
@@ -298,13 +306,8 @@ class _ChatBubbleState extends State<ChatBubble> {
     widget.onMentionTap?.call(username);
   }
 
-  /// The one place message.type is decided — a poll/quiz still shows its
-  /// title as plain text (unchanged from a chat/announcement bubble), with
-  /// the poll's vote card or the quiz's join card stacked underneath it.
   Widget _buildBody(Color textColor) {
     final pollsEnabled = context.read<FeatureFlagCubit>().isEnabled('enable_forum_polls');
-    debugPrint('[ChatBubble] id=${widget.message.id} '
-        'type=${widget.message.type} pollsEnabled=$pollsEnabled');
 
     switch (widget.message.type) {
       case MessageType.chat:
@@ -313,23 +316,15 @@ class _ChatBubbleState extends State<ChatBubble> {
 
       case MessageType.livechatPoll:
       case MessageType.updatePoll:
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildMessageContent(textColor),
-            if (pollsEnabled) PollBody(messageId: widget.message.id),
-          ],
-        );
+        return pollsEnabled
+            ? PollBody(messageId: widget.message.id)
+            : const SizedBox.shrink();
 
       case MessageType.livechatQuiz:
       case MessageType.updateQuiz:
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildMessageContent(textColor),
-            if (pollsEnabled) QuizBody(messageId: widget.message.id),
-          ],
-        );
+        return pollsEnabled
+            ? QuizBody(messageId: widget.message.id)
+            : const SizedBox.shrink();
     }
   }
 
