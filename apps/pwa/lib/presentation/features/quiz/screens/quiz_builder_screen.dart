@@ -80,7 +80,16 @@ class _QuizBuilderViewState extends State<QuizBuilderView> {
           AppSnackBars.showError(context, state.error!);
         } else if (state.isSuccess) {
           AppSnackBars.showSuccess(context, 'Quiz published successfully!');
-          context.pop();
+          // This route lives outside forum_screen.dart's provider tree, so
+          // it can't push into ForumChatCubit/ForumUpdatesCubit directly the
+          // way PollCardEditor does — the created message's data is relayed
+          // back through the pop result instead, and forum_screen.dart (the
+          // original context.push caller) builds/pushes the ChatMessage.
+          context.pop({
+            'messageId': state.createdMessageId,
+            'createdAt': state.createdMessageCreatedAt,
+            'title': state.draft.title,
+          });
         }
       },
       builder: (context, state) {

@@ -117,22 +117,33 @@ class QuizRepository {
   }
 
   /// Atomically creates the announcing forum_messages row and its poll
-  /// config + single question. Returns the new message id. messageType must
-  /// be 'livechat_poll' or 'update_poll'.
-  Future<String> createPoll(Map<String, dynamic> params) async {
+  /// config + single question. Returns the new message's id + created_at —
+  /// the RPC does not broadcast a realtime event (unlike sendMessage()), so
+  /// the caller needs both to build a local optimistic ChatMessage itself.
+  /// messageType must be 'livechat_poll' or 'update_poll'.
+  Future<({String messageId, DateTime createdAt})> createPoll(
+      Map<String, dynamic> params) async {
     final result = await _client
         .schema('api')
         .rpc('create_poll', params: params) as Map<String, dynamic>;
-    return result['message_id'] as String;
+    return (
+      messageId: result['message_id'] as String,
+      createdAt: DateTime.parse(result['created_at'] as String),
+    );
   }
 
   /// Atomically creates the announcing forum_messages row, its quiz_sessions
-  /// config, and all its questions. Returns the new message id. messageType
-  /// must be 'livechat_quiz' or 'update_quiz'.
-  Future<String> createQuiz(Map<String, dynamic> params) async {
+  /// config, and all its questions. Returns the new message's id + created_at
+  /// — see createPoll's doc comment for why both are needed client-side.
+  /// messageType must be 'livechat_quiz' or 'update_quiz'.
+  Future<({String messageId, DateTime createdAt})> createQuiz(
+      Map<String, dynamic> params) async {
     final result = await _client
         .schema('api')
         .rpc('create_quiz', params: params) as Map<String, dynamic>;
-    return result['message_id'] as String;
+    return (
+      messageId: result['message_id'] as String,
+      createdAt: DateTime.parse(result['created_at'] as String),
+    );
   }
 }

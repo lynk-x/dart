@@ -818,9 +818,9 @@ class _ForumViewState extends State<ForumView> {
                 title: 'Create Quiz',
                 description:
                     'Run a timed, scored quiz with a live leaderboard.',
-                onTap: () {
+                onTap: () async {
                   Navigator.pop(sheetContext);
-                  context.push(
+                  final result = await context.push<Map<String, dynamic>>(
                     '/forum/$forumReference/quiz/create',
                     extra: {
                       'forumId': forumId,
@@ -830,6 +830,12 @@ class _ForumViewState extends State<ForumView> {
                       'channelCreatedAt': channelCreatedAt,
                     },
                   );
+                  if (result == null || !context.mounted) return;
+                  _pushCreatedQuizMessage(
+                    isLiveChat: isLiveChat,
+                    messageType: isLiveChat ? 'livechat_quiz' : 'update_quiz',
+                    result: result,
+                  );
                 },
               ),
             ],
@@ -837,6 +843,49 @@ class _ForumViewState extends State<ForumView> {
         ),
       ),
     );
+  }
+
+  /// create_quiz doesn't broadcast a realtime event the way sendMessage()
+  /// does, so without this the quiz creator's own view would only pick up
+  /// the new message once the slower postgres_changes CDC listener catches
+  /// up. QuizBuilderPage lives outside this screen's provider tree (it's a
+  /// separate top-level route), so it can't push into ForumChatCubit /
+  /// ForumUpdatesCubit directly the way PollCardEditor's bottom sheet can —
+  /// the created message's data is relayed back through context.pop's
+  /// result instead (see quiz_builder_screen.dart's success listener).
+  void _pushCreatedQuizMessage({
+    required bool isLiveChat,
+    required String messageType,
+    required Map<String, dynamic> result,
+  }) {
+    final messageId = result['messageId'] as String?;
+    final createdAt = result['createdAt'] as DateTime?;
+    final title = result['title'] as String?;
+    if (messageId == null || createdAt == null) return;
+
+    if (isLiveChat) {
+      final cubit = context.read<ForumChatCubit>();
+      cubit.onBroadcastMessageReceived(ChatMessage(
+        id: messageId,
+        sender: cubit.userName,
+        userId: cubit.userId,
+        message: title ?? '',
+        createdAt: createdAt,
+        isMe: true,
+        type: MessageType.fromValue(messageType),
+      ));
+    } else {
+      final cubit = context.read<ForumUpdatesCubit>();
+      cubit.onBroadcastMessageReceived(ChatMessage(
+        id: messageId,
+        sender: cubit.userName,
+        userId: cubit.userId,
+        message: title ?? '',
+        createdAt: createdAt,
+        isMe: true,
+        type: MessageType.fromValue(messageType),
+      ));
+    }
   }
 
   void _showPollEditorSheet({

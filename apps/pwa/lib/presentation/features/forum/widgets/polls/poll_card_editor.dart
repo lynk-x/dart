@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:lynk_x/data/repositories/repository_providers.dart';
 import 'package:lynk_x/presentation/shared/utils/app_snackbars.dart';
+import 'package:lynk_x/presentation/features/forum/cubit/forum_chat_cubit.dart';
+import 'package:lynk_x/presentation/features/forum/cubit/forum_updates_cubit.dart';
+import 'package:lynk_x/presentation/features/forum/models/forum_model.dart';
 import 'package:lynk_x/presentation/features/quiz/cubit/quiz_builder_cubit.dart';
 import 'package:lynk_x/presentation/features/quiz/cubit/quiz_builder_state.dart';
 import 'package:lynk_x/presentation/features/quiz/models/quiz_builder_model.dart';
@@ -85,6 +88,42 @@ class _PollCardEditorViewState extends State<_PollCardEditorView> {
     super.dispose();
   }
 
+  /// create_poll doesn't broadcast a realtime event the way sendMessage()
+  /// does, so without this the poll would only ever appear once the slower
+  /// postgres_changes CDC listener catches up (or never, for the creator's
+  /// own view, if that fires before this widget is even listening). Mirrors
+  /// sendMessage()'s own optimistic-insert shape/defaults exactly.
+  void _pushLocalMessage(BuildContext context, QuizBuilderState state) {
+    final messageId = state.createdMessageId;
+    final createdAt = state.createdMessageCreatedAt;
+    if (messageId == null || createdAt == null) return;
+
+    final isLiveChat = widget.messageType == 'livechat_poll';
+    if (isLiveChat) {
+      final cubit = context.read<ForumChatCubit>();
+      cubit.onBroadcastMessageReceived(ChatMessage(
+        id: messageId,
+        sender: cubit.userName,
+        userId: cubit.userId,
+        message: state.draft.title,
+        createdAt: createdAt,
+        isMe: true,
+        type: MessageType.fromValue(widget.messageType),
+      ));
+    } else {
+      final cubit = context.read<ForumUpdatesCubit>();
+      cubit.onBroadcastMessageReceived(ChatMessage(
+        id: messageId,
+        sender: cubit.userName,
+        userId: cubit.userId,
+        message: state.draft.title,
+        createdAt: createdAt,
+        isMe: true,
+        type: MessageType.fromValue(widget.messageType),
+      ));
+    }
+  }
+
   void _syncOptionControllers(List<String> options) {
     // Keep controller count in sync with draft option count (add/remove),
     // without clobbering text the user is actively typing in existing ones.
@@ -109,6 +148,7 @@ class _PollCardEditorViewState extends State<_PollCardEditorView> {
           AppSnackBars.showError(context, state.error!);
         } else if (state.isSuccess) {
           AppSnackBars.showSuccess(context, 'Poll posted!');
+          _pushLocalMessage(context, state);
           widget.onPublished?.call();
         }
       },

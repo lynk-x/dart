@@ -172,14 +172,17 @@ class QuizBuilderCubit extends Cubit<QuizBuilderState> {
 
     emit(state.copyWith(isSaving: true, error: null, isSuccess: false));
     try {
-      if (state.draft.type == 'poll') {
-        await _repo
-            .createPoll(state.draft.toCreatePollParams(messageType: messageType));
-      } else {
-        await _repo
-            .createQuiz(state.draft.toCreateQuizParams(messageType: messageType));
-      }
-      emit(state.copyWith(isSaving: false, isSuccess: true));
+      final result = state.draft.type == 'poll'
+          ? await _repo.createPoll(
+              state.draft.toCreatePollParams(messageType: messageType))
+          : await _repo.createQuiz(
+              state.draft.toCreateQuizParams(messageType: messageType));
+      emit(state.copyWith(
+        isSaving: false,
+        isSuccess: true,
+        createdMessageId: result.messageId,
+        createdMessageCreatedAt: result.createdAt,
+      ));
     } catch (e) {
       emit(state.copyWith(isSaving: false, error: e.toString()));
     }
