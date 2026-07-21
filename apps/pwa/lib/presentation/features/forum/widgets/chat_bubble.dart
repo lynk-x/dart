@@ -288,9 +288,12 @@ class _ChatBubbleState extends State<ChatBubble> {
             if (widget.message.category != null)
               _CategoryBadge(category: widget.message.category!),
             _buildMessageContent(textColor),
-            if (widget.message.questionnaireId != null &&
+            if (widget.message.type.isPollOrQuiz &&
                 context.read<FeatureFlagCubit>().isEnabled('enable_forum_polls'))
-              PollAttachment(questionnaireId: widget.message.questionnaireId!),
+              PollAttachment(
+                messageId: widget.message.id,
+                messageType: widget.message.type,
+              ),
           ],
         ),
       ),

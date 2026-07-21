@@ -14,12 +14,20 @@ import 'package:lynk_x/presentation/features/quiz/models/quiz_builder_model.dart
 /// save/publish plumbing rather than duplicating it.
 class PollCardEditor extends StatelessWidget {
   final String forumId;
+  final String? channelId;
+  final String? channelCreatedAt;
+  // Which tab's '+' button launched this — determines whether the published
+  // poll's message_type is livechat_poll or update_poll.
+  final String messageType;
   final VoidCallback? onCancel;
   final VoidCallback? onPublished;
 
   const PollCardEditor({
     super.key,
     required this.forumId,
+    this.channelId,
+    this.channelCreatedAt,
+    required this.messageType,
     this.onCancel,
     this.onPublished,
   });
@@ -27,19 +35,31 @@ class PollCardEditor extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (context) =>
-          QuizBuilderCubit(repo: quizRepository, forumId: forumId)
-            ..addQuestion(),
-      child: _PollCardEditorView(onCancel: onCancel, onPublished: onPublished),
+      create: (context) => QuizBuilderCubit(
+        repo: quizRepository,
+        forumId: forumId,
+        channelId: channelId,
+        channelCreatedAt: channelCreatedAt,
+      )..addQuestion(),
+      child: _PollCardEditorView(
+        messageType: messageType,
+        onCancel: onCancel,
+        onPublished: onPublished,
+      ),
     );
   }
 }
 
 class _PollCardEditorView extends StatefulWidget {
+  final String messageType;
   final VoidCallback? onCancel;
   final VoidCallback? onPublished;
 
-  const _PollCardEditorView({this.onCancel, this.onPublished});
+  const _PollCardEditorView({
+    required this.messageType,
+    this.onCancel,
+    this.onPublished,
+  });
 
   @override
   State<_PollCardEditorView> createState() => _PollCardEditorViewState();
@@ -227,7 +247,7 @@ class _PollCardEditorViewState extends State<_PollCardEditorView> {
                               '',
                               'poll',
                             );
-                            cubit.saveAndPublish(true);
+                            cubit.publish(widget.messageType);
                           },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.black,

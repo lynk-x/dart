@@ -5,18 +5,26 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'poll_card.dart';
 import '../../cubit/forum_cubit.dart';
+import '../../models/forum_model.dart';
 
 /// Loads and renders a poll/quiz attached to a forum message.
 ///
-/// Forum messages reference polls via `questionnaire_id`. This widget
-/// fetches the questionnaire + its questions. Polls render a [PollCard] per
-/// question inline; quizzes are a session to join rather than a question to
-/// answer inline, so they render a single join-launcher card instead. Polls
-/// with `status != 'published'` are hidden.
+/// A poll/quiz IS its announcing forum_messages row — see surveys.polls /
+/// surveys.quiz_sessions, both keyed on message_id. This widget fetches the
+/// poll/quiz config (from whichever table messageType indicates) + its
+/// questions. Polls render a [PollCard] per question inline; quizzes are a
+/// session to join rather than a question to answer inline, so they render a
+/// single join-launcher card instead. A poll/quiz with `status != 'published'`
+/// is hidden.
 class PollAttachment extends StatefulWidget {
-  final String questionnaireId;
+  final String messageId;
+  final MessageType messageType;
 
-  const PollAttachment({super.key, required this.questionnaireId});
+  const PollAttachment({
+    super.key,
+    required this.messageId,
+    required this.messageType,
+  });
 
   @override
   State<PollAttachment> createState() => _PollAttachmentState();
@@ -25,8 +33,6 @@ class PollAttachment extends StatefulWidget {
 class _PollAttachmentState extends State<PollAttachment> {
   SupabaseClient get _supabase => Supabase.instance.client;
   bool _isLoading = true;
-  String? _title;
-  String _type = 'poll';
   String _quizState = 'lobby';
   int _questionsCount = 0;
   List<Map<String, dynamic>> _questions = [];
@@ -39,49 +45,50 @@ class _PollAttachmentState extends State<PollAttachment> {
 
   Future<void> _load() async {
     try {
-      // Fetch questionnaire metadata
-      final qData = await _supabase
-          .schema('api')
-          .from('v1_questionnaires')
-          .select('title, type, status, quiz_state, info')
-          .eq('id', widget.questionnaireId)
-          .single();
+      if (widget.messageType.isQuiz) {
+        final sessionData = await _supabase
+            .schema('api')
+            .from('v1_quiz_sessions')
+            .select('status, quiz_state, questions_count')
+            .eq('message_id', widget.messageId)
+            .single();
 
-      if (qData['status'] != 'published') {
-        if (mounted) setState(() => _isLoading = false);
-        return;
-      }
+        if (sessionData['status'] != 'published') {
+          if (mounted) setState(() => _isLoading = false);
+          return;
+        }
 
-      final type = qData['type'] as String? ?? 'poll';
-
-      // Quizzes are a join-launcher card, not per-question inline voting —
-      // no need to fetch every question up front.
-      if (type == 'quiz') {
-        final info = qData['info'] as Map<String, dynamic>?;
         if (mounted) {
           setState(() {
-            _title = qData['title'] as String?;
-            _type = type;
-            _quizState = qData['quiz_state'] as String? ?? 'lobby';
-            _questionsCount = info?['questions_count'] as int? ?? 0;
+            _quizState = sessionData['quiz_state'] as String? ?? 'lobby';
+            _questionsCount = sessionData['questions_count'] as int? ?? 0;
             _isLoading = false;
           });
         }
         return;
       }
 
-      // Fetch questions
+      final pollData = await _supabase
+          .schema('api')
+          .from('v1_polls')
+          .select('status')
+          .eq('message_id', widget.messageId)
+          .single();
+
+      if (pollData['status'] != 'published') {
+        if (mounted) setState(() => _isLoading = false);
+        return;
+      }
+
       final questions = await _supabase
           .schema('api')
           .from('v1_questions')
           .select('id, question_text, options, order_index')
-          .eq('questionnaire_id', widget.questionnaireId)
+          .eq('message_id', widget.messageId)
           .order('order_index', ascending: true);
 
       if (mounted) {
         setState(() {
-          _title = qData['title'] as String?;
-          _type = type;
           _questions = List<Map<String, dynamic>>.from(questions);
           _isLoading = false;
         });
@@ -106,11 +113,9 @@ class _PollAttachmentState extends State<PollAttachment> {
       );
     }
 
-    if (_type == 'quiz') {
-      if (_title == null) return const SizedBox.shrink();
+    if (widget.messageType.isQuiz) {
       return _QuizJoinCard(
-        questionnaireId: widget.questionnaireId,
-        title: _title!,
+        messageId: widget.messageId,
         questionsCount: _questionsCount,
         quizState: _quizState,
       );
@@ -120,46 +125,30 @@ class _PollAttachmentState extends State<PollAttachment> {
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (_title != null && _title!.isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 4, top: 8),
-            child: Text(
-              _title!,
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.6),
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ..._questions.map((q) {
-          final options = (q['options'] as List?)
-                  ?.map((o) => o.toString())
-                  .toList() ??
-              [];
-          return PollCard(
-            questionnaireId: widget.questionnaireId,
-            questionId: q['id'] as String,
-            questionText: q['question_text'] as String,
-            options: options,
-            isQuiz: false,
-          );
-        }),
-      ],
+      children: _questions.map((q) {
+        final options = (q['options'] as List?)
+                ?.map((o) => o.toString())
+                .toList() ??
+            [];
+        return PollCard(
+          messageId: widget.messageId,
+          questionId: q['id'] as String,
+          questionText: q['question_text'] as String,
+          options: options,
+          isQuiz: false,
+        );
+      }).toList(),
     );
   }
 }
 
 class _QuizJoinCard extends StatelessWidget {
-  final String questionnaireId;
-  final String title;
+  final String messageId;
   final int questionsCount;
   final String quizState;
 
   const _QuizJoinCard({
-    required this.questionnaireId,
-    required this.title,
+    required this.messageId,
     required this.questionsCount,
     required this.quizState,
   });
@@ -215,11 +204,6 @@ class _QuizJoinCard extends StatelessWidget {
               ],
             ],
           ),
-          const SizedBox(height: 10),
-          Text(
-            title,
-            style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w600),
-          ),
           if (questionsCount > 0) ...[
             const SizedBox(height: 4),
             Text(
@@ -234,7 +218,7 @@ class _QuizJoinCard extends StatelessWidget {
               onPressed: _isEnded || forumReference == null
                   ? null
                   : () => context.push(
-                        '/forum/$forumReference/quiz/$questionnaireId',
+                        '/forum/$forumReference/quiz/$messageId',
                         extra: {'isHost': isOrganizer},
                       ),
               style: ElevatedButton.styleFrom(

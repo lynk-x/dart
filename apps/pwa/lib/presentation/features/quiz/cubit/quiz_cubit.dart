@@ -7,14 +7,14 @@ import 'package:lynk_x/data/repositories/repositories.dart';
 import 'quiz_state.dart';
 
 class QuizCubit extends Cubit<QuizState> {
-  final String questionnaireId;
+  final String messageId;
   final String userId;
   final QuizRepository _repo;
   RealtimeChannel? _channel;
   Timer? _timer;
 
   QuizCubit({
-    required this.questionnaireId,
+    required this.messageId,
     required this.userId,
     required QuizRepository repo,
     bool isHost = false,
@@ -24,7 +24,7 @@ class QuizCubit extends Cubit<QuizState> {
   Future<void> init() async {
     try {
       // 1. Initial Fetch
-      final data = await _repo.getQuestionnaire(questionnaireId);
+      final data = await _repo.getQuizSession(messageId);
 
       emit(state.copyWith(
         status: _mapStatus(data['quiz_state']),
@@ -53,7 +53,7 @@ class QuizCubit extends Cubit<QuizState> {
   }
 
   void _setupRealtimeListener() {
-    _channel = _repo.subscribeToQuestionnaire(questionnaireId, (payload) {
+    _channel = _repo.subscribeToQuizSession(messageId, (payload) {
       _handleUpdate(payload.newRecord);
     }).subscribe();
   }
@@ -88,7 +88,7 @@ class QuizCubit extends Cubit<QuizState> {
   }
 
   bool get _shuffleAnswers =>
-      state.questionnaire?['info']?['shuffle_answers'] as bool? ?? false;
+      state.questionnaire?['shuffle_answers'] as bool? ?? false;
 
   /// Per-user, per-question shuffle order for answer options —
   /// deterministic (seeded from userId + questionId) rather than stored, so
@@ -111,7 +111,7 @@ class QuizCubit extends Cubit<QuizState> {
   Future<void> _fetchCurrentQuestion(int index) async {
     if (index < 0) return;
     try {
-      final data = await _repo.getQuestion(questionnaireId, index);
+      final data = await _repo.getQuestion(messageId, index);
       if (data != null) {
         emit(state.copyWith(
           currentQuestion: data,
@@ -170,7 +170,7 @@ class QuizCubit extends Cubit<QuizState> {
       // responses.responses columns: question_id NOT NULL, selected_answer jsonb
       // (array of indices). The legacy 'answers' name was wrong.
       await _repo.submitAnswer(
-        questionnaireId: questionnaireId,
+        messageId: messageId,
         questionId: questionId,
         userId: userId,
         selectedAnswer: [storedIndex],
@@ -187,7 +187,7 @@ class QuizCubit extends Cubit<QuizState> {
 
   Future<void> fetchLeaderboard() async {
     try {
-      final data = await _repo.getLeaderboard(questionnaireId);
+      final data = await _repo.getLeaderboard(messageId);
       emit(state.copyWith(leaderboard: data));
     } catch (e) {
       debugPrint('Error fetching leaderboard: $e');
@@ -196,15 +196,15 @@ class QuizCubit extends Cubit<QuizState> {
 
   // --- Host Controls ---
 
-  /// Seconds allotted per question — configurable per-quiz via
-  /// info.time_per_question_seconds (the builder's "Time per question"
-  /// setting); 30 is the same default the runtime always used before that
-  /// setting existed, so an unset/legacy quiz behaves identically.
+  /// Seconds allotted per question — configurable per-quiz via the builder's
+  /// "Time per question" setting (surveys.quiz_sessions.time_per_question_seconds);
+  /// 30 is the same default the runtime always used before that setting
+  /// existed, so an unset/legacy quiz behaves identically.
   int get _timePerQuestionSeconds =>
-      state.questionnaire?['info']?['time_per_question_seconds'] as int? ?? 30;
+      state.questionnaire?['time_per_question_seconds'] as int? ?? 30;
 
   bool get _shuffleQuestions =>
-      state.questionnaire?['info']?['shuffle_questions'] as bool? ?? false;
+      state.questionnaire?['shuffle_questions'] as bool? ?? false;
 
   Future<void> startQuiz() async {
     if (!state.isHost) return;
@@ -217,7 +217,7 @@ class QuizCubit extends Cubit<QuizState> {
 
     // Check if there are more questions
     final questionsCount =
-        state.questionnaire?['info']?['questions_count'] as int? ?? 0;
+        state.questionnaire?['questions_count'] as int? ?? 0;
     final nextIndex = state.currentQuestionIndex + 1;
 
     if (nextIndex >= questionsCount) {
@@ -265,7 +265,7 @@ class QuizCubit extends Cubit<QuizState> {
         : null;
 
     await _repo.updateQuizState(
-      questionnaireId: questionnaireId,
+      messageId: messageId,
       quizState: quizState,
       questionIndex: questionIndex,
       expiresAt: expiresAt,

@@ -236,6 +236,12 @@ GoRouter createRouter(
               final extras = state.extra as Map<String, dynamic>?;
               final forumId = extras?['forumId'] as String?;
               final isOrganizer = extras?['isOrganizer'] as bool? ?? false;
+              // Which tab's '+' button launched this — determines whether the
+              // published quiz's message_type is livechat_quiz or update_quiz
+              // (see forum_screen.dart's _showCreatePollOrQuizSheet).
+              final isLiveChat = extras?['isLiveChat'] as bool? ?? false;
+              final channelId = extras?['channelId'] as String?;
+              final channelCreatedAt = extras?['channelCreatedAt'] as String?;
 
               if (forumId == null || !isOrganizer) {
                 return Title(
@@ -251,7 +257,12 @@ GoRouter createRouter(
               return Title(
                 title: 'Create Quiz',
                 color: Colors.black,
-                child: QuizBuilderPage(forumId: forumId),
+                child: QuizBuilderPage(
+                  forumId: forumId,
+                  channelId: channelId,
+                  channelCreatedAt: channelCreatedAt,
+                  messageType: isLiveChat ? 'livechat_quiz' : 'update_quiz',
+                ),
               );
             },
           ),
@@ -284,7 +295,7 @@ GoRouter createRouter(
                 color: Colors.black,
                 child: BlocProvider<QuizCubit>(
                   create: (context) => QuizCubit(
-                    questionnaireId: questionnaireId,
+                    messageId: questionnaireId,
                     userId: userId,
                     repo: quizRepository,
                     isHost: isHost,

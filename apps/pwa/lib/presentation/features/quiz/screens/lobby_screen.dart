@@ -81,9 +81,9 @@ class LobbyScreen extends StatelessWidget {
                 child: Column(
                   children: [
                     Text(
-                      isHost 
+                      isHost
                         ? "You are the host. Once everyone has joined, start the quiz."
-                        : (questionnaire['info']?['description']?.toString() ?? "Waiting for the host to start..."),
+                        : "Waiting for the host to start...",
                       textAlign: TextAlign.center,
                       style: AppTypography.bodyLarge.copyWith(
                         color: AppColors.alternate,

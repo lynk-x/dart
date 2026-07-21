@@ -9,9 +9,17 @@ class QuizBuilderCubit extends Cubit<QuizBuilderState> {
   QuizBuilderCubit({
     required QuizRepository repo,
     required String forumId,
+    String? channelId,
+    String? channelCreatedAt,
   })  : _repo = repo,
         super(QuizBuilderState(
-          draft: DraftQuiz(forumId: forumId, title: '', info: ''),
+          draft: DraftQuiz(
+            forumId: forumId,
+            channelId: channelId,
+            channelCreatedAt: channelCreatedAt,
+            title: '',
+            info: '',
+          ),
         ));
 
   void updateSettings(String title, String info, String type) {
@@ -151,7 +159,11 @@ class QuizBuilderCubit extends Cubit<QuizBuilderState> {
     return null;
   }
 
-  Future<void> saveAndPublish(bool publish) async {
+  /// Publishes immediately — there is no draft-save/reopen flow, so this
+  /// always creates a published poll/quiz. [messageType] must be one of
+  /// livechat_poll/livechat_quiz/update_poll/update_quiz, matching which tab
+  /// launched the composer.
+  Future<void> publish(String messageType) async {
     final validationError = _validate();
     if (validationError != null) {
       emit(state.copyWith(error: validationError));
@@ -160,12 +172,14 @@ class QuizBuilderCubit extends Cubit<QuizBuilderState> {
 
     emit(state.copyWith(isSaving: true, error: null, isSuccess: false));
     try {
-      final updatedDraft = state.draft.copyWith(
-        status: publish ? 'published' : 'draft',
-      );
-      await _repo.saveQuiz(updatedDraft.toMap());
-      emit(state.copyWith(
-          isSaving: false, isSuccess: true, draft: updatedDraft));
+      if (state.draft.type == 'poll') {
+        await _repo
+            .createPoll(state.draft.toCreatePollParams(messageType: messageType));
+      } else {
+        await _repo
+            .createQuiz(state.draft.toCreateQuizParams(messageType: messageType));
+      }
+      emit(state.copyWith(isSaving: false, isSuccess: true));
     } catch (e) {
       emit(state.copyWith(isSaving: false, error: e.toString()));
     }

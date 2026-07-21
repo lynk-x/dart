@@ -71,7 +71,7 @@ class QuizOrchestratorScreen extends StatelessWidget {
 
           case QuizStatus.leaderboard:
             final questionsCount =
-                state.questionnaire?['info']?['questions_count'] as int? ?? 0;
+                state.questionnaire?['questions_count'] as int? ?? 0;
             final annotated =
                 _withCurrentUserFlag(state.leaderboard, cubit.userId);
             final myEntry = _findCurrentUser(annotated);
@@ -136,7 +136,7 @@ class QuizOrchestratorScreen extends StatelessWidget {
   /// configurable via the builder's "Reveal correct answer" toggle, default
   /// true (today's only behavior) so unset/legacy quizzes are unchanged.
   bool _revealAnswerEnabled(QuizState state) {
-    return state.questionnaire?['info']?['reveal_answer'] as bool? ?? true;
+    return state.questionnaire?['reveal_answer'] as bool? ?? true;
   }
 
   /// The leaderboard RPC (`get_quiz_leaderboard`) does not return an

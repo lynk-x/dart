@@ -2,31 +2,42 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// Quiz/poll data access. All reads go through the `api.v1_*` views and all
 /// writes through `api.*` RPCs — the `surveys` schema is not PostgREST-exposed.
-/// `v1_questions.correct_options` is null until the questionnaire moves past
-/// 'playing' (reveal/leaderboard/podium/finished); scoring itself always
-/// happens server-side in `api.submit_survey_response`'s insert triggers.
+/// A poll/quiz IS its announcing forum_messages row (message_id below is
+/// always that message's id) — see `surveys.polls` / `surveys.quiz_sessions`.
+/// `v1_questions.correct_options` is null until the quiz moves past 'playing'
+/// (reveal/leaderboard/podium/finished); scoring itself always happens
+/// server-side in `api.submit_survey_response`'s insert triggers.
 class QuizRepository {
   final SupabaseClient _client;
   QuizRepository(this._client);
 
-  Future<Map<String, dynamic>> getQuestionnaire(String questionnaireId) async {
+  Future<Map<String, dynamic>> getPoll(String messageId) async {
     return await _client
         .schema('api')
-        .from('v1_questionnaires')
+        .from('v1_polls')
         .select()
-        .eq('id', questionnaireId)
+        .eq('message_id', messageId)
+        .single();
+  }
+
+  Future<Map<String, dynamic>> getQuizSession(String messageId) async {
+    return await _client
+        .schema('api')
+        .from('v1_quiz_sessions')
+        .select()
+        .eq('message_id', messageId)
         .single();
   }
 
   Future<Map<String, dynamic>?> getQuestion(
-    String questionnaireId,
+    String messageId,
     int orderIndex,
   ) async {
     return await _client
         .schema('api')
         .from('v1_questions')
         .select()
-        .eq('questionnaire_id', questionnaireId)
+        .eq('message_id', messageId)
         .eq('order_index', orderIndex)
         .maybeSingle();
   }
@@ -39,7 +50,7 @@ class QuizRepository {
   }
 
   Future<List<Map<String, dynamic>>> getLeaderboardLive(
-    String questionnaireId, {
+    String messageId, {
     int limit = 20,
   }) async {
     final data = await _client
@@ -47,7 +58,7 @@ class QuizRepository {
         .from('v1_quiz_leaderboard')
         .select(
             'user_id, display_name, avatar_url, total_score, answers_count, last_answered_at')
-        .eq('questionnaire_id', questionnaireId)
+        .eq('message_id', messageId)
         .order('total_score', ascending: false)
         .order('last_answered_at', ascending: true)
         .limit(limit);
@@ -55,7 +66,7 @@ class QuizRepository {
   }
 
   Future<void> submitAnswer({
-    required String questionnaireId,
+    required String messageId,
     required String questionId,
     required String userId,
     required List<int> selectedAnswer,
@@ -63,14 +74,14 @@ class QuizRepository {
     // account_id resolution, published check and per-question dedupe all
     // happen server-side; userId is derived from the session there too.
     await _client.schema('api').rpc('submit_survey_response', params: {
-      'p_questionnaire_id': questionnaireId,
+      'p_message_id': messageId,
       'p_question_id': questionId,
       'p_selected_answer': selectedAnswer,
     });
   }
 
   Future<void> updateQuizState({
-    required String questionnaireId,
+    required String messageId,
     required String quizState,
     required int questionIndex,
     String? expiresAt,
@@ -80,7 +91,7 @@ class QuizRepository {
     bool shuffleQuestions = false,
   }) async {
     await _client.schema('api').rpc('update_quiz_state', params: {
-      'p_questionnaire_id': questionnaireId,
+      'p_message_id': messageId,
       'p_quiz_state': quizState,
       'p_question_index': questionIndex,
       'p_expires_at': expiresAt,
@@ -88,42 +99,40 @@ class QuizRepository {
     });
   }
 
-  RealtimeChannel subscribeToQuestionnaire(
-    String questionnaireId,
+  RealtimeChannel subscribeToQuizSession(
+    String messageId,
     void Function(PostgresChangePayload) callback,
   ) {
-    return _client.channel('quiz_live_$questionnaireId').onPostgresChanges(
+    return _client.channel('quiz_live_$messageId').onPostgresChanges(
           event: PostgresChangeEvent.update,
           schema: 'surveys',
-          table: 'questionnaires',
+          table: 'quiz_sessions',
           filter: PostgresChangeFilter(
             type: PostgresChangeFilterType.eq,
-            column: 'id',
-            value: questionnaireId,
+            column: 'message_id',
+            value: messageId,
           ),
           callback: callback,
         );
   }
 
-  Future<void> saveQuiz(Map<String, dynamic> quizData) async {
-    final questionsData = quizData.remove('questions') as List<dynamic>;
+  /// Atomically creates the announcing forum_messages row and its poll
+  /// config + single question. Returns the new message id. messageType must
+  /// be 'livechat_poll' or 'update_poll'.
+  Future<String> createPoll(Map<String, dynamic> params) async {
+    final result = await _client
+        .schema('api')
+        .rpc('create_poll', params: params) as Map<String, dynamic>;
+    return result['message_id'] as String;
+  }
 
-    // Map each question's correctIndices list to the JSON object shape the
-    // server stores, e.g. {"0": true, "1": true}.
-    final questionsPayload = questionsData.map((raw) {
-      final q = raw as Map<String, dynamic>;
-      final correctIndices = q['correct'] as List<dynamic>;
-      return {
-        if (q['id'] != null) 'id': q['id'],
-        'question_text': q['question_text'],
-        'options': q['options'],
-        'correct': {for (var i in correctIndices) i.toString(): true},
-      };
-    }).toList();
-
-    await _client.schema('api').rpc('save_quiz', params: {
-      'p_quiz': quizData,
-      'p_questions': questionsPayload,
-    });
+  /// Atomically creates the announcing forum_messages row, its quiz_sessions
+  /// config, and all its questions. Returns the new message id. messageType
+  /// must be 'livechat_quiz' or 'update_quiz'.
+  Future<String> createQuiz(Map<String, dynamic> params) async {
+    final result = await _client
+        .schema('api')
+        .rpc('create_quiz', params: params) as Map<String, dynamic>;
+    return result['message_id'] as String;
   }
 }

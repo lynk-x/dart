@@ -1,6 +1,6 @@
 /// Scoring behavior for a quiz. 'flat' gives 1 point per correct answer
 /// (today's only behavior); 'speed' adds up to +50% for near-instant correct
-/// answers, computed server-side in internal.fn_calculate_response_score.
+/// answers, computed server-side in surveys.fn_calculate_response_score.
 enum QuizScoringMode {
   flat,
   speed;
@@ -16,12 +16,12 @@ enum QuizScoringMode {
 }
 
 class DraftQuiz {
-  final String? id;
   final String forumId;
+  final String? channelId;
+  final String? channelCreatedAt;
   final String title;
   final String info;
   final String type;
-  final String status;
   final List<DraftQuestion> questions;
 
   // Game configs — all default to today's actual hardcoded runtime behavior,
@@ -34,12 +34,12 @@ class DraftQuiz {
   final bool revealAnswer;
 
   const DraftQuiz({
-    this.id,
     required this.forumId,
+    this.channelId,
+    this.channelCreatedAt,
     required this.title,
     required this.info,
     this.type = 'quiz',
-    this.status = 'draft',
     this.questions = const [],
     this.timePerQuestionSeconds = 30,
     this.scoringMode = QuizScoringMode.flat,
@@ -49,12 +49,12 @@ class DraftQuiz {
   });
 
   DraftQuiz copyWith({
-    String? id,
     String? forumId,
+    String? channelId,
+    String? channelCreatedAt,
     String? title,
     String? info,
     String? type,
-    String? status,
     List<DraftQuestion>? questions,
     int? timePerQuestionSeconds,
     QuizScoringMode? scoringMode,
@@ -63,12 +63,12 @@ class DraftQuiz {
     bool? revealAnswer,
   }) {
     return DraftQuiz(
-      id: id ?? this.id,
       forumId: forumId ?? this.forumId,
+      channelId: channelId ?? this.channelId,
+      channelCreatedAt: channelCreatedAt ?? this.channelCreatedAt,
       title: title ?? this.title,
       info: info ?? this.info,
       type: type ?? this.type,
-      status: status ?? this.status,
       questions: questions ?? this.questions,
       timePerQuestionSeconds:
           timePerQuestionSeconds ?? this.timePerQuestionSeconds,
@@ -79,26 +79,33 @@ class DraftQuiz {
     );
   }
 
-  Map<String, dynamic> toMap() {
+  /// Params for api.create_poll — a poll is always exactly one question, so
+  /// `p_options` is that single question's option list.
+  Map<String, dynamic> toCreatePollParams({required String messageType}) {
     return {
-      if (id != null) 'id': id,
-      'forum_id': forumId,
-      'title': title,
-      // info is a jsonb object server-side — nesting the description plus
-      // game configs here (rather than sending a bare string) is what the
-      // runtime (QuizCubit, QuizOrchestratorScreen) actually expects to read.
-      'info': {
-        'description': info,
-        'questions_count': questions.length,
-        'time_per_question_seconds': timePerQuestionSeconds,
-        'scoring_mode': scoringMode.value,
-        'shuffle_answers': shuffleAnswers,
-        'shuffle_questions': shuffleQuestions,
-        'reveal_answer': revealAnswer,
-      },
-      'type': type,
-      'status': status,
-      'questions': questions.map((q) => q.toMap()).toList(),
+      'p_forum_id': forumId,
+      'p_channel_id': channelId,
+      'p_channel_created_at': channelCreatedAt,
+      'p_content': title,
+      'p_options': questions.isNotEmpty ? questions.first.options : <String>[],
+      'p_message_type': messageType,
+    };
+  }
+
+  /// Params for api.create_quiz.
+  Map<String, dynamic> toCreateQuizParams({required String messageType}) {
+    return {
+      'p_forum_id': forumId,
+      'p_channel_id': channelId,
+      'p_channel_created_at': channelCreatedAt,
+      'p_content': title,
+      'p_message_type': messageType,
+      'p_questions': questions.map((q) => q.toMap()).toList(),
+      'p_time_per_question_seconds': timePerQuestionSeconds,
+      'p_scoring_mode': scoringMode.value,
+      'p_shuffle_answers': shuffleAnswers,
+      'p_shuffle_questions': shuffleQuestions,
+      'p_reveal_answer': revealAnswer,
     };
   }
 }
@@ -132,10 +139,9 @@ class DraftQuestion {
 
   Map<String, dynamic> toMap() {
     return {
-      if (id != null) 'id': id,
       'question_text': text,
       'options': options,
-      'correct': correctIndices,
+      'correct': {for (var i in correctIndices) i.toString(): true},
     };
   }
 }

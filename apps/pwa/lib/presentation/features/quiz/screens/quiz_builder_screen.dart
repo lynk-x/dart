@@ -13,22 +13,36 @@ import '../widgets/builder/question_editor_card.dart';
 
 class QuizBuilderPage extends StatelessWidget {
   final String forumId;
+  final String? channelId;
+  final String? channelCreatedAt;
+  final String messageType;
 
-  const QuizBuilderPage({super.key, required this.forumId});
+  const QuizBuilderPage({
+    super.key,
+    required this.forumId,
+    this.channelId,
+    this.channelCreatedAt,
+    required this.messageType,
+  });
 
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (context) =>
-          QuizBuilderCubit(repo: quizRepository, forumId: forumId)
-            ..addQuestion(),
-      child: const QuizBuilderView(),
+      create: (context) => QuizBuilderCubit(
+        repo: quizRepository,
+        forumId: forumId,
+        channelId: channelId,
+        channelCreatedAt: channelCreatedAt,
+      )..addQuestion(),
+      child: QuizBuilderView(messageType: messageType),
     );
   }
 }
 
 class QuizBuilderView extends StatefulWidget {
-  const QuizBuilderView({super.key});
+  final String messageType;
+
+  const QuizBuilderView({super.key, required this.messageType});
 
   @override
   State<QuizBuilderView> createState() => _QuizBuilderViewState();
@@ -65,11 +79,8 @@ class _QuizBuilderViewState extends State<QuizBuilderView> {
         if (state.error != null) {
           AppSnackBars.showError(context, state.error!);
         } else if (state.isSuccess) {
-          AppSnackBars.showSuccess(
-              context, 'Quiz ${state.draft.status} successfully!');
-          if (state.draft.status == 'published') {
-            context.pop();
-          }
+          AppSnackBars.showSuccess(context, 'Quiz published successfully!');
+          context.pop();
         }
       },
       builder: (context, state) {
@@ -105,7 +116,7 @@ class _QuizBuilderViewState extends State<QuizBuilderView> {
                 )
               else
                 TextButton(
-                  onPressed: () => cubit.saveAndPublish(true),
+                  onPressed: () => cubit.publish(widget.messageType),
                   child: Text('Publish',
                       style: TextStyle(
                           color: context.accentColor,
@@ -132,26 +143,6 @@ class _QuizBuilderViewState extends State<QuizBuilderView> {
                                   fontSize: 16,
                                   fontWeight: FontWeight.w700,
                                   color: Colors.white),
-                            ),
-                          ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: (draft.status == 'published'
-                                      ? Colors.greenAccent
-                                      : Colors.orangeAccent)
-                                  .withValues(alpha: 0.15),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Text(
-                              draft.status.toUpperCase(),
-                              style: AppTypography.inter(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w600,
-                                  color: draft.status == 'published'
-                                      ? Colors.greenAccent
-                                      : Colors.orangeAccent),
                             ),
                           ),
                           Icon(
@@ -282,10 +273,10 @@ class _QuizBuilderViewState extends State<QuizBuilderView> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: AppColors.surface,
-        title: const Text('Unsaved changes',
+        title: const Text('Discard quiz?',
             style: TextStyle(color: Colors.white)),
         content: const Text(
-          'You have unsaved progress on this quiz. Save it as a draft before leaving?',
+          'You have unsaved progress on this quiz. It will be lost if you leave now.',
           style: TextStyle(color: Colors.white70),
         ),
         actions: [
@@ -301,18 +292,6 @@ class _QuizBuilderViewState extends State<QuizBuilderView> {
             },
             child: const Text('Discard',
                 style: TextStyle(color: Colors.redAccent)),
-          ),
-          TextButton(
-            onPressed: () async {
-              Navigator.pop(ctx);
-              await cubit.saveAndPublish(false);
-              if (context.mounted && cubit.state.error == null) {
-                context.pop();
-              }
-            },
-            child: Text('Save Draft',
-                style: TextStyle(
-                    color: context.accentColor, fontWeight: FontWeight.bold)),
           ),
         ],
       ),

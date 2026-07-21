@@ -5,11 +5,12 @@ import 'package:lynk_x/presentation/shared/utils/app_snackbars.dart';
 
 /// Displays a single poll question with live-updating results.
 ///
-/// Polls are attached to forum messages via `questionnaire_id`. When the user
-/// taps an option, the response is inserted into the `responses` table and
-/// the UI shows the aggregated results from `vw_poll_results`.
+/// A poll IS its announcing forum_messages row (messageId is that message's
+/// id — see surveys.polls). When the user taps an option, the response is
+/// inserted into the `responses` table and the UI shows the aggregated
+/// results from `vw_poll_results`.
 class PollCard extends StatefulWidget {
-  final String questionnaireId;
+  final String messageId;
   final String questionId;
   final String questionText;
   final List<String> options;
@@ -17,7 +18,7 @@ class PollCard extends StatefulWidget {
 
   const PollCard({
     super.key,
-    required this.questionnaireId,
+    required this.messageId,
     required this.questionId,
     required this.questionText,
     required this.options,
@@ -137,7 +138,7 @@ class _PollCardState extends State<PollCard> {
       // account_id resolution and per-question dedupe happen server-side.
       final response =
           await _supabase.schema('api').rpc('submit_survey_response', params: {
-        'p_questionnaire_id': widget.questionnaireId,
+        'p_message_id': widget.messageId,
         'p_question_id': widget.questionId,
         'p_selected_answer': [index],
       });

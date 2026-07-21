@@ -8,7 +8,59 @@ import 'package:flutter/material.dart';
 /// - Role badges ([role], [roleColor]) for organizers/speakers
 /// - Link previews ([linkPreviewTitle], [linkPreviewUrl])
 /// - In-app navigation ([targetRoute]) for clickable action cards
-enum MessageType { chat, announcement }
+enum MessageType {
+  chat,
+  announcement,
+  livechatPoll,
+  livechatQuiz,
+  updatePoll,
+  updateQuiz;
+
+  /// True if this message IS a poll/quiz (see surveys.polls / quiz_sessions,
+  /// keyed on this message's own id) rather than a plain chat/announcement.
+  bool get isPollOrQuiz =>
+      this == livechatPoll ||
+      this == livechatQuiz ||
+      this == updatePoll ||
+      this == updateQuiz;
+
+  bool get isPoll => this == livechatPoll || this == updatePoll;
+  bool get isQuiz => this == livechatQuiz || this == updateQuiz;
+
+  static MessageType fromValue(String? value) {
+    switch (value) {
+      case 'announcement':
+        return MessageType.announcement;
+      case 'livechat_poll':
+        return MessageType.livechatPoll;
+      case 'livechat_quiz':
+        return MessageType.livechatQuiz;
+      case 'update_poll':
+        return MessageType.updatePoll;
+      case 'update_quiz':
+        return MessageType.updateQuiz;
+      default:
+        return MessageType.chat;
+    }
+  }
+
+  String get value {
+    switch (this) {
+      case MessageType.announcement:
+        return 'announcement';
+      case MessageType.livechatPoll:
+        return 'livechat_poll';
+      case MessageType.livechatQuiz:
+        return 'livechat_quiz';
+      case MessageType.updatePoll:
+        return 'update_poll';
+      case MessageType.updateQuiz:
+        return 'update_quiz';
+      case MessageType.chat:
+        return 'chat';
+    }
+  }
+}
 
 class ChatMessage {
   final String id;
@@ -30,8 +82,6 @@ class ChatMessage {
 
   /// Category tag mapping to message_hashtag (e.g. 'Urgent', 'Activity', 'Q&A', 'Resources', 'Rules').
   final String? category;
-  /// If set, this message has an attached poll/quiz from the questionnaires table.
-  final String? questionnaireId;
   final Map<String, int> reactions;
   final bool isSending;
   final bool hasError;
@@ -56,7 +106,6 @@ class ChatMessage {
     this.linkPreviewUrl,
     this.targetRoute,
     this.category,
-    this.questionnaireId,
     this.reactions = const {},
     this.isSending = false,
     this.hasError = false,
@@ -90,11 +139,8 @@ class ChatMessage {
       createdAt: DateTime.parse(map['created_at'] as String),
       isMe: (map['author_id']?.toString().toLowerCase() == currentUserId.toLowerCase()) ||
             (map['user_id']?.toString().toLowerCase() == currentUserId.toLowerCase()),
-      type: map['message_type'] == 'announcement'
-          ? MessageType.announcement
-          : MessageType.chat,
+      type: MessageType.fromValue(map['message_type'] as String?),
       category: map['hashtag'] as String?,
-      questionnaireId: map['questionnaire_id'] as String?,
       role: map['forum_members']?['role_id'] as String?,
       imageUrl: map['forum_media']?['url'] as String?,
       thumbnailUrl: map['forum_media']?['thumbnail_url'] as String?,
@@ -122,7 +168,6 @@ class ChatMessage {
     String? linkPreviewUrl,
     String? targetRoute,
     String? category,
-    String? questionnaireId,
     Map<String, int>? reactions,
     bool? isSending,
     bool? hasError,
@@ -147,7 +192,6 @@ class ChatMessage {
       linkPreviewUrl: linkPreviewUrl ?? this.linkPreviewUrl,
       targetRoute: targetRoute ?? this.targetRoute,
       category: category ?? this.category,
-      questionnaireId: questionnaireId ?? this.questionnaireId,
       reactions: reactions ?? this.reactions,
       isSending: isSending ?? this.isSending,
       hasError: hasError ?? this.hasError,
@@ -163,8 +207,7 @@ class ChatMessage {
       'content': message,
       'author_id': userId,
       'created_at': createdAt.toIso8601String(),
-      'message_type':
-          type == MessageType.announcement ? 'announcement' : 'chat',
+      'message_type': type.value,
       'hashtag': category,
       'is_pinned': isPinned,
       'reactions': reactions,

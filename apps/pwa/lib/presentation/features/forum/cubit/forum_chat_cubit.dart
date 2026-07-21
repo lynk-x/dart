@@ -35,6 +35,7 @@ class ForumChatCubit extends BaseMessageCubit<ForumChatState> {
         _embeddingService = embeddingService ?? EmbeddingManager.instance,
         super(
           messageType: 'chat',
+          messageTypes: const ['chat', 'livechat_poll', 'livechat_quiz'],
           initialState: const ForumChatState(),
           channel: channel ?? Supabase.instance.client.channel('forum_chat_$forumId'),
         );
@@ -115,7 +116,7 @@ class ForumChatCubit extends BaseMessageCubit<ForumChatState> {
         limit: 20,
         before: null,
         searchQuery: state.searchQuery,
-        messageType: 'chat',
+        messageTypes: messageTypes,
       );
 
       var messages =
@@ -161,7 +162,7 @@ class ForumChatCubit extends BaseMessageCubit<ForumChatState> {
         limit: 20,
         before: oldest,
         searchQuery: state.searchQuery,
-        messageType: 'chat',
+        messageTypes: messageTypes,
       );
 
       var more =
@@ -197,7 +198,7 @@ class ForumChatCubit extends BaseMessageCubit<ForumChatState> {
 
   @override
   void sendMessage(String text,
-      {required bool isOrganizer, required bool isPremium, String? questionnaireId}) async {
+      {required bool isOrganizer, required bool isPremium}) async {
     final messageId = BaseMessageCubit.uuid.v4();
     final now = DateTime.now();
     final replyTo = state.replyingTo;
@@ -233,7 +234,6 @@ class ForumChatCubit extends BaseMessageCubit<ForumChatState> {
       imageUrl: imageUrl,
       thumbnailUrl: thumbnailUrl,
       category: category,
-      questionnaireId: questionnaireId,
       isSending: true,
     );
 
@@ -281,7 +281,6 @@ class ForumChatCubit extends BaseMessageCubit<ForumChatState> {
           if (mediaCreatedAt != null) 'media_created_at': mediaCreatedAt,
           if (replyTo != null) 'reply_to_id': replyTo.id,
           if (replyCreatedAt != null) 'reply_to_created_at': replyCreatedAt,
-          if (questionnaireId != null) 'questionnaire_id': questionnaireId,
         },
       ));
 
@@ -301,7 +300,6 @@ class ForumChatCubit extends BaseMessageCubit<ForumChatState> {
               'url': imageUrl,
               'thumbnail_url': thumbnailUrl,
             },
-          if (questionnaireId != null) 'questionnaire_id': questionnaireId,
           'user_profile': {
             'full_name': userName,
             'is_premium': isPremium,
@@ -343,6 +341,7 @@ class ForumChatCubit extends BaseMessageCubit<ForumChatState> {
         forumId: forumId,
         limit: 100,
         after: afterTimestamp,
+        messageTypes: messageTypes,
       );
 
       final deletedIds = data

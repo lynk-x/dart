@@ -712,7 +712,8 @@ class _ForumViewState extends State<ForumView> {
                         scrollController: _updatesScrollController,
                         onActionTap: () => _navigateToTab(2),
                         onMediaTap: (url) => _viewMedia(url),
-                        onCreatePollOrQuiz: _showCreatePollOrQuizSheet,
+                        onCreatePollOrQuiz: () =>
+                            _showCreatePollOrQuizSheet(isLiveChat: false),
                       )
                     : const SizedBox.shrink(),
                 showChat
@@ -722,7 +723,8 @@ class _ForumViewState extends State<ForumView> {
                         emojiTrigger: state.emojiTrigger,
                         onActionTap: () => _navigateToTab(2),
                         onMediaTap: (url) => _viewMedia(url),
-                        onCreatePollOrQuiz: _showCreatePollOrQuizSheet,
+                        onCreatePollOrQuiz: () =>
+                            _showCreatePollOrQuizSheet(isLiveChat: true),
                       )
                     : const SizedBox.shrink(),
                 showMedia
@@ -747,11 +749,19 @@ class _ForumViewState extends State<ForumView> {
     );
   }
 
-  void _showCreatePollOrQuizSheet() {
+  void _showCreatePollOrQuizSheet({required bool isLiveChat}) {
     final forumId = context.read<ForumCubit>().state.forumId;
     final forumReference = context.read<ForumCubit>().forumReference;
     final isOrganizer = context.read<ForumCubit>().state.isOrganizer;
     if (forumId == null || !isOrganizer) return;
+
+    final channelId = isLiveChat
+        ? context.read<ForumChatCubit>().channelId
+        : context.read<ForumUpdatesCubit>().channelId;
+    final channelCreatedAt = (isLiveChat
+            ? context.read<ForumChatCubit>().channelCreatedAt
+            : context.read<ForumUpdatesCubit>().channelCreatedAt)
+        ?.toIso8601String();
 
     showModalBottomSheet(
       context: context,
@@ -792,7 +802,12 @@ class _ForumViewState extends State<ForumView> {
                     'Ask a quick question and watch results come in live.',
                 onTap: () {
                   Navigator.pop(sheetContext);
-                  _showPollEditorSheet(forumId);
+                  _showPollEditorSheet(
+                    forumId: forumId,
+                    channelId: channelId,
+                    channelCreatedAt: channelCreatedAt,
+                    messageType: isLiveChat ? 'livechat_poll' : 'update_poll',
+                  );
                 },
               ),
               const SizedBox(height: 12),
@@ -807,7 +822,13 @@ class _ForumViewState extends State<ForumView> {
                   Navigator.pop(sheetContext);
                   context.push(
                     '/forum/$forumReference/quiz/create',
-                    extra: {'forumId': forumId, 'isOrganizer': true},
+                    extra: {
+                      'forumId': forumId,
+                      'isOrganizer': true,
+                      'isLiveChat': isLiveChat,
+                      'channelId': channelId,
+                      'channelCreatedAt': channelCreatedAt,
+                    },
                   );
                 },
               ),
@@ -818,7 +839,12 @@ class _ForumViewState extends State<ForumView> {
     );
   }
 
-  void _showPollEditorSheet(String forumId) {
+  void _showPollEditorSheet({
+    required String forumId,
+    String? channelId,
+    String? channelCreatedAt,
+    required String messageType,
+  }) {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -832,6 +858,9 @@ class _ForumViewState extends State<ForumView> {
         ),
         child: PollCardEditor(
           forumId: forumId,
+          channelId: channelId,
+          channelCreatedAt: channelCreatedAt,
+          messageType: messageType,
           onCancel: () => Navigator.pop(sheetContext),
           onPublished: () => Navigator.pop(sheetContext),
         ),

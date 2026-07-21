@@ -253,14 +253,14 @@ class ForumRepository {
     String? before,
     String? after,
     String? searchQuery,
-    String? messageType,
+    List<String>? messageTypes,
     String? hashtag,
   }) async {
     var query =
         _client.from('vw_forum_messages').select().eq('forum_id', forumId);
 
-    if (messageType != null) {
-      query = query.eq('message_type', messageType);
+    if (messageTypes != null && messageTypes.isNotEmpty) {
+      query = query.inFilter('message_type', messageTypes);
     }
 
     if (hashtag != null) {

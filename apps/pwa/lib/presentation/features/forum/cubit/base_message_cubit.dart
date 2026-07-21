@@ -16,7 +16,13 @@ abstract class BaseMessageCubit<T extends BaseMessageState> extends HydratedCubi
   final String userId;
   final String userName;
   final RealtimeChannel? channel;
+  // The primary type a message sent from this tab gets (used by sendMessage);
+  // messageTypes is the full set this tab renders/subscribes to — e.g. Live
+  // Chat renders 'chat' plus 'livechat_poll'/'livechat_quiz' (a poll/quiz
+  // created from its '+' button), Updates renders 'announcement' plus
+  // 'update_poll'/'update_quiz'.
   final String messageType;
+  final List<String> messageTypes;
 
   Timer? searchTimer;
   RealtimeChannel? _postgresChannel;
@@ -29,8 +35,10 @@ abstract class BaseMessageCubit<T extends BaseMessageState> extends HydratedCubi
     required this.userName,
     this.channel,
     required this.messageType,
+    List<String>? messageTypes,
     required T initialState,
-  }) : super(initialState);
+  })  : messageTypes = messageTypes ?? [messageType],
+        super(initialState);
 
   /// Must be provided by children to yield a new state.
   T copyWithState({
@@ -59,7 +67,7 @@ abstract class BaseMessageCubit<T extends BaseMessageState> extends HydratedCubi
         if (payload.isEmpty) return;
         try {
           final msg = ChatMessage.fromMap(payload, userId);
-          if (msg.type == _getTypeEnum(messageType)) {
+          if (messageTypes.contains(payload['message_type'])) {
             onBroadcastMessageReceived(msg);
           }
         } catch (e, stack) {
@@ -170,7 +178,7 @@ abstract class BaseMessageCubit<T extends BaseMessageState> extends HydratedCubi
                 if (!isClosed) emit(copyWithState(messages: updated));
               } else if (payload.eventType == PostgresChangeEvent.insert) {
                 final data = payload.newRecord;
-                if (data['message_type'] != messageType) return;
+                if (!messageTypes.contains(data['message_type'])) return;
 
                 final id = data['id'] as String;
                 
@@ -188,7 +196,7 @@ abstract class BaseMessageCubit<T extends BaseMessageState> extends HydratedCubi
                 onBroadcastMessageReceived(msg);
               } else if (payload.eventType == PostgresChangeEvent.update) {
                 final data = payload.newRecord;
-                if (data['message_type'] != messageType) return;
+                if (!messageTypes.contains(data['message_type'])) return;
 
                 if (data['deleted_at'] != null) {
                   final id = data['id'] as String?;
@@ -211,12 +219,6 @@ abstract class BaseMessageCubit<T extends BaseMessageState> extends HydratedCubi
         );
 
     _postgresChannel?.subscribe();
-  }
-
-  MessageType _getTypeEnum(String type) {
-    if (type == 'chat') return MessageType.chat;
-    if (type == 'announcement') return MessageType.announcement;
-    return MessageType.chat;
   }
 
   void onBroadcastMessageReceived(ChatMessage msg) {
@@ -454,7 +456,7 @@ abstract class BaseMessageCubit<T extends BaseMessageState> extends HydratedCubi
   }
 
   void sendMessage(String text,
-      {required bool isOrganizer, required bool isPremium, String? questionnaireId});
+      {required bool isOrganizer, required bool isPremium});
 
   @override
   Future<void> close() {

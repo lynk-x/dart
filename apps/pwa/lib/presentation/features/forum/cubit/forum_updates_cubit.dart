@@ -28,6 +28,7 @@ class ForumUpdatesCubit extends BaseMessageCubit<ForumUpdatesState> {
   })  : _embeddingService = embeddingService ?? EmbeddingManager.instance,
         super(
           messageType: 'announcement',
+          messageTypes: const ['announcement', 'update_poll', 'update_quiz'],
           initialState: const ForumUpdatesState(),
           channel: channel ?? Supabase.instance.client.channel('forum_updates_$forumId'),
         );
@@ -85,7 +86,7 @@ class ForumUpdatesCubit extends BaseMessageCubit<ForumUpdatesState> {
           .from('vw_forum_messages')
           .select()
           .eq('forum_id', forumId)
-          .eq('message_type', 'announcement')
+          .inFilter('message_type', messageTypes)
           .filter('deleted_at', 'is', null);
 
       if (state.selectedCategory != null) {
@@ -138,7 +139,7 @@ class ForumUpdatesCubit extends BaseMessageCubit<ForumUpdatesState> {
           .from('vw_forum_messages')
           .select()
           .eq('forum_id', forumId)
-          .eq('message_type', 'announcement')
+          .inFilter('message_type', messageTypes)
           .filter('deleted_at', 'is', null);
 
       if (state.selectedCategory != null) {
@@ -194,7 +195,7 @@ class ForumUpdatesCubit extends BaseMessageCubit<ForumUpdatesState> {
 
   @override
   void sendMessage(String text,
-      {required bool isOrganizer, required bool isPremium, String? questionnaireId}) async {
+      {required bool isOrganizer, required bool isPremium}) async {
     if (!isOrganizer) return; // Only organizers send updates
     final messageId = BaseMessageCubit.uuid.v4();
     final now = DateTime.now();
@@ -229,7 +230,6 @@ class ForumUpdatesCubit extends BaseMessageCubit<ForumUpdatesState> {
       category: category,
       imageUrl: imageUrl,
       thumbnailUrl: thumbnailUrl,
-      questionnaireId: questionnaireId,
       isSending: true,
     );
 
@@ -267,7 +267,6 @@ class ForumUpdatesCubit extends BaseMessageCubit<ForumUpdatesState> {
         'created_at': messageCreatedAt,
         if (mediaId != null) 'media_id': mediaId,
         if (mediaCreatedAt != null) 'media_created_at': mediaCreatedAt,
-        if (questionnaireId != null) 'questionnaire_id': questionnaireId,
       },
     ));
 
@@ -287,7 +286,6 @@ class ForumUpdatesCubit extends BaseMessageCubit<ForumUpdatesState> {
             'url': imageUrl,
             'thumbnail_url': thumbnailUrl,
           },
-        if (questionnaireId != null) 'questionnaire_id': questionnaireId,
         'user_profile': {
           'full_name': userName,
           'is_premium': isPremium,
@@ -304,7 +302,7 @@ class ForumUpdatesCubit extends BaseMessageCubit<ForumUpdatesState> {
           .from('vw_forum_messages')
           .select()
           .eq('forum_id', forumId)
-          .eq('message_type', 'announcement')
+          .inFilter('message_type', messageTypes)
           .gt('created_at', afterTimestamp);
 
       if (state.selectedCategory != null) {
