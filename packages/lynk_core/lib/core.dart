@@ -15,6 +15,10 @@ export 'profiles/cubit/profile_cubit.dart';
 export 'profiles/cubit/profile_state.dart';
 export 'auth/widgets/custom_text_field.dart';
 
+export 'notification_preferences/domain/models/notification_preference_model.dart';
+export 'notification_preferences/cubit/notification_preferences_cubit.dart';
+export 'notification_preferences/cubit/notification_preferences_state.dart';
+
 export 'feature_flags/models/feature_flag.dart';
 export 'feature_flags/cubit/feature_flag_cubit.dart';
 export 'system_config/cubit/system_config_cubit.dart';

@@ -1,6 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'repositories.dart';
 import 'package:lynk_core/profiles/data/repositories/profile_repository.dart';
+import 'package:lynk_core/notification_preferences/data/repositories/notification_preferences_repository.dart';
 
 /// Lazily-initialized singletons. The SupabaseClient is resolved at call-time
 /// so this file is safe to import before Supabase.initialize() completes.
@@ -16,3 +17,5 @@ TicketRepository get ticketRepository => TicketRepository(_db);
 QuizRepository get quizRepository => QuizRepository(_db);
 ProfileRepository get profileRepository => ProfileRepository(_db);
 SupportRepository get supportRepository => SupportRepository(client: _db);
+NotificationPreferencesRepository get notificationPreferencesRepository =>
+    NotificationPreferencesRepository(_db);

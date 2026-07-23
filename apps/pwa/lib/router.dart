@@ -22,6 +22,7 @@ import 'package:lynk_x/presentation/features/ticket/screens/tickets_list_screen.
 import 'package:lynk_x/presentation/features/profile/screens/edit_profile_screen.dart';
 import 'package:lynk_x/presentation/features/profile/screens/profile_setup_screen.dart';
 import 'package:lynk_x/presentation/features/profile/screens/account_screen.dart';
+import 'package:lynk_x/presentation/features/profile/screens/notification_preferences_screen.dart';
 import 'package:lynk_x/presentation/features/feedback/screens/feedback_screen.dart';
 import 'package:lynk_x/presentation/features/support/screens/support_screen.dart';
 import 'package:lynk_x/presentation/features/support/screens/live_chat_screen.dart';
@@ -423,6 +424,14 @@ GoRouter createRouter(
           title: 'Manage Account',
           color: Colors.black,
           child: const AccountPage(),
+        ),
+      ),
+      GoRoute(
+        path: '/account/notifications',
+        builder: (_, __) => Title(
+          title: 'Notification Preferences',
+          color: Colors.black,
+          child: const NotificationPreferencesScreen(),
         ),
       ),
       GoRoute(

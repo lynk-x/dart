@@ -90,8 +90,6 @@ class ForumSessionsCubit extends Cubit<ForumSessionsState> {
   }
 
   void _onSessionInserted(SessionModel session) {
-    if (session.endsAt.isBefore(DateTime.now())) return;
-
     final exists = state.sessions.any((s) => s.id == session.id);
     if (!exists) {
       final updated = List<SessionModel>.from(state.sessions)..add(session);
@@ -103,14 +101,6 @@ class ForumSessionsCubit extends Cubit<ForumSessionsState> {
   void _onSessionUpdated(SessionModel session) {
     final index = state.sessions.indexWhere((s) => s.id == session.id);
     final updated = List<SessionModel>.from(state.sessions);
-
-    if (session.endsAt.isBefore(DateTime.now())) {
-      if (index != -1) {
-        updated.removeAt(index);
-        emit(state.copyWith(sessions: updated));
-      }
-      return;
-    }
 
     if (index != -1) {
       updated[index] = session;
@@ -175,7 +165,6 @@ class ForumSessionsCubit extends Cubit<ForumSessionsState> {
           .from('forum_sessions')
           .select()
           .eq('forum_id', activeForumId)
-          .gte('ends_at', DateTime.now().toUtc().toIso8601String())
           .order('starts_at', ascending: true);
 
       final sessions = (response as List)

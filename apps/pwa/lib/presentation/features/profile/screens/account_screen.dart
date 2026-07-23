@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:lynk_core/core.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:country_flags/country_flags.dart';
 import 'package:lynk_x/services/push_notification_service.dart';
 import '../widgets/delete_account_dialog.dart';
 import 'package:lynk_x/presentation/shared/utils/app_snackbars.dart';
@@ -236,6 +237,221 @@ class _AccountPageState extends State<AccountPage> {
     );
   }
 
+  void _showUpdateEmailDialog(BuildContext context, String currentEmail) {
+    final emailController = TextEditingController(text: currentEmail == 'No email linked' ? '' : currentEmail);
+    final codeController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+    bool isUpdating = false;
+    bool codeSent = false;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            Future<void> sendCode() async {
+              if (!(formKey.currentState?.validate() ?? false)) return;
+              setDialogState(() => isUpdating = true);
+              try {
+                await Supabase.instance.client.auth.updateUser(
+                  UserAttributes(email: emailController.text.trim()),
+                );
+                setDialogState(() {
+                  isUpdating = false;
+                  codeSent = true;
+                });
+              } catch (e) {
+                if (sheetContext.mounted) {
+                  AppSnackBars.showError(sheetContext, 'Error: ${e.toFriendlyMessage()}');
+                }
+                setDialogState(() => isUpdating = false);
+              }
+            }
+
+            Future<void> confirmCode() async {
+              final code = codeController.text.trim();
+              if (code.isEmpty) return;
+              setDialogState(() => isUpdating = true);
+              try {
+                await Supabase.instance.client.auth.verifyOTP(
+                  email: emailController.text.trim(),
+                  token: code,
+                  type: OtpType.emailChange,
+                );
+                if (context.mounted) {
+                  context.read<ProfileCubit>().loadProfile();
+                }
+                if (sheetContext.mounted) {
+                  Navigator.pop(sheetContext);
+                  AppSnackBars.showSuccess(context, 'Email address updated successfully');
+                }
+              } catch (e) {
+                if (sheetContext.mounted) {
+                  AppSnackBars.showError(sheetContext, 'Error: ${e.toFriendlyMessage()}');
+                }
+              } finally {
+                setDialogState(() => isUpdating = false);
+              }
+            }
+
+            return Container(
+              padding: EdgeInsets.fromLTRB(
+                24, 20, 24,
+                MediaQuery.of(context).viewInsets.bottom + 32,
+              ),
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+              ),
+              child: Form(
+                key: formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 40,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: Colors.white24,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    Text(
+                      codeSent
+                          ? 'Enter the code we sent you'
+                          : (currentEmail.isEmpty || currentEmail == 'No email linked'
+                              ? 'Add Email Address'
+                              : 'Change Email Address'),
+                      style: AppTypography.interTight(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      codeSent
+                          ? 'We emailed a 6-digit code to ${emailController.text.trim()}.'
+                          : 'Link an email address as a backup way to reach you.',
+                      style: AppTypography.inter(
+                        fontSize: 13,
+                        color: Colors.white54,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    if (!codeSent)
+                      TextFormField(
+                        controller: emailController,
+                        keyboardType: TextInputType.emailAddress,
+                        style: const TextStyle(color: Colors.white),
+                        decoration: InputDecoration(
+                          labelText: 'Email Address',
+                          labelStyle: const TextStyle(color: Colors.white60),
+                          enabledBorder: UnderlineInputBorder(
+                            borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.3)),
+                          ),
+                          focusedBorder: UnderlineInputBorder(
+                            borderSide: BorderSide(color: context.accentColor),
+                          ),
+                        ),
+                        validator: (val) {
+                          if (val == null || val.trim().isEmpty) {
+                            return 'Email address cannot be empty';
+                          }
+                          if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(val.trim())) {
+                            return 'Please enter a valid email address';
+                          }
+                          return null;
+                        },
+                      )
+                    else
+                      TextFormField(
+                        controller: codeController,
+                        keyboardType: TextInputType.number,
+                        style: const TextStyle(color: Colors.white),
+                        decoration: InputDecoration(
+                          labelText: '6-digit code',
+                          labelStyle: const TextStyle(color: Colors.white60),
+                          enabledBorder: UnderlineInputBorder(
+                            borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.3)),
+                          ),
+                          focusedBorder: UnderlineInputBorder(
+                            borderSide: BorderSide(color: context.accentColor),
+                          ),
+                        ),
+                      ),
+                    const SizedBox(height: 32),
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: context.accentColor,
+                        foregroundColor: Colors.black,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      onPressed: isUpdating ? null : (codeSent ? confirmCode : sendCode),
+                      child: isUpdating
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.black,
+                              ),
+                            )
+                          : Text(
+                              codeSent ? 'Confirm Code' : 'Send Code',
+                              style: AppTypography.inter(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 15,
+                              ),
+                            ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  /// `lastSignInAt` is an ISO-8601 string from GoTrue, refreshed on every new
+  /// session (including token refresh), not a full login-history log.
+  String _formatLastLogin(String? lastSignInAt) {
+    if (lastSignInAt == null) return 'Unknown';
+    final dt = DateTime.tryParse(lastSignInAt)?.toLocal();
+    if (dt == null) return 'Unknown';
+
+    final now = DateTime.now();
+    final isToday = dt.year == now.year && dt.month == now.month && dt.day == now.day;
+    final yesterday = now.subtract(const Duration(days: 1));
+    final isYesterday = dt.year == yesterday.year && dt.month == yesterday.month && dt.day == yesterday.day;
+
+    final hour = dt.hour % 12 == 0 ? 12 : dt.hour % 12;
+    final minute = dt.minute.toString().padLeft(2, '0');
+    final period = dt.hour < 12 ? 'AM' : 'PM';
+    final time = '$hour:$minute $period';
+
+    if (isToday) return 'Today at $time';
+    if (isYesterday) return 'Yesterday at $time';
+
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    ];
+    return '${months[dt.month - 1]} ${dt.day}, ${dt.year} at $time';
+  }
+
   void _showDeleteConfirmation(BuildContext context) {
     showDialog(
       context: context,
@@ -266,6 +482,19 @@ class _AccountPageState extends State<AccountPage> {
             color: Colors.white,
           ),
         ),
+        actions: [
+          BlocBuilder<ProfileCubit, ProfileState>(
+            buildWhen: (previous, current) =>
+                current is ProfileLoaded || current is ProfileLoading || current is ProfileInitial,
+            builder: (context, state) {
+              if (state is! ProfileLoaded) return const SizedBox.shrink();
+              return Padding(
+                padding: const EdgeInsets.only(right: 16),
+                child: _CountryIndicator(countryCode: state.profile.countryCode),
+              );
+            },
+          ),
+        ],
       ),
       body: BlocBuilder<ProfileCubit, ProfileState>(
         builder: (context, state) {
@@ -288,6 +517,8 @@ class _AccountPageState extends State<AccountPage> {
           final accountRef = profile.accountReference ?? 'Resolving...';
           final status = profile.accountStatus ?? 'active';
           final phone = profile.phoneNumber ?? 'No phone number linked';
+          final email = profile.email ?? 'No email linked';
+          final lastSignInAt = Supabase.instance.client.auth.currentUser?.lastSignInAt;
 
           final isStatusActive = status.toLowerCase() == 'active';
 
@@ -307,13 +538,6 @@ class _AccountPageState extends State<AccountPage> {
                       AppSnackBars.showSuccess(context, 'Account reference copied to clipboard');
                     }
                   },
-                  trailing: const Icon(Icons.copy_rounded, color: Colors.white24, size: 20),
-                ),
-                _buildSettingTile(
-                  title: 'Account Status',
-                  subtitle: status.toUpperCase(),
-                  icon: Icons.info_outline_rounded,
-                  onTap: () {},
                   trailing: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
@@ -332,8 +556,22 @@ class _AccountPageState extends State<AccountPage> {
                     ),
                   ),
                 ),
+                _buildSettingTile(
+                  title: 'Last Login',
+                  subtitle: _formatLastLogin(lastSignInAt),
+                  icon: Icons.schedule_rounded,
+                  onTap: () {},
+                  trailing: const SizedBox.shrink(),
+                ),
                 const SizedBox(height: 32),
                 _buildSectionHeader('Login'),
+                _buildSettingTile(
+                  title: 'Email Address',
+                  subtitle: email,
+                  icon: Icons.alternate_email_rounded,
+                  onTap: () => _showUpdateEmailDialog(context, profile.email ?? ''),
+                  trailing: const Icon(Icons.chevron_right_rounded, color: Colors.white24),
+                ),
                 _buildSettingTile(
                   title: 'Phone Number',
                   subtitle: phone,
@@ -358,6 +596,13 @@ class _AccountPageState extends State<AccountPage> {
                           _notificationStatus == AuthorizationStatus.provisional
                       ? Icon(Icons.check_circle, color: context.accentColor, size: 20)
                       : const Icon(Icons.chevron_right_rounded, color: Colors.white24),
+                ),
+                _buildSettingTile(
+                  title: 'Notification Preferences',
+                  subtitle: 'Choose what you get notified about',
+                  icon: Icons.tune_rounded,
+                  onTap: () => context.push('/account/notifications'),
+                  trailing: const Icon(Icons.chevron_right_rounded, color: Colors.white24),
                 ),
                 const SizedBox(height: 48),
                 _buildSectionHeader('Danger Zone'),
@@ -459,6 +704,35 @@ class _AccountPageState extends State<AccountPage> {
         ),
         trailing: trailing,
       ),
+    );
+  }
+}
+
+class _CountryIndicator extends StatelessWidget {
+  final String? countryCode;
+
+  const _CountryIndicator({required this.countryCode});
+
+  @override
+  Widget build(BuildContext context) {
+    final code = countryCode;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+      ),
+      child: (code == null || code.isEmpty || code == 'GL')
+          ? const Text('🌐', style: TextStyle(fontSize: 14))
+          : ClipRRect(
+              borderRadius: BorderRadius.circular(3),
+              child: SizedBox(
+                width: 20,
+                height: 14,
+                child: CountryFlag.fromCountryCode(code),
+              ),
+            ),
     );
   }
 }
