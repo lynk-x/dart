@@ -100,6 +100,24 @@ module.exports = {
       },
     },
 
+    // ── Embedding model (R2-hosted): Cache-first ─────────────────────────────
+    // The quantized ONNX weights + tokenizer for client-side embedding
+    // generation (~123MB) are immutable once uploaded — cache aggressively so
+    // they're only ever downloaded once per device. Scoped to /models/ rather
+    // than the whole cdn.lynk-x.app host, which also serves user media that
+    // shouldn't get this same long-lived treatment.
+    {
+      urlPattern: /^https:\/\/cdn\.lynk-x\.app\/models\//,
+      handler: 'CacheFirst',
+      options: {
+        cacheName: 'embedding-model',
+        expiration: {
+          maxEntries: 10,
+          maxAgeSeconds: 60 * 60 * 24 * 365, // 1 year
+        },
+      },
+    },
+
     // ── Sentry SDK: Network-only (telemetry, never cache) ────────────────────
     {
       urlPattern: /\.sentry\.io/,

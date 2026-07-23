@@ -7,6 +7,7 @@ import 'package:lynk_x/presentation/features/forum/cubit/forum_updates_cubit.dar
 import 'package:lynk_x/presentation/features/forum/cubit/forum_updates_state.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/message_input.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/chat_bubble.dart';
+import 'package:lynk_x/presentation/features/forum/widgets/swipe_to_reply.dart';
 import 'package:lynk_x/presentation/shared/widgets/empty_state.dart';
 
 /// The 'Updates' tab content for the Forum.
@@ -129,7 +130,7 @@ class _UpdatesTabState extends State<UpdatesTab>
 
                                     final message =
                                         updatesState.messages[index];
-                                    return ChatBubble(
+                                    final bubble = ChatBubble(
                                       message: message,
                                       isOrganizer: mainState.isOrganizer,
                                       onPin: (msg) => mainCubit.pinMessage(msg),
@@ -158,6 +159,17 @@ class _UpdatesTabState extends State<UpdatesTab>
                                       },
                                       onTapBubble: () => setState(
                                           () => _selectedMessageId = null),
+                                    );
+
+                                    // Mirrors chat_message_list.dart's Live
+                                    // Chat wrapping — without this, mobile has
+                                    // no touch-reachable reply trigger at all
+                                    // (the reply icon in ChatBubble is
+                                    // desktop-only), for any message type.
+                                    return SwipeToReply(
+                                      onReply: () =>
+                                          updatesCubit.setReplyTo(message),
+                                      child: bubble,
                                     );
                                   },
                                   childCount: updatesState.messages.isNotEmpty

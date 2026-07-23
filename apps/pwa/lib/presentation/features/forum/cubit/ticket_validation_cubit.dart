@@ -94,8 +94,11 @@ class TicketValidationCubit extends HydratedCubit<TicketValidationState> {
 
     emit(state.copyWith(tickets: tickets));
 
-    // Queue the scan for sync when network is restored
-    final String actualScannerId = scannerUserId ?? Supabase.instance.client.auth.currentUser?.id ?? '';
+    // Queue the scan for sync when network is restored. api.scan_ticket
+    // treats p_scanner_user_id as optional (COALESCEs to auth.uid() server-side
+    // if absent) — omit the key entirely rather than send '', which Postgres
+    // would reject as an invalid uuid literal and get stuck retrying forever.
+    final String? actualScannerId = scannerUserId ?? Supabase.instance.client.auth.currentUser?.id;
     final syncItem = SyncItem(
       id: 'scan_${eventId}_${ticketCode}_${DateTime.now().millisecondsSinceEpoch}',
       table: 'scan_ticket',
@@ -105,7 +108,7 @@ class TicketValidationCubit extends HydratedCubit<TicketValidationState> {
         'p_event_id': eventId,
         'p_event_created_at': eventCreatedAt.toIso8601String(),
         'p_ticket_code': ticketCode,
-        'p_scanner_user_id': actualScannerId,
+        if (actualScannerId != null) 'p_scanner_user_id': actualScannerId,
       },
     );
 

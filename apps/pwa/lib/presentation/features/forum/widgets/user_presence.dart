@@ -162,11 +162,12 @@ class _UserPresenceCardState extends State<UserPresenceCard> {
           ActionBarItem(
             label: 'Wave 👋',
             onTap: () {
-              _toggleActions();
+              // Wave + snackbar first (both synchronous/fire-and-forget
               final cubit = context.read<ForumCubit>();
               cubit.waveAtUser(widget.userId, cubit.userName);
               AppSnackBars.showSuccess(
                   context, 'You waved at ${widget.username}!');
+              Navigator.of(context).pop();
             },
           ),
         if (forumState.isOrganizer && canMakeAdmin)

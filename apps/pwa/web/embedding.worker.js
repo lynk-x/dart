@@ -4,8 +4,13 @@
 // Import Transformers.js via ESM CDN
 import { pipeline, env } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers';
 
-// Force CDN loading for model files instead of local files
+// Force remote loading for model files instead of local files, from our own
+// R2-hosted mirror at a short, project-owned path rather than
+// huggingface.co — removes the runtime dependency on a third-party CDN and
+// a community model re-upload we don't control.
 env.allowLocalModels = false;
+env.remoteHost = 'https://cdn.lynk-x.app/';
+env.remotePathTemplate = 'models/granite-embedding-97m/';
 
 let extractor = null;
 
