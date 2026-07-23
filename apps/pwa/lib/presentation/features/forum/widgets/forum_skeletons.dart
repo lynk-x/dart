@@ -8,6 +8,30 @@ import 'package:lynk_core/core.dart';
 /// arrives — same principle as [PollQuizCardShell]'s progressive reveal,
 /// applied to repeating-item lists instead of a single card.
 
+/// Crossfades between a loading skeleton and its resolved content so the
+/// swap doesn't read as a hard layout jump. Wrap the skeleton-or-content
+/// conditional in this instead of returning either widget directly; give
+/// each branch a distinct [Key] (e.g. `ValueKey('skeleton')` /
+/// `ValueKey('content')`) so [AnimatedSwitcher] treats them as separate
+/// subtrees to fade between rather than diffing one into the other.
+class SkeletonFade extends StatelessWidget {
+  final Widget child;
+
+  const SkeletonFade({super.key, required this.child});
+
+  static const duration = Duration(milliseconds: 220);
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedSwitcher(
+      duration: duration,
+      switchInCurve: Curves.easeOut,
+      switchOutCurve: Curves.easeIn,
+      child: child,
+    );
+  }
+}
+
 /// A single placeholder rectangle. Tint defaults to a neutral dark-surface
 /// tone; pass [onGreen] when the placeholder sits on the accent-green "my
 /// message" bubble background instead, so it stays visible there too.

@@ -78,14 +78,18 @@ class _MediaTabState extends State<MediaTab>
                     child: RefreshIndicator(
                       onRefresh: () async => mediaCubit.refreshMedia(),
                       color: context.accentColor,
-                      child: mediaState.isLoading &&
-                              mediaState.mediaItems.isEmpty
-                          ? const SkeletonMediaGrid()
-                          : mediaState.mediaItems.isEmpty
-                              ? const EmptyState(
-                                  message: 'No media uploaded yet.\nShare your first photo or video!')
-                              : CustomScrollView(
-                                  controller: _scrollController,
+                      child: SkeletonFade(
+                        child: mediaState.isLoading &&
+                                mediaState.mediaItems.isEmpty
+                            ? const SkeletonMediaGrid(key: ValueKey('skeleton'))
+                            : mediaState.mediaItems.isEmpty
+                                ? const EmptyState(
+                                    key: ValueKey('empty'),
+                                    message:
+                                        'No media uploaded yet.\nShare your first photo or video!')
+                                : CustomScrollView(
+                                    key: const ValueKey('content'),
+                                    controller: _scrollController,
                                   slivers: [
                                     SliverOverlapInjector(
                                       handle: NestedScrollView
@@ -233,6 +237,7 @@ class _MediaTabState extends State<MediaTab>
                                     ),
                                   ],
                                 ),
+                      ),
                     ),
                   ),
                 ),

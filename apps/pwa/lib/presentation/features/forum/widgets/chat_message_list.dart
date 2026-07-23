@@ -64,8 +64,13 @@ class ChatMessageList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    return SkeletonFade(child: _buildContent(context));
+  }
+
+  Widget _buildContent(BuildContext context) {
     if (chatState.messages.isEmpty && !chatState.isLoading) {
       return CustomScrollView(
+        key: const ValueKey('empty'),
         controller: scrollController,
         physics: const AlwaysScrollableScrollPhysics(),
         slivers: const [
@@ -82,10 +87,11 @@ class ChatMessageList extends StatelessWidget {
     if (chatState.messages.isEmpty && chatState.isLoading) {
       // Skeleton bubbles rather than a bare spinner — the eventual content
       // is a list of chat bubbles, so preview that shape directly.
-      return const SkeletonChatBubbleList();
+      return const SkeletonChatBubbleList(key: ValueKey('skeleton'));
     }
 
     return CustomScrollView(
+      key: const ValueKey('content'),
       controller: scrollController,
       reverse: true,
       slivers: [

@@ -90,99 +90,26 @@ class _UpdatesTabState extends State<UpdatesTab>
                     child: RefreshIndicator(
                       onRefresh: () async => updatesCubit.refresh(),
                       color: context.accentColor,
-                      child: CustomScrollView(
-                        controller: widget.scrollController,
-                        reverse: true,
-                        slivers: [
-                          if (updatesState.messages.isEmpty &&
-                              updatesState.isLoading)
-                            const SliverFillRemaining(
-                              hasScrollBody: false,
-                              child: SkeletonChatBubbleList(),
-                            ),
-                          if (updatesState.messages.isEmpty &&
-                              !updatesState.isLoading)
-                            const SliverFillRemaining(
-                              hasScrollBody: false,
-                              child: EmptyState(
-                                message:
-                                    'No messages yet. Start the conversation!',
+                      child: SkeletonFade(
+                        child: updatesState.messages.isEmpty &&
+                                updatesState.isLoading
+                            ? const SliverFillRemaining(
+                                key: ValueKey('skeleton'),
+                                hasScrollBody: false,
+                                child: SkeletonChatBubbleList(),
+                              )
+                            : _UpdatesScrollView(
+                                key: const ValueKey('content'),
+                                scrollController: widget.scrollController,
+                                updatesState: updatesState,
+                                mainCubit: mainCubit,
+                                updatesCubit: updatesCubit,
+                                mainState: mainState,
+                                selectedMessageId: _selectedMessageId,
+                                onMediaTap: widget.onMediaTap,
+                                onSelectMessage: (id) =>
+                                    setState(() => _selectedMessageId = id),
                               ),
-                            ),
-                          if (updatesState.messages.isNotEmpty) ...[
-                            SliverPadding(
-                              padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-                              sliver: SliverList(
-                                delegate: SliverChildBuilderDelegate(
-                                  (context, index) {
-                                    if (index == updatesState.messages.length) {
-                                      return Center(
-                                        child: Padding(
-                                          padding: const EdgeInsets.all(8.0),
-                                          child: CircularProgressIndicator(
-                                              strokeWidth: 2,
-                                              color: context.accentColor),
-                                        ),
-                                      );
-                                    }
-
-                                    final message =
-                                        updatesState.messages[index];
-                                    final bubble = ChatBubble(
-                                      message: message,
-                                      isOrganizer: mainState.isOrganizer,
-                                      onPin: (msg) => mainCubit.pinMessage(msg),
-                                      onDelete: (msg) =>
-                                          updatesCubit.deleteMessage(msg),
-                                      onEdit: (msg) =>
-                                          updatesCubit.setEditingMessage(msg),
-                                      onReport: (msg) => updatesCubit
-                                          .reportMessage(msg, 'Spam'),
-                                      onMute: (msg) =>
-                                          mainCubit.muteUser(msg.userId),
-                                      onBan: (msg) =>
-                                          mainCubit.banUser(msg.userId),
-                                      onReply: (msg) =>
-                                          updatesCubit.setReplyTo(msg),
-                                      onMediaTap: widget.onMediaTap,
-                                      showActions:
-                                          _selectedMessageId == message.id,
-                                      onLongPressBubble: () {
-                                        setState(() {
-                                          _selectedMessageId =
-                                              _selectedMessageId == message.id
-                                                  ? null
-                                                  : message.id;
-                                        });
-                                      },
-                                      onTapBubble: () => setState(
-                                          () => _selectedMessageId = null),
-                                    );
-
-                                    // Mirrors chat_message_list.dart's Live
-                                    // Chat wrapping — without this, mobile has
-                                    // no touch-reachable reply trigger at all
-                                    // (the reply icon in ChatBubble is
-                                    // desktop-only), for any message type.
-                                    return SwipeToReply(
-                                      onReply: () =>
-                                          updatesCubit.setReplyTo(message),
-                                      child: bubble,
-                                    );
-                                  },
-                                  childCount: updatesState.messages.isNotEmpty
-                                      ? updatesState.messages.length +
-                                          (updatesState.isLoading ? 1 : 0)
-                                      : 0,
-                                ),
-                              ),
-                            ),
-                            SliverOverlapInjector(
-                              handle: NestedScrollView
-                                  .sliverOverlapAbsorberHandleFor(context),
-                            ),
-                          ],
-                        ],
                       ),
                     ),
                   ),
@@ -217,6 +144,106 @@ class _UpdatesTabState extends State<UpdatesTab>
           },
         );
       },
+    );
+  }
+}
+
+/// Extracted so [SkeletonFade] can crossfade between this and the skeleton
+/// as a single, independently-keyed subtree (AnimatedSwitcher needs its
+/// child to be one widget, not a sliver list spliced into an outer
+/// CustomScrollView).
+class _UpdatesScrollView extends StatelessWidget {
+  final ScrollController scrollController;
+  final ForumUpdatesState updatesState;
+  final ForumCubit mainCubit;
+  final ForumUpdatesCubit updatesCubit;
+  final ForumState mainState;
+  final String? selectedMessageId;
+  final Function(String?) onMediaTap;
+  final ValueChanged<String?> onSelectMessage;
+
+  const _UpdatesScrollView({
+    super.key,
+    required this.scrollController,
+    required this.updatesState,
+    required this.mainCubit,
+    required this.updatesCubit,
+    required this.mainState,
+    required this.selectedMessageId,
+    required this.onMediaTap,
+    required this.onSelectMessage,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomScrollView(
+      controller: scrollController,
+      reverse: true,
+      slivers: [
+        if (updatesState.messages.isEmpty && !updatesState.isLoading)
+          const SliverFillRemaining(
+            hasScrollBody: false,
+            child: EmptyState(
+              message: 'No messages yet. Start the conversation!',
+            ),
+          ),
+        if (updatesState.messages.isNotEmpty) ...[
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+            sliver: SliverList(
+              delegate: SliverChildBuilderDelegate(
+                (context, index) {
+                  if (index == updatesState.messages.length) {
+                    return Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(8.0),
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: context.accentColor),
+                      ),
+                    );
+                  }
+
+                  final message = updatesState.messages[index];
+                  final bubble = ChatBubble(
+                    message: message,
+                    isOrganizer: mainState.isOrganizer,
+                    onPin: (msg) => mainCubit.pinMessage(msg),
+                    onDelete: (msg) => updatesCubit.deleteMessage(msg),
+                    onEdit: (msg) => updatesCubit.setEditingMessage(msg),
+                    onReport: (msg) => updatesCubit.reportMessage(msg, 'Spam'),
+                    onMute: (msg) => mainCubit.muteUser(msg.userId),
+                    onBan: (msg) => mainCubit.banUser(msg.userId),
+                    onReply: (msg) => updatesCubit.setReplyTo(msg),
+                    onMediaTap: onMediaTap,
+                    showActions: selectedMessageId == message.id,
+                    onLongPressBubble: () {
+                      onSelectMessage(
+                          selectedMessageId == message.id ? null : message.id);
+                    },
+                    onTapBubble: () => onSelectMessage(null),
+                  );
+
+                  // Mirrors chat_message_list.dart's Live Chat wrapping —
+                  // without this, mobile has no touch-reachable reply
+                  // trigger at all (the reply icon in ChatBubble is
+                  // desktop-only), for any message type.
+                  return SwipeToReply(
+                    onReply: () => updatesCubit.setReplyTo(message),
+                    child: bubble,
+                  );
+                },
+                childCount: updatesState.messages.isNotEmpty
+                    ? updatesState.messages.length +
+                        (updatesState.isLoading ? 1 : 0)
+                    : 0,
+              ),
+            ),
+          ),
+          SliverOverlapInjector(
+            handle: NestedScrollView.sliverOverlapAbsorberHandleFor(context),
+          ),
+        ],
+      ],
     );
   }
 }

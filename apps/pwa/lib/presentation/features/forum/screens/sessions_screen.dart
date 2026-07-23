@@ -79,12 +79,20 @@ class SessionsView extends StatelessWidget {
       ),
       body: BlocBuilder<ForumSessionsCubit, ForumSessionsState>(
         builder: (context, state) {
+          return SkeletonFade(child: _buildBody(context, state));
+        },
+      ),
+    );
+  }
+
+  Widget _buildBody(BuildContext context, ForumSessionsState state) {
           if (state.isLoading) {
-            return const SkeletonSessionsList();
+            return const SkeletonSessionsList(key: ValueKey('skeleton'));
           }
 
           if (state.errorMessage != null && state.sessions.isEmpty) {
             return Center(
+              key: const ValueKey('error'),
               child: Text(
                 state.errorMessage!,
                 style: const TextStyle(color: Colors.redAccent),
@@ -94,6 +102,7 @@ class SessionsView extends StatelessWidget {
 
           if (state.sessions.isEmpty) {
             return Center(
+              key: const ValueKey('empty'),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -161,6 +170,7 @@ class SessionsView extends StatelessWidget {
           final dateFormat = DateFormat('EEEE, MMMM d');
 
           return RefreshIndicator(
+            key: const ValueKey('content'),
             onRefresh: () => context.read<ForumSessionsCubit>().loadSessions(),
             color: context.accentColor,
             child: ListView.builder(
@@ -196,9 +206,6 @@ class SessionsView extends StatelessWidget {
               },
             ),
           );
-        },
-      ),
-    );
   }
 
   void _showSessionEditor(BuildContext context, {SessionModel? session}) {

@@ -130,9 +130,11 @@ class PresenceDrawer extends StatelessWidget {
                     color: Colors.white)),
             const SizedBox(height: 20),
             Expanded(
-              child: isLoading
-                  ? const SkeletonPresenceList()
-                  : ListView.builder(
+              child: SkeletonFade(
+                child: isLoading
+                    ? const SkeletonPresenceList(key: ValueKey('skeleton'))
+                    : ListView.builder(
+                      key: const ValueKey('content'),
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       itemCount: roster.length,
                       itemBuilder: (context, index) {
@@ -160,6 +162,7 @@ class PresenceDrawer extends StatelessWidget {
                         }
                       },
                     ),
+              ),
             ),
             // Persistent Bottom Section
             Container(

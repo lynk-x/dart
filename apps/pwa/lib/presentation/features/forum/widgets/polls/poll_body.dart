@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../forum_skeletons.dart';
 import 'poll_card.dart';
 import 'poll_quiz_card_shell.dart';
 
@@ -65,19 +66,27 @@ class _PollBodyState extends State<PollBody> {
 
   @override
   Widget build(BuildContext context) {
+    return SkeletonFade(child: _buildContent(context));
+  }
+
+  Widget _buildContent(BuildContext context) {
     if (_isLoading) {
       // Card shell + header render immediately — neither depends on the
       // fetch. Only the question/options region skeletons, sized to match
       // PollCard's real layout, so nothing resizes or recolors once loaded.
       return PollQuizCardShell(
+        key: const ValueKey('skeleton'),
         isMe: widget.isMe,
         child: _PollSkeletonBody(isMe: widget.isMe),
       );
     }
 
-    if (_questions.isEmpty) return const SizedBox.shrink();
+    if (_questions.isEmpty) {
+      return const SizedBox.shrink(key: ValueKey('empty'));
+    }
 
     return Column(
+      key: const ValueKey('content'),
       crossAxisAlignment: CrossAxisAlignment.start,
       children: _questions.map((q) {
         final options =

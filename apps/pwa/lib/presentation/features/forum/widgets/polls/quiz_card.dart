@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../cubit/forum_cubit.dart';
+import '../forum_skeletons.dart';
 import 'poll_quiz_card_shell.dart';
 
 /// Quiz body: loads and renders a quiz's join-launcher card attached to a
@@ -60,20 +61,28 @@ class _QuizBodyState extends State<QuizBody> {
 
   @override
   Widget build(BuildContext context) {
+    return SkeletonFade(child: _buildContent(context));
+  }
+
+  Widget _buildContent(BuildContext context) {
     if (_isLoading) {
       // Card shell + header render immediately — neither depends on the
       // fetch. Only the title/join-button region skeletons, sized to match
       // _QuizJoinCard's real layout, so nothing resizes or recolors once
       // loaded.
       return PollQuizCardShell(
+        key: const ValueKey('skeleton'),
         isMe: widget.isMe,
         child: _QuizSkeletonBody(isMe: widget.isMe),
       );
     }
 
-    if (!_isPublished) return const SizedBox.shrink();
+    if (!_isPublished) {
+      return const SizedBox.shrink(key: ValueKey('empty'));
+    }
 
     return _QuizJoinCard(
+      key: const ValueKey('content'),
       messageId: widget.messageId,
       title: _title,
       quizState: _quizState,
@@ -112,6 +121,7 @@ class _QuizJoinCard extends StatelessWidget {
   final bool isMe;
 
   const _QuizJoinCard({
+    super.key,
     required this.messageId,
     required this.title,
     required this.quizState,
