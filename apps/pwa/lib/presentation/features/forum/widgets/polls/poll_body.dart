@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'poll_card.dart';
+import 'poll_quiz_card_shell.dart';
 
 /// Poll body: loads and renders a poll attached to a forum message.
 ///
@@ -65,7 +66,13 @@ class _PollBodyState extends State<PollBody> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const _PollLoadingIndicator();
+      // Card shell + header render immediately — neither depends on the
+      // fetch. Only the question/options region skeletons, sized to match
+      // PollCard's real layout, so nothing resizes or recolors once loaded.
+      return PollQuizCardShell(
+        isMe: widget.isMe,
+        child: _PollSkeletonBody(isMe: widget.isMe),
+      );
     }
 
     if (_questions.isEmpty) return const SizedBox.shrink();
@@ -88,20 +95,25 @@ class _PollBodyState extends State<PollBody> {
   }
 }
 
-class _PollLoadingIndicator extends StatelessWidget {
-  const _PollLoadingIndicator();
+class _PollSkeletonBody extends StatelessWidget {
+  final bool isMe;
+
+  const _PollSkeletonBody({required this.isMe});
 
   @override
   Widget build(BuildContext context) {
-    return const Padding(
-      padding: EdgeInsets.all(16),
-      child: Center(
-        child: SizedBox(
-          width: 20,
-          height: 20,
-          child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF00FF00)),
-        ),
-      ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        PollQuizCardHeader(isQuiz: false, isMe: isMe),
+        const SizedBox(height: 10),
+        // Question text — two lines, matching fontSize 15 line height.
+        PollQuizSkeletonBar(isMe: isMe, height: 15, width: double.infinity, margin: const EdgeInsets.only(bottom: 6)),
+        PollQuizSkeletonBar(isMe: isMe, height: 15, width: 140, margin: const EdgeInsets.only(bottom: 14)),
+        // Two option rows, matching the real 42px-tall option buttons.
+        PollQuizSkeletonBar(isMe: isMe, height: 42, margin: const EdgeInsets.only(bottom: 8)),
+        PollQuizSkeletonBar(isMe: isMe, height: 42),
+      ],
     );
   }
 }

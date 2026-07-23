@@ -6,6 +6,7 @@ import 'package:lynk_core/core.dart';
 import 'package:go_router/go_router.dart';
 import '../cubit/forum_sessions_cubit.dart';
 import '../cubit/forum_sessions_state.dart';
+import '../widgets/forum_skeletons.dart';
 import 'package:lynk_x/presentation/shared/utils/app_snackbars.dart';
 
 class SessionsScreen extends StatelessWidget {
@@ -79,8 +80,7 @@ class SessionsView extends StatelessWidget {
       body: BlocBuilder<ForumSessionsCubit, ForumSessionsState>(
         builder: (context, state) {
           if (state.isLoading) {
-            return Center(
-                child: CircularProgressIndicator(color: context.accentColor));
+            return const SkeletonSessionsList();
           }
 
           if (state.errorMessage != null && state.sessions.isEmpty) {
@@ -540,7 +540,7 @@ class _SessionCard extends StatelessWidget {
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: isActive ? context.accentColor : const Color(0xFF2C2C2C),
+          color: isActive ? context.accentColor : AppColors.tertiary,
         ),
       ),
       child: Material(
@@ -634,12 +634,12 @@ class _DateTimePicker extends StatelessWidget {
                 ),
                 child: Container(
                   height: 300,
-                  color: const Color(0xFF1E1E1E),
+                  color: AppColors.surface,
                   child: Column(
                     children: [
                       Container(
                         decoration: const BoxDecoration(
-                          color: Color(0xFF2C2C2C),
+                          color: AppColors.tertiary,
                           border: Border(
                             bottom: BorderSide(color: Colors.white12, width: 0.5),
                           ),

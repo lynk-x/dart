@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:lynk_core/core.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../cubit/forum_cubit.dart';
+import 'poll_quiz_card_shell.dart';
 
 /// Quiz body: loads and renders a quiz's join-launcher card attached to a
 /// forum message.
@@ -61,7 +61,14 @@ class _QuizBodyState extends State<QuizBody> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const _QuizLoadingIndicator();
+      // Card shell + header render immediately — neither depends on the
+      // fetch. Only the title/join-button region skeletons, sized to match
+      // _QuizJoinCard's real layout, so nothing resizes or recolors once
+      // loaded.
+      return PollQuizCardShell(
+        isMe: widget.isMe,
+        child: _QuizSkeletonBody(isMe: widget.isMe),
+      );
     }
 
     if (!_isPublished) return const SizedBox.shrink();
@@ -75,20 +82,25 @@ class _QuizBodyState extends State<QuizBody> {
   }
 }
 
-class _QuizLoadingIndicator extends StatelessWidget {
-  const _QuizLoadingIndicator();
+class _QuizSkeletonBody extends StatelessWidget {
+  final bool isMe;
+
+  const _QuizSkeletonBody({required this.isMe});
 
   @override
   Widget build(BuildContext context) {
-    return const Padding(
-      padding: EdgeInsets.all(16),
-      child: Center(
-        child: SizedBox(
-          width: 20,
-          height: 20,
-          child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF00FF00)),
-        ),
-      ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        PollQuizCardHeader(isQuiz: true, isMe: isMe),
+        const SizedBox(height: 10),
+        // Title — one line, matching fontSize 15 line height. Width varies
+        // per quiz, so this stays shorter than the poll's two-line question.
+        PollQuizSkeletonBar(isMe: isMe, height: 15, width: 160, margin: const EdgeInsets.only(bottom: 14)),
+        // Join button, matching the real 44px-tall (12 vertical padding +
+        // text) button.
+        PollQuizSkeletonBar(isMe: isMe, height: 44),
+      ],
     );
   }
 }
@@ -126,43 +138,30 @@ class _QuizJoinCard extends StatelessWidget {
       forumReference = forumCubit.forumReference;
     } catch (_) {}
 
-    // Same rule as PollCard: your own quiz reads in the accent color,
-    // everyone else's in the neutral "their message" tone.
-    final cardColor = isMe ? context.accentColor : AppColors.tertiary;
-    final onCardColor = isMe ? Colors.black : Colors.white;
+    final onCardColor = PollQuizCardShell.onCardColor(isMe);
 
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 8),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        // Same solid card style as PollCard — opaque, not translucent, since
-        // this renders directly on the forum background with no bubble
-        // wrapper behind it.
-        color: cardColor,
-        borderRadius: BorderRadius.circular(16),
-      ),
+    return PollQuizCardShell(
+      isMe: isMe,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Icon(Icons.quiz_outlined, color: onCardColor, size: 20),
-              const SizedBox(width: 8),
-              Text(
-                'Quiz',
-                style: TextStyle(color: onCardColor, fontSize: 12, fontWeight: FontWeight.w700),
-              ),
-              if (_isLive) ...[
-                const SizedBox(width: 8),
-                Container(
-                  width: 6,
-                  height: 6,
-                  decoration: const BoxDecoration(color: Colors.redAccent, shape: BoxShape.circle),
-                ),
-                const SizedBox(width: 4),
-                const Text('LIVE', style: TextStyle(color: Colors.redAccent, fontSize: 10, fontWeight: FontWeight.w700)),
-              ],
-            ],
+          PollQuizCardHeader(
+            isQuiz: true,
+            isMe: isMe,
+            trailing: _isLive
+                ? Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 6,
+                        height: 6,
+                        decoration: const BoxDecoration(color: Colors.redAccent, shape: BoxShape.circle),
+                      ),
+                      const SizedBox(width: 4),
+                      const Text('LIVE', style: TextStyle(color: Colors.redAccent, fontSize: 10, fontWeight: FontWeight.w700)),
+                    ],
+                  )
+                : null,
           ),
           const SizedBox(height: 10),
           if (title.isNotEmpty)

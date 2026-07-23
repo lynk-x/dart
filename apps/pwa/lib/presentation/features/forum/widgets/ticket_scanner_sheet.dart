@@ -791,7 +791,7 @@ class _TicketScannerSheetState extends State<TicketScannerSheet> {
                         Container(
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF121212),
+                            color: AppColors.tertiary,
                             borderRadius: BorderRadius.circular(16),
                             border: Border.all(color: Colors.white10),
                           ),

@@ -8,6 +8,7 @@ import 'package:lynk_x/presentation/features/forum/cubit/forum_cubit.dart';
 import 'package:lynk_x/presentation/features/forum/cubit/forum_state.dart';
 import 'package:lynk_x/presentation/features/forum/cubit/forum_media_cubit.dart';
 import 'package:lynk_x/presentation/features/forum/cubit/forum_media_state.dart';
+import 'package:lynk_x/presentation/features/forum/widgets/forum_skeletons.dart';
 import 'package:lynk_x/presentation/shared/widgets/empty_state.dart';
 import 'package:lynk_x/presentation/shared/utils/app_snackbars.dart';
 import 'package:lynk_x/presentation/shared/utils/permission_acks.dart';
@@ -79,18 +80,7 @@ class _MediaTabState extends State<MediaTab>
                       color: context.accentColor,
                       child: mediaState.isLoading &&
                               mediaState.mediaItems.isEmpty
-                          ? CustomScrollView(
-                              physics: const AlwaysScrollableScrollPhysics(),
-                              slivers: [
-                                SliverFillRemaining(
-                                  hasScrollBody: false,
-                                  child: Center(
-                                    child: CircularProgressIndicator(
-                                        color: context.accentColor),
-                                  ),
-                                ),
-                              ],
-                            )
+                          ? const SkeletonMediaGrid()
                           : mediaState.mediaItems.isEmpty
                               ? const EmptyState(
                                   message: 'No media uploaded yet.\nShare your first photo or video!')

@@ -88,7 +88,7 @@ class ScanHistoryDrawer extends StatelessWidget {
                           margin: const EdgeInsets.only(bottom: 8),
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF1E1E1E),
+                            color: AppColors.surface,
                             borderRadius: BorderRadius.circular(8),
                             border: Border.all(
                               color: statusColor.withValues(alpha: 0.4),

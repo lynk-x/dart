@@ -66,7 +66,7 @@ class _UserPresenceCardState extends State<UserPresenceCard> {
               decoration: BoxDecoration(
                 color: widget.isPrimary
                     ? context.accentColor
-                    : const Color(0xFF1E1E1E),
+                    : AppColors.surface,
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
                   color:

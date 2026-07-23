@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:lynk_core/core.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:lynk_x/l10n/app_localizations.dart';
+import 'forum_skeletons.dart';
 import 'user_presence.dart';
 
 /// The end-drawer component for the Forum screen.
@@ -130,11 +131,7 @@ class PresenceDrawer extends StatelessWidget {
             const SizedBox(height: 20),
             Expanded(
               child: isLoading
-                  ? Center(
-                      child: CircularProgressIndicator(
-                        color: context.accentColor,
-                      ),
-                    )
+                  ? const SkeletonPresenceList()
                   : ListView.builder(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       itemCount: roster.length,

@@ -7,6 +7,7 @@ import 'package:lynk_x/presentation/features/forum/cubit/forum_updates_cubit.dar
 import 'package:lynk_x/presentation/features/forum/cubit/forum_updates_state.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/message_input.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/chat_bubble.dart';
+import 'package:lynk_x/presentation/features/forum/widgets/forum_skeletons.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/swipe_to_reply.dart';
 import 'package:lynk_x/presentation/shared/widgets/empty_state.dart';
 
@@ -95,12 +96,9 @@ class _UpdatesTabState extends State<UpdatesTab>
                         slivers: [
                           if (updatesState.messages.isEmpty &&
                               updatesState.isLoading)
-                            SliverFillRemaining(
+                            const SliverFillRemaining(
                               hasScrollBody: false,
-                              child: Center(
-                                child: CircularProgressIndicator(
-                                    strokeWidth: 2, color: context.accentColor),
-                              ),
+                              child: SkeletonChatBubbleList(),
                             ),
                           if (updatesState.messages.isEmpty &&
                               !updatesState.isLoading)

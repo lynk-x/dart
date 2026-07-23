@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:lynk_core/core.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:lynk_x/presentation/shared/utils/app_snackbars.dart';
+
+import 'poll_quiz_card_shell.dart';
 
 
 /// Displays a single poll question with live-updating results.
@@ -172,38 +173,14 @@ class _PollCardState extends State<PollCard> {
 
   @override
   Widget build(BuildContext context) {
-    final cardColor = widget.isMe ? context.accentColor : AppColors.tertiary;
-    final onCardColor = widget.isMe ? Colors.black : Colors.white;
+    final onCardColor = PollQuizCardShell.onCardColor(widget.isMe);
 
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 8),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: cardColor,
-        borderRadius: BorderRadius.circular(16),
-      ),
+    return PollQuizCardShell(
+      isMe: widget.isMe,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header
-          Row(
-            children: [
-              Icon(
-                widget.isQuiz ? Icons.quiz_outlined : Icons.poll_outlined,
-                color: onCardColor,
-                size: 20,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                widget.isQuiz ? 'Quiz' : 'Poll',
-                style: TextStyle(
-                  color: onCardColor,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
-          ),
+          PollQuizCardHeader(isQuiz: widget.isQuiz, isMe: widget.isMe),
           const SizedBox(height: 10),
 
           // Question

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:lynk_core/core.dart';
 import 'package:lynk_x/presentation/features/forum/models/forum_model.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/chat_bubble.dart';
+import 'package:lynk_x/presentation/features/forum/widgets/forum_skeletons.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/swipe_to_reply.dart';
 import 'package:lynk_x/presentation/shared/widgets/empty_state.dart';
 import 'package:lynk_x/presentation/features/forum/cubit/base_message_state.dart';
@@ -79,21 +80,9 @@ class ChatMessageList extends StatelessWidget {
     }
 
     if (chatState.messages.isEmpty && chatState.isLoading) {
-      return CustomScrollView(
-        controller: scrollController,
-        physics: const AlwaysScrollableScrollPhysics(),
-        slivers: [
-          SliverFillRemaining(
-            hasScrollBody: false,
-            child: Center(
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                color: context.accentColor,
-              ),
-            ),
-          ),
-        ],
-      );
+      // Skeleton bubbles rather than a bare spinner — the eventual content
+      // is a list of chat bubbles, so preview that shape directly.
+      return const SkeletonChatBubbleList();
     }
 
     return CustomScrollView(
