@@ -219,14 +219,18 @@ class ForumRepository {
   }
 
   Future<void> submitReport({
-    required String targetUserId,
+    String? targetUserId,
     String? messageId,
+    String? targetMediaId,
+    String? targetMediaCreatedAt,
     required String reasonId,
     required String description,
   }) async {
     await _client.schema('api').rpc('submit_report', params: {
       'p_target_user_id': targetUserId,
       'p_target_message_id': messageId,
+      'p_target_media_id': targetMediaId,
+      'p_target_media_created_at': targetMediaCreatedAt,
       'p_reason_id': reasonId,
       'p_description': description,
     });

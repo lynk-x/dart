@@ -118,7 +118,7 @@ class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
     try {
       var query = Supabase.instance.client
           .schema('social').from('forum_media')
-          .select()
+          .select('*, uploader_id(id, user_name, full_name)')
           .eq('forum_id', forumId);
 
       if (!isModeratorOrOrganizer) {
@@ -159,7 +159,7 @@ class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
     try {
       var query = Supabase.instance.client
           .schema('social').from('forum_media')
-          .select()
+          .select('*, uploader_id(id, user_name, full_name)')
           .eq('forum_id', forumId);
 
       if (!isModeratorOrOrganizer) {
@@ -312,6 +312,19 @@ class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
     } catch (e, stack) {
       debugPrint('[ForumMediaCubit] Error: $e\n$stack');
       if (!isClosed) emit(state.copyWith(error: e.toString()));
+    }
+  }
+
+  Future<void> reportMedia(ForumMedia media, String reason) async {
+    try {
+      await repo.submitReport(
+        targetMediaId: media.id,
+        targetMediaCreatedAt: media.createdAt.toIso8601String(),
+        reasonId: 'general_abuse',
+        description: reason,
+      );
+    } catch (e, stack) {
+      debugPrint('[ForumMediaCubit] reportMedia error: $e\n$stack');
     }
   }
 

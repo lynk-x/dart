@@ -365,7 +365,7 @@ class _MessageInputState extends State<MessageInput> {
                       color: context.accentColor),
                 ),
                 Text(
-                  widget.replyTo!.message,
+                  _replyPreviewText,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: AppTypography.inter(
@@ -382,6 +382,15 @@ class _MessageInputState extends State<MessageInput> {
         ],
       ),
     );
+  }
+
+  /// Polls/quizzes carry no text on the message row itself — see the
+  /// matching fallback in chat_bubble.dart's _ReplyPreview.
+  String get _replyPreviewText {
+    final replyTo = widget.replyTo!;
+    if (replyTo.type.isPoll) return '📊 Poll';
+    if (replyTo.type.isQuiz) return '🎯 Quiz';
+    return replyTo.message;
   }
 
   Widget _buildMentionPreview() {

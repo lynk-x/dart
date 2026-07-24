@@ -255,10 +255,14 @@ class _ChatBubbleState extends State<ChatBubble> {
 
   Widget _buildBubble() {
     if (widget.message.type.isPollOrQuiz) {
-      return ConstrainedBox(
-        constraints:
-            BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
-        child: _buildBody(Colors.white),
+      return GestureDetector(
+        onTap: widget.onTapBubble,
+        onLongPress: widget.onLongPressBubble,
+        child: ConstrainedBox(
+          constraints:
+              BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
+          child: _buildBody(Colors.white),
+        ),
       );
     }
 
@@ -385,6 +389,11 @@ class _ReplyPreview extends StatelessWidget {
   final ChatMessage replyTo;
 
   const _ReplyPreview({required this.replyTo});
+  String get _previewText {
+    if (replyTo.type.isPoll) return '📊 Poll';
+    if (replyTo.type.isQuiz) return '🎯 Quiz';
+    return replyTo.message;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -401,7 +410,7 @@ class _ReplyPreview extends StatelessWidget {
           const Icon(Icons.reply, size: 12, color: Colors.white54),
           const SizedBox(width: 4),
           Text(
-            replyTo.message,
+            _previewText,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: AppTypography.inter(color: Colors.white54, fontSize: 12),

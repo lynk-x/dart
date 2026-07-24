@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:photo_view/photo_view.dart';
 import 'package:video_player/video_player.dart';
+import 'package:timeago/timeago.dart' as timeago;
 import 'package:lynk_x/presentation/features/forum/models/forum_model.dart';
 import 'package:lynk_x/presentation/features/forum/cubit/forum_media_cubit.dart';
 import 'package:lynk_x/presentation/features/forum/cubit/forum_media_state.dart';
@@ -383,6 +384,51 @@ class _MediaViewerState extends State<MediaViewer> {
                           ],
                         ),
                       ),
+
+                    if (currentMedia != null)
+                      Positioned(
+                        left: 24,
+                        right: 24,
+                        bottom: 12,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Flexible(
+                              child: IgnorePointer(
+                                child: _MediaAttribution(
+                                  media: currentMedia,
+                                  isUploader: isUploader,
+                                ),
+                              ),
+                            ),
+                            // Members with no moderation authority get their
+                            // own action here instead of the bottom
+                            // Approve/Reject bar (which stays organizer/
+                            // moderator-only) — Delete for their own upload,
+                            // Report for anyone else's.
+                            if (!isAuthorized && currentUserId != null) ...[
+                              const SizedBox(width: 8),
+                              _MediaMemberAction(
+                                isUploader: isUploader,
+                                onDelete: () {
+                                  if (!hasCubit) return;
+                                  try {
+                                    context.read<ForumMediaCubit>().deleteMedia(currentMedia);
+                                  } catch (_) {}
+                                },
+                                onReport: (reason) {
+                                  if (!hasCubit) return;
+                                  try {
+                                    context.read<ForumMediaCubit>().reportMedia(currentMedia, reason);
+                                    AppSnackBars.showSuccess(context, 'Media reported.');
+                                  } catch (_) {}
+                                },
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
                   ],
                 ),
               ),
@@ -399,12 +445,51 @@ class _MediaViewerState extends State<MediaViewer> {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      if (showApprove) ...[
+                      // Reject/Delete is outlined and Approve is filled —
+                      // establishes Approve as the expected path (most
+                      // reviews end in approval) without hiding Reject or
+                      // requiring a confirmation dialog for it.
+                      if (showDelete) ...[
+                        Expanded(
+                          child: SizedBox(
+                            height: 50,
+                            child: OutlinedButton.icon(
+                              icon: const Icon(Icons.delete_outline, size: 20),
+                              label: Text(
+                                deleteText,
+                                style: AppTypography.interTight(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: Colors.white54,
+                                side: BorderSide(color: Colors.white.withValues(alpha: 0.16)),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              onPressed: () {
+                                if (hasCubit) {
+                                  try {
+                                    context.read<ForumMediaCubit>().deleteMedia(currentMedia);
+                                  } catch (_) {}
+                                } else {
+                                  widget.onReject?.call();
+                                }
+                                Navigator.pop(context);
+                              },
+                            ),
+                          ),
+                        ),
+                        if (showApprove) const SizedBox(width: 16),
+                      ],
+                      if (showApprove)
                         Expanded(
                           child: PrimaryButton(
                             icon: Icons.check_circle_outline,
                             text: 'Approve',
-                            backgroundColor: Colors.greenAccent.withValues(alpha: 0.8),
+                            backgroundColor: context.accentColor,
                             textColor: Colors.black,
                             onPressed: () {
                               if (hasCubit) {
@@ -413,27 +498,6 @@ class _MediaViewerState extends State<MediaViewer> {
                                 } catch (_) {}
                               } else {
                                 widget.onApprove?.call();
-                              }
-                              Navigator.pop(context);
-                            },
-                          ),
-                        ),
-                        if (showDelete) const SizedBox(width: 16),
-                      ],
-                      if (showDelete)
-                        Expanded(
-                          child: PrimaryButton(
-                            icon: Icons.delete_outline,
-                            text: deleteText,
-                            backgroundColor: Colors.redAccent.withValues(alpha: 0.8),
-                            textColor: Colors.white,
-                            onPressed: () {
-                              if (hasCubit) {
-                                try {
-                                  context.read<ForumMediaCubit>().deleteMedia(currentMedia);
-                                } catch (_) {}
-                              } else {
-                                widget.onReject?.call();
                               }
                               Navigator.pop(context);
                             },
@@ -449,6 +513,147 @@ class _MediaViewerState extends State<MediaViewer> {
     );
   }
 
+}
+
+/// "Shared by [name] · [relative time]" caption shown at the bottom of the
+/// media, matching the frosted-pill treatment used elsewhere in the viewer.
+/// Omits the "Shared by" clause entirely (rather than showing a blank name)
+/// when uploaderName isn't available — e.g. a realtime-inserted item whose
+/// flat payload has no joined profile until the next refreshMedia() fetch.
+class _MediaAttribution extends StatelessWidget {
+  final ForumMedia media;
+  final bool isUploader;
+
+  const _MediaAttribution({required this.media, required this.isUploader});
+
+  @override
+  Widget build(BuildContext context) {
+    final relativeTime = timeago.format(media.createdAt, locale: 'en_short');
+    final uploaderName = media.uploaderName;
+    final displayName = isUploader ? 'You' : uploaderName;
+    final text = displayName != null && displayName.isNotEmpty
+        ? 'Shared by $displayName · $relativeTime'
+        : relativeTime;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.45),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        text,
+        style: AppTypography.inter(
+          fontSize: 11,
+          color: Colors.white.withValues(alpha: 0.75),
+        ),
+      ),
+    );
+  }
+}
+
+/// Non-authorized members' single action next to the attribution chip:
+/// Delete for their own upload, Report for anyone else's. Organizers/
+/// moderators never see this — they use the bottom Approve/Reject bar
+/// instead, so the same person never gets two different ways to remove
+/// the same item.
+class _MediaMemberAction extends StatelessWidget {
+  final bool isUploader;
+  final VoidCallback onDelete;
+  final ValueChanged<String> onReport;
+
+  const _MediaMemberAction({
+    required this.isUploader,
+    required this.onDelete,
+    required this.onReport,
+  });
+
+  void _confirmDelete(BuildContext context) {
+    showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1A1A1A),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Delete this upload?', style: TextStyle(color: Colors.white)),
+        content: const Text(
+          'This will be removed for everyone.',
+          style: TextStyle(color: Colors.white54),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel', style: TextStyle(color: Colors.white38)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Delete', style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    ).then((confirmed) {
+      if (confirmed == true) onDelete();
+    });
+  }
+
+  void _showReportSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.black,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (bottomSheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Report this media',
+                style: AppTypography.interTight(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(height: 16),
+              ...['Spam', 'Harassment', 'Inappropriate Content'].map((reason) {
+                return ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(reason, style: const TextStyle(color: Colors.white)),
+                  onTap: () {
+                    onReport(reason);
+                    Navigator.pop(bottomSheetContext);
+                  },
+                );
+              }),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () => isUploader ? _confirmDelete(context) : _showReportSheet(context),
+      child: Container(
+        width: 30,
+        height: 30,
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: 0.45),
+          shape: BoxShape.circle,
+        ),
+        child: Icon(
+          isUploader ? Icons.delete_outline : Icons.flag_outlined,
+          size: 15,
+          color: Colors.white.withValues(alpha: 0.75),
+        ),
+      ),
+    );
+  }
 }
 
 class _SingleMediaView extends StatefulWidget {

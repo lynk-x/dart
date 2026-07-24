@@ -276,6 +276,7 @@ class ForumMedia {
   final String mediaType;
   final String? caption;
   final String? uploaderId;
+  final String? uploaderName;
   final bool isApproved;
   final DateTime createdAt;
 
@@ -286,19 +287,26 @@ class ForumMedia {
     required this.mediaType,
     this.caption,
     this.uploaderId,
+    this.uploaderName,
     this.isApproved = true,
     required this.createdAt,
   });
 
   factory ForumMedia.fromMap(Map<String, dynamic> map) {
     final mediaUrl = map['media_url'] as Map<String, dynamic>? ?? {};
+    final uploaderProfile = map['uploader_id'] is Map
+        ? map['uploader_id'] as Map<String, dynamic>?
+        : null;
     return ForumMedia(
       id: map['id'] as String,
       url: mediaUrl['full_res'] as String? ?? map['url'] as String? ?? '',
       thumbnailUrl: mediaUrl['thumbnail'] as String? ?? map['thumbnail_url'] as String?,
       mediaType: map['media_type'] as String? ?? 'image',
       caption: map['caption'] as String?,
-      uploaderId: map['uploader_id'] as String?,
+      uploaderId: uploaderProfile?['id'] as String? ??
+          (map['uploader_id'] is String ? map['uploader_id'] as String : null),
+      uploaderName: uploaderProfile?['user_name'] as String? ??
+          uploaderProfile?['full_name'] as String?,
       isApproved: map['is_approved'] == true,
       createdAt: DateTime.parse(map['created_at'] as String),
     );
@@ -324,6 +332,7 @@ class ForumMedia {
     String? mediaType,
     String? caption,
     String? uploaderId,
+    String? uploaderName,
     bool? isApproved,
     DateTime? createdAt,
   }) {
@@ -334,6 +343,7 @@ class ForumMedia {
       mediaType: mediaType ?? this.mediaType,
       caption: caption ?? this.caption,
       uploaderId: uploaderId ?? this.uploaderId,
+      uploaderName: uploaderName ?? this.uploaderName,
       isApproved: isApproved ?? this.isApproved,
       createdAt: createdAt ?? this.createdAt,
     );
