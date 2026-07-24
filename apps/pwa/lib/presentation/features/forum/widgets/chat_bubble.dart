@@ -167,10 +167,25 @@ class _ChatBubbleState extends State<ChatBubble> {
           if (widget.onPin != null)
             ActionBarItem(
               label: widget.message.isPinned ? 'Unpin' : 'Pin',
-              onTap: () {
+              onTap: () async {
                 final isPinned = widget.message.isPinned;
-                widget.onPin?.call(widget.message);
-                AppSnackBars.showInfo(context, isPinned ? 'Message unpinned' : 'Message pinned');
+                final result = widget.onPin?.call(widget.message);
+                // onPin may be a fire-and-forget void callback (older
+                // wiring) or return Future<bool> (ForumCubit.pinMessage) —
+                // only show success/failure feedback when it's the latter,
+                // so a moderator actually finds out if the RPC's
+                // can_manage_forum check rejected the pin.
+                if (result is Future<bool>) {
+                  final success = await result;
+                  if (!context.mounted) return;
+                  if (success) {
+                    AppSnackBars.showInfo(context, isPinned ? 'Message unpinned' : 'Message pinned');
+                  } else {
+                    AppSnackBars.showError(context, 'Could not update pin.');
+                  }
+                } else {
+                  AppSnackBars.showInfo(context, isPinned ? 'Message unpinned' : 'Message pinned');
+                }
               },
               color: Colors.white70,
             ),

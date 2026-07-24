@@ -23,11 +23,14 @@ class SkeletonFade extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedSwitcher(
-      duration: duration,
-      switchInCurve: Curves.easeOut,
-      switchOutCurve: Curves.easeIn,
-      child: child,
+    return ColoredBox(
+      color: AppColors.primaryBackground,
+      child: AnimatedSwitcher(
+        duration: duration,
+        switchInCurve: Curves.easeOut,
+        switchOutCurve: Curves.easeIn,
+        child: child,
+      ),
     );
   }
 }

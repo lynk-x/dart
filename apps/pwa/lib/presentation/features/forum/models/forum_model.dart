@@ -294,9 +294,7 @@ class ForumMedia {
 
   factory ForumMedia.fromMap(Map<String, dynamic> map) {
     final mediaUrl = map['media_url'] as Map<String, dynamic>? ?? {};
-    final uploaderProfile = map['uploader_id'] is Map
-        ? map['uploader_id'] as Map<String, dynamic>?
-        : null;
+    final uploaderProfile = map['user_profile'] as Map<String, dynamic>?;
     return ForumMedia(
       id: map['id'] as String,
       url: mediaUrl['full_res'] as String? ?? map['url'] as String? ?? '',

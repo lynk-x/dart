@@ -335,16 +335,27 @@ class ForumCubit extends Cubit<ForumState> {
     }
   }
 
-  Future<void> pinMessage(ChatMessage message) async {
-    if (!state.isModerator) return;
+  /// Returns `true` on success, `false` if permission denied or RPC failed.
+  /// The RPC (api.pin_message/unpin_message) independently checks
+  /// can_manage_forum server-side — the isModerator gate below is a UI-only
+  /// fast path, same convention as muteUser/banUser/makeModerator above.
+  /// Previously this went through a raw client-side table UPDATE, which the
+  /// base RLS policy silently limited to the message's own author, so a
+  /// moderator pinning someone else's message affected 0 rows with no error
+  /// surfaced at all — returning a bool here lets the caller show a
+  /// snackbar on failure instead of that silent no-op.
+  Future<bool> pinMessage(ChatMessage message) async {
+    if (!state.isModerator) return false;
     try {
       if (message.isPinned) {
-        await _repo.unpinMessage(message.id);
+        await _repo.unpinMessage(message.id, message.createdAt);
       } else {
-        await _repo.pinMessage(message.id);
+        await _repo.pinMessage(message.id, message.createdAt);
       }
+      return true;
     } catch (e, stack) {
-      debugPrint('[ForumCubit] Error: $e\n$stack');
+      debugPrint('[ForumCubit] pinMessage error: $e\n$stack');
+      return false;
     }
   }
 

@@ -204,18 +204,25 @@ class ForumRepository {
     }
   }
 
-  Future<void> pinMessage(String messageId) async {
-    await _client
-        .schema('social')
-        .from('forum_messages')
-        .update({'is_pinned': true}).eq('id', messageId);
+  /// Goes through api.pin_message rather than a direct table UPDATE: the
+  /// base ForumMessages RLS policy only allows a message's own author to
+  /// edit it, so a moderator pinning someone else's message needs this
+  /// SECURITY DEFINER RPC (which checks can_manage_forum itself) — a raw
+  /// client-side update silently affected 0 rows for that case. Also
+  /// enforces single-pin-per-forum server-side (auto-unpins any previously
+  /// pinned message), matching the Updates tab's one-pin banner.
+  Future<void> pinMessage(String messageId, DateTime createdAt) async {
+    await _client.schema('api').rpc('pin_message', params: {
+      'p_message_id': messageId,
+      'p_created_at': createdAt.toIso8601String(),
+    });
   }
 
-  Future<void> unpinMessage(String messageId) async {
-    await _client
-        .schema('social')
-        .from('forum_messages')
-        .update({'is_pinned': false}).eq('id', messageId);
+  Future<void> unpinMessage(String messageId, DateTime createdAt) async {
+    await _client.schema('api').rpc('unpin_message', params: {
+      'p_message_id': messageId,
+      'p_created_at': createdAt.toIso8601String(),
+    });
   }
 
   Future<void> submitReport({

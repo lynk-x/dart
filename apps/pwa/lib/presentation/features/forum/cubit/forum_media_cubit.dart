@@ -118,7 +118,7 @@ class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
     try {
       var query = Supabase.instance.client
           .schema('social').from('forum_media')
-          .select('*, uploader_id(id, user_name, full_name)')
+          .select('*, user_profile:uploader_id(id, user_name, full_name)')
           .eq('forum_id', forumId);
 
       if (!isModeratorOrOrganizer) {
@@ -159,7 +159,7 @@ class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
     try {
       var query = Supabase.instance.client
           .schema('social').from('forum_media')
-          .select('*, uploader_id(id, user_name, full_name)')
+          .select('*, user_profile:uploader_id(id, user_name, full_name)')
           .eq('forum_id', forumId);
 
       if (!isModeratorOrOrganizer) {
