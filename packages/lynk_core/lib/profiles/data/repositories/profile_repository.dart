@@ -39,24 +39,24 @@ class ProfileRepository {
     String? accountStatus;
 
     try {
-      final primaryAccountData = await _client
+      final attendeeAccountData = await _client
           .schema('api')
           .from('v1_account_memberships')
           .select('account_id, reference')
-          .eq('is_primary', true)
+          .eq('type', 'attendee')
           .maybeSingle();
-      if (primaryAccountData != null) {
-        targetAccountId = primaryAccountData['account_id'] as String?;
+      if (attendeeAccountData != null) {
+        targetAccountId = attendeeAccountData['account_id'] as String?;
         // reference lives on this row already — no need to wait on the
         // v1_accounts fetch below (which only adds is_active/status) to
         // show it. Previously both came from that second fetch, so a
         // silent failure there (RLS, transient error) left the reference
         // stuck showing "Resolving..." indefinitely even though this first
         // query already had it.
-        accountReference = primaryAccountData['reference'] as String?;
+        accountReference = attendeeAccountData['reference'] as String?;
       }
     } catch (e) {
-      debugPrint('[ProfileRepository] getProfile: primary account membership lookup failed: $e');
+      debugPrint('[ProfileRepository] getProfile: attendee account membership lookup failed: $e');
     }
 
     if (targetAccountId != null) {
