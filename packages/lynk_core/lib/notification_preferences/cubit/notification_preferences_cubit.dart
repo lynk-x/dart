@@ -21,7 +21,8 @@ class NotificationPreferencesCubit extends Cubit<NotificationPreferencesState> {
       final items = categories
           .map((c) => NotificationPreferenceItem(
                 category: c,
-                preference: byType[c.id] ?? NotificationPreference(type: c.id),
+                preference: byType[c.id] ??
+                    NotificationPreference(type: c.id, email: c.defaultEmail),
               ))
           .toList();
 

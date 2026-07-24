@@ -217,6 +217,16 @@ class _PreferenceCard extends StatelessWidget {
           Row(
             children: [
               _ChannelToggle(
+                label: 'In-App',
+                value: preference.inApp,
+                onChanged: isSaving
+                    ? null
+                    : (v) => context
+                        .read<NotificationPreferencesCubit>()
+                        .updatePreference(category.id, inApp: v),
+              ),
+              const SizedBox(width: 20),
+              _ChannelToggle(
                 label: 'Push',
                 value: preference.push,
                 onChanged: isSaving
@@ -234,16 +244,6 @@ class _PreferenceCard extends StatelessWidget {
                     : (v) => context
                         .read<NotificationPreferencesCubit>()
                         .updatePreference(category.id, email: v),
-              ),
-              const SizedBox(width: 20),
-              _ChannelToggle(
-                label: 'In-App',
-                value: preference.inApp,
-                onChanged: isSaving
-                    ? null
-                    : (v) => context
-                        .read<NotificationPreferencesCubit>()
-                        .updatePreference(category.id, inApp: v),
               ),
             ],
           ),

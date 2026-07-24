@@ -1,4 +1,4 @@
-import 'dart:typed_data';
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:universal_io/io.dart';
 import 'package:lynk_core/core.dart';
@@ -35,38 +35,44 @@ class ProfileRepository {
     }
 
     String? targetAccountId;
+    String? accountReference;
     String? accountStatus;
 
     try {
       final primaryAccountData = await _client
           .schema('api')
           .from('v1_account_memberships')
-          .select('account_id')
+          .select('account_id, reference')
           .eq('is_primary', true)
           .maybeSingle();
       if (primaryAccountData != null) {
         targetAccountId = primaryAccountData['account_id'] as String?;
+        // reference lives on this row already — no need to wait on the
+        // v1_accounts fetch below (which only adds is_active/status) to
+        // show it. Previously both came from that second fetch, so a
+        // silent failure there (RLS, transient error) left the reference
+        // stuck showing "Resolving..." indefinitely even though this first
+        // query already had it.
+        accountReference = primaryAccountData['reference'] as String?;
       }
-    } catch (_) {
-      // Fallback
+    } catch (e) {
+      debugPrint('[ProfileRepository] getProfile: primary account membership lookup failed: $e');
     }
 
-    String? accountReference;
     if (targetAccountId != null) {
       try {
         final accountData = await _client
             .schema('api')
             .from('v1_accounts')
-            .select('reference, is_active')
+            .select('is_active')
             .eq('id', targetAccountId)
             .maybeSingle();
         if (accountData != null) {
-          accountReference = accountData['reference'] as String?;
           final isActive = accountData['is_active'] as bool? ?? false;
           accountStatus = isActive ? 'active' : 'inactive';
         }
-      } catch (_) {
-        // Fallback
+      } catch (e) {
+        debugPrint('[ProfileRepository] getProfile: account status lookup failed: $e');
       }
     }
 

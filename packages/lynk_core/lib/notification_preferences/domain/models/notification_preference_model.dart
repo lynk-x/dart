@@ -5,11 +5,17 @@ class NotificationCategory {
   final String id;
   final String displayName;
   final String? description;
+  /// Server-side fallback `comms.fn_notify_user` actually honors when the
+  /// user has no `notification_preferences` row for this category yet —
+  /// not just a UI hint, so a category shown as "on" here matches what the
+  /// backend will really send before the user touches this screen.
+  final bool defaultEmail;
 
   const NotificationCategory({
     required this.id,
     required this.displayName,
     this.description,
+    this.defaultEmail = false,
   });
 
   factory NotificationCategory.fromMap(Map<String, dynamic> map) {
@@ -17,15 +23,19 @@ class NotificationCategory {
       id: map['id'] as String,
       displayName: map['display_name'] as String,
       description: map['description'] as String?,
+      defaultEmail: map['default_email'] as bool? ?? false,
     );
   }
 }
 
 /// Per-category delivery-channel preference. A category with no row yet in
 /// `comms.notification_preferences` has never been explicitly set by the
-/// user — [inApp]/[push] default to true and [email] to false, matching the
-/// column defaults on the underlying table, so an unset category still
-/// reads as "on" rather than "off".
+/// user — [inApp]/[push] default to true, matching the column defaults on
+/// the underlying table. [email]'s constructor default of false is only a
+/// fallback for when a [NotificationCategory] isn't available to consult —
+/// callers merging against a category should pass
+/// `email: category.defaultEmail` (see [NotificationPreferencesCubit.load])
+/// so an unset category matches what the backend will actually send.
 class NotificationPreference {
   final String type;
   final bool inApp;

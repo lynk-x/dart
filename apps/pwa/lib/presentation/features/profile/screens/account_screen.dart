@@ -5,7 +5,6 @@ import 'package:go_router/go_router.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:lynk_core/core.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:country_flags/country_flags.dart';
 import 'package:lynk_x/services/push_notification_service.dart';
 import '../widgets/delete_account_dialog.dart';
 import 'package:lynk_x/presentation/shared/utils/app_snackbars.dart';
@@ -483,16 +482,10 @@ class _AccountPageState extends State<AccountPage> {
           ),
         ),
         actions: [
-          BlocBuilder<ProfileCubit, ProfileState>(
-            buildWhen: (previous, current) =>
-                current is ProfileLoaded || current is ProfileLoading || current is ProfileInitial,
-            builder: (context, state) {
-              if (state is! ProfileLoaded) return const SizedBox.shrink();
-              return Padding(
-                padding: const EdgeInsets.only(right: 16),
-                child: _CountryIndicator(countryCode: state.profile.countryCode),
-              );
-            },
+          IconButton(
+            icon: const Icon(Icons.support_agent_rounded, color: Colors.white70),
+            tooltip: 'Support',
+            onPressed: () => context.push('/support?context=general'),
           ),
         ],
       ),
@@ -564,7 +557,7 @@ class _AccountPageState extends State<AccountPage> {
                   trailing: const SizedBox.shrink(),
                 ),
                 const SizedBox(height: 32),
-                _buildSectionHeader('Login'),
+                _buildSectionHeader('Contact Info'),
                 _buildSettingTile(
                   title: 'Email Address',
                   subtitle: email,
@@ -704,35 +697,6 @@ class _AccountPageState extends State<AccountPage> {
         ),
         trailing: trailing,
       ),
-    );
-  }
-}
-
-class _CountryIndicator extends StatelessWidget {
-  final String? countryCode;
-
-  const _CountryIndicator({required this.countryCode});
-
-  @override
-  Widget build(BuildContext context) {
-    final code = countryCode;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-      ),
-      child: (code == null || code.isEmpty || code == 'GL')
-          ? const Text('🌐', style: TextStyle(fontSize: 14))
-          : ClipRRect(
-              borderRadius: BorderRadius.circular(3),
-              child: SizedBox(
-                width: 20,
-                height: 14,
-                child: CountryFlag.fromCountryCode(code),
-              ),
-            ),
     );
   }
 }

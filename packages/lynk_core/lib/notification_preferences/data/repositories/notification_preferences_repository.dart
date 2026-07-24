@@ -10,7 +10,7 @@ class NotificationPreferencesRepository {
     final data = await _client
         .schema('api')
         .from('v1_notification_types')
-        .select('id, display_name, description');
+        .select('id, display_name, description, default_email');
     return (data as List)
         .map((row) => NotificationCategory.fromMap(row as Map<String, dynamic>))
         .toList();
