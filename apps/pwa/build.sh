@@ -40,6 +40,11 @@ flutter pub get
 echo "--- Building Web (Release) ---"
 flutter build web --release --wasm --pwa-strategy=none --dart-define=SUPABASE_URL="${SUPABASE_URL:-}" --dart-define=SUPABASE_PUBLISHABLE_KEY="${SUPABASE_PUBLISHABLE_KEY:-}" --dart-define=SENTRY_DSN="${SENTRY_DSN:-}" --dart-define=FIREBASE_VAPID_KEY="${FIREBASE_VAPID_KEY:-}"
 
+echo "--- Neutralizing Flutter's own service worker registration ---"
+
+sed -i '/_flutter\.loader\.load({/,/^});$/d' build/web/flutter_bootstrap.js
+echo "_flutter.loader.load({});" >> build/web/flutter_bootstrap.js
+
 echo "--- Generating Service Worker (Workbox) ---"
 # Workbox scans build/web/, hashes every file, and generates a production
 # service worker with automatic precaching and cache invalidation.
