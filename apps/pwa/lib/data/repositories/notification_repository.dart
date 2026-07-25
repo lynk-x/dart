@@ -5,12 +5,17 @@ class NotificationRepository {
   final SupabaseClient _client;
   NotificationRepository(this._client);
 
-  Future<List<NotificationModel>> getNotifications() async {
-    final data = await _client
+  Future<List<NotificationModel>> getNotifications({String? accountId}) async {
+    var query = _client
         .schema('api')
         .from('v1_notifications')
-        .select()
-        .order('created_at', ascending: false);
+        .select();
+
+    if (accountId != null) {
+      query = query.eq('data->>account_id', accountId);
+    }
+
+    final data = await query.order('created_at', ascending: false);
     return (data as List)
         .map((json) => NotificationModel.fromMap(json as Map<String, dynamic>))
         .toList();

@@ -188,7 +188,12 @@ class ForumUpdatesCubit extends BaseMessageCubit<ForumUpdatesState> {
 
   void setCategory(String? category) {
     if (!isClosed) {
-      emit(state.copyWith(selectedCategory: category, clearCategory: category == null));
+      emit(state.copyWith(
+        selectedCategory: category,
+        clearCategory: category == null,
+        messages: [],
+        isLoading: true,
+      ));
     }
     refresh();
   }

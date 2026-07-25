@@ -8,9 +8,15 @@ import 'package:lynk_x/presentation/features/notifications/models/notification_m
 
 class NotificationCubit extends Cubit<NotificationState> {
   final NotificationRepository _repo;
-  NotificationCubit(this._repo) : super(const NotificationInitial());
+  final AccountRepository _accountRepo;
+  NotificationCubit(this._repo, this._accountRepo) : super(const NotificationInitial());
 
   RealtimeChannel? _channel;
+
+  /// Cached per cubit instance (effectively per session) — this doesn't
+  /// change without a re-login, so there's no need to re-resolve it on
+  /// every loadNotifications() call.
+  String? _resolvedAccountId;
 
   /// Returns the current user's ID, or null if auth has not resolved yet.
   String? get _userId {
@@ -22,8 +28,10 @@ class NotificationCubit extends Cubit<NotificationState> {
     if (uid == null) return; // Auth not ready — called too early
     emit(const NotificationLoading());
     try {
+      _resolvedAccountId ??= await _accountRepo.resolveOwnerAccountId(uid);
 
-      final notifications = await _repo.getNotifications();
+      final notifications =
+          await _repo.getNotifications(accountId: _resolvedAccountId);
 
       emit(NotificationLoaded(notifications: notifications));
       _subscribeToNotifications();

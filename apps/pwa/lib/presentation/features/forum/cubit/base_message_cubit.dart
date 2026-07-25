@@ -280,6 +280,7 @@ abstract class BaseMessageCubit<T extends BaseMessageState> extends HydratedCubi
     if (!isClosed) emit(copyWithState(searchQuery: query));
     searchTimer?.cancel();
     searchTimer = Timer(const Duration(milliseconds: 300), () {
+      if (!isClosed) emit(copyWithState(messages: []));
       refresh();
     });
   }

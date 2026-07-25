@@ -47,7 +47,8 @@ class _LynkXAppWrapperState extends State<LynkXAppWrapper> {
         // currentUser, which is null on a cold start before auth resolves.
         // loadNotifications() is triggered from the signedIn auth event instead.
         BlocProvider(
-            create: (context) => NotificationCubit(notificationRepository)),
+            create: (context) =>
+                NotificationCubit(notificationRepository, accountRepository)),
         BlocProvider(create: (context) => WalletCubit(walletRepository)),
       ],
       child: LynkXApp(locale: _locale),
