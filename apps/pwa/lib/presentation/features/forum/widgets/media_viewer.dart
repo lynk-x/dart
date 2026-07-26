@@ -297,7 +297,15 @@ class _MediaViewerState extends State<MediaViewer> {
 
           final showApprove = hasCubit ? (isAuthorized && !currentMedia.isApproved) : (widget.onApprove != null);
           final showDelete = hasCubit ? (isAuthorized || isUploader) : (widget.onReject != null);
-          final deleteText = (hasCubit && isUploader && !isAuthorized) ? 'Delete' : 'Reject';
+          // A moderator's bottom-bar action is "Reject" while the item is
+          // still pending review, but "Delete" once it's already approved —
+          // otherwise the label implies the item was never reviewed even
+          // when it's live and being removed after the fact.
+          final deleteText = (hasCubit && isUploader && !isAuthorized)
+              ? 'Delete'
+              : (hasCubit && isAuthorized && currentMedia.isApproved)
+                  ? 'Delete'
+                  : 'Reject';
 
           return Column(
             children: [
@@ -385,53 +393,51 @@ class _MediaViewerState extends State<MediaViewer> {
                         ),
                       ),
 
-                    if (currentMedia != null)
-                      Positioned(
-                        left: 24,
-                        right: 24,
-                        bottom: 12,
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Flexible(
-                              child: IgnorePointer(
-                                child: _MediaAttribution(
-                                  media: currentMedia,
-                                  isUploader: isUploader,
-                                ),
-                              ),
-                            ),
-                            // Members with no moderation authority get their
-                            // own action here instead of the bottom
-                            // Approve/Reject bar (which stays organizer/
-                            // moderator-only) — Delete for their own upload,
-                            // Report for anyone else's.
-                            if (!isAuthorized && currentUserId != null) ...[
-                              const SizedBox(width: 8),
-                              _MediaMemberAction(
-                                isUploader: isUploader,
-                                onDelete: () {
-                                  if (!hasCubit) return;
-                                  try {
-                                    context.read<ForumMediaCubit>().deleteMedia(currentMedia);
-                                  } catch (_) {}
-                                },
-                                onReport: (reason) {
-                                  if (!hasCubit) return;
-                                  try {
-                                    context.read<ForumMediaCubit>().reportMedia(currentMedia, reason);
-                                    AppSnackBars.showSuccess(context, 'Media reported.');
-                                  } catch (_) {}
-                                },
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
                   ],
                 ),
               ),
+
+              // Attribution row — sits on the viewer's own dark chrome
+              // background rather than overlaid on the media, so it stays
+              // legible regardless of what's in the photo/video underneath.
+              if (currentMedia != null)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 12, 24, 0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Flexible(
+                        child: _MediaAttribution(
+                          media: currentMedia,
+                          isUploader: isUploader,
+                        ),
+                      ),
+                      // Members with no moderation authority get their own
+                      // action here instead of the bottom Approve/Reject bar
+                      // (which stays organizer/moderator-only) — Delete for
+                      // their own upload, Report for anyone else's.
+                      if (!isAuthorized && currentUserId != null) ...[
+                        const SizedBox(width: 8),
+                        _MediaMemberAction(
+                          isUploader: isUploader,
+                          onDelete: () {
+                            if (!hasCubit) return;
+                            try {
+                              context.read<ForumMediaCubit>().deleteMedia(currentMedia);
+                            } catch (_) {}
+                          },
+                          onReport: (reason) {
+                            if (!hasCubit) return;
+                            try {
+                              context.read<ForumMediaCubit>().reportMedia(currentMedia, reason);
+                              AppSnackBars.showSuccess(context, 'Media reported.');
+                            } catch (_) {}
+                          },
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
 
               // Bottom Actions
               if (showApprove || showDelete)
@@ -515,11 +521,11 @@ class _MediaViewerState extends State<MediaViewer> {
 
 }
 
-/// "Shared by [name] · [relative time]" caption shown at the bottom of the
-/// media, matching the frosted-pill treatment used elsewhere in the viewer.
-/// Omits the "Shared by" clause entirely (rather than showing a blank name)
-/// when uploaderName isn't available — e.g. a realtime-inserted item whose
-/// flat payload has no joined profile until the next refreshMedia() fetch.
+/// "Shared by [name] · [relative time]" caption shown below the media, in
+/// the viewer's own column (not overlaid on the image). Omits the "Shared
+/// by" clause entirely (rather than showing a blank name) when uploaderName
+/// isn't available — e.g. a realtime-inserted item whose flat payload has no
+/// joined profile until the next refreshMedia() fetch.
 class _MediaAttribution extends StatelessWidget {
   final ForumMedia media;
   final bool isUploader;
@@ -535,19 +541,13 @@ class _MediaAttribution extends StatelessWidget {
         ? 'Shared by $displayName · $relativeTime'
         : relativeTime;
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.45),
-        borderRadius: BorderRadius.circular(20),
+    return Text(
+      text,
+      style: AppTypography.inter(
+        fontSize: 11,
+        color: Colors.white.withValues(alpha: 0.75),
       ),
-      child: Text(
-        text,
-        style: AppTypography.inter(
-          fontSize: 11,
-          color: Colors.white.withValues(alpha: 0.75),
-        ),
-      ),
+      overflow: TextOverflow.ellipsis,
     );
   }
 }

@@ -197,10 +197,16 @@ class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
     }
   }
 
+  static const _videoExtensions = {
+    'mp4', 'mov', 'm4v', 'webm', 'mkv', 'avi', '3gp',
+  };
+
   /// Uploads multiple media items to Cloudflare R2 via Edge Function presigned URL.
+  /// Each file's type is inferred from its own extension rather than shared
+  /// across the whole batch, so a single call can carry a mix of photos and
+  /// videos (e.g. from the unified "Upload Media" picker).
   Future<void> uploadMultipleMedia({
     required List<XFile> files,
-    required String type,
   }) async {
     if (isClosed || files.isEmpty) return;
     emit(state.copyWith(isUploading: true));
@@ -208,6 +214,7 @@ class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
       for (final file in files) {
         final bytes = await file.readAsBytes();
         final ext = file.name.split('.').last.toLowerCase();
+        final type = _videoExtensions.contains(ext) ? 'video' : 'image';
         final fileId = _uuid.v4();
         final fileName = '$fileId.$ext';
         final mimeType = type == 'video' ? 'video/$ext' : 'image/$ext';
@@ -270,15 +277,6 @@ class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
       if (!isClosed) emit(state.copyWith(isUploading: false, error: e.toString()));
       rethrow;
     }
-  }
-
-  /// Uploads a single media file to Supabase.
-  Future<void> uploadMedia({
-    required XFile file,
-    required String type,
-    required String mimeType,
-  }) async {
-    await uploadMultipleMedia(files: [file], type: type);
   }
 
   /// `forum_media.forum_media` is partitioned by `created_at` with composite

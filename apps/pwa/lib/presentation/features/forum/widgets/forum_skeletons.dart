@@ -35,6 +35,34 @@ class SkeletonFade extends StatelessWidget {
   }
 }
 
+/// Same crossfade as [SkeletonFade], but never mounts outgoing and incoming
+/// children at once. AnimatedSwitcher's default layoutBuilder stacks both
+/// during the transition — fine for plain widgets, but fatal when the
+/// switched subtree contains a SliverOverlapInjector tied to a shared
+/// NestedScrollView handle (two injectors racing to attach to one handle
+/// throws). Use this instead of [SkeletonFade] wherever the switched child
+/// lives inside a NestedScrollView-nested sliver tree.
+class SkeletonFadeSingleMount extends StatelessWidget {
+  final Widget child;
+
+  const SkeletonFadeSingleMount({super.key, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return ColoredBox(
+      color: AppColors.primaryBackground,
+      child: AnimatedSwitcher(
+        duration: SkeletonFade.duration,
+        switchInCurve: Curves.easeOut,
+        switchOutCurve: Curves.easeIn,
+        layoutBuilder: (currentChild, previousChildren) =>
+            currentChild ?? const SizedBox.shrink(),
+        child: child,
+      ),
+    );
+  }
+}
+
 /// A single placeholder rectangle. Tint defaults to a neutral dark-surface
 /// tone; pass [onGreen] when the placeholder sits on the accent-green "my
 /// message" bubble background instead, so it stays visible there too.

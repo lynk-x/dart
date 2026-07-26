@@ -64,7 +64,7 @@ class ChatMessageList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SkeletonFade(child: _buildContent(context));
+    return SkeletonFadeSingleMount(child: _buildContent(context));
   }
 
   Widget _buildContent(BuildContext context) {

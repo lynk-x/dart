@@ -90,7 +90,7 @@ class _UpdatesTabState extends State<UpdatesTab>
                     child: RefreshIndicator(
                       onRefresh: () async => updatesCubit.refresh(),
                       color: context.accentColor,
-                      child: SkeletonFade(
+                      child: SkeletonFadeSingleMount(
                         child: updatesState.messages.isEmpty &&
                                 updatesState.isLoading
                             ? const SliverFillRemaining(

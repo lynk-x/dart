@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:image_picker/image_picker.dart';
+import 'package:cross_file/cross_file.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:lynk_core/core.dart';
 import 'package:lynk_x/presentation/features/forum/cubit/forum_cubit.dart';
@@ -9,6 +9,7 @@ import 'package:lynk_x/presentation/features/forum/cubit/forum_state.dart';
 import 'package:lynk_x/presentation/features/forum/cubit/forum_media_cubit.dart';
 import 'package:lynk_x/presentation/features/forum/cubit/forum_media_state.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/forum_skeletons.dart';
+import 'package:lynk_x/presentation/features/forum/widgets/web_camera_capture.dart';
 import 'package:lynk_x/presentation/shared/widgets/empty_state.dart';
 import 'package:lynk_x/presentation/shared/utils/app_snackbars.dart';
 import 'package:lynk_x/presentation/shared/utils/permission_acks.dart';
@@ -78,7 +79,7 @@ class _MediaTabState extends State<MediaTab>
                     child: RefreshIndicator(
                       onRefresh: () async => mediaCubit.refreshMedia(),
                       color: context.accentColor,
-                      child: SkeletonFade(
+                      child: SkeletonFadeSingleMount(
                         child: mediaState.isLoading &&
                                 mediaState.mediaItems.isEmpty
                             ? const SkeletonMediaGrid(key: ValueKey('skeleton'))
@@ -263,21 +264,17 @@ class _MediaTabState extends State<MediaTab>
         children: [
           Expanded(
             child: PrimaryButton(
-              icon: isUploading ? null : Icons.image,
-              text: isUploading ? 'Uploading...' : 'Upload images',
-              onPressed: isUploading
-                  ? null
-                  : () => _pickAndUpload(context, ImageSource.gallery, false),
+              icon: isUploading ? null : Icons.camera_alt_outlined,
+              text: isUploading ? 'Uploading...' : 'Camera',
+              onPressed: isUploading ? null : () => _openCamera(context),
             ),
           ),
           const SizedBox(width: 8),
           Expanded(
             child: PrimaryButton(
-              icon: isUploading ? null : Icons.video_collection,
-              text: isUploading ? 'Uploading...' : 'Upload videos',
-              onPressed: isUploading
-                  ? null
-                  : () => _pickAndUpload(context, ImageSource.gallery, true),
+              icon: isUploading ? null : Icons.upload_outlined,
+              text: isUploading ? 'Uploading...' : 'Upload Media',
+              onPressed: isUploading ? null : () => _pickFromGallery(context),
             ),
           ),
         ],
@@ -285,8 +282,39 @@ class _MediaTabState extends State<MediaTab>
     );
   }
 
-  Future<void> _pickAndUpload(
-      BuildContext context, ImageSource source, bool isVideo) async {
+  Future<void> _openCamera(BuildContext context) async {
+    await PermissionAcks.ensureAcknowledged(
+      context,
+      PermissionAckType.camera,
+      title: 'Use your Camera',
+      description:
+          'To capture photos and videos for the forum, we need access to your device camera.',
+      icon: Icons.camera_alt_rounded,
+      actionLabel: 'Enable Camera',
+      onReady: () {
+        if (context.mounted) _actuallyOpenCamera(context);
+      },
+    );
+  }
+
+  Future<void> _actuallyOpenCamera(BuildContext context) async {
+    final mediaCubit = context.read<ForumMediaCubit>();
+    final result = await Navigator.of(context).push<WebCameraCaptureResult>(
+      MaterialPageRoute(builder: (_) => const WebCameraCaptureScreen()),
+    );
+    if (result == null || !context.mounted) return;
+
+    final ext = result.isVideo ? 'webm' : 'jpg';
+    final file = XFile(
+      result.objectUrl,
+      name: '${mediaCubit.forumId}-${DateTime.now().millisecondsSinceEpoch}.$ext',
+      mimeType: result.isVideo ? 'video/webm' : 'image/jpeg',
+    );
+
+    await _upload(context, mediaCubit, [file]);
+  }
+
+  Future<void> _pickFromGallery(BuildContext context) async {
     await PermissionAcks.ensureAcknowledged(
       context,
       PermissionAckType.media,
@@ -296,62 +324,61 @@ class _MediaTabState extends State<MediaTab>
       icon: Icons.perm_media_rounded,
       actionLabel: 'Allow Access',
       onReady: () {
-        if (context.mounted) _actuallyPickAndUpload(context, source, isVideo);
+        if (context.mounted) _actuallyPickFromGallery(context);
       },
     );
   }
 
-  Future<void> _actuallyPickAndUpload(
-      BuildContext context, ImageSource source, bool isVideo) async {
+  Future<void> _actuallyPickFromGallery(BuildContext context) async {
     final mediaCubit = context.read<ForumMediaCubit>();
     try {
-      final List<XFile> pickedFiles = [];
+      // FileType.media covers images and videos together in one multi-select
+      // pass — the button no longer splits by type, so the picker shouldn't
+      // either. Each file's actual type is inferred from its extension by
+      // uploadMultipleMedia.
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.media,
+        allowMultiple: true,
+      );
 
-      if (source == ImageSource.gallery) {
-        // FilePicker supports multi-select for both images and videos on PWA/Web
-        final result = await FilePicker.platform.pickFiles(
-          type: isVideo ? FileType.video : FileType.image,
-          allowMultiple: true,
-        );
+      if (result == null || result.files.isEmpty) return;
 
-        if (result != null && result.files.isNotEmpty) {
-          for (final file in result.files) {
-            if (file.bytes != null) {
-              pickedFiles.add(XFile.fromData(
-                file.bytes!,
-                name: file.name,
-                length: file.size,
-              ));
-            }
-          }
-        }
-      } else {
-        // Fallback for camera/single pick
-        final picker = ImagePicker();
-        if (isVideo) {
-          final XFile? file = await picker.pickVideo(source: source);
-          if (file != null) pickedFiles.add(file);
-        } else {
-          final XFile? file =
-              await picker.pickImage(source: source, imageQuality: 70);
-          if (file != null) pickedFiles.add(file);
-        }
-      }
+      final pickedFiles = <XFile>[
+        for (final file in result.files)
+          if (file.bytes != null)
+            XFile.fromData(file.bytes!, name: file.name, length: file.size),
+      ];
 
       if (pickedFiles.isNotEmpty && context.mounted) {
-        final count = pickedFiles.length;
-        AppSnackBars.showInfo(context,
-            'Uploading $count ${isVideo ? (count > 1 ? 'videos' : 'video') : (count > 1 ? 'images' : 'image')}...');
-
-        await mediaCubit.uploadMultipleMedia(
-          files: pickedFiles,
-          type: isVideo ? 'video' : 'image',
+        await _upload(context, mediaCubit, pickedFiles);
+      }
+    } catch (e) {
+      if (context.mounted) {
+        AppSnackBars.showError(
+          context,
+          'Access denied or upload failed. Please check your device settings.',
         );
+      }
+    }
+  }
 
-        if (context.mounted) {
-          AppSnackBars.showSuccess(context,
-              'Upload successful! ${count > 1 ? 'Items are' : 'Media is'} being processed.');
-        }
+  Future<void> _upload(
+    BuildContext context,
+    ForumMediaCubit mediaCubit,
+    List<XFile> files,
+  ) async {
+    try {
+      final count = files.length;
+      AppSnackBars.showInfo(
+        context,
+        'Uploading $count ${count > 1 ? 'items' : 'item'}...',
+      );
+
+      await mediaCubit.uploadMultipleMedia(files: files);
+
+      if (context.mounted) {
+        AppSnackBars.showSuccess(context,
+            'Upload successful! ${count > 1 ? 'Items are' : 'Media is'} being processed.');
       }
     } catch (e) {
       if (context.mounted) {
