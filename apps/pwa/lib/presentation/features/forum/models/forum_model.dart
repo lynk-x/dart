@@ -304,7 +304,8 @@ class ForumMedia {
       uploaderId: uploaderProfile?['id'] as String? ??
           (map['uploader_id'] is String ? map['uploader_id'] as String : null),
       uploaderName: uploaderProfile?['user_name'] as String? ??
-          uploaderProfile?['full_name'] as String?,
+          uploaderProfile?['full_name'] as String? ??
+          map['uploader_name'] as String?,
       isApproved: map['is_approved'] == true,
       createdAt: DateTime.parse(map['created_at'] as String),
     );

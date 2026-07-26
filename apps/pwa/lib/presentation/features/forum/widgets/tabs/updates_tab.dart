@@ -99,7 +99,9 @@ class _UpdatesTabState extends State<UpdatesTab>
                                 child: SkeletonChatBubbleList(),
                               )
                             : _UpdatesScrollView(
-                                key: const ValueKey('content'),
+                                key: ValueKey(updatesCubit.hasCompletedInitialRefresh
+                                    ? 'content'
+                                    : 'content-pending'),
                                 scrollController: widget.scrollController,
                                 updatesState: updatesState,
                                 mainCubit: mainCubit,

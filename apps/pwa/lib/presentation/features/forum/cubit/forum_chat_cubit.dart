@@ -73,6 +73,7 @@ class ForumChatCubit extends BaseMessageCubit<ForumChatState> {
     _setupChatListeners();
     setupBaseListeners();
     await refresh();
+    hasCompletedInitialRefresh = true;
   }
 
 

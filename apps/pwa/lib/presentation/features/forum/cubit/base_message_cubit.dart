@@ -29,6 +29,9 @@ abstract class BaseMessageCubit<T extends BaseMessageState> extends HydratedCubi
   StreamSubscription? _syncSubscription;
   bool _wasDisconnected = false;
 
+
+  bool hasCompletedInitialRefresh = false;
+
   BaseMessageCubit({
     required this.forumId,
     required this.userId,
