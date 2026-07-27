@@ -319,23 +319,28 @@ class _WebCameraCaptureScreenState extends State<WebCameraCaptureScreen> {
 
             // Top bar — close on the left, flash on the right (dimmed while
             // recording, since switching camera/torch mid-recording isn't
-            // supported by the underlying MediaRecorder stream).
-            SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    _RoundIconButton(
-                      icon: Icons.close,
-                      onTap: _isRecording ? null : () => Navigator.of(context).pop(),
-                    ),
-                    _RoundIconButton(
-                      icon: _torchEnabled ? Icons.flash_on : Icons.flash_off,
-                      iconColor: _torchEnabled ? context.accentColor : null,
-                      onTap: _isRecording ? null : _toggleTorch,
-                    ),
-                  ],
+            // supported by the underlying MediaRecorder stream). Explicitly
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      _RoundIconButton(
+                        icon: Icons.close,
+                        onTap: _isRecording ? null : () => Navigator.of(context).pop(),
+                      ),
+                      _RoundIconButton(
+                        icon: _torchEnabled ? Icons.flash_on : Icons.flash_off,
+                        iconColor: _torchEnabled ? context.accentColor : null,
+                        onTap: _isRecording ? null : _toggleTorch,
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -400,33 +405,36 @@ class _WebCameraCaptureScreenState extends State<WebCameraCaptureScreen> {
                         const SizedBox(height: 20),
                       ] else
                         const SizedBox(height: 20 + 34 + 20),
-                      Stack(
-                        alignment: Alignment.center,
-                        children: [
-                          _ShutterButton(
-                            isVideoMode: _isVideoMode,
-                            isRecording: _isRecording,
-                            isBusy: _isBusy,
-                            onTap: _onShutterTap,
-                          ),
-                          Positioned(
-                            left: 24,
-                            child: _GalleryShortcutButton(
-                              onTap: _isRecording
-                                  ? null
-                                  : () => Navigator.of(context).pop(
-                                        const WebCameraCaptureResult.openGallery(),
-                                      ),
+                      SizedBox(
+                        width: double.infinity,
+                        child: Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            _ShutterButton(
+                              isVideoMode: _isVideoMode,
+                              isRecording: _isRecording,
+                              isBusy: _isBusy,
+                              onTap: _onShutterTap,
                             ),
-                          ),
-                          Positioned(
-                            right: 24,
-                            child: _RoundIconButton(
-                              icon: Icons.flip_camera_ios_outlined,
-                              onTap: _isRecording ? null : _switchCamera,
+                            Positioned(
+                              left: 24,
+                              child: _GalleryShortcutButton(
+                                onTap: _isRecording
+                                    ? null
+                                    : () => Navigator.of(context).pop(
+                                          const WebCameraCaptureResult.openGallery(),
+                                        ),
+                              ),
                             ),
-                          ),
-                        ],
+                            Positioned(
+                              right: 24,
+                              child: _RoundIconButton(
+                                icon: Icons.flip_camera_ios_outlined,
+                                onTap: _isRecording ? null : _switchCamera,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ],
                   ),

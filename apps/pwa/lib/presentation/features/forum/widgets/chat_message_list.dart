@@ -73,8 +73,16 @@ class ChatMessageList extends StatelessWidget {
         key: const ValueKey('empty'),
         controller: scrollController,
         physics: const AlwaysScrollableScrollPhysics(),
-        slivers: const [
-          SliverFillRemaining(
+        slivers: [
+          // Unconditional — forum_screen.dart's NestedScrollView header
+          // always has exactly one SliverOverlapAbsorber expecting exactly
+          // one injector per frame. Every branch here needs its own, or the
+          // absorber above throws (opaque minified exception, blank grey
+          // content area) whenever this branch is the one showing.
+          SliverOverlapInjector(
+            handle: NestedScrollView.sliverOverlapAbsorberHandleFor(context),
+          ),
+          const SliverFillRemaining(
             child: Center(
               child: EmptyState(
                   message: 'No messages yet. Start the conversation!'),
@@ -86,8 +94,23 @@ class ChatMessageList extends StatelessWidget {
 
     if (chatState.messages.isEmpty && chatState.isLoading) {
       // Skeleton bubbles rather than a bare spinner — the eventual content
-      // is a list of chat bubbles, so preview that shape directly.
-      return const SkeletonChatBubbleList(key: ValueKey('skeleton'));
+      // is a list of chat bubbles, so preview that shape directly. Wrapped
+      // in a CustomScrollView (rather than returned bare) purely so it can
+      // carry the same mandatory SliverOverlapInjector as every other
+      // branch here.
+      return CustomScrollView(
+        key: const ValueKey('skeleton'),
+        controller: scrollController,
+        slivers: [
+          SliverOverlapInjector(
+            handle: NestedScrollView.sliverOverlapAbsorberHandleFor(context),
+          ),
+          const SliverFillRemaining(
+            hasScrollBody: false,
+            child: SkeletonChatBubbleList(),
+          ),
+        ],
+      );
     }
 
     return CustomScrollView(

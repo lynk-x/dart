@@ -82,12 +82,45 @@ class _MediaTabState extends State<MediaTab>
                       child: SkeletonFadeSingleMount(
                         child: mediaState.isLoading &&
                                 mediaState.mediaItems.isEmpty
-                            ? const SkeletonMediaGrid(key: ValueKey('skeleton'))
+                            // Every branch here needs its own
+                            // SliverOverlapInjector, unconditionally —
+                            // forum_screen.dart's NestedScrollView header
+                            // always has exactly one SliverOverlapAbsorber
+                            // expecting exactly one injector per frame, or it
+                            // throws (opaque minified exception, blank grey
+                            // content area) whenever a branch without one is
+                            // the one showing — as happens on every fresh
+                            // forum open before the first media page loads.
+                            ? CustomScrollView(
+                                key: const ValueKey('skeleton'),
+                                controller: _scrollController,
+                                slivers: [
+                                  SliverOverlapInjector(
+                                    handle: NestedScrollView
+                                        .sliverOverlapAbsorberHandleFor(context),
+                                  ),
+                                  const SliverFillRemaining(
+                                    hasScrollBody: false,
+                                    child: SkeletonMediaGrid(),
+                                  ),
+                                ],
+                              )
                             : mediaState.mediaItems.isEmpty
-                                ? const EmptyState(
-                                    key: ValueKey('empty'),
-                                    message:
-                                        'No media uploaded yet.\nShare your first photo or video!')
+                                ? CustomScrollView(
+                                    key: const ValueKey('empty'),
+                                    controller: _scrollController,
+                                    slivers: [
+                                      SliverOverlapInjector(
+                                        handle: NestedScrollView
+                                            .sliverOverlapAbsorberHandleFor(context),
+                                      ),
+                                      const SliverFillRemaining(
+                                        child: EmptyState(
+                                            message:
+                                                'No media uploaded yet.\nShare your first photo or video!'),
+                                      ),
+                                    ],
+                                  )
                                 : CustomScrollView(
                                     key: const ValueKey('content'),
                                     controller: _scrollController,
