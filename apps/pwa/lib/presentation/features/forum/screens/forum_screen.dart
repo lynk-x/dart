@@ -7,6 +7,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/info_banner.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/category_filter_bar.dart';
+import 'package:lynk_x/presentation/features/forum/widgets/forum_lock_warning_banner.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/forum_skeletons.dart';
 import 'package:lynk_core/core.dart';
 
@@ -342,7 +343,8 @@ class _ForumViewState extends State<ForumView> {
                     buildWhen: (p, c) =>
                         p.isPremium != c.isPremium ||
                         p.showAds != c.showAds ||
-                        p.currentTabIndex != c.currentTabIndex,
+                        p.currentTabIndex != c.currentTabIndex ||
+                        p.forumStatus != c.forumStatus,
                     builder: (context, forumState) {
                       return BlocBuilder<ForumAdsCubit, ForumAdsState>(
                         builder: (context, adsState) {
@@ -434,8 +436,20 @@ class _ForumViewState extends State<ForumView> {
                             );
                           }
 
-                          final totalHeaderHeight =
-                              104.0 + adsHeight + extraHeight;
+                          final autoReadOnlyDays = context
+                              .watch<SystemConfigCubit>()
+                              .state
+                              .getInt('forum_auto_read_only_days', defaultValue: 3);
+                          final showLockWarning = forumState.forumStatus ==
+                                  'open' &&
+                              forumState.eventEndsAt != null &&
+                              !DateTime.now().isBefore(forumState.eventEndsAt!);
+                          final lockWarningHeight = showLockWarning ? 34.0 : 0.0;
+
+                          final totalHeaderHeight = 104.0 +
+                              adsHeight +
+                              extraHeight +
+                              lockWarningHeight;
                           return SliverOverlapAbsorber(
                             handle:
                                 NestedScrollView.sliverOverlapAbsorberHandleFor(
@@ -488,6 +502,12 @@ class _ForumViewState extends State<ForumView> {
                                           }
                                         },
                                       ),
+                                      if (showLockWarning)
+                                        ForumLockWarningBanner(
+                                          eventEndsAt: forumState.eventEndsAt,
+                                          forumStatus: forumState.forumStatus,
+                                          autoReadOnlyDays: autoReadOnlyDays,
+                                        ),
                                       if (hasAds)
                                         RepaintBoundary(
                                           child: AdCarousel(

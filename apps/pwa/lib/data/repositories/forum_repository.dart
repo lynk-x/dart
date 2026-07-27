@@ -43,7 +43,7 @@ class ForumRepository {
             r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$')
         .hasMatch(reference);
     final query = _client.schema('api').from('v1_forums').select(
-        'id, account_id, status, event_id, event_created_at, event_title, created_at, reference');
+        'id, account_id, status, event_id, event_created_at, event_title, event_ends_at, created_at, reference');
 
     final forumData = await (isUuid
         ? query.eq('id', reference).maybeSingle()

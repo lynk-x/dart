@@ -137,6 +137,7 @@ class ForumCubit extends Cubit<ForumState> {
       String? channelIdFromDb;
 
       DateTime? eventCreatedAtFromDb;
+      DateTime? eventEndsAtFromDb;
       DateTime? forumCreatedAtFromDb;
       DateTime? channelCreatedAtFromDb;
 
@@ -159,6 +160,10 @@ class ForumCubit extends Cubit<ForumState> {
           final eventCreatedAtRaw = forumData['event_created_at'];
           eventCreatedAtFromDb = eventCreatedAtRaw != null
               ? DateTime.parse(eventCreatedAtRaw as String)
+              : null;
+          final eventEndsAtRaw = forumData['event_ends_at'];
+          eventEndsAtFromDb = eventEndsAtRaw != null
+              ? DateTime.parse(eventEndsAtRaw as String)
               : null;
           final forumCreatedAtRaw = forumData['created_at'];
           forumCreatedAtFromDb = forumCreatedAtRaw != null
@@ -202,6 +207,7 @@ class ForumCubit extends Cubit<ForumState> {
           eventId: eventIdFromDb,
           accountId: accountIdFromDb,
           eventCreatedAt: eventCreatedAtFromDb,
+          eventEndsAt: eventEndsAtFromDb,
           forumCreatedAt: forumCreatedAtFromDb,
           channelId: channelIdFromDb,
           channelCreatedAt: channelCreatedAtFromDb,
