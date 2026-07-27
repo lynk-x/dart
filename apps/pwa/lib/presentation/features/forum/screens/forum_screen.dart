@@ -7,6 +7,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/info_banner.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/category_filter_bar.dart';
+import 'package:lynk_x/presentation/features/forum/widgets/forum_skeletons.dart';
 import 'package:lynk_core/core.dart';
 
 import 'package:lynk_x/presentation/features/forum/cubit/forum_cubit.dart';
@@ -51,8 +52,9 @@ class ForumPage extends StatelessWidget {
         builder: (context, state) {
           final fId = state.forumId;
           if (fId == null) {
-            return Builder(
-              builder: (context) => Scaffold(
+            return SkeletonFadeSingleMount(
+              child: Scaffold(
+                key: const ValueKey('loading'),
                 backgroundColor: AppColors.primaryBackground,
                 body: Center(
                   child: CircularProgressIndicator(color: context.accentColor),
@@ -61,8 +63,10 @@ class ForumPage extends StatelessWidget {
             );
           }
           final mainCubit = context.read<ForumCubit>();
-          return MultiBlocProvider(
-            providers: [
+          return SkeletonFadeSingleMount(
+            child: MultiBlocProvider(
+              key: const ValueKey('content'),
+              providers: [
               BlocProvider(
                 create: (context) {
                   final ads = ForumAdsCubit(
@@ -138,8 +142,9 @@ class ForumPage extends StatelessWidget {
                   repo: forumRepository,
                 )..init(),
               ),
-            ],
-            child: const ForumView(),
+              ],
+              child: const ForumView(),
+            ),
           );
         },
       ),

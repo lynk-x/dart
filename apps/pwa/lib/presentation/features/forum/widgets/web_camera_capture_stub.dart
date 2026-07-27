@@ -1,10 +1,19 @@
 import 'package:flutter/material.dart';
 
+void revokeWebCameraCaptureUrl(String url) {}
+
 class WebCameraCaptureResult {
   final String objectUrl;
   final bool isVideo;
+  final bool openGallery;
 
-  const WebCameraCaptureResult({required this.objectUrl, required this.isVideo});
+  const WebCameraCaptureResult({required this.objectUrl, required this.isVideo})
+      : openGallery = false;
+
+  const WebCameraCaptureResult.openGallery()
+      : objectUrl = '',
+        isVideo = false,
+        openGallery = true;
 }
 
 class WebCameraCaptureScreen extends StatelessWidget {

@@ -329,6 +329,7 @@ class _MediaViewerState extends State<MediaViewer> {
                           currentMedia != null
                               ? '${currentMedia.mediaType.toUpperCase()} (${_currentIndex + 1}/${_gallery.length})'
                               : 'MEDIA VIEWER',
+                          textAlign: TextAlign.center,
                           style: AppTypography.inter(
                             fontSize: 14,
                             fontWeight: FontWeight.bold,
@@ -476,14 +477,29 @@ class _MediaViewerState extends State<MediaViewer> {
                                 ),
                               ),
                               onPressed: () {
-                                if (hasCubit) {
-                                  try {
-                                    context.read<ForumMediaCubit>().deleteMedia(currentMedia);
-                                  } catch (_) {}
-                                } else {
-                                  widget.onReject?.call();
+                                void performReject() {
+                                  if (hasCubit) {
+                                    try {
+                                      context.read<ForumMediaCubit>().deleteMedia(currentMedia);
+                                    } catch (_) {}
+                                  } else {
+                                    widget.onReject?.call();
+                                  }
+                                  Navigator.pop(context);
                                 }
-                                Navigator.pop(context);
+
+                                // Rejecting a still-pending item is instant —
+                                // nothing was ever visible to other members.
+                                // Deleting an already-approved (live) item
+                                // needs confirmation first, same as the
+                                // member-facing delete flow.
+                                final isDestructiveDelete =
+                                    hasCubit && isAuthorized && currentMedia.isApproved;
+                                if (isDestructiveDelete) {
+                                  showMediaDeleteConfirmation(context, performReject);
+                                } else {
+                                  performReject();
+                                }
                               },
                             ),
                           ),
@@ -552,6 +568,37 @@ class _MediaAttribution extends StatelessWidget {
   }
 }
 
+/// Shared confirm-before-delete dialog for any "this permanently removes
+/// media" action in the viewer — the uploader's own-upload delete and a
+/// moderator deleting already-approved media both go through this, so a
+/// destructive tap is never a single accidental press.
+void showMediaDeleteConfirmation(BuildContext context, VoidCallback onDelete) {
+  showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      backgroundColor: const Color(0xFF1A1A1A),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      title: const Text('Delete this upload?', style: TextStyle(color: Colors.white)),
+      content: const Text(
+        'This will be removed for everyone.',
+        style: TextStyle(color: Colors.white54),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(ctx, false),
+          child: const Text('Cancel', style: TextStyle(color: Colors.white38)),
+        ),
+        TextButton(
+          onPressed: () => Navigator.pop(ctx, true),
+          child: const Text('Delete', style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
+        ),
+      ],
+    ),
+  ).then((confirmed) {
+    if (confirmed == true) onDelete();
+  });
+}
+
 /// Non-authorized members' single action next to the attribution chip:
 /// Delete for their own upload, Report for anyone else's. Organizers/
 /// moderators never see this — they use the bottom Approve/Reject bar
@@ -569,30 +616,7 @@ class _MediaMemberAction extends StatelessWidget {
   });
 
   void _confirmDelete(BuildContext context) {
-    showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1A1A1A),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Delete this upload?', style: TextStyle(color: Colors.white)),
-        content: const Text(
-          'This will be removed for everyone.',
-          style: TextStyle(color: Colors.white54),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel', style: TextStyle(color: Colors.white38)),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Delete', style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
-          ),
-        ],
-      ),
-    ).then((confirmed) {
-      if (confirmed == true) onDelete();
-    });
+    showMediaDeleteConfirmation(context, onDelete);
   }
 
   void _showReportSheet(BuildContext context) {

@@ -264,15 +264,15 @@ class _MediaTabState extends State<MediaTab>
         children: [
           Expanded(
             child: PrimaryButton(
-              icon: isUploading ? null : Icons.camera_alt_outlined,
-              text: isUploading ? 'Uploading...' : 'Camera',
+              icon: isUploading ? null : Icons.photo_camera,
+              text: isUploading ? 'Uploading...' : 'Open Camera',
               onPressed: isUploading ? null : () => _openCamera(context),
             ),
           ),
           const SizedBox(width: 8),
           Expanded(
             child: PrimaryButton(
-              icon: isUploading ? null : Icons.upload_outlined,
+              icon: isUploading ? null : Icons.photo_library,
               text: isUploading ? 'Uploading...' : 'Upload Media',
               onPressed: isUploading ? null : () => _pickFromGallery(context),
             ),
@@ -304,6 +304,11 @@ class _MediaTabState extends State<MediaTab>
     );
     if (result == null || !context.mounted) return;
 
+    if (result.openGallery) {
+      await _pickFromGallery(context);
+      return;
+    }
+
     final ext = result.isVideo ? 'webm' : 'jpg';
     final file = XFile(
       result.objectUrl,
@@ -311,7 +316,14 @@ class _MediaTabState extends State<MediaTab>
       mimeType: result.isVideo ? 'video/webm' : 'image/jpeg',
     );
 
-    await _upload(context, mediaCubit, [file]);
+    try {
+      await _upload(context, mediaCubit, [file]);
+    } finally {
+      // uploadMultipleMedia has read the blob's bytes by now (success or
+      // failure) — release it from browser memory rather than leaking it
+      // until the page reloads.
+      revokeWebCameraCaptureUrl(result.objectUrl);
+    }
   }
 
   Future<void> _pickFromGallery(BuildContext context) async {

@@ -3,7 +3,9 @@ import 'dart:js_interop';
 import 'dart:ui_web' as ui_web;
 import 'package:flutter/material.dart';
 import 'package:lynk_core/core.dart';
+import 'package:video_player/video_player.dart';
 import 'package:web/web.dart' as web;
+import 'package:lynk_x/presentation/shared/utils/app_snackbars.dart';
 
 @JS('window.flutterCameraStream.start')
 external JSPromise<JSBoolean> _jsStart(JSString videoElementId, JSString facingMode);
@@ -23,11 +25,37 @@ external JSBoolean _jsStartRecording();
 @JS('window.flutterCameraStream.stopRecording')
 external JSPromise<JSString?> _jsStopRecording();
 
+@JS('window.flutterCameraStream.toggleTorch')
+external JSPromise<JSBoolean> _jsToggleTorch(JSBoolean enabled);
+
+@JS('window.flutterCameraStream.revokeObjectUrl')
+external void _jsRevokeObjectUrl(JSString url);
+
+/// Releases a capture screen's blob URL from browser memory once the
+/// caller (e.g. media_tab.dart, after uploadMultipleMedia has read its
+/// bytes) no longer needs it. Safe to call more than once for the same URL.
+void revokeWebCameraCaptureUrl(String url) {
+  try {
+    _jsRevokeObjectUrl(url.toJS);
+  } catch (_) {}
+}
+
 class WebCameraCaptureResult {
   final String objectUrl;
   final bool isVideo;
+  /// True when the user tapped the gallery shortcut instead of capturing —
+  /// objectUrl/isVideo are unused placeholders in that case. The caller
+  /// (media_tab.dart) checks this and falls through to its existing
+  /// FileType.media picker rather than treating it as a capture.
+  final bool openGallery;
 
-  const WebCameraCaptureResult({required this.objectUrl, required this.isVideo});
+  const WebCameraCaptureResult({required this.objectUrl, required this.isVideo})
+      : openGallery = false;
+
+  const WebCameraCaptureResult.openGallery()
+      : objectUrl = '',
+        isVideo = false,
+        openGallery = true;
 }
 
 class WebCameraCaptureScreen extends StatefulWidget {
@@ -46,9 +74,17 @@ class _WebCameraCaptureScreenState extends State<WebCameraCaptureScreen> {
   bool _isVideoMode = false;
   bool _isRecording = false;
   bool _isBusy = false;
+  bool _torchEnabled = false;
   Timer? _recordTimer;
   int _recordSeconds = 0;
   String? _error;
+
+  // Set once a photo/video has been captured, switching the screen into a
+  // review state (Retake / Use) instead of uploading immediately — a bad
+  // take (blocked framing, motion blur, wrong mode) should be catchable
+  // before it's sent, not only after via delete/report.
+  WebCameraCaptureResult? _pendingResult;
+  VideoPlayerController? _reviewVideoController;
 
   @override
   void initState() {
@@ -99,6 +135,22 @@ class _WebCameraCaptureScreenState extends State<WebCameraCaptureScreen> {
     } catch (_) {}
   }
 
+  Future<void> _toggleTorch() async {
+    final next = !_torchEnabled;
+    bool success = false;
+    try {
+      success = (await _jsToggleTorch(next.toJS).toDart).toDart;
+    } catch (_) {}
+
+    if (!mounted) return;
+    if (!success) {
+      ScaffoldMessenger.of(context).clearSnackBars();
+      AppSnackBars.showError(context, 'Flashlight is not supported on this device/browser');
+      return;
+    }
+    setState(() => _torchEnabled = next);
+  }
+
   void _setMode(bool video) {
     if (_isRecording) return;
     setState(() => _isVideoMode = video);
@@ -120,9 +172,10 @@ class _WebCameraCaptureScreenState extends State<WebCameraCaptureScreen> {
           });
           return;
         }
-        Navigator.of(context).pop(
-          WebCameraCaptureResult(objectUrl: url, isVideo: false),
-        );
+        setState(() {
+          _isBusy = false;
+          _pendingResult = WebCameraCaptureResult(objectUrl: url, isVideo: false);
+        });
       } catch (e) {
         if (!mounted) return;
         setState(() {
@@ -164,9 +217,7 @@ class _WebCameraCaptureScreenState extends State<WebCameraCaptureScreen> {
           });
           return;
         }
-        Navigator.of(context).pop(
-          WebCameraCaptureResult(objectUrl: url, isVideo: true),
-        );
+        await _prepareVideoReview(url);
       } catch (e) {
         if (!mounted) return;
         setState(() {
@@ -183,9 +234,51 @@ class _WebCameraCaptureScreenState extends State<WebCameraCaptureScreen> {
     return '$m:$s';
   }
 
+  Future<void> _prepareVideoReview(String url) async {
+    final controller = VideoPlayerController.networkUrl(Uri.parse(url));
+    try {
+      await controller.initialize();
+      if (!mounted) {
+        controller.dispose();
+        return;
+      }
+      controller.setLooping(true);
+      controller.play();
+      setState(() {
+        _isBusy = false;
+        _reviewVideoController = controller;
+        _pendingResult = WebCameraCaptureResult(objectUrl: url, isVideo: true);
+      });
+    } catch (e) {
+      controller.dispose();
+      if (!mounted) return;
+      setState(() {
+        _isBusy = false;
+        _error = 'Failed to load recording: $e';
+      });
+    }
+  }
+
+  // Discards the pending capture and returns to the live camera preview.
+  // The stream itself is never stopped/restarted here — only started once
+  // in initState and stopped once in dispose — so retaking is instant.
+  void _retake() {
+    _jsRevokeObjectUrl(_pendingResult!.objectUrl.toJS);
+    _reviewVideoController?.dispose();
+    setState(() {
+      _pendingResult = null;
+      _reviewVideoController = null;
+    });
+  }
+
+  void _useCapture() {
+    Navigator.of(context).pop(_pendingResult);
+  }
+
   @override
   void dispose() {
     _recordTimer?.cancel();
+    _reviewVideoController?.dispose();
     try {
       _jsStop();
     } catch (_) {}
@@ -195,7 +288,12 @@ class _WebCameraCaptureScreenState extends State<WebCameraCaptureScreen> {
   @override
   Widget build(BuildContext context) {
     return PopScope(
-      canPop: !_isRecording,
+      canPop: !_isRecording && _pendingResult == null,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && !_isRecording && _pendingResult != null) {
+          _retake();
+        }
+      },
       child: Scaffold(
         backgroundColor: Colors.black,
         body: Stack(
@@ -219,9 +317,9 @@ class _WebCameraCaptureScreenState extends State<WebCameraCaptureScreen> {
                 ),
               ),
 
-            // Top bar — close only; flash isn't reliably supported by
-            // getUserMedia across browsers, so no control is shown for it
-            // rather than offering one that silently does nothing.
+            // Top bar — close on the left, flash on the right (dimmed while
+            // recording, since switching camera/torch mid-recording isn't
+            // supported by the underlying MediaRecorder stream).
             SafeArea(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -232,8 +330,29 @@ class _WebCameraCaptureScreenState extends State<WebCameraCaptureScreen> {
                       icon: Icons.close,
                       onTap: _isRecording ? null : () => Navigator.of(context).pop(),
                     ),
-                    if (_isRecording)
-                      Container(
+                    _RoundIconButton(
+                      icon: _torchEnabled ? Icons.flash_on : Icons.flash_off,
+                      iconColor: _torchEnabled ? context.accentColor : null,
+                      onTap: _isRecording ? null : _toggleTorch,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            // Recording indicator — centered independently of the top bar's
+            // two end-aligned icons, rather than competing for a slot in
+            // that row.
+            if (_isRecording)
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                child: SafeArea(
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Center(
+                      child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(
                           color: Colors.red.withValues(alpha: 0.15),
@@ -255,14 +374,11 @@ class _WebCameraCaptureScreenState extends State<WebCameraCaptureScreen> {
                             ),
                           ],
                         ),
-                      )
-                    else
-                      const SizedBox(width: 34),
-                    const SizedBox(width: 34),
-                  ],
+                      ),
+                    ),
+                  ),
                 ),
               ),
-            ),
 
             // Mode toggle + shutter + camera flip
             Positioned(
@@ -284,21 +400,31 @@ class _WebCameraCaptureScreenState extends State<WebCameraCaptureScreen> {
                         const SizedBox(height: 20),
                       ] else
                         const SizedBox(height: 20 + 34 + 20),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
+                      Stack(
+                        alignment: Alignment.center,
                         children: [
-                          const SizedBox(width: 40),
-                          const Spacer(),
                           _ShutterButton(
                             isVideoMode: _isVideoMode,
                             isRecording: _isRecording,
                             isBusy: _isBusy,
                             onTap: _onShutterTap,
                           ),
-                          const Spacer(),
-                          _RoundIconButton(
-                            icon: Icons.flip_camera_ios_outlined,
-                            onTap: _isRecording ? null : _switchCamera,
+                          Positioned(
+                            left: 24,
+                            child: _GalleryShortcutButton(
+                              onTap: _isRecording
+                                  ? null
+                                  : () => Navigator.of(context).pop(
+                                        const WebCameraCaptureResult.openGallery(),
+                                      ),
+                            ),
+                          ),
+                          Positioned(
+                            right: 24,
+                            child: _RoundIconButton(
+                              icon: Icons.flip_camera_ios_outlined,
+                              onTap: _isRecording ? null : _switchCamera,
+                            ),
                           ),
                         ],
                       ),
@@ -307,8 +433,103 @@ class _WebCameraCaptureScreenState extends State<WebCameraCaptureScreen> {
                 ),
               ),
             ),
+
+            if (_pendingResult != null)
+              _CaptureReview(
+                result: _pendingResult!,
+                videoController: _reviewVideoController,
+                onRetake: _retake,
+                onUse: _useCapture,
+              ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Full-screen review shown after capture, before the result is handed back
+/// to the caller — lets a bad take (blocked framing, motion blur, wrong
+/// mode) be discarded and retaken instead of only being catchable after
+/// upload via delete/report.
+class _CaptureReview extends StatelessWidget {
+  final WebCameraCaptureResult result;
+  final VideoPlayerController? videoController;
+  final VoidCallback onRetake;
+  final VoidCallback onUse;
+
+  const _CaptureReview({
+    required this.result,
+    required this.videoController,
+    required this.onRetake,
+    required this.onUse,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: Colors.black,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          Center(
+            child: result.isVideo
+                ? (videoController != null && videoController!.value.isInitialized
+                    ? AspectRatio(
+                        aspectRatio: videoController!.value.aspectRatio,
+                        child: VideoPlayer(videoController!),
+                      )
+                    : CircularProgressIndicator(color: context.accentColor))
+                : Image.network(result.objectUrl, fit: BoxFit.contain),
+          ),
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: SizedBox(
+                        height: 50,
+                        child: OutlinedButton.icon(
+                          icon: const Icon(Icons.replay, size: 20),
+                          label: Text(
+                            'Retake',
+                            style: AppTypography.interTight(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.white,
+                            side: BorderSide(color: Colors.white.withValues(alpha: 0.4)),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          onPressed: onRetake,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: PrimaryButton(
+                        icon: Icons.check_circle_outline,
+                        text: result.isVideo ? 'Use Video' : 'Use Photo',
+                        backgroundColor: context.accentColor,
+                        textColor: Colors.black,
+                        onPressed: onUse,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -443,11 +664,40 @@ class _ShutterButton extends StatelessWidget {
   }
 }
 
+
+class _GalleryShortcutButton extends StatelessWidget {
+  final VoidCallback? onTap;
+
+  const _GalleryShortcutButton({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: 0.45),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.16)),
+        ),
+        child: Icon(
+          Icons.photo_library_outlined,
+          color: onTap == null ? Colors.white24 : Colors.white70,
+          size: 18,
+        ),
+      ),
+    );
+  }
+}
+
 class _RoundIconButton extends StatelessWidget {
   final IconData icon;
   final VoidCallback? onTap;
+  final Color? iconColor;
 
-  const _RoundIconButton({required this.icon, required this.onTap});
+  const _RoundIconButton({required this.icon, required this.onTap, this.iconColor});
 
   @override
   Widget build(BuildContext context) {
@@ -462,7 +712,7 @@ class _RoundIconButton extends StatelessWidget {
         ),
         child: Icon(
           icon,
-          color: onTap == null ? Colors.white24 : Colors.white,
+          color: onTap == null ? Colors.white24 : (iconColor ?? Colors.white),
           size: 18,
         ),
       ),
