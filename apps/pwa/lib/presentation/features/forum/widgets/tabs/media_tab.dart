@@ -337,8 +337,8 @@ class _MediaTabState extends State<MediaTab>
     );
     if (result == null || !context.mounted) return;
 
-    if (result.openGallery) {
-      await _pickFromGallery(context);
+    if (result.pickedFiles.isNotEmpty) {
+      await _upload(context, mediaCubit, result.pickedFiles);
       return;
     }
 

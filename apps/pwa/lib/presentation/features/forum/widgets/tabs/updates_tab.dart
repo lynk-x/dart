@@ -181,17 +181,6 @@ class _UpdatesScrollView extends StatelessWidget {
       controller: scrollController,
       reverse: true,
       slivers: [
-        // Unconditional — forum_screen.dart's NestedScrollView header always
-        // has exactly one SliverOverlapAbsorber expecting exactly one
-        // injector to consume its handle each frame. Gating this on
-        // messages.isNotEmpty left the empty/loading state with zero
-        // injectors while the absorber above still expected one, which
-        // threw (surfaced as an opaque minified exception + a blank grey
-        // content area) on every fresh forum open, before the first
-        // message page had loaded.
-        SliverOverlapInjector(
-          handle: NestedScrollView.sliverOverlapAbsorberHandleFor(context),
-        ),
         if (updatesState.messages.isEmpty && !updatesState.isLoading)
           const SliverFillRemaining(
             hasScrollBody: false,
@@ -251,6 +240,9 @@ class _UpdatesScrollView extends StatelessWidget {
               ),
             ),
           ),
+        SliverOverlapInjector(
+          handle: NestedScrollView.sliverOverlapAbsorberHandleFor(context),
+        ),
       ],
     );
   }
@@ -272,12 +264,12 @@ class _SkeletonScrollView extends StatelessWidget {
       controller: scrollController,
       reverse: true,
       slivers: [
-        SliverOverlapInjector(
-          handle: NestedScrollView.sliverOverlapAbsorberHandleFor(context),
-        ),
         const SliverFillRemaining(
           hasScrollBody: false,
-          child: SkeletonChatBubbleList(),
+          child: SkeletonChatBubbleList(reverse: true),
+        ),
+        SliverOverlapInjector(
+          handle: NestedScrollView.sliverOverlapAbsorberHandleFor(context),
         ),
       ],
     );

@@ -1,11 +1,14 @@
 import 'dart:async';
 import 'dart:js_interop';
 import 'dart:ui_web' as ui_web;
+import 'package:cross_file/cross_file.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:lynk_core/core.dart';
 import 'package:video_player/video_player.dart';
 import 'package:web/web.dart' as web;
 import 'package:lynk_x/presentation/shared/utils/app_snackbars.dart';
+import 'package:lynk_x/presentation/shared/utils/permission_acks.dart';
 
 @JS('window.flutterCameraStream.start')
 external JSPromise<JSBoolean> _jsStart(JSString videoElementId, JSString facingMode);
@@ -43,19 +46,18 @@ void revokeWebCameraCaptureUrl(String url) {
 class WebCameraCaptureResult {
   final String objectUrl;
   final bool isVideo;
-  /// True when the user tapped the gallery shortcut instead of capturing —
-  /// objectUrl/isVideo are unused placeholders in that case. The caller
-  /// (media_tab.dart) checks this and falls through to its existing
-  /// FileType.media picker rather than treating it as a capture.
-  final bool openGallery;
+  /// Non-empty when the user picked existing files via the in-screen
+  /// gallery shortcut instead of capturing — objectUrl/isVideo are unused
+  /// placeholders in that case. media_tab.dart checks this and uploads
+  /// these directly through the same path as a normal gallery pick.
+  final List<XFile> pickedFiles;
 
   const WebCameraCaptureResult({required this.objectUrl, required this.isVideo})
-      : openGallery = false;
+      : pickedFiles = const [];
 
-  const WebCameraCaptureResult.openGallery()
+  const WebCameraCaptureResult.pickedFiles(this.pickedFiles)
       : objectUrl = '',
-        isVideo = false,
-        openGallery = true;
+        isVideo = false;
 }
 
 class WebCameraCaptureScreen extends StatefulWidget {
@@ -154,6 +156,48 @@ class _WebCameraCaptureScreenState extends State<WebCameraCaptureScreen> {
   void _setMode(bool video) {
     if (_isRecording) return;
     setState(() => _isVideoMode = video);
+  }
+
+  // Opens the same FileType.media picker as media_tab.dart's standalone
+  // Upload Media button, without leaving this screen — canceling the
+  // picker leaves the live camera preview running, ready to shoot.
+  // Selecting files pops this screen with them, which media_tab.dart
+  // uploads through the same path as any other gallery pick.
+  Future<void> _openGallery() async {
+    await PermissionAcks.ensureAcknowledged(
+      context,
+      PermissionAckType.media,
+      title: 'Access your Media',
+      description:
+          'To share photos and videos with the forum, we need access to your device library.',
+      icon: Icons.perm_media_rounded,
+      actionLabel: 'Allow Access',
+      onReady: () {
+        if (mounted) _actuallyOpenGallery();
+      },
+    );
+  }
+
+  Future<void> _actuallyOpenGallery() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.media,
+        allowMultiple: true,
+      );
+      if (result == null || result.files.isEmpty || !mounted) return;
+
+      final pickedFiles = <XFile>[
+        for (final file in result.files)
+          if (file.bytes != null)
+            XFile.fromData(file.bytes!, name: file.name, length: file.size),
+      ];
+      if (pickedFiles.isEmpty || !mounted) return;
+
+      Navigator.of(context).pop(WebCameraCaptureResult.pickedFiles(pickedFiles));
+    } catch (e) {
+      if (!mounted) return;
+      AppSnackBars.showError(context, 'Could not access your media library.');
+    }
   }
 
   Future<void> _onShutterTap() async {
@@ -419,11 +463,7 @@ class _WebCameraCaptureScreenState extends State<WebCameraCaptureScreen> {
                             Positioned(
                               left: 24,
                               child: _GalleryShortcutButton(
-                                onTap: _isRecording
-                                    ? null
-                                    : () => Navigator.of(context).pop(
-                                          const WebCameraCaptureResult.openGallery(),
-                                        ),
+                                onTap: _isRecording ? null : _openGallery,
                               ),
                             ),
                             Positioned(
@@ -683,17 +723,17 @@ class _GalleryShortcutButton extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: 40,
-        height: 40,
+        width: 52,
+        height: 52,
         decoration: BoxDecoration(
           color: Colors.black.withValues(alpha: 0.45),
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(14),
           border: Border.all(color: Colors.white.withValues(alpha: 0.16)),
         ),
         child: Icon(
           Icons.photo_library_outlined,
           color: onTap == null ? Colors.white24 : Colors.white70,
-          size: 18,
+          size: 26,
         ),
       ),
     );
@@ -712,8 +752,8 @@ class _RoundIconButton extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: 34,
-        height: 34,
+        width: 46,
+        height: 46,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           color: Colors.black.withValues(alpha: 0.4),
@@ -721,7 +761,7 @@ class _RoundIconButton extends StatelessWidget {
         child: Icon(
           icon,
           color: onTap == null ? Colors.white24 : (iconColor ?? Colors.white),
-          size: 18,
+          size: 24,
         ),
       ),
     );

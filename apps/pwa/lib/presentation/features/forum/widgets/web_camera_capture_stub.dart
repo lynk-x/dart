@@ -1,3 +1,4 @@
+import 'package:cross_file/cross_file.dart';
 import 'package:flutter/material.dart';
 
 void revokeWebCameraCaptureUrl(String url) {}
@@ -5,15 +6,14 @@ void revokeWebCameraCaptureUrl(String url) {}
 class WebCameraCaptureResult {
   final String objectUrl;
   final bool isVideo;
-  final bool openGallery;
+  final List<XFile> pickedFiles;
 
   const WebCameraCaptureResult({required this.objectUrl, required this.isVideo})
-      : openGallery = false;
+      : pickedFiles = const [];
 
-  const WebCameraCaptureResult.openGallery()
+  const WebCameraCaptureResult.pickedFiles(this.pickedFiles)
       : objectUrl = '',
-        isVideo = false,
-        openGallery = true;
+        isVideo = false;
 }
 
 class WebCameraCaptureScreen extends StatelessWidget {

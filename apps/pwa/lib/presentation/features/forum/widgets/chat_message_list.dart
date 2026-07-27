@@ -107,7 +107,11 @@ class ChatMessageList extends StatelessWidget {
           ),
           const SliverFillRemaining(
             hasScrollBody: false,
-            child: SkeletonChatBubbleList(),
+            // This branch's own CustomScrollView isn't reverse:true (it has
+            // no real content to be consistent with yet), but the 'content'
+            // branch below it is — reverse the pattern to match what it'll
+            // crossfade into once messages load.
+            child: SkeletonChatBubbleList(reverse: true),
           ),
         ],
       );

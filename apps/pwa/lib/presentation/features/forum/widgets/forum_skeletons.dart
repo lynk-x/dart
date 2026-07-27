@@ -134,8 +134,17 @@ class SkeletonChatBubble extends StatelessWidget {
 /// A short run of alternating skeleton bubbles, used wherever a message
 /// list (Live Chat or Updates tab) is loading its first page. Shared
 /// between both tabs so their loading treatment can't drift independently.
+///
+/// Pass [reverse] to match the real message list it stands in for: both
+/// tabs' content lists use `CustomScrollView(reverse: true)` (newest
+/// message bottom-anchored), so the skeleton's own bubble pattern should
+/// paint bottom-up too — otherwise the specific left/right bubble sequence
+/// visually shifts during the skeleton-to-content crossfade even though the
+/// skeleton block itself is already correctly bottom-anchored.
 class SkeletonChatBubbleList extends StatelessWidget {
-  const SkeletonChatBubbleList({super.key});
+  final bool reverse;
+
+  const SkeletonChatBubbleList({super.key, this.reverse = false});
 
   static const _pattern = [
     (isMe: false, width: 0.62),
@@ -147,11 +156,12 @@ class SkeletonChatBubbleList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final rows = reverse ? _pattern.reversed.toList() : _pattern;
     return ListView(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       physics: const NeverScrollableScrollPhysics(),
       children: [
-        for (final row in _pattern)
+        for (final row in rows)
           SkeletonChatBubble(isMe: row.isMe, widthFactor: row.width),
       ],
     );
