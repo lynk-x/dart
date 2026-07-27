@@ -182,6 +182,23 @@ window.flutterCameraStream = {
     return false;
   },
 
+  // Whether the currently active camera is front-facing (selfie/"user").
+  // Reads the live track's own reported facingMode when the browser
+  // exposes it — this.facingMode alone is unreliable, since switchCamera's
+  // primary deviceId-cycling path never updates it (only its facingMode
+  // fallback path does). Falls back to the stored value only when the
+  // track itself doesn't report a facingMode (getSettings().facingMode is
+  // undefined on some browsers/devices).
+  isFrontFacing() {
+    if (!this.stream) return false;
+    const track = this.stream.getVideoTracks()[0];
+    const settings = track && track.getSettings ? track.getSettings() : {};
+    if (settings.facingMode) {
+      return settings.facingMode === "user";
+    }
+    return this.facingMode === "user";
+  },
+
   async toggleTorch(enabled) {
     if (!this.stream) return false;
     const videoTrack = this.stream.getVideoTracks()[0];

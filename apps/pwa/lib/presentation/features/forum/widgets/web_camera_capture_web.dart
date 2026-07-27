@@ -34,6 +34,9 @@ external JSPromise<JSBoolean> _jsToggleTorch(JSBoolean enabled);
 @JS('window.flutterCameraStream.revokeObjectUrl')
 external void _jsRevokeObjectUrl(JSString url);
 
+@JS('window.flutterCameraStream.isFrontFacing')
+external JSBoolean _jsIsFrontFacing();
+
 /// Releases a capture screen's blob URL from browser memory once the
 /// caller (e.g. media_tab.dart, after uploadMultipleMedia has read its
 /// bytes) no longer needs it. Safe to call more than once for the same URL.
@@ -88,6 +91,22 @@ class _WebCameraCaptureScreenState extends State<WebCameraCaptureScreen> {
   WebCameraCaptureResult? _pendingResult;
   VideoPlayerController? _reviewVideoController;
 
+  // Non-empty while reviewing a gallery pick — a grid (not the single-item
+  // Retake/Use flow above) since FileType.media allows multi-select and
+  // mixed image/video types in one pick.
+  List<_PickedMediaItem> _pickedGalleryItems = [];
+
+  // Purely a preview-layer CSS transform on the <video> element — matches
+  // the "mirror" convention every native camera app uses for the front
+  // camera (shows what you'd see in a mirror). capturePhoto()/MediaRecorder
+  // both read from the underlying video/stream source directly, not the
+  // DOM element's rendered/transformed output, so captured photos and
+  // recordings are never mirrored regardless of this.
+  void _applyMirrorTransform() {
+    final isFront = _jsIsFrontFacing().toDart;
+    _cachedVideo?.style.transform = isFront ? 'scaleX(-1)' : 'none';
+  }
+
   @override
   void initState() {
     super.initState();
@@ -118,6 +137,7 @@ class _WebCameraCaptureScreenState extends State<WebCameraCaptureScreen> {
     try {
       final result = await _jsStart(_elementId.toJS, 'environment'.toJS).toDart;
       if (!mounted) return;
+      if (result.toDart) _applyMirrorTransform();
       setState(() {
         _isInitialized = result.toDart;
         if (!result.toDart) {
@@ -133,7 +153,8 @@ class _WebCameraCaptureScreenState extends State<WebCameraCaptureScreen> {
   Future<void> _switchCamera() async {
     if (_isRecording) return;
     try {
-      await _jsSwitchCamera().toDart;
+      final switched = (await _jsSwitchCamera().toDart).toDart;
+      if (switched) _applyMirrorTransform();
     } catch (_) {}
   }
 
@@ -186,18 +207,31 @@ class _WebCameraCaptureScreenState extends State<WebCameraCaptureScreen> {
       );
       if (result == null || result.files.isEmpty || !mounted) return;
 
-      final pickedFiles = <XFile>[
+      final items = <_PickedMediaItem>[
         for (final file in result.files)
-          if (file.bytes != null)
-            XFile.fromData(file.bytes!, name: file.name, length: file.size),
+          if (file.bytes != null) _PickedMediaItem(file: file),
       ];
-      if (pickedFiles.isEmpty || !mounted) return;
+      if (items.isEmpty || !mounted) return;
 
-      Navigator.of(context).pop(WebCameraCaptureResult.pickedFiles(pickedFiles));
+      setState(() => _pickedGalleryItems = items);
     } catch (e) {
       if (!mounted) return;
       AppSnackBars.showError(context, 'Could not access your media library.');
     }
+  }
+
+  void _removePickedGalleryItem(_PickedMediaItem item) {
+    setState(() {
+      _pickedGalleryItems = _pickedGalleryItems.where((i) => i != item).toList();
+    });
+  }
+
+  void _usePickedGalleryItems() {
+    final files = [
+      for (final item in _pickedGalleryItems)
+        XFile.fromData(item.file.bytes!, name: item.file.name, length: item.file.size),
+    ];
+    Navigator.of(context).pop(WebCameraCaptureResult.pickedFiles(files));
   }
 
   Future<void> _onShutterTap() async {
@@ -332,10 +366,13 @@ class _WebCameraCaptureScreenState extends State<WebCameraCaptureScreen> {
   @override
   Widget build(BuildContext context) {
     return PopScope(
-      canPop: !_isRecording && _pendingResult == null,
+      canPop: !_isRecording && _pendingResult == null && _pickedGalleryItems.isEmpty,
       onPopInvokedWithResult: (didPop, _) {
-        if (!didPop && !_isRecording && _pendingResult != null) {
+        if (didPop || _isRecording) return;
+        if (_pendingResult != null) {
           _retake();
+        } else if (_pickedGalleryItems.isNotEmpty) {
+          setState(() => _pickedGalleryItems = []);
         }
       },
       child: Scaffold(
@@ -489,8 +526,170 @@ class _WebCameraCaptureScreenState extends State<WebCameraCaptureScreen> {
                 onRetake: _retake,
                 onUse: _useCapture,
               ),
+
+            if (_pickedGalleryItems.isNotEmpty)
+              _GalleryReview(
+                items: _pickedGalleryItems,
+                onRemove: _removePickedGalleryItem,
+                onCancel: () => setState(() => _pickedGalleryItems = []),
+                onUse: _usePickedGalleryItems,
+              ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+const _videoExtensions = {
+  'mp4', 'mov', 'm4v', 'webm', 'mkv', 'avi', '3gp',
+};
+
+/// One file picked via the gallery shortcut, pending review. Identity
+/// (`==`) is the default object identity — fine here since each pick
+/// produces distinct PlatformFile instances even for same-named files.
+class _PickedMediaItem {
+  final PlatformFile file;
+
+  _PickedMediaItem({required this.file});
+
+  bool get isVideo {
+    final ext = file.name.split('.').last.toLowerCase();
+    return _videoExtensions.contains(ext);
+  }
+}
+
+/// Grid review shown after a gallery pick, before the files are handed
+/// back to the caller — mirrors [_CaptureReview]'s "don't upload until
+/// confirmed" principle, but as a grid (with per-item removal) rather than
+/// single-item Retake/Use, since FileType.media allows multi-select and
+/// mixed image/video types in one pick.
+class _GalleryReview extends StatelessWidget {
+  final List<_PickedMediaItem> items;
+  final ValueChanged<_PickedMediaItem> onRemove;
+  final VoidCallback onCancel;
+  final VoidCallback onUse;
+
+  const _GalleryReview({
+    required this.items,
+    required this.onRemove,
+    required this.onCancel,
+    required this.onUse,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: Colors.black,
+      child: SafeArea(
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 12, 12, 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    '${items.length} selected',
+                    style: AppTypography.interTight(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                  _RoundIconButton(icon: Icons.close, onTap: onCancel),
+                ],
+              ),
+            ),
+            Expanded(
+              child: items.isEmpty
+                  ? Center(
+                      child: Text(
+                        'No items left — cancel to go back to the camera.',
+                        textAlign: TextAlign.center,
+                        style: AppTypography.inter(fontSize: 13, color: Colors.white54),
+                      ),
+                    )
+                  : GridView.builder(
+                      padding: const EdgeInsets.all(16),
+                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 3,
+                        mainAxisSpacing: 8,
+                        crossAxisSpacing: 8,
+                        childAspectRatio: 1,
+                      ),
+                      itemCount: items.length,
+                      itemBuilder: (context, index) {
+                        final item = items[index];
+                        return _GalleryReviewTile(
+                          item: item,
+                          onRemove: () => onRemove(item),
+                        );
+                      },
+                    ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 8, 24, 20),
+              child: SizedBox(
+                height: 50,
+                width: double.infinity,
+                child: PrimaryButton(
+                  icon: Icons.check_circle_outline,
+                  text: items.isEmpty
+                      ? 'Use Selected'
+                      : 'Use ${items.length} ${items.length == 1 ? 'item' : 'items'}',
+                  backgroundColor: context.accentColor,
+                  textColor: Colors.black,
+                  onPressed: items.isEmpty ? null : onUse,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _GalleryReviewTile extends StatelessWidget {
+  final _PickedMediaItem item;
+  final VoidCallback onRemove;
+
+  const _GalleryReviewTile({required this.item, required this.onRemove});
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(10),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          if (item.isVideo)
+            Container(
+              color: Colors.grey[900],
+              child: const Center(
+                child: Icon(Icons.play_circle_fill, color: Colors.white38, size: 32),
+              ),
+            )
+          else
+            Image.memory(item.file.bytes!, fit: BoxFit.cover),
+          Positioned(
+            top: 4,
+            right: 4,
+            child: GestureDetector(
+              onTap: onRemove,
+              child: Container(
+                width: 24,
+                height: 24,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.black.withValues(alpha: 0.6),
+                ),
+                child: const Icon(Icons.close, color: Colors.white, size: 14),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -106,11 +106,14 @@ class ChatMessageList extends StatelessWidget {
             handle: NestedScrollView.sliverOverlapAbsorberHandleFor(context),
           ),
           const SliverFillRemaining(
-            hasScrollBody: false,
-            // This branch's own CustomScrollView isn't reverse:true (it has
-            // no real content to be consistent with yet), but the 'content'
-            // branch below it is — reverse the pattern to match what it'll
-            // crossfade into once messages load.
+            // hasScrollBody defaults to true — needs to fill the viewport
+            // and pass a tight height constraint down so
+            // SkeletonChatBubbleList's Column(mainAxisAlignment: end) can
+            // bottom-align, matching where the 'content' branch below (a
+            // real reverse: true list) puts its newest bubble. This
+            // branch's own CustomScrollView isn't reverse:true (it has no
+            // real content to be consistent with yet), but the pattern
+            // itself is still reversed to match what it'll crossfade into.
             child: SkeletonChatBubbleList(reverse: true),
           ),
         ],

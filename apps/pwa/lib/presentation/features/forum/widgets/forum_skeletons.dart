@@ -157,13 +157,18 @@ class SkeletonChatBubbleList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final rows = reverse ? _pattern.reversed.toList() : _pattern;
-    return ListView(
+    return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-      physics: const NeverScrollableScrollPhysics(),
-      children: [
-        for (final row in rows)
-          SkeletonChatBubble(isMe: row.isMe, widthFactor: row.width),
-      ],
+      child: Column(
+        mainAxisAlignment: reverse ? MainAxisAlignment.end : MainAxisAlignment.start,
+        children: [
+          for (final row in rows)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: SkeletonChatBubble(isMe: row.isMe, widthFactor: row.width),
+            ),
+        ],
+      ),
     );
   }
 }

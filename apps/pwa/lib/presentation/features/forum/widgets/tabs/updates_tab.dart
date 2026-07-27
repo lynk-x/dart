@@ -264,8 +264,15 @@ class _SkeletonScrollView extends StatelessWidget {
       controller: scrollController,
       reverse: true,
       slivers: [
+        // hasScrollBody defaults to true here (unlike the other
+        // SliverFillRemaining uses in this file) — it needs to actually
+        // fill the viewport's full remaining height and pass that down as a
+        // tight constraint, so SkeletonChatBubbleList's Column(reverse:
+        // MainAxisAlignment.end) can bottom-align its bubbles flush above
+        // the input bar. hasScrollBody: false sizes to intrinsic content
+        // height instead, which left the block floating wherever its
+        // ~5-bubble height happened to land inside a taller viewport.
         const SliverFillRemaining(
-          hasScrollBody: false,
           child: SkeletonChatBubbleList(reverse: true),
         ),
         SliverOverlapInjector(
