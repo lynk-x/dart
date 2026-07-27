@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:lynk_core/core.dart';
 
@@ -93,81 +94,51 @@ class SkeletonBlock extends StatelessWidget {
   }
 }
 
-/// Stands in for a single [ChatBubble] while the message list's first page
-/// is loading — same bubble-tail radius rule (`ChatBubble._buildBubble`),
-/// same isMe-based color (accent green vs `AppColors.tertiary`), same
-/// left/right alignment. Width varies per instance so a row of these
-/// doesn't look mechanically uniform.
-class SkeletonChatBubble extends StatelessWidget {
-  final bool isMe;
-  final double widthFactor;
+/// A small centered spinner that only appears if [delay] has elapsed while
+/// still mounted — the common case (a fast fetch) shows nothing at all,
+/// avoiding a flash of loading UI for a single frame; a genuinely slow
+/// fetch still gets a "this is alive" signal instead of blank space that
+/// could read as frozen. Replaces the old bubble-shaped skeleton for
+/// message lists (Live Chat / Updates tabs) — deliberately not previewing
+/// the list's shape anymore, just proving the app is working.
+class DelayedLoadingSpinner extends StatefulWidget {
+  final Duration delay;
 
-  const SkeletonChatBubble({super.key, required this.isMe, this.widthFactor = 0.55});
+  const DelayedLoadingSpinner({super.key, this.delay = const Duration(milliseconds: 300)});
 
   @override
-  Widget build(BuildContext context) {
-    return Align(
-      alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 6),
-        child: FractionallySizedBox(
-          widthFactor: widthFactor,
-          alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
-          child: Container(
-            height: 40,
-            decoration: BoxDecoration(
-              color: isMe ? context.accentColor.withValues(alpha: 0.35) : AppColors.tertiary,
-              borderRadius: BorderRadius.only(
-                topLeft: const Radius.circular(12),
-                topRight: const Radius.circular(12),
-                bottomLeft: Radius.circular(isMe ? 16 : 0),
-                bottomRight: Radius.circular(isMe ? 0 : 16),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
+  State<DelayedLoadingSpinner> createState() => _DelayedLoadingSpinnerState();
 }
 
-/// A short run of alternating skeleton bubbles, used wherever a message
-/// list (Live Chat or Updates tab) is loading its first page. Shared
-/// between both tabs so their loading treatment can't drift independently.
-///
-/// Pass [reverse] to match the real message list it stands in for: both
-/// tabs' content lists use `CustomScrollView(reverse: true)` (newest
-/// message bottom-anchored), so the skeleton's own bubble pattern should
-/// paint bottom-up too — otherwise the specific left/right bubble sequence
-/// visually shifts during the skeleton-to-content crossfade even though the
-/// skeleton block itself is already correctly bottom-anchored.
-class SkeletonChatBubbleList extends StatelessWidget {
-  final bool reverse;
+class _DelayedLoadingSpinnerState extends State<DelayedLoadingSpinner> {
+  bool _visible = false;
+  Timer? _timer;
 
-  const SkeletonChatBubbleList({super.key, this.reverse = false});
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer(widget.delay, () {
+      if (mounted) setState(() => _visible = true);
+    });
+  }
 
-  static const _pattern = [
-    (isMe: false, width: 0.62),
-    (isMe: true, width: 0.48),
-    (isMe: false, width: 0.7),
-    (isMe: false, width: 0.4),
-    (isMe: true, width: 0.58),
-  ];
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final rows = reverse ? _pattern.reversed.toList() : _pattern;
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-      child: Column(
-        mainAxisAlignment: reverse ? MainAxisAlignment.end : MainAxisAlignment.start,
-        children: [
-          for (final row in rows)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 6),
-              child: SkeletonChatBubble(isMe: row.isMe, widthFactor: row.width),
-            ),
-        ],
+    return Center(
+      child: AnimatedOpacity(
+        opacity: _visible ? 1 : 0,
+        duration: const Duration(milliseconds: 200),
+        child: SizedBox(
+          width: 28,
+          height: 28,
+          child: CircularProgressIndicator(strokeWidth: 2.5, color: context.accentColor),
+        ),
       ),
     );
   }

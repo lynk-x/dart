@@ -37,6 +37,7 @@ import 'package:lynk_x/presentation/features/wallet/widgets/wallet_security_gate
 import 'package:lynk_x/presentation/features/kyc/screens/kyc_verification_screen.dart';
 import 'package:lynk_x/presentation/features/subscription/screens/subscription_screen.dart';
 import 'package:lynk_x/presentation/shared/screens/system_error_screen.dart';
+import 'package:lynk_x/presentation/features/forum/widgets/web_camera_capture.dart';
 
 GoRouter createRouter(
   Stream<AuthState> authStream,
@@ -226,6 +227,16 @@ GoRouter createRouter(
                     ),
                   ),
                 ),
+              );
+            },
+          ),
+          GoRoute(
+            path: 'camera',
+            builder: (context, state) {
+              return Title(
+                title: 'Camera',
+                color: Colors.black,
+                child: const WebCameraCaptureScreen(),
               );
             },
           ),

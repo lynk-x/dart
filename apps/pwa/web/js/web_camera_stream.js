@@ -199,6 +199,40 @@ window.flutterCameraStream = {
     return this.facingMode === "user";
   },
 
+  // Returns {min, max, step} if the active track supports optical/digital
+  // zoom via the standard MediaStreamTrack constraint, or null if it
+  // doesn't — zoom capability is inconsistent across browsers/devices
+  // (notably weak on Firefox and some Android Chrome builds), same caveat
+  // as torch above.
+  getZoomCapabilities() {
+    if (!this.stream) return null;
+    const track = this.stream.getVideoTracks()[0];
+    if (!track || !track.getCapabilities) return null;
+    const capabilities = track.getCapabilities();
+    if (!capabilities.zoom) return null;
+    return {
+      min: capabilities.zoom.min,
+      max: capabilities.zoom.max,
+      step: capabilities.zoom.step || 0.1,
+    };
+  },
+
+  async setZoom(value) {
+    if (!this.stream) return false;
+    const videoTrack = this.stream.getVideoTracks()[0];
+    if (!videoTrack) return false;
+
+    try {
+      await videoTrack.applyConstraints({
+        advanced: [{ zoom: value }]
+      });
+      return true;
+    } catch (e) {
+      console.error("Failed to set zoom:", e);
+      return false;
+    }
+  },
+
   async toggleTorch(enabled) {
     if (!this.stream) return false;
     const videoTrack = this.stream.getVideoTracks()[0];

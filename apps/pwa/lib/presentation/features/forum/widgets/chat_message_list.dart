@@ -93,11 +93,9 @@ class ChatMessageList extends StatelessWidget {
     }
 
     if (chatState.messages.isEmpty && chatState.isLoading) {
-      // Skeleton bubbles rather than a bare spinner — the eventual content
-      // is a list of chat bubbles, so preview that shape directly. Wrapped
-      // in a CustomScrollView (rather than returned bare) purely so it can
-      // carry the same mandatory SliverOverlapInjector as every other
-      // branch here.
+      // A delayed spinner rather than a bare CustomScrollView return —
+      // still needs the CustomScrollView wrapper purely so it can carry the
+      // same mandatory SliverOverlapInjector as every other branch here.
       return CustomScrollView(
         key: const ValueKey('skeleton'),
         controller: scrollController,
@@ -106,15 +104,7 @@ class ChatMessageList extends StatelessWidget {
             handle: NestedScrollView.sliverOverlapAbsorberHandleFor(context),
           ),
           const SliverFillRemaining(
-            // hasScrollBody defaults to true — needs to fill the viewport
-            // and pass a tight height constraint down so
-            // SkeletonChatBubbleList's Column(mainAxisAlignment: end) can
-            // bottom-align, matching where the 'content' branch below (a
-            // real reverse: true list) puts its newest bubble. This
-            // branch's own CustomScrollView isn't reverse:true (it has no
-            // real content to be consistent with yet), but the pattern
-            // itself is still reversed to match what it'll crossfade into.
-            child: SkeletonChatBubbleList(reverse: true),
+            child: DelayedLoadingSpinner(),
           ),
         ],
       );

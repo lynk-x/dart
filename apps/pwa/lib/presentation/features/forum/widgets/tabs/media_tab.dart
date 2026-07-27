@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:cross_file/cross_file.dart';
-import 'package:file_picker/file_picker.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:lynk_core/core.dart';
 import 'package:lynk_x/presentation/features/forum/cubit/forum_cubit.dart';
 import 'package:lynk_x/presentation/features/forum/cubit/forum_state.dart';
@@ -332,8 +332,15 @@ class _MediaTabState extends State<MediaTab>
 
   Future<void> _actuallyOpenCamera(BuildContext context) async {
     final mediaCubit = context.read<ForumMediaCubit>();
-    final result = await Navigator.of(context).push<WebCameraCaptureResult>(
-      MaterialPageRoute(builder: (_) => const WebCameraCaptureScreen()),
+    // Routed through go_router (not a raw Navigator.push) so it gets its
+    // own browser URL/history entry on web — pushing outside go_router left
+    // the browser back button with no matching history state for "camera
+    // screen open", so it fell through to whatever page was in history
+    // before the forum was ever opened (sometimes the homepage), instead of
+    // returning to the Media tab.
+    final forumReference = context.read<ForumCubit>().forumReference;
+    final result = await context.push<WebCameraCaptureResult>(
+      '/forum/$forumReference/camera',
     );
     if (result == null || !context.mounted) return;
 
@@ -377,22 +384,15 @@ class _MediaTabState extends State<MediaTab>
   Future<void> _actuallyPickFromGallery(BuildContext context) async {
     final mediaCubit = context.read<ForumMediaCubit>();
     try {
-      // FileType.media covers images and videos together in one multi-select
-      // pass — the button no longer splits by type, so the picker shouldn't
-      // either. Each file's actual type is inferred from its extension by
-      // uploadMultipleMedia.
-      final result = await FilePicker.platform.pickFiles(
-        type: FileType.media,
-        allowMultiple: true,
-      );
-
-      if (result == null || result.files.isEmpty) return;
-
-      final pickedFiles = <XFile>[
-        for (final file in result.files)
-          if (file.bytes != null)
-            XFile.fromData(file.bytes!, name: file.name, length: file.size),
-      ];
+      // image_picker rather than file_picker: file_picker's FileType.media
+      // sets accept="video/*|image/*" on the underlying <input type="file">
+      // web element — pipe-separated, which isn't valid HTML accept syntax
+      // (the spec requires commas). Browsers silently ignore the malformed
+      // filter and fall back to a generic file browser instead of the
+      // native Photos/Gallery picker. image_picker's getMedia() uses the
+      // correct "image/*,video/*". Each file's actual type is inferred from
+      // its extension by uploadMultipleMedia.
+      final pickedFiles = await ImagePicker().pickMultipleMedia();
 
       if (pickedFiles.isNotEmpty && context.mounted) {
         await _upload(context, mediaCubit, pickedFiles);

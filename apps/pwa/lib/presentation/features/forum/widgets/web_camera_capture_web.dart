@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'dart:js_interop';
+import 'dart:typed_data';
 import 'dart:ui_web' as ui_web;
-import 'package:cross_file/cross_file.dart';
-import 'package:file_picker/file_picker.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:lynk_core/core.dart';
 import 'package:video_player/video_player.dart';
@@ -36,6 +36,12 @@ external void _jsRevokeObjectUrl(JSString url);
 
 @JS('window.flutterCameraStream.isFrontFacing')
 external JSBoolean _jsIsFrontFacing();
+
+@JS('window.flutterCameraStream.getZoomCapabilities')
+external JSObject? _jsGetZoomCapabilities();
+
+@JS('window.flutterCameraStream.setZoom')
+external JSPromise<JSBoolean> _jsSetZoom(JSNumber value);
 
 /// Releases a capture screen's blob URL from browser memory once the
 /// caller (e.g. media_tab.dart, after uploadMultipleMedia has read its
@@ -96,6 +102,51 @@ class _WebCameraCaptureScreenState extends State<WebCameraCaptureScreen> {
   // mixed image/video types in one pick.
   List<_PickedMediaItem> _pickedGalleryItems = [];
 
+  // Null when the active camera doesn't report a zoom capability (common on
+  // desktop webcams, Firefox, and some Android builds) — the pinch gesture
+  // simply does nothing in that case rather than showing a dead control.
+  double? _zoomMin;
+  double? _zoomMax;
+  double _currentZoom = 1.0;
+  double _pinchStartZoom = 1.0;
+
+  void _refreshZoomCapabilities() {
+    final caps = _jsGetZoomCapabilities();
+    if (caps == null) {
+      _zoomMin = null;
+      _zoomMax = null;
+      return;
+    }
+    final map = (caps as JSAny).dartify() as Map?;
+    if (map == null) {
+      _zoomMin = null;
+      _zoomMax = null;
+      return;
+    }
+    _zoomMin = (map['min'] as num?)?.toDouble();
+    _zoomMax = (map['max'] as num?)?.toDouble();
+    _currentZoom = _zoomMin ?? 1.0;
+  }
+
+  bool get _zoomSupported => _zoomMin != null && _zoomMax != null && _zoomMax! > _zoomMin!;
+
+  void _onScaleStart(ScaleStartDetails details) {
+    _pinchStartZoom = _currentZoom;
+  }
+
+  void _onScaleUpdate(ScaleUpdateDetails details) {
+    if (!_zoomSupported || _isBusy) return;
+    final min = _zoomMin!;
+    final max = _zoomMax!;
+    final next = (_pinchStartZoom * details.scale).clamp(min, max);
+    if ((next - _currentZoom).abs() < 0.01) return;
+    _currentZoom = next;
+    // Fire-and-forget: constraint updates are cheap and frequent during a
+    // pinch gesture, no need to await/serialize them against setState.
+    _jsSetZoom(next.toJS);
+    if (mounted) setState(() {});
+  }
+
   // Purely a preview-layer CSS transform on the <video> element — matches
   // the "mirror" convention every native camera app uses for the front
   // camera (shows what you'd see in a mirror). capturePhoto()/MediaRecorder
@@ -137,7 +188,10 @@ class _WebCameraCaptureScreenState extends State<WebCameraCaptureScreen> {
     try {
       final result = await _jsStart(_elementId.toJS, 'environment'.toJS).toDart;
       if (!mounted) return;
-      if (result.toDart) _applyMirrorTransform();
+      if (result.toDart) {
+        _applyMirrorTransform();
+        _refreshZoomCapabilities();
+      }
       setState(() {
         _isInitialized = result.toDart;
         if (!result.toDart) {
@@ -154,7 +208,11 @@ class _WebCameraCaptureScreenState extends State<WebCameraCaptureScreen> {
     if (_isRecording) return;
     try {
       final switched = (await _jsSwitchCamera().toDart).toDart;
-      if (switched) _applyMirrorTransform();
+      if (switched) {
+        _applyMirrorTransform();
+        _refreshZoomCapabilities();
+        if (mounted) setState(() {});
+      }
     } catch (_) {}
   }
 
@@ -201,16 +259,22 @@ class _WebCameraCaptureScreenState extends State<WebCameraCaptureScreen> {
 
   Future<void> _actuallyOpenGallery() async {
     try {
-      final result = await FilePicker.platform.pickFiles(
-        type: FileType.media,
-        allowMultiple: true,
-      );
-      if (result == null || result.files.isEmpty || !mounted) return;
+      // image_picker rather than file_picker: file_picker's FileType.media
+      // sets accept="video/*|image/*" on the underlying <input type="file">
+      // web element — pipe-separated, which isn't valid HTML accept syntax
+      // (the spec requires commas). Browsers silently ignore the malformed
+      // filter and fall back to a generic file browser instead of the
+      // native Photos/Gallery picker. image_picker's getMedia() uses the
+      // correct "image/*,video/*" and is what the old per-type Upload
+      // buttons used before this screen existed.
+      final files = await ImagePicker().pickMultipleMedia();
+      if (files.isEmpty || !mounted) return;
 
-      final items = <_PickedMediaItem>[
-        for (final file in result.files)
-          if (file.bytes != null) _PickedMediaItem(file: file),
-      ];
+      final items = <_PickedMediaItem>[];
+      for (final file in files) {
+        final bytes = await file.readAsBytes();
+        items.add(_PickedMediaItem(file: file, bytes: bytes));
+      }
       if (items.isEmpty || !mounted) return;
 
       setState(() => _pickedGalleryItems = items);
@@ -227,10 +291,7 @@ class _WebCameraCaptureScreenState extends State<WebCameraCaptureScreen> {
   }
 
   void _usePickedGalleryItems() {
-    final files = [
-      for (final item in _pickedGalleryItems)
-        XFile.fromData(item.file.bytes!, name: item.file.name, length: item.file.size),
-    ];
+    final files = [for (final item in _pickedGalleryItems) item.file];
     Navigator.of(context).pop(WebCameraCaptureResult.pickedFiles(files));
   }
 
@@ -380,7 +441,39 @@ class _WebCameraCaptureScreenState extends State<WebCameraCaptureScreen> {
         body: Stack(
           fit: StackFit.expand,
           children: [
-            const HtmlElementView(viewType: _viewType),
+            GestureDetector(
+              onScaleStart: _onScaleStart,
+              onScaleUpdate: _onScaleUpdate,
+              child: const HtmlElementView(viewType: _viewType),
+            ),
+            if (_zoomSupported && _isInitialized)
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                child: SafeArea(
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 56),
+                    child: Center(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.45),
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: Text(
+                          '${_currentZoom.toStringAsFixed(1)}x',
+                          style: AppTypography.inter(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
             if (!_isInitialized)
               Container(
                 color: Colors.black,
@@ -549,9 +642,10 @@ const _videoExtensions = {
 /// (`==`) is the default object identity — fine here since each pick
 /// produces distinct PlatformFile instances even for same-named files.
 class _PickedMediaItem {
-  final PlatformFile file;
+  final XFile file;
+  final Uint8List bytes;
 
-  _PickedMediaItem({required this.file});
+  _PickedMediaItem({required this.file, required this.bytes});
 
   bool get isVideo {
     final ext = file.name.split('.').last.toLowerCase();
@@ -672,7 +766,7 @@ class _GalleryReviewTile extends StatelessWidget {
               ),
             )
           else
-            Image.memory(item.file.bytes!, fit: BoxFit.cover),
+            Image.memory(item.bytes, fit: BoxFit.cover),
           Positioned(
             top: 4,
             right: 4,
