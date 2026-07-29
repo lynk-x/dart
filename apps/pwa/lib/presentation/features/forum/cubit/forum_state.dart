@@ -32,7 +32,8 @@ class ForumState extends Equatable {
   final String? waveFromUserId;
   final int waveTrigger;
 
-  bool get isReadOnly => forumStatus == 'read_only';
+  bool get isReadOnly => forumStatus == 'read_only' || forumStatus == 'archived';
+  bool get isArchived => forumStatus == 'archived';
 
   const ForumState({
     this.forumId,

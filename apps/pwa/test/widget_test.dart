@@ -7,6 +7,7 @@ import 'package:lynk_x/presentation/features/homepage/screens/home_screen.dart';
 import 'package:lynk_x/presentation/features/notifications/cubit/notification_cubit.dart';
 import 'package:lynk_x/data/repositories/event_repository.dart';
 import 'package:lynk_x/data/repositories/notification_repository.dart';
+import 'package:lynk_x/data/repositories/account_repository.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class _FakeSupabaseClient extends Fake implements SupabaseClient {}
@@ -22,8 +23,10 @@ class _FakeEventRepository extends EventRepository {
 
 class _FakeNotificationRepository extends Fake implements NotificationRepository {}
 
+class _FakeAccountRepository extends Fake implements AccountRepository {}
+
 class _FakeNotificationCubit extends NotificationCubit {
-  _FakeNotificationCubit() : super(_FakeNotificationRepository());
+  _FakeNotificationCubit() : super(_FakeNotificationRepository(), _FakeAccountRepository());
 
   @override
   Future<void> loadNotifications() async {}

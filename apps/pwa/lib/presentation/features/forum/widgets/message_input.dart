@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:lynk_core/core.dart';
 import 'package:lynk_x/presentation/features/forum/models/forum_model.dart';
+import 'package:lynk_x/presentation/features/forum/widgets/disabled_state_bar.dart';
 
 class MessageInput extends StatefulWidget {
   final Function(String, ChatMessage?)? onSendMessage;
@@ -16,6 +17,7 @@ class MessageInput extends StatefulWidget {
   final ValueChanged<String>? onChanged;
   final List<Map<String, dynamic>> members;
   final bool isReadOnly;
+  final bool isArchived;
   final bool isMuted;
   final bool isOrganizer;
 
@@ -33,6 +35,7 @@ class MessageInput extends StatefulWidget {
     this.onChanged,
     this.members = const [],
     this.isReadOnly = false,
+    this.isArchived = false,
     this.isMuted = false,
     this.isOrganizer = false,
   });
@@ -188,49 +191,15 @@ class _MessageInputState extends State<MessageInput> {
   @override
   Widget build(BuildContext context) {
     final detectedCategory = _getDetectedCategory();
+    if (widget.isArchived && !widget.isOrganizer) {
+      return const DisabledStateBar(state: DisabledForumState.archived);
+    }
     if (widget.isReadOnly && !widget.isOrganizer) {
-      return Container(
-        padding: const EdgeInsets.all(16),
-        width: double.infinity,
-        decoration: const BoxDecoration(
-          color: Colors.black26,
-          border: Border(top: BorderSide(color: Colors.white10)),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.lock_outline_rounded,
-                color: Colors.white38, size: 16),
-            const SizedBox(width: 8),
-            Text(
-              'This forum is in read-only mode',
-              style: AppTypography.inter(fontSize: 13, color: Colors.white38),
-            ),
-          ],
-        ),
-      );
+      return const DisabledStateBar(state: DisabledForumState.readOnly);
     }
 
     if (widget.isMuted) {
-      return Container(
-        padding: const EdgeInsets.all(16),
-        width: double.infinity,
-        decoration: const BoxDecoration(
-          color: Colors.black26,
-          border: Border(top: BorderSide(color: Colors.white10)),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.mic_off_rounded, color: Colors.redAccent, size: 16),
-            const SizedBox(width: 8),
-            Text(
-              'You have been muted in this forum',
-              style: AppTypography.inter(fontSize: 13, color: Colors.redAccent),
-            ),
-          ],
-        ),
-      );
+      return const DisabledStateBar(state: DisabledForumState.muted);
     }
 
     return Container(

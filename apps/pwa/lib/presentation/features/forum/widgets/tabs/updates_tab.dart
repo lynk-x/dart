@@ -6,6 +6,8 @@ import 'package:lynk_x/presentation/features/forum/cubit/forum_state.dart';
 import 'package:lynk_x/presentation/features/forum/cubit/forum_updates_cubit.dart';
 import 'package:lynk_x/presentation/features/forum/cubit/forum_updates_state.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/message_input.dart';
+import 'package:lynk_x/presentation/features/forum/widgets/input_accessory_bar.dart';
+import 'package:lynk_x/presentation/features/forum/widgets/disabled_state_bar.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/chat_bubble.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/forum_skeletons.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/swipe_to_reply.dart';
@@ -73,13 +75,19 @@ class _UpdatesTabState extends State<UpdatesTab>
     super.build(context);
     final mainCubit = context.read<ForumCubit>();
     final updatesCubit = context.read<ForumUpdatesCubit>();
+    final autoReadOnlyDays = context
+        .watch<SystemConfigCubit>()
+        .state
+        .getInt('forum_auto_read_only_days', defaultValue: 3);
 
     return BlocBuilder<ForumCubit, ForumState>(
       buildWhen: (p, c) =>
           p.isOrganizer != c.isOrganizer ||
           p.isMuted != c.isMuted ||
           p.isReadOnly != c.isReadOnly ||
-          p.members != c.members,
+          p.members != c.members ||
+          p.eventEndsAt != c.eventEndsAt ||
+          p.forumStatus != c.forumStatus,
       builder: (context, mainState) {
         return BlocBuilder<ForumUpdatesCubit, ForumUpdatesState>(
           builder: (context, updatesState) {
@@ -115,7 +123,12 @@ class _UpdatesTabState extends State<UpdatesTab>
                     ),
                   ),
                 ),
-                if (mainState.isOrganizer)
+                if (mainState.isOrganizer) ...[
+                  InputAccessoryBar(
+                    eventEndsAt: mainState.eventEndsAt,
+                    forumStatus: mainState.forumStatus,
+                    autoReadOnlyDays: autoReadOnlyDays,
+                  ),
                   MessageInput(
                     onSendMessage: (text, _) {
                       if (updatesState.editingMessage != null) {
@@ -138,7 +151,16 @@ class _UpdatesTabState extends State<UpdatesTab>
                     onCancelEdit: () => updatesCubit.setEditingMessage(null),
                     onChanged: (text) {},
                     members: mainState.members,
+                    isReadOnly: mainState.isReadOnly,
+                    isArchived: mainState.isArchived,
+                    isMuted: mainState.isMuted,
                     isOrganizer: true,
+                  ),
+                ] else if (mainState.isReadOnly)
+                  DisabledStateBar(
+                    state: mainState.isArchived
+                        ? DisabledForumState.archived
+                        : DisabledForumState.readOnly,
                   ),
               ],
             );

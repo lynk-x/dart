@@ -14,6 +14,7 @@ import 'package:lynk_x/presentation/shared/widgets/empty_state.dart';
 import 'package:lynk_x/presentation/shared/utils/app_snackbars.dart';
 import 'package:lynk_x/presentation/shared/utils/permission_acks.dart';
 import 'package:lynk_x/presentation/features/forum/models/forum_model.dart';
+import 'package:lynk_x/presentation/features/forum/widgets/disabled_state_bar.dart';
 import 'package:lynk_x/core/network/lynk_cache_manager.dart';
 import 'package:lynk_x/core/utils/image_optimizer.dart';
 
@@ -277,7 +278,13 @@ class _MediaTabState extends State<MediaTab>
                 ),
                 if (!mainState.isMuted &&
                     (!mainState.isReadOnly || mainState.isOrganizer))
-                  _buildUploadActions(context, mediaState.isUploading),
+                  _buildUploadActions(context, mediaState.isUploading)
+                else if (mainState.isMuted)
+                  const DisabledStateBar(state: DisabledForumState.muted)
+                else if (mainState.isArchived && !mainState.isOrganizer)
+                  const DisabledStateBar(state: DisabledForumState.archived)
+                else if (mainState.isReadOnly && !mainState.isOrganizer)
+                  const DisabledStateBar(state: DisabledForumState.readOnly),
               ],
             );
           },

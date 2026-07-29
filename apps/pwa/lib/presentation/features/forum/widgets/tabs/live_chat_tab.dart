@@ -10,6 +10,7 @@ import 'package:lynk_x/presentation/features/forum/models/forum_model.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/message_input.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/typing_indicator.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/chat_message_list.dart';
+import 'package:lynk_x/presentation/features/forum/widgets/input_accessory_bar.dart';
 import 'package:lynk_x/presentation/shared/widgets/guest_profile_prompt_sheet.dart';
 
 /// The 'Live Chat' tab content for the Forum.
@@ -78,13 +79,19 @@ class _LiveChatTabState extends State<LiveChatTab>
     super.build(context);
     final mainCubit = context.read<ForumCubit>();
     final chatCubit = context.read<ForumChatCubit>();
+    final autoReadOnlyDays = context
+        .watch<SystemConfigCubit>()
+        .state
+        .getInt('forum_auto_read_only_days', defaultValue: 3);
 
     return BlocBuilder<ForumCubit, ForumState>(
       buildWhen: (p, c) =>
           p.isOrganizer != c.isOrganizer ||
           p.isMuted != c.isMuted ||
           p.isReadOnly != c.isReadOnly ||
-          p.members != c.members,
+          p.members != c.members ||
+          p.eventEndsAt != c.eventEndsAt ||
+          p.forumStatus != c.forumStatus,
       builder: (context, mainState) {
         return Column(
           children: [
@@ -141,6 +148,11 @@ class _LiveChatTabState extends State<LiveChatTab>
                     : const SizedBox.shrink();
               },
             ),
+            InputAccessoryBar(
+              eventEndsAt: mainState.eventEndsAt,
+              forumStatus: mainState.forumStatus,
+              autoReadOnlyDays: autoReadOnlyDays,
+            ),
             BlocBuilder<ForumChatCubit, ForumChatState>(
               buildWhen: (p, c) =>
                   p.editingMessage != c.editingMessage ||
@@ -179,7 +191,8 @@ class _LiveChatTabState extends State<LiveChatTab>
                   onCancelEdit: () => chatCubit.setEditingMessage(null),
                   onChanged: (text) => chatCubit.notifyTyping(),
                   members: mainState.members,
-                  isReadOnly: mainState.forumStatus == 'read_only',
+                  isReadOnly: mainState.isReadOnly,
+                  isArchived: mainState.isArchived,
                   isMuted: mainState.isMuted,
                   isOrganizer: mainState.isOrganizer,
                 );

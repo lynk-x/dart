@@ -723,19 +723,15 @@ class _GalleryReview extends StatelessWidget {
                     ),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(24, 8, 24, 20),
-              child: SizedBox(
-                height: 50,
-                width: double.infinity,
-                child: PrimaryButton(
-                  icon: Icons.check_circle_outline,
-                  text: items.isEmpty
-                      ? 'Use Selected'
-                      : 'Use ${items.length} ${items.length == 1 ? 'item' : 'items'}',
-                  backgroundColor: context.accentColor,
-                  textColor: Colors.black,
-                  onPressed: items.isEmpty ? null : onUse,
-                ),
+              padding: const EdgeInsets.fromLTRB(24, 0, 24, 12),
+              child: PrimaryButton(
+                icon: Icons.check_circle_outline,
+                text: items.isEmpty
+                    ? 'Use Selected'
+                    : 'Use ${items.length} ${items.length == 1 ? 'item' : 'items'}',
+                backgroundColor: context.accentColor,
+                textColor: Colors.black,
+                onPressed: items.isEmpty ? null : onUse,
               ),
             ),
           ],

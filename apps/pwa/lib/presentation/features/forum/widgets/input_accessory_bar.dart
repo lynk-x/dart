@@ -7,12 +7,12 @@ import 'package:lynk_core/core.dart';
 /// (weekly cron, `infra.system_config['community']['forum_auto_read_only_days']`
 /// days after the event ends) — this widget only computes when to *show* the
 /// warning from the same inputs, it doesn't control the lock.
-class ForumLockWarningBanner extends StatelessWidget {
+class InputAccessoryBar extends StatelessWidget {
   final DateTime? eventEndsAt;
   final String forumStatus;
   final int autoReadOnlyDays;
 
-  const ForumLockWarningBanner({
+  const InputAccessoryBar({
     super.key,
     required this.eventEndsAt,
     required this.forumStatus,
