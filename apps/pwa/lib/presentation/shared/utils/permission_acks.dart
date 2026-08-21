@@ -13,7 +13,7 @@ import '../widgets/permission_request_sheet.dart';
 /// tracked separately via PushNotificationService.checkPermissionStatus(),
 /// since Firebase already exposes real, live status there — it doesn't need
 /// (and shouldn't duplicate) an ack flag of its own.
-enum PermissionAckType { camera, media, vibration, biometric }
+enum PermissionAckType { camera, media, vibration, biometric, microphone }
 
 /// Centralizes the "check ack flag → show [PermissionRequestSheet] if
 /// unacknowledged → persist the flag on grant" pattern that was previously

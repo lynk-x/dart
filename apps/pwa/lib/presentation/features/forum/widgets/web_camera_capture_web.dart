@@ -301,6 +301,57 @@ class _WebCameraCaptureScreenState extends State<WebCameraCaptureScreen> {
     Navigator.of(context).pop(WebCameraCaptureResult.pickedFiles(files));
   }
 
+  Future<void> _startRecording() async {
+    if (_isRecording || _isBusy || !_isInitialized) return;
+
+    final started = _jsStartRecording().toDart;
+    if (!started) {
+      setState(() => _error = 'Failed to start recording.');
+      return;
+    }
+
+    setState(() {
+      _isRecording = true;
+      _recordSeconds = 0;
+    });
+    _recordTimer = Timer.periodic(const Duration(milliseconds: 100), (_) {
+      if (!mounted) return;
+      if (_recordSeconds >= maxRecordSeconds * 10 - 1) {
+        _stopRecording();
+        return;
+      }
+      setState(() => _recordSeconds++);
+    });
+  }
+
+  Future<void> _stopRecording() async {
+    if (!_isRecording) return;
+    _recordTimer?.cancel();
+    setState(() {
+      _isBusy = true;
+      _isRecording = false;
+    });
+    try {
+      final result = await _jsStopRecording().toDart;
+      final url = result?.toDart;
+      if (!mounted) return;
+      if (url == null || url.isEmpty) {
+        setState(() {
+          _isBusy = false;
+          _error = 'Failed to save recording.';
+        });
+        return;
+      }
+      await _prepareVideoReview(url);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isBusy = false;
+        _error = 'Failed to save recording: $e';
+      });
+    }
+  }
+
   Future<void> _onShutterTap() async {
     if (_isBusy || !_isInitialized) return;
 
@@ -329,50 +380,19 @@ class _WebCameraCaptureScreenState extends State<WebCameraCaptureScreen> {
     }
 
     if (!_isRecording) {
-      final started = _jsStartRecording().toDart;
-      if (!started) {
-        setState(() => _error = 'Failed to start recording.');
-        return;
-      }
-
-      setState(() {
-        _isRecording = true;
-        _recordSeconds = 0;
-      });
-      _recordTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-        if (!mounted) return;
-        if (_recordSeconds >= maxRecordSeconds - 1) {
-          _onShutterTap();
-          return;
-        }
-        setState(() => _recordSeconds++);
-      });
+      await _startRecording();
     } else {
-      _recordTimer?.cancel();
-      setState(() {
-        _isBusy = true;
-        _isRecording = false;
-      });
-      try {
-        final result = await _jsStopRecording().toDart;
-        final url = result?.toDart;
-        if (!mounted) return;
-        if (url == null || url.isEmpty) {
-          setState(() {
-            _isBusy = false;
-            _error = 'Failed to save recording.';
-          });
-          return;
-        }
-        await _prepareVideoReview(url);
-      } catch (e) {
-        if (!mounted) return;
-        setState(() {
-          _isBusy = false;
-          _error = 'Failed to save recording: $e';
-        });
-      }
+      await _stopRecording();
     }
+  }
+
+  Future<void> _onShutterLongPress() async {
+    if (_isBusy || !_isInitialized || _isRecording) return;
+
+    if (!_isVideoMode) {
+      setState(() => _isVideoMode = true);
+    }
+    await _startRecording();
   }
 
   Future<void> _prepareVideoReview(String url) async {
@@ -397,6 +417,9 @@ class _WebCameraCaptureScreenState extends State<WebCameraCaptureScreen> {
         _pendingResult = WebCameraCaptureResult(objectUrl: url, isVideo: true);
       });
     } catch (e) {
+      try {
+        _jsRevokeObjectUrl(url.toJS);
+      } catch (_) {}
       controller.dispose();
       if (!mounted) return;
       setState(() => _isBusy = false);
@@ -409,7 +432,9 @@ class _WebCameraCaptureScreenState extends State<WebCameraCaptureScreen> {
   // in initState and stopped once in dispose — so retaking is instant.
   void _retake() {
     if (_pendingResult != null && _pendingResult!.objectUrl.isNotEmpty) {
-      _jsRevokeObjectUrl(_pendingResult!.objectUrl.toJS);
+      try {
+        _jsRevokeObjectUrl(_pendingResult!.objectUrl.toJS);
+      } catch (_) {}
     }
     _reviewVideoController?.dispose();
     _cachedVideo?.style.display = 'block';
@@ -434,6 +459,11 @@ class _WebCameraCaptureScreenState extends State<WebCameraCaptureScreen> {
   @override
   void dispose() {
     _recordTimer?.cancel();
+    if (_pendingResult != null && _pendingResult!.objectUrl.isNotEmpty) {
+      try {
+        _jsRevokeObjectUrl(_pendingResult!.objectUrl.toJS);
+      } catch (_) {}
+    }
     _reviewVideoController?.dispose();
     _cachedVideo?.style.display = 'block';
     try {
@@ -464,34 +494,6 @@ class _WebCameraCaptureScreenState extends State<WebCameraCaptureScreen> {
               onScaleUpdate: _onScaleUpdate,
               child: const HtmlElementView(viewType: _viewType),
             ),
-            if (_zoomSupported && _isInitialized)
-              Positioned(
-                top: 0,
-                left: 0,
-                right: 0,
-                child: SafeArea(
-                  child: Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: Center(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.45),
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        child: Text(
-                          '${_currentZoom.toStringAsFixed(1)}x',
-                          style: AppTypography.inter(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
             if (!_isInitialized)
               Container(
                 color: Colors.black,
@@ -509,9 +511,7 @@ class _WebCameraCaptureScreenState extends State<WebCameraCaptureScreen> {
                 ),
               ),
 
-            // Top bar — close on the left, flash on the right (dimmed while
-            // recording, since switching camera/torch mid-recording isn't
-            // supported by the underlying MediaRecorder stream). Explicitly
+            // Top bar — close on the left, vertically centered zoom pill, flash on the right
             Positioned(
               top: 0,
               left: 0,
@@ -521,11 +521,30 @@ class _WebCameraCaptureScreenState extends State<WebCameraCaptureScreen> {
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       _RoundIconButton(
                         icon: Icons.close,
                         onTap: _isRecording ? null : () => Navigator.of(context).pop(),
                       ),
+                      if (_zoomSupported && _isInitialized)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.45),
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: Text(
+                            '${_currentZoom.toStringAsFixed(1)}x',
+                            style: AppTypography.inter(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white,
+                            ),
+                          ),
+                        )
+                      else
+                        const SizedBox(width: 46),
                       _RoundIconButton(
                         icon: _torchEnabled ? Icons.flash_on : Icons.flash_off,
                         iconColor: _torchEnabled ? context.accentColor : null,
@@ -566,10 +585,11 @@ class _WebCameraCaptureScreenState extends State<WebCameraCaptureScreen> {
                               isVideoMode: _isVideoMode,
                               isRecording: _isRecording,
                               recordProgress: _isRecording
-                                  ? (_recordSeconds / maxRecordSeconds).clamp(0.0, 1.0)
+                                  ? (_recordSeconds / (maxRecordSeconds * 10)).clamp(0.0, 1.0)
                                   : null,
                               isBusy: _isBusy,
                               onTap: _onShutterTap,
+                              onLongPress: _onShutterLongPress,
                             ),
                             Positioned(
                               left: 24,
@@ -822,13 +842,26 @@ class _CaptureReviewState extends State<_CaptureReview> {
                             widget.videoController!.play();
                           }
                         },
-                        child: AspectRatio(
-                          aspectRatio: widget.videoController!.value.aspectRatio,
-                          child: VideoPlayer(widget.videoController!),
+                        child: SizedBox.expand(
+                          child: FittedBox(
+                            fit: BoxFit.cover,
+                            clipBehavior: Clip.hardEdge,
+                            child: SizedBox(
+                              width: widget.videoController!.value.size.width > 0
+                                  ? widget.videoController!.value.size.width
+                                  : 1280,
+                              height: widget.videoController!.value.size.height > 0
+                                  ? widget.videoController!.value.size.height
+                                  : 720,
+                              child: VideoPlayer(widget.videoController!),
+                            ),
+                          ),
                         ),
                       )
                     : CircularProgressIndicator(color: context.accentColor))
-                : Image.network(widget.result.objectUrl, fit: BoxFit.contain),
+                : SizedBox.expand(
+                    child: Image.network(widget.result.objectUrl, fit: BoxFit.cover),
+                  ),
           ),
           if (widget.result.isVideo && widget.videoController != null)
             Positioned(
@@ -1007,6 +1040,7 @@ class _ShutterButton extends StatelessWidget {
   final double? recordProgress;
   final bool isBusy;
   final VoidCallback onTap;
+  final VoidCallback? onLongPress;
 
   const _ShutterButton({
     required this.isVideoMode,
@@ -1014,12 +1048,14 @@ class _ShutterButton extends StatelessWidget {
     this.recordProgress,
     required this.isBusy,
     required this.onTap,
+    this.onLongPress,
   });
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: isBusy ? null : onTap,
+      onLongPress: isBusy ? null : onLongPress,
       child: Stack(
         alignment: Alignment.center,
         children: [
@@ -1027,11 +1063,18 @@ class _ShutterButton extends StatelessWidget {
             SizedBox(
               width: 76,
               height: 76,
-              child: CircularProgressIndicator(
-                value: recordProgress,
-                strokeWidth: 3.5,
-                color: Colors.redAccent,
-                backgroundColor: Colors.white24,
+              child: TweenAnimationBuilder<double>(
+                tween: Tween<double>(begin: 0.0, end: recordProgress!),
+                duration: const Duration(milliseconds: 100),
+                curve: Curves.linear,
+                builder: (context, animatedProgress, child) {
+                  return CircularProgressIndicator(
+                    value: animatedProgress,
+                    strokeWidth: 3.5,
+                    color: Colors.redAccent,
+                    backgroundColor: Colors.white24,
+                  );
+                },
               ),
             ),
           Container(

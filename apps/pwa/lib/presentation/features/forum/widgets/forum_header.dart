@@ -122,7 +122,7 @@ class _ForumHeaderState extends State<ForumHeader> {
             )
           else
             GestureDetector(
-              onLongPress: widget.isOrganizer ? widget.onStartAudioStream : null,
+              onDoubleTap: widget.isOrganizer ? widget.onStartAudioStream : null,
               behavior: HitTestBehavior.opaque,
               child: Padding(
                 padding: const EdgeInsets.all(4.0),

@@ -91,6 +91,9 @@ window.flutterCameraStream = {
       this.videoElement.setAttribute("playsinline", "true");
       this.videoElement.setAttribute("autoplay", "true");
       this.videoElement.setAttribute("muted", "true");
+      this.videoElement.style.objectFit = "cover";
+      this.videoElement.style.width = "100%";
+      this.videoElement.style.height = "100%";
 
       await this.videoElement.play();
       return true;

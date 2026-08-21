@@ -31,6 +31,8 @@ import 'package:lynk_x/presentation/features/forum/widgets/reaction_background.d
 import 'package:lynk_x/presentation/features/forum/widgets/reaction_bar.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/polls/poll_card_editor.dart';
 
+import 'package:lynk_x/presentation/shared/utils/permission_acks.dart';
+
 import 'package:lynk_x/presentation/features/forum/cubit/forum_audio_stream_cubit.dart';
 import 'package:lynk_x/presentation/features/forum/cubit/forum_audio_stream_state.dart';
 import 'package:lynk_x/presentation/features/forum/services/forum_audio_stream_service.dart';
@@ -153,7 +155,7 @@ class ForumPage extends StatelessWidget {
                   userId: mainCubit.userId,
                   userName: mainCubit.userName,
                   isOrganizer: state.isOrganizer,
-                ),
+                )..initRealtimeSubscription(),
               ),
               ],
               child: const ForumView(),
@@ -474,10 +476,36 @@ class _ForumViewState extends State<ForumView> {
                                             currentUserName: cubit.state.userName,
                                             isMicMuted: audioState.isMicMuted,
                                             isBroadcastMuted: audioState.isBroadcastMuted,
-                                            onToggleMic: () => audioCubit.toggleMic(),
+                                            onToggleMic: () {
+                                              if (audioState.isMicMuted) {
+                                                PermissionAcks.ensureAcknowledged(
+                                                  context,
+                                                  PermissionAckType.microphone,
+                                                  title: 'Microphone Permission',
+                                                  description:
+                                                      'To speak in live community streams, Lynk-X needs access to your microphone.',
+                                                  icon: Icons.mic_rounded,
+                                                  actionLabel: 'Allow Microphone',
+                                                  onReady: () => audioCubit.toggleMic(),
+                                                );
+                                              } else {
+                                                audioCubit.toggleMic();
+                                              }
+                                            },
                                             onToggleBroadcastMute: () => audioCubit.toggleBroadcastMute(),
                                             onEndBroadcast: () => audioCubit.endAudioStream(),
-                                            onStartAudioStream: () => audioCubit.startAudioStream(),
+                                            onStartAudioStream: () {
+                                              PermissionAcks.ensureAcknowledged(
+                                                context,
+                                                PermissionAckType.microphone,
+                                                title: 'Host Audio Stream',
+                                                description:
+                                                    'To start a live audio stream and speak with attendees, Lynk-X needs access to your microphone.',
+                                                icon: Icons.mic_rounded,
+                                                actionLabel: 'Allow Microphone',
+                                                onReady: () => audioCubit.startAudioStream(),
+                                              );
+                                            },
                                         isOrganizer: forumState.isOrganizer,
                                         isReadOnly: forumState.isReadOnly,
                                         forumName: forumState.forumName,
