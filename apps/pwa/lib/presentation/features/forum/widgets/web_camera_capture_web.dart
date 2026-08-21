@@ -304,6 +304,21 @@ class _WebCameraCaptureScreenState extends State<WebCameraCaptureScreen> {
   Future<void> _startRecording() async {
     if (_isRecording || _isBusy || !_isInitialized) return;
 
+    await PermissionAcks.ensureAcknowledged(
+      context,
+      PermissionAckType.microphone,
+      title: 'Microphone Access Needed',
+      description:
+          'To record video clips with audio, Lynk-X needs access to your microphone.',
+      icon: Icons.mic_rounded,
+      actionLabel: 'Allow Microphone',
+      onReady: () => _actuallyStartRecording(),
+    );
+  }
+
+  void _actuallyStartRecording() {
+    if (!mounted || _isRecording || _isBusy || !_isInitialized) return;
+
     final started = _jsStartRecording().toDart;
     if (!started) {
       setState(() => _error = 'Failed to start recording.');
@@ -1053,38 +1068,44 @@ class _ShutterButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    const double outerSize = 68.0;
+    const double strokeWidth = 4.0;
+
     return GestureDetector(
       onTap: isBusy ? null : onTap,
       onLongPress: isBusy ? null : onLongPress,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          if (isRecording && recordProgress != null)
-            SizedBox(
-              width: 76,
-              height: 76,
-              child: TweenAnimationBuilder<double>(
-                tween: Tween<double>(begin: 0.0, end: recordProgress!),
-                duration: const Duration(milliseconds: 100),
-                curve: Curves.linear,
-                builder: (context, animatedProgress, child) {
-                  return CircularProgressIndicator(
-                    value: animatedProgress,
-                    strokeWidth: 3.5,
-                    color: Colors.redAccent,
-                    backgroundColor: Colors.white24,
-                  );
-                },
+      child: SizedBox(
+        width: outerSize,
+        height: outerSize,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            if (isRecording && recordProgress != null)
+              SizedBox.expand(
+                child: TweenAnimationBuilder<double>(
+                  tween: Tween<double>(begin: 0.0, end: recordProgress!),
+                  duration: const Duration(milliseconds: 100),
+                  curve: Curves.linear,
+                  builder: (context, animatedProgress, child) {
+                    return CircularProgressIndicator(
+                      value: animatedProgress,
+                      strokeWidth: strokeWidth,
+                      color: Colors.redAccent,
+                      backgroundColor: Colors.white,
+                    );
+                  },
+                ),
+              )
+            else
+              Container(
+                width: outerSize,
+                height: outerSize,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: strokeWidth),
+                ),
               ),
-            ),
-          Container(
-            width: 68,
-            height: 68,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(color: Colors.white, width: 3.5),
-            ),
-            child: Center(
+            Center(
               child: isBusy
                   ? const SizedBox(
                       width: 24,
@@ -1093,18 +1114,18 @@ class _ShutterButton extends StatelessWidget {
                     )
                   : AnimatedContainer(
                       duration: const Duration(milliseconds: 150),
-                      width: isVideoMode && isRecording ? 26 : 54,
-                      height: isVideoMode && isRecording ? 26 : 54,
+                      width: isVideoMode && isRecording ? 24 : 52,
+                      height: isVideoMode && isRecording ? 24 : 52,
                       decoration: BoxDecoration(
                         color: isVideoMode ? Colors.redAccent : Colors.white,
                         borderRadius: BorderRadius.circular(
-                          isVideoMode && isRecording ? 6 : 27,
+                          isVideoMode && isRecording ? 6 : 26,
                         ),
                       ),
                     ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

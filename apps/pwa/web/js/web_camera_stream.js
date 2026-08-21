@@ -1,233 +1,115 @@
-// Shared raw getUserMedia camera-stream layer for Flutter Web.
-// Owns stream lifecycle (start/stop/switchCamera/toggleTorch) plus frame
+// Browser-native camera stream helper for Flutter Web (PWA).
+// Manages getUserMedia stream lifecycle, mirror transforms, video constraints,
 // capture (capturePhoto) and clip recording (startRecording/stopRecording).
-// qr_scanner_helper.js wraps this for its own decode loop; the photo/video
-// capture screen (web_camera_capture_web.dart) calls it directly.
+
 window.flutterCameraStream = {
   stream: null,
   videoElement: null,
-  facingMode: "environment",
   mediaRecorder: null,
   recordedChunks: [],
+  activeDeviceId: null,
+  activeFacingMode: "environment",
+  recordCanvas: null,
+  recordAnimFrameId: null,
 
-  findVideoElement(id) {
-    let el = document.getElementById(id);
-    if (el) return el;
+  isFrontFacing() {
+    return this.activeFacingMode === "user";
+  },
 
-    const search = (root, targetId) => {
-      if (!root) return null;
-      if (root.id === targetId || (root.tagName && root.tagName.toLowerCase() === 'video' && (!targetId || root.id === targetId))) {
-        return root;
-      }
+  async start(elementId, facingMode = "environment") {
+    const el = document.getElementById(elementId);
+    if (!el) {
+      console.error(`flutterCameraStream.start: element #${elementId} not found`);
+      return false;
+    }
+    this.videoElement = el;
+    this.activeFacingMode = facingMode;
 
-      if (root.shadowRoot) {
-        const found = search(root.shadowRoot, targetId);
-        if (found) return found;
-      }
+    const success = await this._initStreamWithFacing(facingMode);
+    if (!success && facingMode !== "user") {
+      console.warn("Falling back to user facing camera...");
+      this.activeFacingMode = "user";
+      return await this._initStreamWithFacing("user");
+    }
+    return success;
+  },
 
-      const children = root.childNodes || [];
-      for (let i = 0; i < children.length; i++) {
-        const found = search(children[i], targetId);
-        if (found) return found;
-      }
-      return null;
+  async _initStreamWithFacing(facingMode) {
+    this.stop();
+
+    const constraints = {
+      video: {
+        facingMode: { ideal: facingMode },
+        width: { ideal: 1920 },
+        height: { ideal: 1080 }
+      },
+      audio: true
     };
 
-    let found = search(document, id);
-    if (found) return found;
-
-    return search(document, null);
-  },
-
-  waitForElement(id, timeoutMs = 2500) {
-    return new Promise((resolve) => {
-      const startTime = Date.now();
-
-      const check = () => {
-        const el = this.findVideoElement(id);
-        if (el) {
-          resolve(el);
-          return;
-        }
-
-        if (Date.now() - startTime > timeoutMs) {
-          console.warn("waitForElement timed out waiting for video element:", id);
-          resolve(null);
-          return;
-        }
-
-        setTimeout(check, 50);
-      };
-
-      check();
-    });
-  },
-
-  async start(videoElementId, facingMode = "environment") {
-    this.facingMode = facingMode;
-
-    this.videoElement = await this.waitForElement(videoElementId);
-
-    if (!this.videoElement) {
-      console.error("Video element not found after waiting:", videoElementId);
-      return false;
-    }
-
     try {
-      try {
-        this.stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: { ideal: this.facingMode } },
-          audio: false
-        });
-      } catch (err) {
-        console.warn("Failed to get preferred-facing camera, trying fallback to default video source:", err);
-        this.stream = await navigator.mediaDevices.getUserMedia({
-          video: true,
-          audio: false
-        });
-      }
-
+      this.stream = await navigator.mediaDevices.getUserMedia(constraints);
       this.videoElement.srcObject = this.stream;
-      this.videoElement.setAttribute("playsinline", "true");
-      this.videoElement.setAttribute("autoplay", "true");
-      this.videoElement.setAttribute("muted", "true");
-      this.videoElement.style.objectFit = "cover";
-      this.videoElement.style.width = "100%";
-      this.videoElement.style.height = "100%";
-
+      this.videoElement.oncontextmenu = (e) => e.preventDefault();
       await this.videoElement.play();
+
+      const videoTrack = this.stream.getVideoTracks()[0];
+      if (videoTrack) {
+        const settings = videoTrack.getSettings();
+        this.activeDeviceId = settings.deviceId || null;
+      }
       return true;
     } catch (e) {
-      console.error("Error starting camera:", e);
+      console.error(`getUserMedia failed for facingMode=${facingMode}:`, e);
       return false;
     }
+  },
+
+  async switchCamera() {
+    const targetFacing = this.activeFacingMode === "user" ? "environment" : "user";
+    const success = await this._initStreamWithFacing(targetFacing);
+    if (success) {
+      this.activeFacingMode = targetFacing;
+    }
+    return success;
   },
 
   stop() {
-    if (this.mediaRecorder && this.mediaRecorder.state !== "inactive") {
-      try {
-        this.mediaRecorder.stop();
-      } catch (e) {
-        console.warn("Error stopping in-flight recorder during stop():", e);
-      }
-    }
-    this.mediaRecorder = null;
-    this.recordedChunks = [];
-
+    this.stopRecordingLoop();
     if (this.stream) {
-      this.stream.getTracks().forEach(track => track.stop());
+      this.stream.getTracks().forEach((track) => track.stop());
       this.stream = null;
     }
     if (this.videoElement) {
       this.videoElement.srcObject = null;
     }
+    this.activeDeviceId = null;
   },
 
-  async switchCamera() {
-    if (!this.stream) return false;
-
-    try {
-      const devices = await navigator.mediaDevices.enumerateDevices();
-      const videoDevices = devices.filter(d => d.kind === 'videoinput');
-
-      if (videoDevices.length <= 1) {
-        console.warn("Only one camera available, cannot switch.");
-        return false;
-      }
-
-      const activeTrack = this.stream.getVideoTracks()[0];
-      const currentDeviceId = activeTrack ? activeTrack.getSettings().deviceId : null;
-
-      let nextDevice = null;
-      if (currentDeviceId) {
-        const currentIndex = videoDevices.findIndex(d => d.deviceId === currentDeviceId);
-        if (currentIndex !== -1) {
-          const nextIndex = (currentIndex + 1) % videoDevices.length;
-          nextDevice = videoDevices[nextIndex];
-        }
-      }
-
-      if (!nextDevice) {
-        nextDevice = videoDevices[0];
-      }
-
-      const tracks = this.stream.getTracks();
-      tracks.forEach(track => track.stop());
-
-      this.stream = await navigator.mediaDevices.getUserMedia({
-        video: { deviceId: { exact: nextDevice.deviceId } },
-        audio: false
-      });
-
-      if (this.videoElement) {
-        this.videoElement.srcObject = this.stream;
-        await this.videoElement.play();
-        return true;
-      }
-    } catch (err) {
-      console.error("Failed to switch camera by deviceId:", err);
-
-      this.facingMode = this.facingMode === "user" ? "environment" : "user";
-      try {
-        this.stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: { ideal: this.facingMode } },
-          audio: false
-        });
-        if (this.videoElement) {
-          this.videoElement.srcObject = this.stream;
-          await this.videoElement.play();
-          return true;
-        }
-      } catch (fallbackErr) {
-        console.error("Critical: Fallback camera switch failed:", fallbackErr);
-      }
-    }
-    return false;
-  },
-
-  // Whether the currently active camera is front-facing (selfie/"user").
-  // Reads the live track's own reported facingMode when the browser
-  // exposes it — this.facingMode alone is unreliable, since switchCamera's
-  // primary deviceId-cycling path never updates it (only its facingMode
-  // fallback path does). Falls back to the stored value only when the
-  // track itself doesn't report a facingMode (getSettings().facingMode is
-  // undefined on some browsers/devices).
-  isFrontFacing() {
-    if (!this.stream) return false;
-    const track = this.stream.getVideoTracks()[0];
-    const settings = track && track.getSettings ? track.getSettings() : {};
-    if (settings.facingMode) {
-      return settings.facingMode === "user";
-    }
-    return this.facingMode === "user";
-  },
-
-  // Returns {min, max, step} if the active track supports optical/digital
-  // zoom via the standard MediaStreamTrack constraint, or null if it
-  // doesn't — zoom capability is inconsistent across browsers/devices
-  // (notably weak on Firefox and some Android Chrome builds), same caveat
-  // as torch above.
   getZoomCapabilities() {
     if (!this.stream) return null;
-    const track = this.stream.getVideoTracks()[0];
-    if (!track || !track.getCapabilities) return null;
-    const capabilities = track.getCapabilities();
+    const videoTrack = this.stream.getVideoTracks()[0];
+    if (!videoTrack || typeof videoTrack.getCapabilities !== "function") return null;
+
+    const capabilities = videoTrack.getCapabilities();
     if (!capabilities.zoom) return null;
+
+    const settings = videoTrack.getSettings();
     return {
       min: capabilities.zoom.min,
       max: capabilities.zoom.max,
-      step: capabilities.zoom.step || 0.1,
+      step: capabilities.zoom.step,
+      current: settings.zoom || capabilities.zoom.min
     };
   },
 
-  async setZoom(value) {
+  async setZoom(zoomValue) {
     if (!this.stream) return false;
     const videoTrack = this.stream.getVideoTracks()[0];
-    if (!videoTrack) return false;
+    if (!videoTrack || typeof videoTrack.applyConstraints !== "function") return false;
 
     try {
       await videoTrack.applyConstraints({
-        advanced: [{ zoom: value }]
+        advanced: [{ zoom: zoomValue }]
       });
       return true;
     } catch (e) {
@@ -239,13 +121,7 @@ window.flutterCameraStream = {
   async toggleTorch(enabled) {
     if (!this.stream) return false;
     const videoTrack = this.stream.getVideoTracks()[0];
-    if (!videoTrack) return false;
-
-    const capabilities = videoTrack.getCapabilities ? videoTrack.getCapabilities() : {};
-    if (!capabilities.torch) {
-      console.warn("Torch/Flashlight is not supported on this device/browser.");
-      return false;
-    }
+    if (!videoTrack || typeof videoTrack.applyConstraints !== "function") return false;
 
     try {
       await videoTrack.applyConstraints({
@@ -313,17 +189,59 @@ window.flutterCameraStream = {
     return "";
   },
 
+  stopRecordingLoop() {
+    if (this.recordAnimFrameId) {
+      cancelAnimationFrame(this.recordAnimFrameId);
+      this.recordAnimFrameId = null;
+    }
+    this.recordCanvas = null;
+  },
+
   startRecording() {
     if (!this.stream) return false;
     if (this.mediaRecorder && this.mediaRecorder.state === "recording") return false;
 
+    let recordStream = this.stream;
+
+    // For front camera, draw to canvas & capture mirrored stream so recorded video matches preview
+    if (this.isFrontFacing() && this.videoElement) {
+      const width = this.videoElement.videoWidth || 1280;
+      const height = this.videoElement.videoHeight || 720;
+
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d");
+      this.recordCanvas = canvas;
+
+      const drawFrame = () => {
+        if (!this.recordCanvas || !this.videoElement) return;
+        ctx.save();
+        ctx.translate(width, 0);
+        ctx.scale(-1, 1);
+        ctx.drawImage(this.videoElement, 0, 0, width, height);
+        ctx.restore();
+        this.recordAnimFrameId = requestAnimationFrame(drawFrame);
+      };
+
+      drawFrame();
+
+      if (typeof canvas.captureStream === "function") {
+        const canvasStream = canvas.captureStream(30);
+        // Include audio tracks from original camera stream
+        this.stream.getAudioTracks().forEach(track => canvasStream.addTrack(track));
+        recordStream = canvasStream;
+      }
+    }
+
     const mimeType = this._pickRecorderMimeType();
     try {
       this.mediaRecorder = mimeType
-        ? new MediaRecorder(this.stream, { mimeType })
-        : new MediaRecorder(this.stream);
+        ? new MediaRecorder(recordStream, { mimeType })
+        : new MediaRecorder(recordStream);
     } catch (e) {
       console.error("Failed to create MediaRecorder:", e);
+      this.stopRecordingLoop();
       return false;
     }
 
@@ -339,6 +257,7 @@ window.flutterCameraStream = {
       return true;
     } catch (e) {
       console.error("Failed to start recording:", e);
+      this.stopRecordingLoop();
       return false;
     }
   },
@@ -348,6 +267,7 @@ window.flutterCameraStream = {
   stopRecording() {
     return new Promise((resolve) => {
       if (!this.mediaRecorder || this.mediaRecorder.state === "inactive") {
+        this.stopRecordingLoop();
         resolve(null);
         return;
       }
@@ -356,6 +276,7 @@ window.flutterCameraStream = {
       const mimeType = recorder.mimeType || "video/webm";
 
       recorder.onstop = () => {
+        this.stopRecordingLoop();
         if (this.recordedChunks.length === 0) {
           resolve(null);
           return;
@@ -369,6 +290,7 @@ window.flutterCameraStream = {
         recorder.stop();
       } catch (e) {
         console.error("Failed to stop recording:", e);
+        this.stopRecordingLoop();
         resolve(null);
       }
     });
@@ -380,5 +302,5 @@ window.flutterCameraStream = {
     } catch (e) {
       console.warn("Failed to revoke object URL:", e);
     }
-  },
+  }
 };

@@ -63,6 +63,11 @@
   <meta property="og:image" content="icons/Icon-512.png">
 
   <style>
+    * {
+      -webkit-touch-callout: none !important;
+      -webkit-user-select: none !important;
+      user-select: none !important;
+    }
     body {
       background-color: #000000;
       margin: 0;
@@ -368,6 +373,7 @@
         });
       });
     }
+    window.addEventListener('contextmenu', function(e) { e.preventDefault(); }, false);
   </script>
 </body>
 </html>
