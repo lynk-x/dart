@@ -44,36 +44,40 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
     final config = await service.fetchInitialStreamingConfig(forumId);
     if (isClosed) return;
 
-    if (config != null && config['is_live'] == true) {
+    if (config != null) {
+      final isLive = config['is_live'] == true;
       final hostId = config['active_host_id'] as String?;
       final sessionId = config['cf_session_id'] as String?;
       final isHost = hostId == userId;
 
-      if (!state.isLive) {
-        service.configureMediaSession(
-          title: 'Lynk-X Live Audio Stream',
-          artist: isHost ? userName : 'Community Stream',
-        );
-        if (isHost) service.requestWakeLock();
+      if (isLive) {
+        if (!state.isLive) {
+          service.configureMediaSession(
+            title: 'Lynk-X Live Audio Stream',
+            artist: isHost ? userName : 'Community Stream',
+          );
+          if (isHost) service.requestWakeLock();
 
-        emit(state.copyWith(
-          isLive: true,
-          role: isHost ? ForumHeaderRole.host : ForumHeaderRole.listener,
-          sessionId: sessionId,
-          isMicMuted: !isHost,
+          emit(state.copyWith(
+            isLive: true,
+            role: isHost ? ForumHeaderRole.host : ForumHeaderRole.listener,
+            sessionId: sessionId,
+            isMicMuted: !isHost,
+            isBroadcastMuted: false,
+          ));
+        }
+      } else if (state.isLive && state.role != ForumHeaderRole.host) {
+        // If stream explicitly ended according to config and we are not the active local host
+        debugPrint('[AudioStreamCubit] Stream ended according to server config. Tearing down media session.');
+        service.clearMediaSession();
+        emit(const ForumAudioStreamState(
+          isLive: false,
+          role: ForumHeaderRole.listener,
+          activeSpeakerNames: [],
+          isMicMuted: true,
           isBroadcastMuted: false,
         ));
       }
-    } else if (state.isLive) {
-      // If stream ended while client was disconnected
-      service.clearMediaSession();
-      emit(const ForumAudioStreamState(
-        isLive: false,
-        role: ForumHeaderRole.listener,
-        activeSpeakerNames: [],
-        isMicMuted: true,
-        isBroadcastMuted: false,
-      ));
     }
   }
 

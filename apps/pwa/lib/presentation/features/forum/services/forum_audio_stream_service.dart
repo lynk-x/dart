@@ -82,6 +82,8 @@ class ForumAudioStreamService {
     } catch (_) {}
   }
 
+  final Map<String, Map<String, dynamic>> _localConfigCache = {};
+
   /// Fetches initial streaming_config for a forum on open
   Future<Map<String, dynamic>?> fetchInitialStreamingConfig(String forumId) async {
     try {
@@ -92,10 +94,12 @@ class ForumAudioStreamService {
           .maybeSingle();
 
       if (data != null && data['streaming_config'] != null) {
-        return Map<String, dynamic>.from(data['streaming_config']);
+        final config = Map<String, dynamic>.from(data['streaming_config']);
+        _localConfigCache[forumId] = config;
+        return config;
       }
     } catch (_) {}
-    return null;
+    return _localConfigCache[forumId];
   }
 
   /// Subscribes to realtime broadcast channel for a forum audio stream
@@ -178,15 +182,16 @@ class ForumAudioStreamService {
     String? sessionId,
     String? hostId,
   }) async {
+    _localConfigCache[forumId] = {
+      'is_live': isLive,
+      'stream_type': 'audio',
+      'cf_session_id': sessionId,
+      'active_host_id': hostId,
+      'allow_multi_speaker': true,
+    };
     try {
       await supabase.from('forums').update({
-        'streaming_config': {
-          'is_live': isLive,
-          'stream_type': 'audio',
-          'cf_session_id': sessionId,
-          'active_host_id': hostId,
-          'allow_multi_speaker': true,
-        }
+        'streaming_config': _localConfigCache[forumId]
       }).eq('id', forumId);
     } catch (e) {
       // Fallback silently if RLS or column schema permits
