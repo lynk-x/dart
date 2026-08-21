@@ -31,6 +31,10 @@ import 'package:lynk_x/presentation/features/forum/widgets/reaction_background.d
 import 'package:lynk_x/presentation/features/forum/widgets/reaction_bar.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/polls/poll_card_editor.dart';
 
+import 'package:lynk_x/presentation/features/forum/cubit/forum_audio_stream_cubit.dart';
+import 'package:lynk_x/presentation/features/forum/cubit/forum_audio_stream_state.dart';
+import 'package:lynk_x/presentation/features/forum/services/forum_audio_stream_service.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/welcome_banner.dart';
 import 'package:lynk_x/data/repositories/repository_providers.dart';
 import 'package:lynk_x/presentation/shared/utils/app_snackbars.dart';
@@ -141,6 +145,15 @@ class ForumPage extends StatelessWidget {
                   isModerator: state.isModerator,
                   repo: forumRepository,
                 )..init(),
+              ),
+              BlocProvider(
+                create: (context) => ForumAudioStreamCubit(
+                  service: ForumAudioStreamService(supabase: Supabase.instance.client),
+                  forumId: fId,
+                  userId: mainCubit.userId,
+                  userName: mainCubit.userName,
+                  isOrganizer: state.isOrganizer,
+                ),
               ),
               ],
               child: const ForumView(),
@@ -451,7 +464,20 @@ class _ForumViewState extends State<ForumView> {
                                   child: Column(
                                     mainAxisAlignment: MainAxisAlignment.start,
                                     children: [
-                                      ForumHeader(
+                                      BlocBuilder<ForumAudioStreamCubit, ForumAudioStreamState>(
+                                        builder: (context, audioState) {
+                                          final audioCubit = context.read<ForumAudioStreamCubit>();
+                                          return ForumHeader(
+                                            isAudioLive: audioState.isLive,
+                                            role: audioState.role,
+                                            activeSpeakerNames: audioState.activeSpeakerNames,
+                                            currentUserName: cubit.state.userName,
+                                            isMicMuted: audioState.isMicMuted,
+                                            isBroadcastMuted: audioState.isBroadcastMuted,
+                                            onToggleMic: () => audioCubit.toggleMic(),
+                                            onToggleBroadcastMute: () => audioCubit.toggleBroadcastMute(),
+                                            onEndBroadcast: () => audioCubit.endAudioStream(),
+                                            onStartAudioStream: () => audioCubit.startAudioStream(),
                                         isOrganizer: forumState.isOrganizer,
                                         isReadOnly: forumState.isReadOnly,
                                         forumName: forumState.forumName,
@@ -489,7 +515,9 @@ class _ForumViewState extends State<ForumView> {
                                             chatCubit.setSearchQuery('');
                                           }
                                         },
-                                      ),
+                                      );
+                                    },
+                                  ),
                                       if (hasAds)
                                         RepaintBoundary(
                                           child: AdCarousel(

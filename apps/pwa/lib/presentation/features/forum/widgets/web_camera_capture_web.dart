@@ -55,18 +55,23 @@ void revokeWebCameraCaptureUrl(String url) {
 class WebCameraCaptureResult {
   final String objectUrl;
   final bool isVideo;
+  final bool isMuted;
   /// Non-empty when the user picked existing files via the in-screen
   /// gallery shortcut instead of capturing — objectUrl/isVideo are unused
   /// placeholders in that case. media_tab.dart checks this and uploads
   /// these directly through the same path as a normal gallery pick.
   final List<XFile> pickedFiles;
 
-  const WebCameraCaptureResult({required this.objectUrl, required this.isVideo})
-      : pickedFiles = const [];
+  const WebCameraCaptureResult({
+    required this.objectUrl,
+    required this.isVideo,
+    this.isMuted = false,
+  }) : pickedFiles = const [];
 
   const WebCameraCaptureResult.pickedFiles(this.pickedFiles)
       : objectUrl = '',
-        isVideo = false;
+        isVideo = false,
+        isMuted = false;
 }
 
 class WebCameraCaptureScreen extends StatefulWidget {
@@ -80,6 +85,7 @@ class _WebCameraCaptureScreenState extends State<WebCameraCaptureScreen> {
   static const String _viewType = 'camera-capture-video-view';
   static const String _elementId = 'camera-capture-video-element';
   static web.HTMLVideoElement? _cachedVideo;
+  static const int maxRecordSeconds = 30;
 
   bool _isInitialized = false;
   bool _isVideoMode = false;
@@ -147,12 +153,10 @@ class _WebCameraCaptureScreenState extends State<WebCameraCaptureScreen> {
     if (mounted) setState(() {});
   }
 
-  // Purely a preview-layer CSS transform on the <video> element — matches
-  // the "mirror" convention every native camera app uses for the front
-  // camera (shows what you'd see in a mirror). capturePhoto()/MediaRecorder
-  // both read from the underlying video/stream source directly, not the
-  // DOM element's rendered/transformed output, so captured photos and
-  // recordings are never mirrored regardless of this.
+  // Preview-layer CSS transform on the <video> element — matches the "mirror"
+  // convention every native camera app uses for the front camera (shows what
+  // you'd see in a mirror). capturePhoto() mirrors front-facing captured photos
+  // in JS so what you see in the live view matches the captured image.
   void _applyMirrorTransform() {
     final isFront = _jsIsFrontFacing().toDart;
     _cachedVideo?.style.transform = isFront ? 'scaleX(-1)' : 'none';
@@ -167,11 +171,13 @@ class _WebCameraCaptureScreenState extends State<WebCameraCaptureScreen> {
         ..id = _elementId
         ..style.width = '100%'
         ..style.height = '100%'
-        ..style.objectFit = 'cover';
+        ..style.objectFit = 'contain';
 
       _cachedVideo!.setAttribute('playsinline', 'true');
       _cachedVideo!.setAttribute('autoplay', 'true');
       _cachedVideo!.setAttribute('muted', 'true');
+    } else {
+      _cachedVideo!.style.objectFit = 'contain';
     }
 
     ui_web.platformViewRegistry.registerViewFactory(
@@ -305,22 +311,19 @@ class _WebCameraCaptureScreenState extends State<WebCameraCaptureScreen> {
         final url = result?.toDart;
         if (!mounted) return;
         if (url == null || url.isEmpty) {
-          setState(() {
-            _isBusy = false;
-            _error = 'Failed to capture photo.';
-          });
+          setState(() => _isBusy = false);
+          AppSnackBars.showError(context, 'Failed to capture photo.');
           return;
         }
+        _cachedVideo?.style.display = 'none';
         setState(() {
           _isBusy = false;
           _pendingResult = WebCameraCaptureResult(objectUrl: url, isVideo: false);
         });
       } catch (e) {
         if (!mounted) return;
-        setState(() {
-          _isBusy = false;
-          _error = 'Failed to capture photo: $e';
-        });
+        setState(() => _isBusy = false);
+        AppSnackBars.showError(context, 'Failed to capture photo: $e');
       }
       return;
     }
@@ -331,12 +334,17 @@ class _WebCameraCaptureScreenState extends State<WebCameraCaptureScreen> {
         setState(() => _error = 'Failed to start recording.');
         return;
       }
+
       setState(() {
         _isRecording = true;
         _recordSeconds = 0;
       });
       _recordTimer = Timer.periodic(const Duration(seconds: 1), (_) {
         if (!mounted) return;
+        if (_recordSeconds >= maxRecordSeconds - 1) {
+          _onShutterTap();
+          return;
+        }
         setState(() => _recordSeconds++);
       });
     } else {
@@ -367,12 +375,6 @@ class _WebCameraCaptureScreenState extends State<WebCameraCaptureScreen> {
     }
   }
 
-  String get _recordTimeLabel {
-    final m = (_recordSeconds ~/ 60).toString().padLeft(2, '0');
-    final s = (_recordSeconds % 60).toString().padLeft(2, '0');
-    return '$m:$s';
-  }
-
   Future<void> _prepareVideoReview(String url) async {
     final controller = VideoPlayerController.networkUrl(Uri.parse(url));
     try {
@@ -382,7 +384,13 @@ class _WebCameraCaptureScreenState extends State<WebCameraCaptureScreen> {
         return;
       }
       controller.setLooping(true);
-      controller.play();
+      try {
+        await controller.play();
+      } catch (_) {
+        controller.setVolume(0);
+        await controller.play();
+      }
+      _cachedVideo?.style.display = 'none';
       setState(() {
         _isBusy = false;
         _reviewVideoController = controller;
@@ -391,10 +399,8 @@ class _WebCameraCaptureScreenState extends State<WebCameraCaptureScreen> {
     } catch (e) {
       controller.dispose();
       if (!mounted) return;
-      setState(() {
-        _isBusy = false;
-        _error = 'Failed to load recording: $e';
-      });
+      setState(() => _isBusy = false);
+      AppSnackBars.showError(context, 'Failed to load video recording: $e');
     }
   }
 
@@ -402,22 +408,34 @@ class _WebCameraCaptureScreenState extends State<WebCameraCaptureScreen> {
   // The stream itself is never stopped/restarted here — only started once
   // in initState and stopped once in dispose — so retaking is instant.
   void _retake() {
-    _jsRevokeObjectUrl(_pendingResult!.objectUrl.toJS);
+    if (_pendingResult != null && _pendingResult!.objectUrl.isNotEmpty) {
+      _jsRevokeObjectUrl(_pendingResult!.objectUrl.toJS);
+    }
     _reviewVideoController?.dispose();
+    _cachedVideo?.style.display = 'block';
     setState(() {
       _pendingResult = null;
       _reviewVideoController = null;
     });
   }
 
-  void _useCapture() {
-    Navigator.of(context).pop(_pendingResult);
+  void _useCapture([bool isMuted = false]) {
+    _cachedVideo?.style.display = 'block';
+    final finalResult = _pendingResult != null && _pendingResult!.isVideo
+        ? WebCameraCaptureResult(
+            objectUrl: _pendingResult!.objectUrl,
+            isVideo: true,
+            isMuted: isMuted,
+          )
+        : _pendingResult;
+    Navigator.of(context).pop(finalResult);
   }
 
   @override
   void dispose() {
     _recordTimer?.cancel();
     _reviewVideoController?.dispose();
+    _cachedVideo?.style.display = 'block';
     try {
       _jsStop();
     } catch (_) {}
@@ -453,7 +471,7 @@ class _WebCameraCaptureScreenState extends State<WebCameraCaptureScreen> {
                 right: 0,
                 child: SafeArea(
                   child: Padding(
-                    padding: const EdgeInsets.only(top: 56),
+                    padding: const EdgeInsets.only(top: 8),
                     child: Center(
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -519,46 +537,6 @@ class _WebCameraCaptureScreenState extends State<WebCameraCaptureScreen> {
               ),
             ),
 
-            // Recording indicator — centered independently of the top bar's
-            // two end-aligned icons, rather than competing for a slot in
-            // that row.
-            if (_isRecording)
-              Positioned(
-                top: 0,
-                left: 0,
-                right: 0,
-                child: SafeArea(
-                  child: Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: Center(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: Colors.red.withValues(alpha: 0.15),
-                          border: Border.all(color: Colors.red.withValues(alpha: 0.4)),
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const _PulsingDot(),
-                            const SizedBox(width: 6),
-                            Text(
-                              _recordTimeLabel,
-                              style: AppTypography.inter(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-
             // Mode toggle + shutter + camera flip
             Positioned(
               left: 0,
@@ -587,6 +565,9 @@ class _WebCameraCaptureScreenState extends State<WebCameraCaptureScreen> {
                             _ShutterButton(
                               isVideoMode: _isVideoMode,
                               isRecording: _isRecording,
+                              recordProgress: _isRecording
+                                  ? (_recordSeconds / maxRecordSeconds).clamp(0.0, 1.0)
+                                  : null,
                               isBusy: _isBusy,
                               onTap: _onShutterTap,
                             ),
@@ -789,11 +770,11 @@ class _GalleryReviewTile extends StatelessWidget {
 /// to the caller — lets a bad take (blocked framing, motion blur, wrong
 /// mode) be discarded and retaken instead of only being catchable after
 /// upload via delete/report.
-class _CaptureReview extends StatelessWidget {
+class _CaptureReview extends StatefulWidget {
   final WebCameraCaptureResult result;
   final VideoPlayerController? videoController;
   final VoidCallback onRetake;
-  final VoidCallback onUse;
+  final Function(bool isMuted) onUse;
 
   const _CaptureReview({
     required this.result,
@@ -803,6 +784,27 @@ class _CaptureReview extends StatelessWidget {
   });
 
   @override
+  State<_CaptureReview> createState() => _CaptureReviewState();
+}
+
+class _CaptureReviewState extends State<_CaptureReview> {
+  late bool _isMuted;
+
+  @override
+  void initState() {
+    super.initState();
+    _isMuted = widget.videoController?.value.volume == 0.0;
+  }
+
+  void _toggleMute() {
+    if (widget.videoController == null) return;
+    setState(() {
+      _isMuted = !_isMuted;
+      widget.videoController!.setVolume(_isMuted ? 0.0 : 1.0);
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Container(
       color: Colors.black,
@@ -810,15 +812,61 @@ class _CaptureReview extends StatelessWidget {
         fit: StackFit.expand,
         children: [
           Center(
-            child: result.isVideo
-                ? (videoController != null && videoController!.value.isInitialized
-                    ? AspectRatio(
-                        aspectRatio: videoController!.value.aspectRatio,
-                        child: VideoPlayer(videoController!),
+            child: widget.result.isVideo
+                ? (widget.videoController != null && widget.videoController!.value.isInitialized
+                    ? GestureDetector(
+                        onTap: () {
+                          if (widget.videoController!.value.isPlaying) {
+                            widget.videoController!.pause();
+                          } else {
+                            widget.videoController!.play();
+                          }
+                        },
+                        child: AspectRatio(
+                          aspectRatio: widget.videoController!.value.aspectRatio,
+                          child: VideoPlayer(widget.videoController!),
+                        ),
                       )
                     : CircularProgressIndicator(color: context.accentColor))
-                : Image.network(result.objectUrl, fit: BoxFit.contain),
+                : Image.network(widget.result.objectUrl, fit: BoxFit.contain),
           ),
+          if (widget.result.isVideo && widget.videoController != null)
+            Positioned(
+              top: 16,
+              right: 16,
+              child: SafeArea(
+                child: GestureDetector(
+                  onTap: _toggleMute,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.6),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: Colors.white24),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          _isMuted ? Icons.volume_off_rounded : Icons.volume_up_rounded,
+                          color: _isMuted ? Colors.redAccent : context.accentColor,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          _isMuted ? 'Muted' : 'Audio On',
+                          style: AppTypography.inter(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
           Positioned(
             left: 0,
             right: 0,
@@ -847,7 +895,7 @@ class _CaptureReview extends StatelessWidget {
                               borderRadius: BorderRadius.circular(12),
                             ),
                           ),
-                          onPressed: onRetake,
+                          onPressed: widget.onRetake,
                         ),
                       ),
                     ),
@@ -855,10 +903,10 @@ class _CaptureReview extends StatelessWidget {
                     Expanded(
                       child: PrimaryButton(
                         icon: Icons.check_circle_outline,
-                        text: result.isVideo ? 'Use Video' : 'Use Photo',
+                        text: widget.result.isVideo ? 'Use Video' : 'Use Photo',
                         backgroundColor: context.accentColor,
                         textColor: Colors.black,
-                        onPressed: onUse,
+                        onPressed: () => widget.onUse(_isMuted),
                       ),
                     ),
                   ],
@@ -956,12 +1004,14 @@ class _ModeOption extends StatelessWidget {
 class _ShutterButton extends StatelessWidget {
   final bool isVideoMode;
   final bool isRecording;
+  final double? recordProgress;
   final bool isBusy;
   final VoidCallback onTap;
 
   const _ShutterButton({
     required this.isVideoMode,
     required this.isRecording,
+    this.recordProgress,
     required this.isBusy,
     required this.onTap,
   });
@@ -970,32 +1020,48 @@ class _ShutterButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: isBusy ? null : onTap,
-      child: Container(
-        width: 68,
-        height: 68,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          border: Border.all(color: Colors.white, width: 3.5),
-        ),
-        child: Center(
-          child: isBusy
-              ? const SizedBox(
-                  width: 24,
-                  height: 24,
-                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                )
-              : AnimatedContainer(
-                  duration: const Duration(milliseconds: 150),
-                  width: isVideoMode && isRecording ? 26 : 54,
-                  height: isVideoMode && isRecording ? 26 : 54,
-                  decoration: BoxDecoration(
-                    color: isVideoMode ? Colors.redAccent : Colors.white,
-                    borderRadius: BorderRadius.circular(
-                      isVideoMode && isRecording ? 6 : 27,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          if (isRecording && recordProgress != null)
+            SizedBox(
+              width: 76,
+              height: 76,
+              child: CircularProgressIndicator(
+                value: recordProgress,
+                strokeWidth: 3.5,
+                color: Colors.redAccent,
+                backgroundColor: Colors.white24,
+              ),
+            ),
+          Container(
+            width: 68,
+            height: 68,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.white, width: 3.5),
+            ),
+            child: Center(
+              child: isBusy
+                  ? const SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    )
+                  : AnimatedContainer(
+                      duration: const Duration(milliseconds: 150),
+                      width: isVideoMode && isRecording ? 26 : 54,
+                      height: isVideoMode && isRecording ? 26 : 54,
+                      decoration: BoxDecoration(
+                        color: isVideoMode ? Colors.redAccent : Colors.white,
+                        borderRadius: BorderRadius.circular(
+                          isVideoMode && isRecording ? 6 : 27,
+                        ),
+                      ),
                     ),
-                  ),
-                ),
-        ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1053,53 +1119,6 @@ class _RoundIconButton extends StatelessWidget {
           size: 24,
         ),
       ),
-    );
-  }
-}
-
-class _PulsingDot extends StatefulWidget {
-  const _PulsingDot();
-
-  @override
-  State<_PulsingDot> createState() => _PulsingDotState();
-}
-
-class _PulsingDotState extends State<_PulsingDot> with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1200),
-    )..repeat(reverse: true);
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return FadeTransition(
-      opacity: Tween<double>(begin: 1, end: 0.3).animate(_controller),
-      child: const _Dot(),
-    );
-  }
-}
-
-class _Dot extends StatelessWidget {
-  const _Dot();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 7,
-      height: 7,
-      decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
     );
   }
 }

@@ -6,14 +6,19 @@ void revokeWebCameraCaptureUrl(String url) {}
 class WebCameraCaptureResult {
   final String objectUrl;
   final bool isVideo;
+  final bool isMuted;
   final List<XFile> pickedFiles;
 
-  const WebCameraCaptureResult({required this.objectUrl, required this.isVideo})
-      : pickedFiles = const [];
+  const WebCameraCaptureResult({
+    required this.objectUrl,
+    required this.isVideo,
+    this.isMuted = false,
+  }) : pickedFiles = const [];
 
   const WebCameraCaptureResult.pickedFiles(this.pickedFiles)
       : objectUrl = '',
-        isVideo = false;
+        isVideo = false,
+        isMuted = false;
 }
 
 class WebCameraCaptureScreen extends StatelessWidget {

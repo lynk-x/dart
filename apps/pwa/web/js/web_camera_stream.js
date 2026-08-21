@@ -275,6 +275,10 @@ window.flutterCameraStream = {
     canvas.width = width;
     canvas.height = height;
     const ctx = canvas.getContext("2d");
+    if (this.isFrontFacing()) {
+      ctx.translate(width, 0);
+      ctx.scale(-1, 1);
+    }
     ctx.drawImage(this.videoElement, 0, 0, width, height);
 
     return new Promise((resolve) => {
