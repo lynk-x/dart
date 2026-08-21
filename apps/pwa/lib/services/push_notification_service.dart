@@ -117,7 +117,6 @@ class PushNotificationService {
           'platform': kIsWeb ? 'web' : 'other',
         },
       });
-      debugPrint('[Push] FCM token saved');
     } catch (e) {
       debugPrint('[Push] Failed to save FCM token: $e');
     }

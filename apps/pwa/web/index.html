@@ -225,8 +225,6 @@
       window.addEventListener('load', () => {
         // 1. Main SW (Workbox — handles offline caching & app shell)
         navigator.serviceWorker.register('/service-worker.js').then((reg) => {
-          console.log('[SW] Registered:', reg.scope);
-
           // Function to show the update banner
           function showUpdateBanner(worker) {
             if (sessionStorage.getItem('sw-update-dismissed') === 'true') {
@@ -308,8 +306,6 @@
         // 2. Firebase Messaging SW (background push notifications)
         navigator.serviceWorker.register('/firebase-messaging-sw.js', {
           scope: '/firebase-cloud-messaging-push-scope',
-        }).then((reg) => {
-          console.log('[FCM SW] Registered:', reg.scope);
         }).catch((err) => console.warn('[FCM SW] Registration failed:', err));
       });
     }

@@ -19,19 +19,15 @@ window.lynkAudioStreamHelper = {
       el.style.display = 'none';
       el.setAttribute('playsinline', 'true');
       document.body.appendChild(el);
-      console.log('[AudioStreamHelper] Created hidden DOM audio element: #lynk_live_audio_node');
     }
     this.audioElement = el;
     return el;
   },
 
   bindRemoteStream(stream) {
-    console.log('[AudioStreamHelper] Binding remote audio stream to DOM node:', stream);
     const el = this.getOrCreateAudioElement();
     el.srcObject = stream;
-    el.play().then(() => {
-      console.log('[AudioStreamHelper] Remote stream playback started successfully.');
-    }).catch(e => console.warn('[AudioStreamHelper] Auto-play prevented:', e));
+    el.play().catch(e => console.warn('[AudioStreamHelper] Auto-play prevented:', e));
     this.setupAudioAnalyser(stream);
   },
 
@@ -49,7 +45,6 @@ window.lynkAudioStreamHelper = {
 
       const bufferLength = this.analyserNode.frequencyBinCount;
       this.analyserDataArray = new Uint8Array(bufferLength);
-      console.log('[AudioStreamHelper] Web Audio AnalyserNode initialized for audio level telemetry.');
     } catch (e) {
       console.warn('[AudioStreamHelper] Analyser setup failed:', e);
     }
@@ -75,12 +70,10 @@ window.lynkAudioStreamHelper = {
       this.audioContext = null;
       this.analyserNode = null;
       this.analyserDataArray = null;
-      console.log('[AudioStreamHelper] Audio Analyser stopped.');
     }
   },
 
   setupMediaSession(title, artist, artworkUrl) {
-    console.log('[AudioStreamHelper] Setting up OS Media Session:', { title, artist, artworkUrl });
     this.getOrCreateAudioElement();
 
     if ('mediaSession' in navigator) {
@@ -94,12 +87,10 @@ window.lynkAudioStreamHelper = {
       });
 
       navigator.mediaSession.setActionHandler('play', () => {
-        console.log('[AudioStreamHelper] OS MediaSession action: PLAY');
         if (this.audioElement) this.audioElement.play();
       });
 
       navigator.mediaSession.setActionHandler('pause', () => {
-        console.log('[AudioStreamHelper] OS MediaSession action: PAUSE');
         if (this.audioElement) this.audioElement.pause();
       });
     }
@@ -109,7 +100,6 @@ window.lynkAudioStreamHelper = {
     try {
       if ('wakeLock' in navigator && !this.wakeLock) {
         this.wakeLock = await navigator.wakeLock.request('screen');
-        console.log('[AudioStreamHelper] Screen WakeLock requested and acquired.');
       }
     } catch (e) {
       console.warn('[WakeLock] Request failed:', e);
@@ -121,7 +111,6 @@ window.lynkAudioStreamHelper = {
       if (this.wakeLock) {
         await this.wakeLock.release();
         this.wakeLock = null;
-        console.log('[AudioStreamHelper] Screen WakeLock released.');
       }
     } catch (e) {
       console.warn('[WakeLock] Release failed:', e);
@@ -129,7 +118,6 @@ window.lynkAudioStreamHelper = {
   },
 
   clearMediaSession() {
-    console.log('[AudioStreamHelper] Clearing OS Media Session and releasing audio resources.');
     this.releaseWakeLock();
     this.stopAudioAnalyser();
     if ('mediaSession' in navigator) {
@@ -143,12 +131,11 @@ window.lynkAudioStreamHelper = {
 
   initVisibilityListener(onForegroundCallback) {
     document.addEventListener('visibilitychange', () => {
-      console.log('[AudioStreamHelper] Visibility changed:', document.visibilityState);
       if (document.visibilityState === 'visible') {
         if (this.wakeLock) {
           this.requestWakeLock();
         }
-        if (typeof onForegroundCallback === 'function') {
+        if (onForegroundCallback) {
           onForegroundCallback();
         }
       }

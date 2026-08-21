@@ -171,13 +171,13 @@ class _WebCameraCaptureScreenState extends State<WebCameraCaptureScreen> {
         ..id = _elementId
         ..style.width = '100%'
         ..style.height = '100%'
-        ..style.objectFit = 'contain';
+        ..style.objectFit = 'cover';
 
       _cachedVideo!.setAttribute('playsinline', 'true');
       _cachedVideo!.setAttribute('autoplay', 'true');
       _cachedVideo!.setAttribute('muted', 'true');
     } else {
-      _cachedVideo!.style.objectFit = 'contain';
+      _cachedVideo!.style.objectFit = 'cover';
     }
 
     ui_web.platformViewRegistry.registerViewFactory(

@@ -90,20 +90,32 @@ void main() async {
 
   if (sentryDsn.isNotEmpty) {
     try {
-      await SentryFlutter.init(
-        (options) {
-          options.dsn = sentryDsn;
-          options.environment = const bool.fromEnvironment('dart.vm.product')
-              ? 'production'
-              : 'debug';
-          options.tracesSampleRate = 0.1;
-          options.attachScreenshot = true;
-          options.screenshotQuality = SentryScreenshotQuality.low;
-        },
-        appRunner: () => runApp(const LynkXAppWrapper()),
-      );
+      if (kIsWeb) {
+        await Sentry.init(
+          (options) {
+            options.dsn = sentryDsn;
+            options.environment = const bool.fromEnvironment('dart.vm.product')
+                ? 'production'
+                : 'debug';
+            options.tracesSampleRate = 0.1;
+          },
+          appRunner: () => runApp(const LynkXAppWrapper()),
+        );
+      } else {
+        await SentryFlutter.init(
+          (options) {
+            options.dsn = sentryDsn;
+            options.environment = const bool.fromEnvironment('dart.vm.product')
+                ? 'production'
+                : 'debug';
+            options.tracesSampleRate = 0.1;
+            options.attachScreenshot = true;
+            options.screenshotQuality = SentryScreenshotQuality.low;
+          },
+          appRunner: () => runApp(const LynkXAppWrapper()),
+        );
+      }
     } catch (e) {
-      debugPrint('[Main] Sentry initialization failed: $e');
       runApp(const LynkXAppWrapper());
     }
   } else {
