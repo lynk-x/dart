@@ -36,11 +36,14 @@ void main() async {
 
   // Initialize HydratedStorage for persistent state (Web only for PWA)
   try {
-    HydratedBloc.storage = await HydratedStorage.build(
-      storageDirectory: HydratedStorageDirectory.web,
-    );
-  } catch (e) {
-    debugPrint('[Main] HydratedStorage initialization failed: $e');
+    if (kIsWeb) {
+      HydratedBloc.storage = await HydratedStorage.build(
+        storageDirectory: HydratedStorageDirectory.web,
+      );
+    } else {
+      HydratedBloc.storage = _InMemoryStorage();
+    }
+  } catch (_) {
     HydratedBloc.storage = _InMemoryStorage();
   }
 

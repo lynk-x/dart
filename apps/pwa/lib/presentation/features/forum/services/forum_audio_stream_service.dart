@@ -25,6 +25,9 @@ external void _jsClearMediaSession();
 @JS('window.lynkAudioStreamHelper.getAudioLevel')
 external JSNumber _jsGetAudioLevel();
 
+@JS('window.lynkAudioStreamHelper.setBroadcastMuted')
+external void _jsSetBroadcastMuted(JSBoolean muted);
+
 class ForumAudioStreamService {
   final SupabaseClient supabase;
   final String appId;
@@ -37,6 +40,14 @@ class ForumAudioStreamService {
     this.appId = '',
     this.appSecret = '',
   });
+
+  /// Controls HTML5 audio element broadcast mute state on Web
+  void setBroadcastMuted(bool muted) {
+    if (!kIsWeb) return;
+    try {
+      _jsSetBroadcastMuted(muted.toJS);
+    } catch (_) {}
+  }
 
   /// Captures local browser microphone media stream via navigator.mediaDevices.getUserMedia
   Future<bool> startLocalMicrophone() async {

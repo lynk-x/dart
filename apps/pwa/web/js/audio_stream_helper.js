@@ -62,8 +62,20 @@ window.lynkAudioStreamHelper = {
   bindRemoteStream(stream) {
     const el = this.getOrCreateAudioElement();
     el.srcObject = stream;
+    el.muted = false;
     el.play().catch(e => console.warn('[AudioStreamHelper] Auto-play prevented:', e));
     this.setupAudioAnalyser(stream);
+  },
+
+  setBroadcastMuted(isMuted) {
+    const el = this.getOrCreateAudioElement();
+    el.muted = !!isMuted;
+    if (!isMuted) {
+      el.play().catch(e => console.warn('[AudioStreamHelper] Play failed on unmute:', e));
+      if (this.audioContext && this.audioContext.state === 'suspended') {
+        this.audioContext.resume();
+      }
+    }
   },
 
   setupAudioAnalyser(stream) {

@@ -476,6 +476,7 @@ class _ForumViewState extends State<ForumView> {
                                             currentUserName: cubit.state.userName,
                                             isMicMuted: audioState.isMicMuted,
                                             isBroadcastMuted: audioState.isBroadcastMuted,
+                                            getAudioLevel: () => audioCubit.service.getAudioLevel(),
                                             onToggleMic: () {
                                               if (audioState.isMicMuted) {
                                                 PermissionAcks.ensureAcknowledged(

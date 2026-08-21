@@ -244,8 +244,10 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
 
   /// Toggles broadcast audio output mute/unmute state for listeners
   void toggleBroadcastMute() {
+    final nextMuted = !state.isBroadcastMuted;
+    service.setBroadcastMuted(nextMuted);
     emit(state.copyWith(
-      isBroadcastMuted: !state.isBroadcastMuted,
+      isBroadcastMuted: nextMuted,
     ));
   }
 
