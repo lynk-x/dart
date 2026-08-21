@@ -17,7 +17,14 @@ window.flutterCameraStream = {
   },
 
   async start(elementId, facingMode = "environment") {
-    const el = document.getElementById(elementId);
+    let el = document.getElementById(elementId);
+    
+    // Poll for DOM element insertion (handles Flutter Web HtmlElementView async mounting)
+    for (let attempts = 0; attempts < 15 && !el; attempts++) {
+      await new Promise(r => setTimeout(r, 50));
+      el = document.getElementById(elementId) || document.querySelector(`video[id="${elementId}"]`);
+    }
+
     if (!el) {
       console.error(`flutterCameraStream.start: element #${elementId} not found`);
       return false;
