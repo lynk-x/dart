@@ -165,7 +165,7 @@ class _ForumHeaderState extends State<ForumHeader> {
           // SLOT 3: Right Icon
           if (widget.isAudioLive && widget.role == ForumHeaderRole.host)
             IconButton(
-              icon: const Icon(Icons.stop_circle, color: Colors.red),
+              icon: const Icon(Icons.call_end_rounded, color: Colors.redAccent),
               onPressed: widget.onEndBroadcast,
               tooltip: 'End Broadcast',
             )

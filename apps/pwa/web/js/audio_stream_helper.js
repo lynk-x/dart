@@ -1,6 +1,6 @@
 // PWA Background Audio & Media Session Helper for Lynk-X
 // Manages HTML5 audio DOM node, OS MediaSession metadata/controls,
-// Screen WakeLock API, Web Audio AnalyserNode, and page visibility re-hydration.
+// Screen WakeLock API, Web Audio AnalyserNode, local microphone capture, and page visibility re-hydration.
 
 window.lynkAudioStreamHelper = {
   audioElement: null,
@@ -8,6 +8,7 @@ window.lynkAudioStreamHelper = {
   audioContext: null,
   analyserNode: null,
   analyserDataArray: null,
+  localAudioStream: null,
 
   getOrCreateAudioElement() {
     if (this.audioElement) return this.audioElement;
@@ -22,6 +23,40 @@ window.lynkAudioStreamHelper = {
     }
     this.audioElement = el;
     return el;
+  },
+
+  async startLocalMicrophone() {
+    try {
+      if (this.localAudioStream) {
+        this.stopLocalMicrophone();
+      }
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        }
+      });
+      this.localAudioStream = stream;
+      this.setupAudioAnalyser(stream);
+      return true;
+    } catch (e) {
+      console.warn('[AudioStreamHelper] getUserMedia mic permission denied or failed:', e);
+      return false;
+    }
+  },
+
+  stopLocalMicrophone() {
+    if (this.localAudioStream) {
+      try {
+        const tracks = this.localAudioStream.getTracks();
+        for (let i = 0; i < tracks.length; i++) {
+          tracks[i].stop();
+        }
+      } catch (_) {}
+      this.localAudioStream = null;
+    }
+    this.stopAudioAnalyser();
   },
 
   bindRemoteStream(stream) {
@@ -82,7 +117,9 @@ window.lynkAudioStreamHelper = {
         artist: artist || 'Lynk-X Event Community',
         album: 'Lynk-X Audio Streams',
         artwork: [
-          { src: artworkUrl || 'icons/Icon-512.png', sizes: '512x512', type: 'image/png' }
+          { src: artworkUrl || 'icons/Icon-maskable-512.png', sizes: '512x512', type: 'image/png' },
+          { src: 'assets/images/lynk-x_combined-logo.png', sizes: '512x512', type: 'image/png' },
+          { src: 'icons/Icon-512.png', sizes: '512x512', type: 'image/png' }
         ]
       });
 
@@ -118,6 +155,7 @@ window.lynkAudioStreamHelper = {
   },
 
   clearMediaSession() {
+    this.stopLocalMicrophone();
     this.releaseWakeLock();
     this.stopAudioAnalyser();
     if ('mediaSession' in navigator) {

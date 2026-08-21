@@ -130,6 +130,14 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
     if (state.isLive) return;
 
     try {
+      final micGranted = await service.startLocalMicrophone();
+      if (!micGranted) {
+        emit(state.copyWith(
+          errorMessage: 'Microphone access is required to host a live audio stream.',
+        ));
+        return;
+      }
+
       final sessionId = await service.createCloudflareSession();
 
       await service.updateForumStreamingConfig(
@@ -164,6 +172,7 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
         activeSpeakers: initialSpeakers,
       );
     } catch (e) {
+      service.stopLocalMicrophone();
       emit(state.copyWith(errorMessage: 'Failed to start audio stream: $e'));
     }
   }
@@ -173,6 +182,7 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
     if (!state.isLive) return;
 
     try {
+      service.stopLocalMicrophone();
       service.clearMediaSession();
       await service.updateForumStreamingConfig(
         forumId: forumId,
@@ -203,12 +213,19 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
     final currentSpeakers = List<String>.from(state.activeSpeakerNames);
 
     if (nextMuted) {
+      service.stopLocalMicrophone();
       currentSpeakers.remove(userName);
-    } else if (!currentSpeakers.contains(userName)) {
-      currentSpeakers.add(userName);
-    }
-
-    if (!nextMuted) {
+    } else {
+      final micGranted = await service.startLocalMicrophone();
+      if (!micGranted) {
+        emit(state.copyWith(
+          errorMessage: 'Microphone access is required to speak.',
+        ));
+        return;
+      }
+      if (!currentSpeakers.contains(userName)) {
+        currentSpeakers.add(userName);
+      }
       service.requestWakeLock();
     }
 

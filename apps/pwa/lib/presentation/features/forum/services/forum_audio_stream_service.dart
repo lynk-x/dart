@@ -7,6 +7,12 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 @JS('window.lynkAudioStreamHelper.setupMediaSession')
 external void _jsSetupMediaSession(JSString title, JSString artist, JSString artworkUrl);
 
+@JS('window.lynkAudioStreamHelper.startLocalMicrophone')
+external JSPromise<JSBoolean> _jsStartLocalMicrophone();
+
+@JS('window.lynkAudioStreamHelper.stopLocalMicrophone')
+external void _jsStopLocalMicrophone();
+
 @JS('window.lynkAudioStreamHelper.requestWakeLock')
 external JSPromise<JSAny?> _jsRequestWakeLock();
 
@@ -32,6 +38,26 @@ class ForumAudioStreamService {
     this.appSecret = '',
   });
 
+  /// Captures local browser microphone media stream via navigator.mediaDevices.getUserMedia
+  Future<bool> startLocalMicrophone() async {
+    if (!kIsWeb) return true;
+    try {
+      final res = await _jsStartLocalMicrophone().toDart;
+      return res.toDart;
+    } catch (e) {
+      debugPrint('[AudioStreamService] startLocalMicrophone error: $e');
+      return false;
+    }
+  }
+
+  /// Stops local microphone media stream and releases hardware track handles
+  void stopLocalMicrophone() {
+    if (!kIsWeb) return;
+    try {
+      _jsStopLocalMicrophone();
+    } catch (_) {}
+  }
+
   /// Retrieves current real-time vocal intensity (0.0 to 1.0) from AnalyserNode
   double getAudioLevel() {
     if (!kIsWeb) return 0.0;
@@ -53,7 +79,7 @@ class ForumAudioStreamService {
       _jsSetupMediaSession(
         title.toJS,
         artist.toJS,
-        (artworkUrl ?? 'icons/Icon-512.png').toJS,
+        (artworkUrl ?? 'icons/Icon-maskable-512.png').toJS,
       );
     } catch (_) {}
   }
