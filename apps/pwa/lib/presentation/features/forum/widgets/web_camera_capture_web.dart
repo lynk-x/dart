@@ -482,6 +482,10 @@ class _WebCameraCaptureScreenState extends State<WebCameraCaptureScreen> {
     _reviewVideoController?.dispose();
     _cachedVideo?.style.display = 'block';
     try {
+      _cachedVideo?.pause();
+      _cachedVideo?.srcObject = null;
+    } catch (_) {}
+    try {
       _jsStop();
     } catch (_) {}
     super.dispose();

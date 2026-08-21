@@ -82,15 +82,36 @@ window.flutterCameraStream = {
   stop() {
     this.stopRecordingLoop();
     if (this.stream) {
-      this.stream.getTracks().forEach((track) => track.stop());
+      this.stream.getTracks().forEach((track) => {
+        try {
+          track.stop();
+        } catch (e) {}
+      });
       this.stream = null;
     }
+    if (this.recordStream) {
+      this.recordStream.getTracks().forEach((track) => {
+        try {
+          track.stop();
+        } catch (e) {}
+      });
+      this.recordStream = null;
+    }
     if (this.audioStream) {
-      this.audioStream.getTracks().forEach((track) => track.stop());
+      this.audioStream.getTracks().forEach((track) => {
+        try {
+          track.stop();
+        } catch (e) {}
+      });
       this.audioStream = null;
     }
     if (this.videoElement) {
-      this.videoElement.srcObject = null;
+      try {
+        this.videoElement.pause();
+        this.videoElement.srcObject = null;
+        this.videoElement.removeAttribute("src");
+        this.videoElement.load();
+      } catch (e) {}
     }
     this.activeDeviceId = null;
   },
@@ -200,13 +221,33 @@ window.flutterCameraStream = {
   },
 
   stopRecordingLoop() {
+    if (this.mediaRecorder) {
+      try {
+        if (this.mediaRecorder.state !== "inactive") {
+          this.mediaRecorder.stop();
+        }
+      } catch (e) {}
+      this.mediaRecorder = null;
+    }
     if (this.recordAnimFrameId) {
       cancelAnimationFrame(this.recordAnimFrameId);
       this.recordAnimFrameId = null;
     }
     this.recordCanvas = null;
+    if (this.recordStream) {
+      this.recordStream.getTracks().forEach((track) => {
+        try {
+          track.stop();
+        } catch (e) {}
+      });
+      this.recordStream = null;
+    }
     if (this.audioStream) {
-      this.audioStream.getTracks().forEach((track) => track.stop());
+      this.audioStream.getTracks().forEach((track) => {
+        try {
+          track.stop();
+        } catch (e) {}
+      });
       this.audioStream = null;
     }
   },
@@ -260,6 +301,8 @@ window.flutterCameraStream = {
         recordStream = canvasStream;
       }
     }
+
+    this.recordStream = recordStream;
 
     const mimeType = this._pickRecorderMimeType();
     try {
