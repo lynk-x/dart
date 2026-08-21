@@ -23,7 +23,7 @@ external JSPromise<JSBoolean> _jsSwitchCamera();
 external JSPromise<JSString?> _jsCapturePhoto();
 
 @JS('window.flutterCameraStream.startRecording')
-external JSBoolean _jsStartRecording();
+external JSPromise<JSBoolean> _jsStartRecording();
 
 @JS('window.flutterCameraStream.stopRecording')
 external JSPromise<JSString?> _jsStopRecording();
@@ -316,10 +316,10 @@ class _WebCameraCaptureScreenState extends State<WebCameraCaptureScreen> {
     );
   }
 
-  void _actuallyStartRecording() {
+  Future<void> _actuallyStartRecording() async {
     if (!mounted || _isRecording || _isBusy || !_isInitialized) return;
 
-    final started = _jsStartRecording().toDart;
+    final started = (await _jsStartRecording().toDart).toDart;
     if (!started) {
       setState(() => _error = 'Failed to start recording.');
       return;

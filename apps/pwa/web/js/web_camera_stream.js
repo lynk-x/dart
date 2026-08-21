@@ -42,8 +42,7 @@ window.flutterCameraStream = {
         facingMode: { ideal: facingMode },
         width: { ideal: 1920 },
         height: { ideal: 1080 }
-      },
-      audio: true
+      }
     };
 
     try {
@@ -197,11 +196,23 @@ window.flutterCameraStream = {
     this.recordCanvas = null;
   },
 
-  startRecording() {
+  async startRecording() {
     if (!this.stream) return false;
     if (this.mediaRecorder && this.mediaRecorder.state === "recording") return false;
 
     let recordStream = this.stream;
+
+    // Acquire microphone audio track for video recording if available
+    try {
+      const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const audioTrack = audioStream.getAudioTracks()[0];
+      if (audioTrack) {
+        recordStream = recordStream.clone();
+        recordStream.addTrack(audioTrack);
+      }
+    } catch (e) {
+      console.warn("Recording video without audio track (mic permission pending or unavailable):", e);
+    }
 
     // For front camera, draw to canvas & capture mirrored stream so recorded video matches preview
     if (this.isFrontFacing() && this.videoElement) {
@@ -228,8 +239,8 @@ window.flutterCameraStream = {
 
       if (typeof canvas.captureStream === "function") {
         const canvasStream = canvas.captureStream(30);
-        // Include audio tracks from original camera stream
-        this.stream.getAudioTracks().forEach(track => canvasStream.addTrack(track));
+        // Include audio tracks from recordStream
+        recordStream.getAudioTracks().forEach(track => canvasStream.addTrack(track));
         recordStream = canvasStream;
       }
     }
