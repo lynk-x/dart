@@ -85,6 +85,10 @@ window.flutterCameraStream = {
       this.stream.getTracks().forEach((track) => track.stop());
       this.stream = null;
     }
+    if (this.audioStream) {
+      this.audioStream.getTracks().forEach((track) => track.stop());
+      this.audioStream = null;
+    }
     if (this.videoElement) {
       this.videoElement.srcObject = null;
     }
@@ -201,6 +205,10 @@ window.flutterCameraStream = {
       this.recordAnimFrameId = null;
     }
     this.recordCanvas = null;
+    if (this.audioStream) {
+      this.audioStream.getTracks().forEach((track) => track.stop());
+      this.audioStream = null;
+    }
   },
 
   async startRecording() {
@@ -214,6 +222,7 @@ window.flutterCameraStream = {
       const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const audioTrack = audioStream.getAudioTracks()[0];
       if (audioTrack) {
+        this.audioStream = audioStream;
         recordStream = recordStream.clone();
         recordStream.addTrack(audioTrack);
       }

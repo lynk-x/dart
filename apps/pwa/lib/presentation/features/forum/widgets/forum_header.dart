@@ -105,16 +105,15 @@ class _ForumHeaderState extends State<ForumHeader> {
         children: [
           const SizedBox(width: 8),
 
-          // SLOT 1: Left Icon (Long press to start audio stream for organizer)
+          // SLOT 1: Left Icon (Mic toggle with active wave animation / start audio stream on double tap)
           if (widget.isAudioLive && (widget.role == ForumHeaderRole.host || widget.role == ForumHeaderRole.speaker))
-            IconButton(
-              icon: Icon(
-                widget.isMicMuted ? Icons.mic_off : Icons.mic,
-                color: widget.isMicMuted ? Colors.red : Colors.black,
-              ),
-              onPressed: widget.onToggleMic,
-              tooltip: widget.isMicMuted ? 'Unmute Mic' : 'Mute Mic',
-            )
+            widget.isMicMuted
+                ? IconButton(
+                    icon: const Icon(Icons.mic_off_rounded, color: Colors.red),
+                    onPressed: widget.onToggleMic,
+                    tooltip: 'Unmute Mic',
+                  )
+                : _ActiveMicWaveButton(onToggleMic: widget.onToggleMic)
           else if (widget.isAudioLive)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8.0),
@@ -231,6 +230,95 @@ class _Bar extends StatelessWidget {
       duration: const Duration(milliseconds: 300),
       width: 3,
       height: isSpeaking ? height : 4,
+      decoration: BoxDecoration(
+        color: Colors.black,
+        borderRadius: BorderRadius.circular(2),
+      ),
+    );
+  }
+}
+
+/// Interactive Microphone button displaying a mini pulsing wave animation when active.
+class _ActiveMicWaveButton extends StatefulWidget {
+  final VoidCallback? onToggleMic;
+
+  const _ActiveMicWaveButton({required this.onToggleMic});
+
+  @override
+  State<_ActiveMicWaveButton> createState() => _ActiveMicWaveButtonState();
+}
+
+class _ActiveMicWaveButtonState extends State<_ActiveMicWaveButton>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1000),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: widget.onToggleMic,
+      borderRadius: BorderRadius.circular(20),
+      child: Tooltip(
+        message: 'Mute Mic',
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 6.0),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                Icons.mic_rounded,
+                color: Colors.black,
+                size: 20,
+              ),
+              const SizedBox(width: 4),
+              AnimatedBuilder(
+                animation: _controller,
+                builder: (context, child) {
+                  final v = _controller.value;
+                  return Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _WaveBar(height: 5 + (7 * v)),
+                      const SizedBox(width: 2),
+                      _WaveBar(height: 4 + (11 * (1.0 - v))),
+                      const SizedBox(width: 2),
+                      _WaveBar(height: 6 + (8 * v)),
+                    ],
+                  );
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _WaveBar extends StatelessWidget {
+  final double height;
+
+  const _WaveBar({required this.height});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 2.5,
+      height: height.clamp(4.0, 16.0),
       decoration: BoxDecoration(
         color: Colors.black,
         borderRadius: BorderRadius.circular(2),

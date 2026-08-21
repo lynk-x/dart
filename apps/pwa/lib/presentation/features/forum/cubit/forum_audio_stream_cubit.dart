@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../services/forum_audio_stream_service.dart';
 import '../widgets/forum_header.dart';
@@ -68,7 +67,6 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
         }
       } else if (state.isLive && state.role != ForumHeaderRole.host) {
         // If stream explicitly ended according to config and we are not the active local host
-        debugPrint('[AudioStreamCubit] Stream ended according to server config. Tearing down media session.');
         service.clearMediaSession();
         emit(const ForumAudioStreamState(
           isLive: false,
@@ -81,12 +79,9 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
     }
   }
 
-  /// Handles incoming broadcast events from the WebSocket channel
   void _handleAudioEvent(Map<String, dynamic> payload) {
     final action = payload['action'] as String?;
     if (action == null) return;
-
-    debugPrint('[AudioStreamCubit] 📡 Realtime broadcast event received: action=$action | payload=$payload');
 
     switch (action) {
       case 'start_stream':
@@ -133,11 +128,9 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
   /// Starts a new live Audio Stream (Invoked by organizer/user double tap)
   Future<void> startAudioStream() async {
     if (state.isLive) return;
-    debugPrint('[AudioStreamCubit] 🎙️ startAudioStream initiated by user $userName ($userId)...');
 
     try {
       final sessionId = await service.createCloudflareSession();
-      debugPrint('[AudioStreamCubit] Created Cloudflare WebRTC session: $sessionId');
 
       await service.updateForumStreamingConfig(
         forumId: forumId,
@@ -170,9 +163,7 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
         hostId: userId,
         activeSpeakers: initialSpeakers,
       );
-      debugPrint('[AudioStreamCubit] ✅ startAudioStream completed and broadcasted successfully.');
     } catch (e) {
-      debugPrint('[AudioStreamCubit] ❌ startAudioStream failed: $e');
       emit(state.copyWith(errorMessage: 'Failed to start audio stream: $e'));
     }
   }
@@ -180,7 +171,6 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
   /// Ends an active Audio Stream (Invoked by host tapping stop button)
   Future<void> endAudioStream() async {
     if (!state.isLive) return;
-    debugPrint('[AudioStreamCubit] ⏹️ endAudioStream initiated for forum $forumId...');
 
     try {
       service.clearMediaSession();
@@ -202,9 +192,7 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
         action: 'end_stream',
         hostId: userId,
       );
-      debugPrint('[AudioStreamCubit] ✅ endAudioStream completed and broadcasted successfully.');
     } catch (e) {
-      debugPrint('[AudioStreamCubit] ❌ endAudioStream failed: $e');
       emit(state.copyWith(errorMessage: 'Failed to end audio stream: $e'));
     }
   }
@@ -219,8 +207,6 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
     } else if (!currentSpeakers.contains(userName)) {
       currentSpeakers.add(userName);
     }
-
-    debugPrint('[AudioStreamCubit] 🎤 toggleMic called -> isMicMuted: $nextMuted | speakers: $currentSpeakers');
 
     if (!nextMuted) {
       service.requestWakeLock();
