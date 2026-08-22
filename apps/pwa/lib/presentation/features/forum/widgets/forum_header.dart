@@ -28,8 +28,9 @@ class ForumHeader extends StatefulWidget {
   /// The name of the forum to display.
   final String forumName;
 
-  /// Audio room parameters
+  /// Audio / Video live room parameters
   final bool isAudioLive;
+  final bool isVideoStreamLive;
   final ForumHeaderRole role;
   final List<String> activeSpeakerNames;
   final String? currentUserName;
@@ -57,6 +58,7 @@ class ForumHeader extends StatefulWidget {
     this.onLockToggle,
     this.forumName = 'Community Forum',
     this.isAudioLive = false,
+    this.isVideoStreamLive = false,
     this.role = ForumHeaderRole.listener,
     this.activeSpeakerNames = const [],
     this.currentUserName,
@@ -78,6 +80,7 @@ class _ForumHeaderState extends State<ForumHeader> {
   bool _isSearching = false;
 
   String _resolveCenterText() {
+    if (widget.isVideoStreamLive) return 'Live Stream happening';
     if (!widget.isAudioLive) return widget.forumName;
 
     final speakers = widget.activeSpeakerNames;
@@ -114,8 +117,23 @@ class _ForumHeaderState extends State<ForumHeader> {
         children: [
           const SizedBox(width: 8),
 
-          // SLOT 1: Left Icon (Mic toggle / start audio stream on double tap / start live stream on long press)
-          if (widget.isAudioLive && (widget.role == ForumHeaderRole.host || widget.role == ForumHeaderRole.speaker))
+          // SLOT 1: Left Icon (Camcorder + Mini Waveform for video stream / Mic toggle for audio)
+          if (widget.isVideoStreamLive)
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Padding(
+                  padding: EdgeInsets.only(left: 4.0),
+                  child: Icon(Icons.videocam_rounded, color: Colors.black, size: 20),
+                ),
+                const SizedBox(width: 4),
+                AnimatedSoundwaveWidget(
+                  isSpeaking: true,
+                  getAudioLevel: widget.getAudioLevel,
+                ),
+              ],
+            )
+          else if (widget.isAudioLive && (widget.role == ForumHeaderRole.host || widget.role == ForumHeaderRole.speaker))
             widget.isMicMuted
                 ? IconButton(
                     icon: const Icon(Icons.mic_off_rounded, color: Colors.red),
@@ -147,7 +165,7 @@ class _ForumHeaderState extends State<ForumHeader> {
 
           const SizedBox(width: 8),
 
-          // SLOT 2: Center Text
+          // SLOT 2: Center Text ("Live Stream happening" / Forum Name / Active Speakers)
           Expanded(
             child: _isSearching
                 ? TextField(
@@ -178,8 +196,17 @@ class _ForumHeaderState extends State<ForumHeader> {
                   ),
           ),
 
-          // SLOT 3: Right Icon
-          if (widget.isAudioLive && widget.role == ForumHeaderRole.host)
+          // SLOT 3: Right Icon (Audio Mute Toggle / End Broadcast / Search Toggle)
+          if (widget.isVideoStreamLive)
+            IconButton(
+              icon: Icon(
+                widget.isBroadcastMuted ? Icons.volume_off_rounded : Icons.volume_up_rounded,
+                color: widget.isBroadcastMuted ? Colors.red : Colors.black,
+              ),
+              onPressed: widget.onToggleBroadcastMute,
+              tooltip: widget.isBroadcastMuted ? 'Unmute Stream Audio' : 'Mute Stream Audio',
+            )
+          else if (widget.isAudioLive && widget.role == ForumHeaderRole.host)
             IconButton(
               icon: const Icon(Icons.call_end_rounded, color: Colors.redAccent),
               onPressed: widget.onEndBroadcast,

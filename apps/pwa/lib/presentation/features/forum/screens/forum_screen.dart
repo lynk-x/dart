@@ -23,7 +23,8 @@ import 'package:lynk_x/presentation/features/forum/models/forum_model.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/ad_carousel.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/forum_header.dart';
 import 'package:lynk_x/presentation/features/forum/screens/live_stream_screen.dart';
-import 'package:lynk_x/presentation/features/forum/widgets/live_stream_pip_overlay.dart';
+import 'package:lynk_x/presentation/features/forum/widgets/pip_overlay.dart';
+import 'package:lynk_x/presentation/features/forum/services/forum_video_stream_service.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/presence_drawer.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/media_viewer.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/tabs/updates_tab.dart';
@@ -472,6 +473,7 @@ class _ForumViewState extends State<ForumView> {
                                         builder: (context, audioState) {
                                           final audioCubit = context.read<ForumAudioStreamCubit>();
                                           return ForumHeader(
+                                            isVideoStreamLive: ForumVideoStreamService().isLiveNotifier.value,
                                             isAudioLive: audioState.isLive,
                                             role: audioState.role,
                                             activeSpeakerNames: audioState.activeSpeakerNames,
@@ -628,7 +630,7 @@ class _ForumViewState extends State<ForumView> {
             ),
             BlocBuilder<ForumCubit, ForumState>(
               builder: (context, state) {
-                return LiveStreamPipOverlay(
+                return PipOverlay(
                   forumName: state.forumName,
                   hostName: state.userName,
                   isHost: state.isOrganizer,

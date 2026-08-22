@@ -6,12 +6,12 @@ import 'package:lynk_x/presentation/features/forum/services/forum_video_stream_s
 
 /// Floating In-App Picture-in-Picture (PiP) card displayed on the Forum page
 /// when a live video stream is minimized.
-class LiveStreamPipOverlay extends StatefulWidget {
+class PipOverlay extends StatefulWidget {
   final String forumName;
   final String hostName;
   final bool isHost;
 
-  const LiveStreamPipOverlay({
+  const PipOverlay({
     super.key,
     required this.forumName,
     required this.hostName,
@@ -19,10 +19,10 @@ class LiveStreamPipOverlay extends StatefulWidget {
   });
 
   @override
-  State<LiveStreamPipOverlay> createState() => _LiveStreamPipOverlayState();
+  State<PipOverlay> createState() => _PipOverlayState();
 }
 
-class _LiveStreamPipOverlayState extends State<LiveStreamPipOverlay> {
+class _PipOverlayState extends State<PipOverlay> {
   final ForumVideoStreamService _videoService = ForumVideoStreamService();
 
   double? _left;
@@ -40,7 +40,7 @@ class _LiveStreamPipOverlayState extends State<LiveStreamPipOverlay> {
 
     // Initialize position to top-left of chat list area (below category filter / tab bar) if unset
     _left ??= _margin;
-    _top ??= topPadding + 140.0;
+    _top ??= topPadding + 220.0;
 
     return ValueListenableBuilder<bool>(
       valueListenable: _videoService.isMinimizedNotifier,
@@ -62,19 +62,19 @@ class _LiveStreamPipOverlayState extends State<LiveStreamPipOverlay> {
                   screenSize.width - _pipWidth - _margin,
                 );
                 _top = (_top! + details.delta.dy).clamp(
-                  topPadding + 130.0,
+                  topPadding + 210.0,
                   screenSize.height - _pipHeight - _bottomAllowance,
                 );
               });
             },
             child: Material(
               elevation: 14,
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(8),
               clipBehavior: Clip.antiAlias,
               color: const Color(0xFF161920),
               child: Container(
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: Colors.white24, width: 1),
                 ),
                 child: Stack(
@@ -126,10 +126,10 @@ class _LiveStreamPipOverlayState extends State<LiveStreamPipOverlay> {
                     ),
                   ],
                 ),
+              ),
+            ),
           ),
-        ),
-      ),
-    );
+        );
       },
     );
   }

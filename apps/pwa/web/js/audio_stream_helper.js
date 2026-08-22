@@ -127,6 +127,9 @@ window.lynkAudioStreamHelper = {
 
   getAudioLevel() {
     if (!this.analyserNode || !this.analyserDataArray) return 0.0;
+    if (this.audioContext && this.audioContext.state === 'suspended') {
+      this.audioContext.resume().catch(() => {});
+    }
     this.analyserNode.getByteFrequencyData(this.analyserDataArray);
     let sum = 0;
     for (let i = 0; i < this.analyserDataArray.length; i++) {
@@ -234,7 +237,12 @@ window.lynkVideoStreamHelper = {
       }
 
       const constraints = {
-        video: { facingMode: isFrontCamera ? 'user' : 'environment' },
+        video: {
+          facingMode: isFrontCamera ? 'user' : 'environment',
+          width: { ideal: 1280, max: 1920 },
+          height: { ideal: 720, max: 1080 },
+          frameRate: { ideal: 30, max: 30 }
+        },
         audio: {
           echoCancellation: true,
           noiseSuppression: true,
@@ -258,6 +266,8 @@ window.lynkVideoStreamHelper = {
 
       let el = document.getElementById(elementId);
       if (el) {
+        el.muted = true;
+        el.defaultMuted = true;
         el.srcObject = stream;
         el.style.transform = isFrontCamera ? 'scaleX(-1)' : 'none';
         el.play().catch(e => console.warn('[VideoStreamHelper] video play failed:', e));
@@ -335,6 +345,8 @@ window.lynkVideoStreamHelper = {
 
       let el = document.getElementById(elementId) || this.videoElement;
       if (el) {
+        el.muted = true;
+        el.defaultMuted = true;
         el.srcObject = displayStream;
         el.style.transform = 'none';
         el.play().catch(e => console.warn('[VideoStreamHelper] screen share play failed:', e));
@@ -342,6 +354,8 @@ window.lynkVideoStreamHelper = {
 
       displayStream.getVideoTracks()[0].onended = () => {
         if (this.videoStream && el) {
+          el.muted = true;
+          el.defaultMuted = true;
           el.srcObject = this.videoStream;
           if (this.isFrontCamera) {
             el.style.transform = 'scaleX(-1)';

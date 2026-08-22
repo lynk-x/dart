@@ -73,6 +73,7 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> with WidgetsBinding
         _videoElement!.setAttribute('playsinline', 'true');
         _videoElement!.setAttribute('autoplay', 'true');
         _videoElement!.setAttribute('muted', 'true');
+        _videoElement!.muted = true;
 
         ui_web.platformViewRegistry.registerViewFactory(
           _viewType,
@@ -154,6 +155,14 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> with WidgetsBinding
   void _startAudioLevelPolling() {
     _audioLevelTimer = Timer.periodic(const Duration(milliseconds: 100), (_) {
       if (!mounted) return;
+      if (_isMicMuted) {
+        if (_currentAudioLevel != 0.0) {
+          setState(() {
+            _currentAudioLevel = 0.0;
+          });
+        }
+        return;
+      }
       final level = _videoService.getAudioLevel();
       if ((level - _currentAudioLevel).abs() > 0.05) {
         setState(() {
@@ -474,6 +483,187 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> with WidgetsBinding
     );
   }
 
+  Widget _buildGuestThumbnailStrip() {
+    return ValueListenableBuilder<List<StreamParticipant>>(
+      valueListenable: _videoService.activeParticipantsNotifier,
+      builder: (context, participants, _) {
+        return ValueListenableBuilder<String>(
+          valueListenable: _videoService.stageSpeakerIdNotifier,
+          builder: (context, pinnedId, _) {
+            return Container(
+              height: 104,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                physics: const BouncingScrollPhysics(),
+                itemCount: participants.length + (widget.isHost ? 1 : 0),
+                separatorBuilder: (_, __) => const SizedBox(width: 10),
+                itemBuilder: (context, index) {
+                  if (index == participants.length && widget.isHost) {
+                    return InkWell(
+                      onTap: () {
+                        AppSnackBars.showInfo(context, 'Stage Invite link copied to clipboard');
+                      },
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        width: 76,
+                        height: 98,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF161920).withValues(alpha: 0.85),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.white24, width: 1.5),
+                        ),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: context.accentColor.withValues(alpha: 0.2),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                Icons.person_add_alt_1_rounded,
+                                color: context.accentColor,
+                                size: 20,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              'Add Stage',
+                              style: AppTypography.interTight(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }
+
+                  final p = participants[index];
+                  final isPinned = p.id == pinnedId;
+
+                  return InkWell(
+                    onTap: () => _videoService.pinStageSpeaker(p.id),
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      width: 76,
+                      height: 98,
+                      clipBehavior: Clip.antiAlias,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF121418),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: isPinned ? context.accentColor : Colors.white12,
+                          width: isPinned ? 2 : 1,
+                        ),
+                        boxShadow: isPinned
+                            ? [
+                                BoxShadow(
+                                  color: context.accentColor.withValues(alpha: 0.35),
+                                  blurRadius: 10,
+                                  spreadRadius: 1,
+                                ),
+                              ]
+                            : null,
+                      ),
+                      child: Stack(
+                        children: [
+                          Positioned.fill(
+                            child: p.isHost && kIsWeb
+                                ? const HtmlElementView(viewType: _viewType)
+                                : Container(
+                                    color: const Color(0xFF1A1D24),
+                                    child: Center(
+                                      child: CircleAvatar(
+                                        radius: 18,
+                                        backgroundColor: isPinned
+                                            ? context.accentColor
+                                            : const Color(0xFF2C313C),
+                                        child: Text(
+                                          p.name.substring(0, 1).toUpperCase(),
+                                          style: AppTypography.interTight(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.white,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                          ),
+                          if (isPinned)
+                            Positioned(
+                              top: 4,
+                              left: 4,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: context.accentColor,
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  'STAGE',
+                                  style: AppTypography.interTight(
+                                    fontSize: 8,
+                                    fontWeight: FontWeight.w800,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          Positioned(
+                            top: 4,
+                            right: 4,
+                            child: Container(
+                              padding: const EdgeInsets.all(3),
+                              decoration: BoxDecoration(
+                                color: Colors.black.withValues(alpha: 0.65),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                p.isMicMuted ? Icons.mic_off_rounded : Icons.mic_rounded,
+                                color: p.isMicMuted ? Colors.redAccent : context.accentColor,
+                                size: 10,
+                              ),
+                            ),
+                          ),
+                          Positioned(
+                            left: 0,
+                            right: 0,
+                            bottom: 0,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
+                              color: Colors.black.withValues(alpha: 0.75),
+                              child: Text(
+                                p.name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                textAlign: TextAlign.center,
+                                style: AppTypography.interTight(
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -548,80 +738,103 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> with WidgetsBinding
               ),
             ),
 
-            // Speaker Tag & Dynamic Audio Waveform Overlay
-            Positioned(
-              right: 16,
-              bottom: 96,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.65),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: Colors.white12),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Colors.black38,
-                      blurRadius: 8,
-                      offset: Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      _isMicMuted ? Icons.mic_off_rounded : Icons.mic_rounded,
-                      color: _isMicMuted ? Colors.redAccent : context.accentColor,
-                      size: 16,
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      '${widget.hostName} (Host)',
-                      style: AppTypography.interTight(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    // Multi-bar Waveform Sound Indicator
-                    if (!_isMicMuted)
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: List.generate(4, (index) {
-                          final multipliers = [0.65, 1.0, 0.8, 0.95];
-                          const baseHeight = 4.0;
-                          const maxHeight = 16.0;
-                          final activeHeight = baseHeight + ((maxHeight - baseHeight) * _currentAudioLevel * multipliers[index]).clamp(0.0, maxHeight - baseHeight);
-                          return Container(
-                            margin: const EdgeInsets.symmetric(horizontal: 1.5),
-                            width: 3,
-                            height: activeHeight,
-                            decoration: BoxDecoration(
-                              color: _currentAudioLevel > 0.05 ? context.accentColor : Colors.white38,
-                              borderRadius: BorderRadius.circular(2),
-                            ),
-                          );
-                        }),
-                      )
-                    else
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: Colors.redAccent.withValues(alpha: 0.2),
-                          borderRadius: BorderRadius.circular(4),
+            // 2. ACTIVE STAGE SPEAKER TAG & WAVEFORM
+            ValueListenableBuilder<String>(
+              valueListenable: _videoService.stageSpeakerIdNotifier,
+              builder: (context, pinnedId, _) {
+                final participants = _videoService.activeParticipantsNotifier.value;
+                final activeParticipant = participants.firstWhere(
+                  (p) => p.id == pinnedId,
+                  orElse: () => participants.first,
+                );
+
+                return Positioned(
+                  right: 16,
+                  bottom: 204,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.65),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: Colors.white12),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Colors.black38,
+                          blurRadius: 8,
+                          offset: Offset(0, 2),
                         ),
-                        child: Text(
-                          'MUTED',
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          activeParticipant.isMicMuted ? Icons.mic_off_rounded : Icons.mic_rounded,
+                          color: activeParticipant.isMicMuted ? Colors.redAccent : context.accentColor,
+                          size: 16,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          '${activeParticipant.name} (${activeParticipant.role})',
                           style: AppTypography.interTight(
-                            fontSize: 9,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.redAccent,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
                           ),
                         ),
-                      ),
-                  ],
+                        const SizedBox(width: 8),
+                        if (!activeParticipant.isMicMuted)
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: List.generate(4, (index) {
+                              final multipliers = [0.65, 1.0, 0.8, 0.95];
+                              const baseHeight = 4.0;
+                              const maxHeight = 16.0;
+                              final activeHeight = baseHeight + ((maxHeight - baseHeight) * _currentAudioLevel * multipliers[index]).clamp(0.0, maxHeight - baseHeight);
+                              return Container(
+                                margin: const EdgeInsets.symmetric(horizontal: 1.5),
+                                width: 3,
+                                height: activeHeight,
+                                decoration: BoxDecoration(
+                                  color: _currentAudioLevel > 0.05 ? context.accentColor : Colors.white38,
+                                  borderRadius: BorderRadius.circular(2),
+                                ),
+                              );
+                            }),
+                          )
+                        else
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.redAccent.withValues(alpha: 0.2),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              'MUTED',
+                              style: AppTypography.interTight(
+                                fontSize: 9,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.redAccent,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+
+            // 3. HORIZONTAL ACTIVE SPEAKER & GUEST THUMBNAIL STRIP (Option A)
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 92,
+              child: Center(
+                child: Container(
+                  constraints: const BoxConstraints(maxWidth: 760),
+                  child: _buildGuestThumbnailStrip(),
                 ),
               ),
             ),
@@ -676,9 +889,13 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> with WidgetsBinding
             // 2. TOP BAR OVERLAY
             Positioned(
               top: 12,
-              left: 16,
-              right: 16,
-              child: Row(
+              left: 0,
+              right: 0,
+              child: Center(
+                child: Container(
+                  constraints: const BoxConstraints(maxWidth: 760),
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Row(
                 children: [
                   // Collapse / Browser PiP Trigger
                   InkWell(
@@ -768,26 +985,30 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> with WidgetsBinding
                 ],
               ),
             ),
+          ),
+        ),
 
             // 3. BOTTOM FLOATING CONTROL DOCK (5-Icon Format: Share, Mic, End Call (Center), Cam, Flip)
             Positioned(
               left: 20,
               right: 20,
               bottom: 24,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF161920).withValues(alpha: 0.92),
-                  borderRadius: BorderRadius.circular(32),
-                  border: Border.all(color: Colors.white12),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Colors.black45,
-                      blurRadius: 16,
-                      offset: Offset(0, 4),
-                    ),
-                  ],
-                ),
+              child: Center(
+                child: Container(
+                  constraints: const BoxConstraints(maxWidth: 480),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF161920).withValues(alpha: 0.92),
+                    borderRadius: BorderRadius.circular(32),
+                    border: Border.all(color: Colors.white12),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Colors.black45,
+                        blurRadius: 16,
+                        offset: Offset(0, 4),
+                      ),
+                    ],
+                  ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
@@ -858,6 +1079,7 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> with WidgetsBinding
                 ),
               ),
             ),
+          ),
           ],
         ),
       ),
