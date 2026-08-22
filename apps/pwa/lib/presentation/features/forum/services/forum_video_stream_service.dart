@@ -22,6 +22,9 @@ external void _jsStopVideoStream();
 @JS('window.lynkAudioStreamHelper.getAudioLevel')
 external JSNumber _jsGetAudioLevel();
 
+@JS('window.lynkVideoStreamHelper.setCameraMirror')
+external void _jsSetCameraMirror(JSBoolean isMirrored);
+
 @JS('window.lynkAudioStreamHelper.requestWakeLock')
 external JSPromise<JSAny?> _jsRequestWakeLock();
 
@@ -29,6 +32,38 @@ external JSPromise<JSAny?> _jsRequestWakeLock();
 external JSPromise<JSAny?> _jsReleaseWakeLock();
 
 class ForumVideoStreamService {
+  static final ForumVideoStreamService _instance = ForumVideoStreamService._internal();
+  factory ForumVideoStreamService() => _instance;
+  ForumVideoStreamService._internal();
+
+  final ValueNotifier<bool> isMinimizedNotifier = ValueNotifier<bool>(false);
+  final ValueNotifier<bool> isLiveNotifier = ValueNotifier<bool>(false);
+
+  bool isMicMuted = false;
+  bool isCameraOn = true;
+  bool isFrontCamera = true;
+  String forumName = '';
+  String hostName = '';
+  bool isHost = true;
+  int spectatorCount = 142;
+
+  void setMinimized(bool minimized) {
+    isMinimizedNotifier.value = minimized;
+  }
+
+  void setLive(bool live) {
+    isLiveNotifier.value = live;
+    if (!live) {
+      isMinimizedNotifier.value = false;
+    }
+  }
+
+  void setCameraMirror(bool isMirrored) {
+    if (!kIsWeb) return;
+    try {
+      _jsSetCameraMirror(isMirrored.toJS);
+    } catch (_) {}
+  }
   void requestWakeLock() {
     if (!kIsWeb) return;
     try {
@@ -89,6 +124,7 @@ class ForumVideoStreamService {
   }
 
   void stopVideoStream() {
+    setLive(false);
     if (!kIsWeb) return;
     try {
       _jsStopVideoStream();

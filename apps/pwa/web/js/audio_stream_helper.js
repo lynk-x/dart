@@ -214,6 +214,7 @@ window.lynkVideoStreamHelper = {
       let el = document.getElementById(elementId);
       if (el) {
         el.srcObject = stream;
+        el.style.transform = isFrontCamera ? 'scaleX(-1)' : 'none';
         el.play().catch(e => console.warn('[VideoStreamHelper] video play failed:', e));
         this.videoElement = el;
       }
@@ -229,11 +230,23 @@ window.lynkVideoStreamHelper = {
     }
   },
 
+  setCameraMirror(isMirrored) {
+    if (this.videoElement) {
+      this.videoElement.style.transform = isMirrored ? 'scaleX(-1)' : 'none';
+    }
+  },
+
   toggleCameraEnabled(enabled) {
     if (!this.videoStream) return;
     const videoTracks = this.videoStream.getVideoTracks();
     for (let i = 0; i < videoTracks.length; i++) {
       videoTracks[i].enabled = !!enabled;
+    }
+    if (enabled && this.videoElement) {
+      if (this.videoElement.srcObject !== this.videoStream) {
+        this.videoElement.srcObject = this.videoStream;
+      }
+      this.videoElement.play().catch(e => console.warn('[VideoStreamHelper] video play failed:', e));
     }
   },
 
@@ -276,13 +289,18 @@ window.lynkVideoStreamHelper = {
       let el = document.getElementById(elementId) || this.videoElement;
       if (el) {
         el.srcObject = displayStream;
+        el.style.transform = 'none';
         el.play().catch(e => console.warn('[VideoStreamHelper] screen share play failed:', e));
       }
 
       displayStream.getVideoTracks()[0].onended = () => {
         if (this.videoStream && el) {
           el.srcObject = this.videoStream;
+          if (this.isFrontCamera) {
+            el.style.transform = 'scaleX(-1)';
+          }
         }
+        window.dispatchEvent(new CustomEvent('lynkScreenShareEnded'));
       };
 
       return true;
