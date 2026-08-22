@@ -42,8 +42,11 @@ class ForumHeader extends StatefulWidget {
   /// Callback returning real-time audio amplitude (0.0 to 1.0) from Web Audio AnalyserNode
   final double Function()? getAudioLevel;
 
-  /// Callback triggered when the organizer long presses the left icon to start an audio stream.
+  /// Callback triggered when the organizer double taps the left icon to start an audio stream.
   final VoidCallback? onStartAudioStream;
+
+  /// Callback triggered when the organizer long presses the left icon to initialize the live stream UI.
+  final VoidCallback? onStartLiveStream;
 
   const ForumHeader({
     super.key,
@@ -64,6 +67,7 @@ class ForumHeader extends StatefulWidget {
     this.onEndBroadcast,
     this.getAudioLevel,
     this.onStartAudioStream,
+    this.onStartLiveStream,
   });
 
   @override
@@ -110,7 +114,7 @@ class _ForumHeaderState extends State<ForumHeader> {
         children: [
           const SizedBox(width: 8),
 
-          // SLOT 1: Left Icon (Mic toggle with active wave animation / start audio stream on double tap)
+          // SLOT 1: Left Icon (Mic toggle / start audio stream on double tap / start live stream on long press)
           if (widget.isAudioLive && (widget.role == ForumHeaderRole.host || widget.role == ForumHeaderRole.speaker))
             widget.isMicMuted
                 ? IconButton(
@@ -133,6 +137,7 @@ class _ForumHeaderState extends State<ForumHeader> {
           else
             GestureDetector(
               onDoubleTap: widget.onStartAudioStream,
+              onLongPress: widget.onStartLiveStream,
               behavior: HitTestBehavior.opaque,
               child: Padding(
                 padding: const EdgeInsets.all(4.0),

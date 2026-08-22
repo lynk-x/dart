@@ -22,6 +22,7 @@ import 'package:lynk_x/presentation/features/forum/cubit/forum_media_state.dart'
 import 'package:lynk_x/presentation/features/forum/models/forum_model.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/ad_carousel.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/forum_header.dart';
+import 'package:lynk_x/presentation/features/forum/screens/live_stream_screen.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/presence_drawer.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/media_viewer.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/tabs/updates_tab.dart';
@@ -495,6 +496,28 @@ class _ForumViewState extends State<ForumView> {
                                             },
                                             onToggleBroadcastMute: () => audioCubit.toggleBroadcastMute(),
                                             onEndBroadcast: () => audioCubit.endAudioStream(),
+                                            onStartLiveStream: () {
+                                              PermissionAcks.ensureAcknowledged(
+                                                context,
+                                                PermissionAckType.camera,
+                                                title: 'Host Live Video Stream',
+                                                description:
+                                                    'To host a live video stream, Lynk-X needs access to your camera and microphone.',
+                                                icon: Icons.videocam_rounded,
+                                                actionLabel: 'Allow Camera & Mic',
+                                                onReady: () {
+                                                  Navigator.of(context).push(
+                                                    MaterialPageRoute(
+                                                      builder: (_) => LiveStreamScreen(
+                                                        forumName: forumState.forumName,
+                                                        hostName: cubit.state.userName,
+                                                        isHost: forumState.isOrganizer,
+                                                      ),
+                                                    ),
+                                                  );
+                                                },
+                                              );
+                                            },
                                             onStartAudioStream: () {
                                               PermissionAcks.ensureAcknowledged(
                                                 context,
