@@ -27,24 +27,26 @@ class BottomDock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Center(
-        child: Container(
-          constraints: const BoxConstraints(maxWidth: 480),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          decoration: BoxDecoration(
-            color: const Color(0xFF161920).withValues(alpha: 0.92),
-            borderRadius: BorderRadius.circular(32),
-            border: Border.all(color: Colors.white12),
-            boxShadow: const [
-              BoxShadow(
-                color: Colors.black45,
-                blurRadius: 16,
-                offset: Offset(0, 4),
-              ),
-            ],
-          ),
+    return Container(
+      color: const Color(0xFF0F1115),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Center(
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 480),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            decoration: BoxDecoration(
+              color: const Color(0xFF161920).withValues(alpha: 0.92),
+              borderRadius: BorderRadius.circular(32),
+              border: Border.all(color: Colors.white12),
+              boxShadow: const [
+                BoxShadow(
+                  color: Colors.black45,
+                  blurRadius: 16,
+                  offset: Offset(0, 4),
+                ),
+              ],
+            ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
@@ -111,6 +113,7 @@ class BottomDock extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 }

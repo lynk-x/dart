@@ -607,7 +607,6 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> with WidgetsBinding
                                   participants: participants,
                                   pinnedId: pinnedId,
                                   isHost: widget.isHost,
-                                  videoViewType: _viewType,
                                   onPinSpeaker: (id) => _videoService.pinStageSpeaker(id),
                                   onAddStageSpeaker: () {
                                     AppSnackBars.showInfo(context, 'Stage Invite link copied to clipboard');
@@ -638,8 +637,6 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> with WidgetsBinding
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.speed_rounded, color: context.accentColor, size: 14),
-                              const SizedBox(width: 6),
                               Text(
                                 '720p30 • 2.8 Mbps • Uptime ${_formatDuration(_sessionDurationSeconds)}',
                                 style: AppTypography.interTight(

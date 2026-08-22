@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:lynk_core/core.dart';
 import '../services/forum_video_stream_service.dart';
@@ -9,7 +8,6 @@ class GuestThumbnailStrip extends StatelessWidget {
   final bool isHost;
   final ValueChanged<String> onPinSpeaker;
   final VoidCallback? onAddStageSpeaker;
-  final String videoViewType;
 
   const GuestThumbnailStrip({
     super.key,
@@ -18,7 +16,6 @@ class GuestThumbnailStrip extends StatelessWidget {
     required this.isHost,
     required this.onPinSpeaker,
     this.onAddStageSpeaker,
-    this.videoViewType = 'lynk-video-stage-view',
   });
 
   @override
@@ -83,7 +80,6 @@ class GuestThumbnailStrip extends StatelessWidget {
             child: Container(
               width: 76,
               height: 98,
-              clipBehavior: Clip.antiAlias,
               decoration: BoxDecoration(
                 color: const Color(0xFF121418),
                 borderRadius: BorderRadius.circular(12),
@@ -91,78 +87,70 @@ class GuestThumbnailStrip extends StatelessWidget {
                   color: isPinned ? context.accentColor : Colors.white12,
                   width: isPinned ? 2 : 1,
                 ),
-                boxShadow: isPinned
-                    ? [
-                        BoxShadow(
-                          color: context.accentColor.withValues(alpha: 0.35),
-                          blurRadius: 10,
-                          spreadRadius: 1,
-                        ),
-                      ]
-                    : null,
               ),
-              child: Stack(
-                children: [
-                  Positioned.fill(
-                    child: p.isHost && kIsWeb
-                        ? HtmlElementView(viewType: videoViewType)
-                        : Container(
-                            color: const Color(0xFF1A1D24),
-                            child: Center(
-                              child: CircleAvatar(
-                                radius: 18,
-                                backgroundColor: isPinned
-                                    ? context.accentColor
-                                    : const Color(0xFF2C313C),
-                                child: Text(
-                                  p.name.substring(0, 1).toUpperCase(),
-                                  style: AppTypography.interTight(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.white,
-                                  ),
-                                ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: Stack(
+                  children: [
+                    Positioned.fill(
+                      child: Container(
+                        color: const Color(0xFF1A1D24),
+                        child: Center(
+                          child: CircleAvatar(
+                            radius: 18,
+                            backgroundColor: isPinned
+                                ? context.accentColor
+                                : const Color(0xFF2C313C),
+                            child: Text(
+                              p.name.substring(0, 1).toUpperCase(),
+                              style: AppTypography.interTight(
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
                               ),
                             ),
                           ),
-                  ),
-                  Positioned(
-                    top: 4,
-                    right: 4,
-                    child: Container(
-                      padding: const EdgeInsets.all(3),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.65),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                        p.isMicMuted ? Icons.mic_off_rounded : Icons.mic_rounded,
-                        color: p.isMicMuted ? Colors.redAccent : context.accentColor,
-                        size: 10,
-                      ),
-                    ),
-                  ),
-                  Positioned(
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
-                      color: Colors.black.withValues(alpha: 0.75),
-                      child: Text(
-                        p.name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        textAlign: TextAlign.center,
-                        style: AppTypography.interTight(
-                          fontSize: 9,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white,
                         ),
                       ),
                     ),
-                  ),
-                ],
+                    Positioned(
+                      top: 4,
+                      right: 4,
+                      child: Container(
+                        padding: const EdgeInsets.all(3),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.65),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          p.isMicMuted ? Icons.mic_off_rounded : Icons.mic_rounded,
+                          color: p.isMicMuted ? Colors.redAccent : context.accentColor,
+                          size: 10,
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
+                        color: Colors.black.withValues(alpha: 0.75),
+                        child: Text(
+                          p.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.center,
+                          style: AppTypography.interTight(
+                            fontSize: 9,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           );
