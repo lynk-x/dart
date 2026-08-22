@@ -1,8 +1,15 @@
 import 'dart:async';
+import 'dart:ui_web' as ui_web;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:lynk_core/core.dart';
+import 'package:web/web.dart' as web;
 
-/// Interactive Live Stream screen for hosts and attendees.
+import 'package:lynk_x/presentation/shared/utils/app_snackbars.dart';
+import '../services/forum_video_stream_service.dart';
+
+/// Interactive Live Stream screen featuring actual Web Camera capture,
+/// hardware mic control, browser Picture-in-Picture (PiP), and refined stage controls.
 class LiveStreamScreen extends StatefulWidget {
   final String forumName;
   final String hostName;
@@ -19,22 +26,71 @@ class LiveStreamScreen extends StatefulWidget {
   State<LiveStreamScreen> createState() => _LiveStreamScreenState();
 }
 
-class _LiveStreamScreenState extends State<LiveStreamScreen> {
+class _LiveStreamScreenState extends State<LiveStreamScreen> with WidgetsBindingObserver {
+  final ForumVideoStreamService _videoService = ForumVideoStreamService();
+
+  static const String _elementId = 'lynk_live_video_stage';
+  static const String _viewType = 'lynk-video-stage-view';
+  static bool _viewRegistered = false;
+
+  web.HTMLVideoElement? _videoElement;
   bool _isMicMuted = false;
   bool _isCameraOn = true;
   bool _isFrontCamera = true;
-  bool _isHandRaised = false;
-  bool _showChatOverlay = false;
   int _spectatorCount = 142;
   String _selectedCamera = 'Built-in Front Camera';
   String _selectedAudioInput = 'Default Microphone';
 
   Timer? _spectatorTimer;
+  Timer? _audioLevelTimer;
+  double _currentAudioLevel = 0.0;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    if (kIsWeb) {
+      if (!_viewRegistered) {
+        _videoElement = web.HTMLVideoElement()
+          ..id = _elementId
+          ..style.width = '100%'
+          ..style.height = '100%'
+          ..style.objectFit = 'cover';
+        _videoElement!.setAttribute('playsinline', 'true');
+        _videoElement!.setAttribute('autoplay', 'true');
+        _videoElement!.setAttribute('muted', 'true');
+
+        ui_web.platformViewRegistry.registerViewFactory(
+          _viewType,
+          (int viewId) => _videoElement!,
+        );
+        _viewRegistered = true;
+      }
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _initCameraAndAudio();
+    });
+
     _startSpectatorSimulation();
+    _startAudioLevelPolling();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused || state == AppLifecycleState.detached) {
+      _videoService.releaseWakeLock();
+    } else if (state == AppLifecycleState.resumed) {
+      _videoService.requestWakeLock();
+    }
+  }
+
+  Future<void> _initCameraAndAudio() async {
+    _videoService.requestWakeLock();
+    final success = await _videoService.startVideoStream(_elementId, isFrontCamera: _isFrontCamera);
+    if (mounted && !success) {
+      AppSnackBars.showInfo(context, 'Camera permission requested or offline preview active');
+    }
   }
 
   void _startSpectatorSimulation() {
@@ -46,10 +102,75 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> {
     });
   }
 
+  void _startAudioLevelPolling() {
+    _audioLevelTimer = Timer.periodic(const Duration(milliseconds: 100), (_) {
+      if (!mounted) return;
+      final level = _videoService.getAudioLevel();
+      if ((level - _currentAudioLevel).abs() > 0.05) {
+        setState(() {
+          _currentAudioLevel = level;
+        });
+      }
+    });
+  }
+
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _spectatorTimer?.cancel();
+    _audioLevelTimer?.cancel();
+    _videoService.releaseWakeLock();
+    _videoService.stopVideoStream();
     super.dispose();
+  }
+
+  bool _isScreenSharing = false;
+
+  Future<void> _toggleScreenShare() async {
+    if (_isScreenSharing) {
+      await _videoService.startVideoStream(_elementId, isFrontCamera: _isFrontCamera);
+      setState(() {
+        _isScreenSharing = false;
+      });
+    } else {
+      final success = await _videoService.startScreenShare(_elementId);
+      if (success) {
+        setState(() {
+          _isScreenSharing = true;
+        });
+      } else if (mounted) {
+        AppSnackBars.showInfo(context, 'Screen sharing cancelled or not supported');
+      }
+    }
+  }
+
+  void _toggleMic() {
+    setState(() {
+      _isMicMuted = !_isMicMuted;
+    });
+    _videoService.toggleMic(!_isMicMuted);
+  }
+
+  void _toggleCamera() {
+    setState(() {
+      _isCameraOn = !_isCameraOn;
+    });
+    _videoService.toggleCamera(_isCameraOn);
+  }
+
+  Future<void> _flipCamera() async {
+    setState(() {
+      _isFrontCamera = !_isFrontCamera;
+    });
+    await _videoService.startVideoStream(_elementId, isFrontCamera: _isFrontCamera);
+  }
+
+  Future<void> _triggerPictureInPicture() async {
+    final success = await _videoService.triggerPictureInPicture(_elementId);
+    if (!success && mounted) {
+      AppSnackBars.showInfo(context, 'Minimizing live stream');
+      Navigator.of(context).pop();
+    }
   }
 
   void _showDeviceSelectorModal() {
@@ -192,85 +313,75 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> {
           children: [
             // 1. VIDEO CANVAS STAGE
             Positioned.fill(
-              child: Container(
-                decoration: BoxDecoration(
-                  color: const Color(0xFF0F1115),
-                  image: _isCameraOn
-                      ? null
-                      : const DecorationImage(
-                          image: AssetImage('assets/images/lynk-x_logo.png'),
-                          opacity: 0.15,
-                          fit: BoxFit.contain,
+              child: GestureDetector(
+                onDoubleTap: _flipCamera,
+                behavior: HitTestBehavior.opaque,
+                child: Container(
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF0F1115),
+                  ),
+                  child: Stack(
+                    children: [
+                      // Actual Web Video Stream PlatformView
+                      if (kIsWeb && _isCameraOn)
+                        const HtmlElementView(viewType: _viewType)
+                      else
+                        Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              // Livestream Icon: Solid Container with Boundary Ring
+                              Container(
+                                width: 96,
+                                height: 96,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: _isCameraOn ? context.accentColor : const Color(0xFF1E222A),
+                                  border: Border.all(
+                                    color: context.accentColor,
+                                    width: 2,
+                                  ),
+                                ),
+                                child: Icon(
+                                  _isCameraOn ? Icons.videocam_rounded : Icons.videocam_off_rounded,
+                                  color: Colors.white,
+                                  size: 44,
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                _isCameraOn ? 'Live Stream Feed' : 'Camera Off',
+                                style: AppTypography.interTight(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                'Input: $_selectedCamera',
+                                style: AppTypography.interTight(
+                                  fontSize: 12,
+                                  color: Colors.white54,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                ),
-                child: Center(
-                  child: _isCameraOn
-                      ? Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Container(
-                              width: 96,
-                              height: 96,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: context.accentColor.withValues(alpha: 0.2),
-                                border: Border.all(color: context.accentColor, width: 2),
-                              ),
-                              child: const Icon(
-                                Icons.videocam_rounded,
-                                color: Colors.white,
-                                size: 48,
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                            Text(
-                              'Live Stream Feed',
-                              style: AppTypography.interTight(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
-                              'Active Camera: $_selectedCamera',
-                              style: AppTypography.interTight(
-                                fontSize: 12,
-                                color: Colors.white54,
-                              ),
-                            ),
-                          ],
-                        )
-                      : Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(
-                              Icons.videocam_off_rounded,
-                              color: Colors.white38,
-                              size: 56,
-                            ),
-                            const SizedBox(height: 12),
-                            Text(
-                              'Camera Turned Off',
-                              style: AppTypography.interTight(
-                                fontSize: 16,
-                                color: Colors.white54,
-                              ),
-                            ),
-                          ],
-                        ),
+                    ],
+                  ),
                 ),
               ),
             ),
 
-            // Speaker Tag Overlay at Bottom-Left of Canvas
+            // Speaker Tag & Audio Amplitude Indicator Overlay
             Positioned(
               left: 16,
               bottom: 96,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.6),
+                  color: Colors.black.withValues(alpha: 0.65),
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(color: Colors.white12),
                 ),
@@ -291,6 +402,17 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> {
                         color: Colors.white,
                       ),
                     ),
+                    if (!_isMicMuted && _currentAudioLevel > 0.05) ...[
+                      const SizedBox(width: 8),
+                      Container(
+                        width: 6,
+                        height: 6 + (14 * _currentAudioLevel),
+                        decoration: BoxDecoration(
+                          color: context.accentColor,
+                          borderRadius: BorderRadius.circular(3),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -303,9 +425,9 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> {
               right: 16,
               child: Row(
                 children: [
-                  // Collapse / PiP Action Button
+                  // Collapse / Browser PiP Trigger
                   InkWell(
-                    onTap: () => Navigator.of(context).pop(),
+                    onTap: _triggerPictureInPicture,
                     borderRadius: BorderRadius.circular(20),
                     child: Container(
                       padding: const EdgeInsets.all(8),
@@ -393,11 +515,11 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> {
               ),
             ),
 
-            // 3. BOTTOM FLOATING CONTROL DOCK
+            // 3. BOTTOM FLOATING CONTROL DOCK (5-Icon Format: Share, Mic, End Call (Center), Cam, Flip)
             Positioned(
               left: 20,
               right: 20,
-              bottom: 20,
+              bottom: 24,
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                 decoration: BoxDecoration(
@@ -415,18 +537,16 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
-                    // Position 1: Chat Toggle
+                    // Position 1: Share Screen
                     IconButton(
                       icon: Icon(
-                        _showChatOverlay
-                            ? Icons.chat_bubble_rounded
-                            : Icons.chat_bubble_outline_rounded,
-                        color: _showChatOverlay ? context.accentColor : Colors.white,
+                        _isScreenSharing
+                            ? Icons.stop_screen_share_rounded
+                            : Icons.screen_share_rounded,
+                        color: _isScreenSharing ? context.accentColor : Colors.white,
                       ),
-                      onPressed: () {
-                        setState(() => _showChatOverlay = !_showChatOverlay);
-                      },
-                      tooltip: 'Toggle Live Chat',
+                      onPressed: _toggleScreenShare,
+                      tooltip: _isScreenSharing ? 'Stop Screen Share' : 'Share Screen',
                     ),
 
                     // Position 2: Mic Toggle
@@ -435,13 +555,11 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> {
                         _isMicMuted ? Icons.mic_off_rounded : Icons.mic_rounded,
                         color: _isMicMuted ? Colors.redAccent : Colors.white,
                       ),
-                      onPressed: () {
-                        setState(() => _isMicMuted = !_isMicMuted);
-                      },
+                      onPressed: _toggleMic,
                       tooltip: _isMicMuted ? 'Unmute Mic' : 'Mute Mic',
                     ),
 
-                    // Position 3: Center Red End Broadcast Button
+                    // Position 3 (DEAD CENTER): Red End Call Button
                     InkWell(
                       onTap: () => Navigator.of(context).pop(),
                       borderRadius: BorderRadius.circular(28),
@@ -465,9 +583,7 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> {
                         _isCameraOn ? Icons.videocam_rounded : Icons.videocam_off_rounded,
                         color: _isCameraOn ? Colors.white : Colors.redAccent,
                       ),
-                      onPressed: () {
-                        setState(() => _isCameraOn = !_isCameraOn);
-                      },
+                      onPressed: _toggleCamera,
                       tooltip: _isCameraOn ? 'Turn Camera Off' : 'Turn Camera On',
                     ),
 
@@ -477,22 +593,8 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> {
                         Icons.flip_camera_ios_rounded,
                         color: _isFrontCamera ? Colors.white : context.accentColor,
                       ),
-                      onPressed: () {
-                        setState(() => _isFrontCamera = !_isFrontCamera);
-                      },
+                      onPressed: _flipCamera,
                       tooltip: 'Flip Camera',
-                    ),
-
-                    // Position 6: Raise Hand
-                    IconButton(
-                      icon: Icon(
-                        _isHandRaised ? Icons.front_hand_rounded : Icons.front_hand_outlined,
-                        color: _isHandRaised ? Colors.amberAccent : Colors.white70,
-                      ),
-                      onPressed: () {
-                        setState(() => _isHandRaised = !_isHandRaised);
-                      },
-                      tooltip: 'Raise Hand',
                     ),
                   ],
                 ),

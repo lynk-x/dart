@@ -192,3 +192,118 @@ window.lynkAudioStreamHelper = {
     });
   }
 };
+
+window.lynkVideoStreamHelper = {
+  videoStream: null,
+  videoElement: null,
+
+  async startVideoStream(elementId, isFrontCamera = true) {
+    try {
+      if (this.videoStream) {
+        this.stopVideoStream();
+      }
+
+      const constraints = {
+        video: { facingMode: isFrontCamera ? 'user' : 'environment' },
+        audio: { echoCancellation: true, noiseSuppression: true }
+      };
+
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      this.videoStream = stream;
+
+      let el = document.getElementById(elementId);
+      if (el) {
+        el.srcObject = stream;
+        el.play().catch(e => console.warn('[VideoStreamHelper] video play failed:', e));
+        this.videoElement = el;
+      }
+
+      if (window.lynkAudioStreamHelper) {
+        window.lynkAudioStreamHelper.setupAudioAnalyser(stream);
+      }
+
+      return true;
+    } catch (e) {
+      console.warn('[VideoStreamHelper] getUserMedia video stream failed:', e);
+      return false;
+    }
+  },
+
+  toggleCameraEnabled(enabled) {
+    if (!this.videoStream) return;
+    const videoTracks = this.videoStream.getVideoTracks();
+    for (let i = 0; i < videoTracks.length; i++) {
+      videoTracks[i].enabled = !!enabled;
+    }
+  },
+
+  toggleMicEnabled(enabled) {
+    if (!this.videoStream) return;
+    const audioTracks = this.videoStream.getAudioTracks();
+    for (let i = 0; i < audioTracks.length; i++) {
+      audioTracks[i].enabled = !!enabled;
+    }
+  },
+
+  async requestPictureInPicture(elementId) {
+    try {
+      const el = document.getElementById(elementId) || this.videoElement;
+      if (el && document.pictureInPictureEnabled) {
+        if (document.pictureInPictureElement) {
+          await document.exitPictureInPicture();
+        } else {
+          await el.requestPictureInPicture();
+        }
+        return true;
+      }
+    } catch (e) {
+      console.warn('[VideoStreamHelper] requestPictureInPicture failed:', e);
+    }
+    return false;
+  },
+
+  async startScreenShare(elementId) {
+    try {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
+        console.warn('[VideoStreamHelper] getDisplayMedia not supported');
+        return false;
+      }
+      const displayStream = await navigator.mediaDevices.getDisplayMedia({
+        video: { cursor: 'always' },
+        audio: false
+      });
+
+      let el = document.getElementById(elementId) || this.videoElement;
+      if (el) {
+        el.srcObject = displayStream;
+        el.play().catch(e => console.warn('[VideoStreamHelper] screen share play failed:', e));
+      }
+
+      displayStream.getVideoTracks()[0].onended = () => {
+        if (this.videoStream && el) {
+          el.srcObject = this.videoStream;
+        }
+      };
+
+      return true;
+    } catch (e) {
+      console.warn('[VideoStreamHelper] getDisplayMedia error:', e);
+      return false;
+    }
+  },
+
+  stopVideoStream() {
+    if (this.videoStream) {
+      try {
+        const tracks = this.videoStream.getTracks();
+        for (let i = 0; i < tracks.length; i++) {
+          tracks[i].stop();
+        }
+      } catch (_) {}
+      this.videoStream = null;
+    }
+    if (window.lynkAudioStreamHelper) {
+      window.lynkAudioStreamHelper.stopAudioAnalyser();
+    }
+  }
+};
