@@ -264,15 +264,22 @@ window.lynkVideoStreamHelper = {
         this.toggleCameraEnabled(false);
       }
 
-      let el = document.getElementById(elementId);
-      if (el) {
-        el.muted = true;
-        el.defaultMuted = true;
-        el.srcObject = stream;
-        el.style.transform = isFrontCamera ? 'scaleX(-1)' : 'none';
-        el.play().catch(e => console.warn('[VideoStreamHelper] video play failed:', e));
-        this.videoElement = el;
-      }
+      const attachVideo = (retries = 10) => {
+        let el = document.getElementById(elementId);
+        if (el) {
+          el.muted = true;
+          el.defaultMuted = true;
+          el.srcObject = stream;
+          el.style.transform = isFrontCamera ? 'scaleX(-1)' : 'none';
+          el.play().catch(e => console.warn('[VideoStreamHelper] video play failed:', e));
+          this.videoElement = el;
+        } else if (retries > 0) {
+          setTimeout(() => attachVideo(retries - 1), 100);
+        } else {
+          console.warn('[VideoStreamHelper] target video element not found:', elementId);
+        }
+      };
+      attachVideo();
 
       if (window.lynkAudioStreamHelper) {
         window.lynkAudioStreamHelper.setupAudioAnalyser(stream);

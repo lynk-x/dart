@@ -8,6 +8,9 @@ import 'package:web/web.dart' as web;
 
 import 'package:lynk_x/presentation/shared/utils/app_snackbars.dart';
 import '../services/forum_video_stream_service.dart';
+import '../widgets/bottom_dock.dart';
+import '../widgets/guest_thumbnail_strip.dart';
+import '../widgets/speaker_tag.dart';
 
 /// Interactive Live Stream screen featuring actual Web Camera capture,
 /// hardware mic control, browser Picture-in-Picture (PiP), and refined stage controls.
@@ -483,603 +486,292 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> with WidgetsBinding
     );
   }
 
-  Widget _buildGuestThumbnailStrip() {
-    return ValueListenableBuilder<List<StreamParticipant>>(
-      valueListenable: _videoService.activeParticipantsNotifier,
-      builder: (context, participants, _) {
-        return ValueListenableBuilder<String>(
-          valueListenable: _videoService.stageSpeakerIdNotifier,
-          builder: (context, pinnedId, _) {
-            return Container(
-              height: 104,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                physics: const BouncingScrollPhysics(),
-                itemCount: participants.length + (widget.isHost ? 1 : 0),
-                separatorBuilder: (_, __) => const SizedBox(width: 10),
-                itemBuilder: (context, index) {
-                  if (index == participants.length && widget.isHost) {
-                    return InkWell(
-                      onTap: () {
-                        AppSnackBars.showInfo(context, 'Stage Invite link copied to clipboard');
-                      },
-                      borderRadius: BorderRadius.circular(12),
-                      child: Container(
-                        width: 76,
-                        height: 98,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF161920).withValues(alpha: 0.85),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.white24, width: 1.5),
-                        ),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: context.accentColor.withValues(alpha: 0.2),
-                                shape: BoxShape.circle,
-                              ),
-                              child: Icon(
-                                Icons.person_add_alt_1_rounded,
-                                color: context.accentColor,
-                                size: 20,
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
-                              'Add Stage',
-                              style: AppTypography.interTight(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  }
-
-                  final p = participants[index];
-                  final isPinned = p.id == pinnedId;
-
-                  return InkWell(
-                    onTap: () => _videoService.pinStageSpeaker(p.id),
-                    borderRadius: BorderRadius.circular(12),
-                    child: Container(
-                      width: 76,
-                      height: 98,
-                      clipBehavior: Clip.antiAlias,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF121418),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: isPinned ? context.accentColor : Colors.white12,
-                          width: isPinned ? 2 : 1,
-                        ),
-                        boxShadow: isPinned
-                            ? [
-                                BoxShadow(
-                                  color: context.accentColor.withValues(alpha: 0.35),
-                                  blurRadius: 10,
-                                  spreadRadius: 1,
-                                ),
-                              ]
-                            : null,
-                      ),
-                      child: Stack(
-                        children: [
-                          Positioned.fill(
-                            child: p.isHost && kIsWeb
-                                ? const HtmlElementView(viewType: _viewType)
-                                : Container(
-                                    color: const Color(0xFF1A1D24),
-                                    child: Center(
-                                      child: CircleAvatar(
-                                        radius: 18,
-                                        backgroundColor: isPinned
-                                            ? context.accentColor
-                                            : const Color(0xFF2C313C),
-                                        child: Text(
-                                          p.name.substring(0, 1).toUpperCase(),
-                                          style: AppTypography.interTight(
-                                            fontSize: 13,
-                                            fontWeight: FontWeight.bold,
-                                            color: Colors.white,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                          ),
-                          if (isPinned)
-                            Positioned(
-                              top: 4,
-                              left: 4,
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: context.accentColor,
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: Text(
-                                  'STAGE',
-                                  style: AppTypography.interTight(
-                                    fontSize: 8,
-                                    fontWeight: FontWeight.w800,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          Positioned(
-                            top: 4,
-                            right: 4,
-                            child: Container(
-                              padding: const EdgeInsets.all(3),
-                              decoration: BoxDecoration(
-                                color: Colors.black.withValues(alpha: 0.65),
-                                shape: BoxShape.circle,
-                              ),
-                              child: Icon(
-                                p.isMicMuted ? Icons.mic_off_rounded : Icons.mic_rounded,
-                                color: p.isMicMuted ? Colors.redAccent : context.accentColor,
-                                size: 10,
-                              ),
-                            ),
-                          ),
-                          Positioned(
-                            left: 0,
-                            right: 0,
-                            bottom: 0,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
-                              color: Colors.black.withValues(alpha: 0.75),
-                              child: Text(
-                                p.name,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                textAlign: TextAlign.center,
-                                style: AppTypography.interTight(
-                                  fontSize: 9,
-                                  fontWeight: FontWeight.w600,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                },
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
       body: SafeArea(
-        child: Stack(
+        child: Column(
           children: [
-            // 1. VIDEO CANVAS STAGE
-            Positioned.fill(
-              child: GestureDetector(
-                onDoubleTap: _flipCamera,
-                behavior: HitTestBehavior.opaque,
-                child: Container(
-                  decoration: const BoxDecoration(
-                    color: Color(0xFF0F1115),
-                  ),
-                  child: Stack(
-                    children: [
-                      // Actual Web Video Stream PlatformView (Kept permanently mounted to preserve HTML element DOM node)
-                      if (kIsWeb)
-                        const HtmlElementView(viewType: _viewType),
+            // 1. TOP MAIN STAGE AREA (EXPANDED STACK)
+            Expanded(
+              child: Stack(
+                children: [
+                  // VIDEO CANVAS STAGE
+                  Positioned.fill(
+                    child: GestureDetector(
+                      onDoubleTap: _flipCamera,
+                      behavior: HitTestBehavior.opaque,
+                      child: Container(
+                        decoration: const BoxDecoration(
+                          color: Color(0xFF0F1115),
+                        ),
+                        child: Stack(
+                          children: [
+                            // Actual Web Video Stream PlatformView (Kept permanently mounted to preserve HTML element DOM node)
+                            if (kIsWeb)
+                              const Positioned.fill(
+                                child: HtmlElementView(viewType: _viewType),
+                              ),
 
-                      // Camera Off Overlay Placeholder
-                      if (!_isCameraOn)
-                        Container(
-                          color: const Color(0xFF0F1115),
-                          child: Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Container(
-                                  width: 96,
-                                  height: 96,
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    color: const Color(0xFF1E222A),
-                                    border: Border.all(
-                                      color: context.accentColor,
-                                      width: 2,
+                            // Camera Off Overlay Placeholder
+                            if (!_isCameraOn)
+                              Positioned.fill(
+                                child: Container(
+                                  color: const Color(0xFF0F1115),
+                                  child: Center(
+                                    child: Column(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Container(
+                                          width: 96,
+                                          height: 96,
+                                          decoration: BoxDecoration(
+                                            shape: BoxShape.circle,
+                                            color: const Color(0xFF1E222A),
+                                            border: Border.all(
+                                              color: context.accentColor,
+                                              width: 2,
+                                            ),
+                                          ),
+                                          child: const Icon(
+                                            Icons.videocam_off_rounded,
+                                            color: Colors.white,
+                                            size: 44,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 16),
+                                        Text(
+                                          'Camera Off',
+                                          style: AppTypography.interTight(
+                                            fontSize: 18,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.white,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 6),
+                                        Text(
+                                          'Input: $_selectedCamera',
+                                          style: AppTypography.interTight(
+                                            fontSize: 12,
+                                            color: Colors.white54,
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
-                                  child: const Icon(
-                                    Icons.videocam_off_rounded,
-                                    color: Colors.white,
-                                    size: 44,
-                                  ),
                                 ),
-                                const SizedBox(height: 16),
-                                Text(
-                                  'Camera Off',
-                                  style: AppTypography.interTight(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                                const SizedBox(height: 6),
-                                Text(
-                                  'Input: $_selectedCamera',
-                                  style: AppTypography.interTight(
-                                    fontSize: 12,
-                                    color: Colors.white54,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-
-            // 2. ACTIVE STAGE SPEAKER TAG & WAVEFORM
-            ValueListenableBuilder<String>(
-              valueListenable: _videoService.stageSpeakerIdNotifier,
-              builder: (context, pinnedId, _) {
-                final participants = _videoService.activeParticipantsNotifier.value;
-                final activeParticipant = participants.firstWhere(
-                  (p) => p.id == pinnedId,
-                  orElse: () => participants.first,
-                );
-
-                return Positioned(
-                  right: 16,
-                  bottom: 204,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.65),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: Colors.white12),
-                      boxShadow: const [
-                        BoxShadow(
-                          color: Colors.black38,
-                          blurRadius: 8,
-                          offset: Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          activeParticipant.isMicMuted ? Icons.mic_off_rounded : Icons.mic_rounded,
-                          color: activeParticipant.isMicMuted ? Colors.redAccent : context.accentColor,
-                          size: 16,
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          '${activeParticipant.name} (${activeParticipant.role})',
-                          style: AppTypography.interTight(
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        if (!activeParticipant.isMicMuted)
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: CrossAxisAlignment.center,
-                            children: List.generate(4, (index) {
-                              final multipliers = [0.65, 1.0, 0.8, 0.95];
-                              const baseHeight = 4.0;
-                              const maxHeight = 16.0;
-                              final activeHeight = baseHeight + ((maxHeight - baseHeight) * _currentAudioLevel * multipliers[index]).clamp(0.0, maxHeight - baseHeight);
-                              return Container(
-                                margin: const EdgeInsets.symmetric(horizontal: 1.5),
-                                width: 3,
-                                height: activeHeight,
-                                decoration: BoxDecoration(
-                                  color: _currentAudioLevel > 0.05 ? context.accentColor : Colors.white38,
-                                  borderRadius: BorderRadius.circular(2),
-                                ),
-                              );
-                            }),
-                          )
-                        else
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: Colors.redAccent.withValues(alpha: 0.2),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(
-                              'MUTED',
-                              style: AppTypography.interTight(
-                                fontSize: 9,
-                                fontWeight: FontWeight.w700,
-                                color: Colors.redAccent,
                               ),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                );
-              },
-            ),
-
-            // 3. HORIZONTAL ACTIVE SPEAKER & GUEST THUMBNAIL STRIP (Option A)
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 92,
-              child: Center(
-                child: Container(
-                  constraints: const BoxConstraints(maxWidth: 760),
-                  child: _buildGuestThumbnailStrip(),
-                ),
-              ),
-            ),
-
-            // Stream Telemetry Text Overlay (when enabled in Media Device Settings)
-            if (_showTelemetryOverlay)
-              Positioned(
-                top: 56,
-                left: 16,
-                child: GestureDetector(
-                  onTap: _showTelemetryDetailsModal,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.45),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.white10),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.wifi_rounded, color: context.accentColor, size: 12),
-                            const SizedBox(width: 4),
-                            Text(
-                              '1080p60 • 3.4 Mbps • 42ms RTT',
-                              style: AppTypography.interTight(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.white,
-                              ),
-                            ),
                           ],
                         ),
-                        const SizedBox(height: 2),
-                        Text(
-                          '0.0% Loss • H.264 / Opus 48kHz • Uptime ${_formatDuration(_sessionDurationSeconds)}',
-                          style: AppTypography.interTight(
-                            fontSize: 10,
-                            color: Colors.white70,
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
                   ),
-                ),
-              ),
+
+                  // 2. ACTIVE STAGE SPEAKER TAG & WAVEFORM
+                  ValueListenableBuilder<String>(
+                    valueListenable: _videoService.stageSpeakerIdNotifier,
+                    builder: (context, pinnedId, _) {
+                      final participants = _videoService.activeParticipantsNotifier.value;
+                      final activeParticipant = participants.firstWhere(
+                        (p) => p.id == pinnedId,
+                        orElse: () => participants.first,
+                      );
+
+                      return Positioned(
+                        right: 16,
+                        bottom: 124,
+                        child: SpeakerTag(
+                          activeParticipant: activeParticipant,
+                          audioLevel: _currentAudioLevel,
+                        ),
+                      );
+                    },
+                  ),
+
+                  // HORIZONTAL ACTIVE SPEAKER & GUEST THUMBNAIL STRIP
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: 12,
+                    child: Center(
+                      child: Container(
+                        constraints: const BoxConstraints(maxWidth: 760),
+                        child: ValueListenableBuilder<List<StreamParticipant>>(
+                          valueListenable: _videoService.activeParticipantsNotifier,
+                          builder: (context, participants, _) {
+                            return ValueListenableBuilder<String>(
+                              valueListenable: _videoService.stageSpeakerIdNotifier,
+                              builder: (context, pinnedId, _) {
+                                return GuestThumbnailStrip(
+                                  participants: participants,
+                                  pinnedId: pinnedId,
+                                  isHost: widget.isHost,
+                                  videoViewType: _viewType,
+                                  onPinSpeaker: (id) => _videoService.pinStageSpeaker(id),
+                                  onAddStageSpeaker: () {
+                                    AppSnackBars.showInfo(context, 'Stage Invite link copied to clipboard');
+                                  },
+                                );
+                              },
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  // STREAM TELEMETRY OVERLAY
+                  if (_showTelemetryOverlay)
+                    Positioned(
+                      top: 56,
+                      left: 16,
+                      child: GestureDetector(
+                        onTap: _showTelemetryDetailsModal,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.45),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.white10),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.speed_rounded, color: context.accentColor, size: 14),
+                              const SizedBox(width: 6),
+                              Text(
+                                '720p30 • 2.8 Mbps • Uptime ${_formatDuration(_sessionDurationSeconds)}',
+                                style: AppTypography.interTight(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.white70,
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              const Icon(Icons.info_outline_rounded, color: Colors.white38, size: 12),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
 
             // 2. TOP BAR OVERLAY
-            Positioned(
-              top: 12,
-              left: 0,
-              right: 0,
-              child: Center(
-                child: Container(
-                  constraints: const BoxConstraints(maxWidth: 760),
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Row(
-                children: [
-                  // Collapse / Browser PiP Trigger
-                  InkWell(
-                    onTap: _triggerPictureInPicture,
-                    borderRadius: BorderRadius.circular(20),
-                    child: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.5),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.picture_in_picture_alt_rounded,
-                        color: Colors.white,
-                        size: 20,
-                      ),
-                    ),
-                  ),
-
-                  const Spacer(),
-
-                  // Stream Header Status Badge
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.5),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
+                  Positioned(
+                    top: 12,
+                    left: 16,
+                    right: 16,
                     child: Row(
-                      mainAxisSize: MainAxisSize.min,
                       children: [
+                        // Collapse / Browser PiP Trigger
+                        InkWell(
+                          onTap: _triggerPictureInPicture,
+                          borderRadius: BorderRadius.circular(20),
+                          child: Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.5),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.picture_in_picture_alt_rounded,
+                              color: Colors.white,
+                              size: 20,
+                            ),
+                          ),
+                        ),
+
+                        const Spacer(),
+
+                        // Stream Header Status Badge
                         Container(
-                          width: 8,
-                          height: 8,
-                          decoration: const BoxDecoration(
-                            color: Colors.redAccent,
-                            shape: BoxShape.circle,
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.5),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                width: 8,
+                                height: 8,
+                                decoration: const BoxDecoration(
+                                  color: Colors.redAccent,
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                'LIVE',
+                                style: AppTypography.interTight(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w900,
+                                  color: Colors.white,
+                                  letterSpacing: 1.0,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              const Icon(
+                                Icons.visibility_rounded,
+                                color: Colors.white70,
+                                size: 14,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                '$_spectatorCount',
+                                style: AppTypography.interTight(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.white70,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                        const SizedBox(width: 6),
-                        Text(
-                          'LIVE',
-                          style: AppTypography.interTight(
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.redAccent,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        const Icon(
-                          Icons.visibility_rounded,
-                          color: Colors.white70,
-                          size: 13,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          '$_spectatorCount',
-                          style: AppTypography.interTight(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.white,
+
+                        const Spacer(),
+
+                        // Media Device & Settings Icon
+                        InkWell(
+                          onTap: _showDeviceSelectorModal,
+                          borderRadius: BorderRadius.circular(20),
+                          child: Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.5),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.tune_rounded,
+                              color: Colors.white,
+                              size: 20,
+                            ),
                           ),
                         ),
                       ],
-                    ),
-                  ),
-
-                  const Spacer(),
-
-                  // Settings / Device Selector Button
-                  InkWell(
-                    onTap: _showDeviceSelectorModal,
-                    borderRadius: BorderRadius.circular(20),
-                    child: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.5),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.tune_rounded,
-                        color: Colors.white,
-                        size: 20,
-                      ),
                     ),
                   ),
                 ],
               ),
             ),
-          ),
-        ),
 
-            // 3. BOTTOM FLOATING CONTROL DOCK (5-Icon Format: Share, Mic, End Call (Center), Cam, Flip)
-            Positioned(
-              left: 20,
-              right: 20,
-              bottom: 24,
-              child: Center(
-                child: Container(
-                  constraints: const BoxConstraints(maxWidth: 480),
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF161920).withValues(alpha: 0.92),
-                    borderRadius: BorderRadius.circular(32),
-                    border: Border.all(color: Colors.white12),
-                    boxShadow: const [
-                      BoxShadow(
-                        color: Colors.black45,
-                        blurRadius: 16,
-                        offset: Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    // Position 1: Share Screen
-                    IconButton(
-                      icon: Icon(
-                        _isScreenSharing
-                            ? Icons.stop_screen_share_rounded
-                            : Icons.screen_share_rounded,
-                        color: _isScreenSharing ? context.accentColor : Colors.white,
-                      ),
-                      onPressed: _toggleScreenShare,
-                      tooltip: _isScreenSharing ? 'Stop Screen Share' : 'Share Screen',
-                    ),
-
-                    // Position 2: Mic Toggle
-                    IconButton(
-                      icon: Icon(
-                        _isMicMuted ? Icons.mic_off_rounded : Icons.mic_rounded,
-                        color: _isMicMuted ? Colors.redAccent : Colors.white,
-                      ),
-                      onPressed: _toggleMic,
-                      tooltip: _isMicMuted ? 'Unmute Mic' : 'Mute Mic',
-                    ),
-
-                    // Position 3 (DEAD CENTER): Red End Call Button
-                    InkWell(
-                      onTap: () {
-                        _videoService.setMinimized(false);
-                        _videoService.stopVideoStream();
-                        Navigator.of(context).pop();
-                      },
-                      borderRadius: BorderRadius.circular(28),
-                      child: Container(
-                        padding: const EdgeInsets.all(14),
-                        decoration: const BoxDecoration(
-                          color: Colors.redAccent,
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Icons.call_end_rounded,
-                          color: Colors.white,
-                          size: 24,
-                        ),
-                      ),
-                    ),
-
-                    // Position 4: Camera Toggle
-                    IconButton(
-                      icon: Icon(
-                        _isCameraOn ? Icons.videocam_rounded : Icons.videocam_off_rounded,
-                        color: _isCameraOn ? Colors.white : Colors.redAccent,
-                      ),
-                      onPressed: _toggleCamera,
-                      tooltip: _isCameraOn ? 'Turn Camera Off' : 'Turn Camera On',
-                    ),
-
-                    // Position 5: Flip Camera
-                    IconButton(
-                      icon: Icon(
-                        Icons.flip_camera_ios_rounded,
-                        color: _isFrontCamera ? Colors.white : context.accentColor,
-                      ),
-                      onPressed: _flipCamera,
-                      tooltip: 'Flip Camera',
-                    ),
-                  ],
-                ),
-              ),
+            // 2. BOTTOM CONTROL DOCK
+            BottomDock(
+              isScreenSharing: _isScreenSharing,
+              isMicMuted: _isMicMuted,
+              isCameraOn: _isCameraOn,
+              isFrontCamera: _isFrontCamera,
+              onToggleScreenShare: _toggleScreenShare,
+              onToggleMic: _toggleMic,
+              onToggleCamera: _toggleCamera,
+              onFlipCamera: _flipCamera,
+              onEndCall: () {
+                _videoService.setMinimized(false);
+                _videoService.stopVideoStream();
+                Navigator.of(context).pop();
+              },
             ),
-          ),
           ],
         ),
       ),
