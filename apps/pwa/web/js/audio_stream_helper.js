@@ -35,6 +35,8 @@ window.lynkAudioStreamHelper = {
           echoCancellation: true,
           noiseSuppression: true,
           autoGainControl: true,
+          channelCount: 1,
+          sampleRate: 48000
         }
       });
       this.localAudioStream = stream;
@@ -86,9 +88,35 @@ window.lynkAudioStreamHelper = {
 
       this.audioContext = new AudioCtx();
       const source = this.audioContext.createMediaStreamSource(stream);
+
+      // 1. High-Pass Filter (85Hz) — Removes low frequency HVAC/fan rumble & desk thumps
+      const highPassFilter = this.audioContext.createBiquadFilter();
+      highPassFilter.type = 'highpass';
+      highPassFilter.frequency.value = 85;
+
+      // 2. Vocal Presence EQ Filter (3kHz Peaking) — Boosts vocal clarity and speech pickup
+      const presenceEq = this.audioContext.createBiquadFilter();
+      presenceEq.type = 'peaking';
+      presenceEq.frequency.value = 3000;
+      presenceEq.Q.value = 1.0;
+      presenceEq.gain.value = 3.0; // +3dB boost for voice clarity
+
+      // 3. Dynamics Compressor Node — Smooths voice dynamics and prevents clipping
+      const compressorNode = this.audioContext.createDynamicsCompressor();
+      compressorNode.threshold.value = -24;
+      compressorNode.knee.value = 30;
+      compressorNode.ratio.value = 12;
+      compressorNode.attack.value = 0.003;
+      compressorNode.release.value = 0.25;
+
       this.analyserNode = this.audioContext.createAnalyser();
       this.analyserNode.fftSize = 64;
-      source.connect(this.analyserNode);
+
+      // Connect DSP chain: Source -> HighPass -> Presence EQ -> Compressor -> Analyser
+      source.connect(highPassFilter);
+      highPassFilter.connect(presenceEq);
+      presenceEq.connect(compressorNode);
+      compressorNode.connect(this.analyserNode);
 
       const bufferLength = this.analyserNode.frequencyBinCount;
       this.analyserDataArray = new Uint8Array(bufferLength);
@@ -196,6 +224,8 @@ window.lynkAudioStreamHelper = {
 window.lynkVideoStreamHelper = {
   videoStream: null,
   videoElement: null,
+  isMicMuted: false,
+  isCameraDisabled: false,
 
   async startVideoStream(elementId, isFrontCamera = true) {
     try {
@@ -205,11 +235,26 @@ window.lynkVideoStreamHelper = {
 
       const constraints = {
         video: { facingMode: isFrontCamera ? 'user' : 'environment' },
-        audio: { echoCancellation: true, noiseSuppression: true }
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+          channelCount: 1,
+          sampleRate: 48000
+        }
       };
 
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
       this.videoStream = stream;
+
+      // Re-apply mic muted state if mic was muted before camera switch
+      if (this.isMicMuted) {
+        this.toggleMicEnabled(false);
+      }
+      // Re-apply camera disabled state if camera was off before camera switch
+      if (this.isCameraDisabled) {
+        this.toggleCameraEnabled(false);
+      }
 
       let el = document.getElementById(elementId);
       if (el) {
@@ -237,6 +282,7 @@ window.lynkVideoStreamHelper = {
   },
 
   toggleCameraEnabled(enabled) {
+    this.isCameraDisabled = !enabled;
     if (!this.videoStream) return;
     const videoTracks = this.videoStream.getVideoTracks();
     for (let i = 0; i < videoTracks.length; i++) {
@@ -251,6 +297,7 @@ window.lynkVideoStreamHelper = {
   },
 
   toggleMicEnabled(enabled) {
+    this.isMicMuted = !enabled;
     if (!this.videoStream) return;
     const audioTracks = this.videoStream.getAudioTracks();
     for (let i = 0; i < audioTracks.length; i++) {

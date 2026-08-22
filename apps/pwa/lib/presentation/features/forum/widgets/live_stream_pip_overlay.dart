@@ -78,72 +78,40 @@ class _LiveStreamPipOverlayState extends State<LiveStreamPipOverlay> {
                   border: Border.all(color: Colors.white24, width: 1),
                 ),
                 child: Stack(
-              children: [
-                // Live Stream Video Canvas
-                Positioned.fill(
-                  child: GestureDetector(
-                    onTap: _expandStreamScreen,
-                    child: Stack(
-                      children: [
-                        if (kIsWeb)
-                          const HtmlElementView(viewType: 'lynk-video-stage-view'),
-                        if (!_videoService.isCameraOn)
-                          Container(
-                            color: const Color(0xFF0F1115),
-                            child: Center(
-                              child: Icon(
-                                Icons.videocam_off_rounded,
-                                color: context.accentColor,
-                                size: 36,
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                ),
-
-                // Top Bar Pill: LIVE badge + Expand
-                Positioned(
-                  top: 8,
-                  left: 8,
-                  right: 8,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.65),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // 1. Live Stream Video Canvas (Tap anywhere to expand)
+                    Positioned.fill(
+                      child: GestureDetector(
+                        onTap: _expandStreamScreen,
+                        child: Stack(
                           children: [
-                            Container(
-                              width: 6,
-                              height: 6,
-                              decoration: const BoxDecoration(
-                                color: Colors.redAccent,
-                                shape: BoxShape.circle,
+                            if (kIsWeb)
+                              const HtmlElementView(viewType: 'lynk-video-stage-view'),
+                            if (!_videoService.isCameraOn)
+                              Container(
+                                color: const Color(0xFF0F1115),
+                                child: Center(
+                                  child: Icon(
+                                    Icons.videocam_off_rounded,
+                                    color: context.accentColor,
+                                    size: 36,
+                                  ),
+                                ),
                               ),
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              'LIVE',
-                              style: AppTypography.interTight(
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.redAccent,
-                              ),
-                            ),
                           ],
                         ),
                       ),
-                      InkWell(
+                    ),
+
+                    // 2. Simple Top-Right Expand Action Button (Native Browser PiP feel)
+                    Positioned(
+                      top: 8,
+                      right: 8,
+                      child: InkWell(
                         onTap: _expandStreamScreen,
+                        borderRadius: BorderRadius.circular(16),
                         child: Container(
-                          padding: const EdgeInsets.all(4),
+                          padding: const EdgeInsets.all(6),
                           decoration: BoxDecoration(
                             color: Colors.black.withValues(alpha: 0.65),
                             shape: BoxShape.circle,
@@ -155,64 +123,9 @@ class _LiveStreamPipOverlayState extends State<LiveStreamPipOverlay> {
                           ),
                         ),
                       ),
-                    ],
-                  ),
-                ),
-
-                // Bottom Controls Bar (Mic Toggle & End Stream)
-                Positioned(
-                  bottom: 8,
-                  left: 8,
-                  right: 8,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.75),
-                      borderRadius: BorderRadius.circular(16),
                     ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: [
-                        InkWell(
-                          onTap: () {
-                            setState(() {
-                              _videoService.isMicMuted = !_videoService.isMicMuted;
-                            });
-                            _videoService.toggleMic(!_videoService.isMicMuted);
-                          },
-                          child: Icon(
-                            _videoService.isMicMuted
-                                ? Icons.mic_off_rounded
-                                : Icons.mic_rounded,
-                            color: _videoService.isMicMuted
-                                ? Colors.redAccent
-                                : Colors.white,
-                            size: 18,
-                          ),
-                        ),
-                        InkWell(
-                          onTap: () {
-                            _videoService.stopVideoStream();
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.all(4),
-                            decoration: const BoxDecoration(
-                              color: Colors.redAccent,
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(
-                              Icons.call_end_rounded,
-                              color: Colors.white,
-                              size: 14,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                  ],
                 ),
-              ],
-            ),
           ),
         ),
       ),

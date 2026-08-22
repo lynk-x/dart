@@ -125,6 +125,7 @@ class ForumVideoStreamService {
 
   void stopVideoStream() {
     setLive(false);
+    releaseWakeLock();
     if (!kIsWeb) return;
     try {
       _jsStopVideoStream();

@@ -225,11 +225,12 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> with WidgetsBinding
     }
     _videoService.setCameraMirror(nextFront);
     await _videoService.startVideoStream(_elementId, isFrontCamera: nextFront);
+    _videoService.toggleMic(!_isMicMuted);
+    _videoService.toggleCamera(_isCameraOn);
   }
 
   Future<void> _triggerPictureInPicture() async {
     _videoService.setMinimized(true);
-    _videoService.triggerPictureInPicture(_elementId);
     if (mounted) {
       AppSnackBars.showInfo(context, 'Minimizing live stream to Forum');
       Navigator.of(context).pop();
@@ -547,9 +548,9 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> with WidgetsBinding
               ),
             ),
 
-            // Speaker Tag & Audio Amplitude Indicator Overlay
+            // Speaker Tag & Dynamic Audio Waveform Overlay
             Positioned(
-              left: 16,
+              right: 16,
               bottom: 96,
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -557,6 +558,13 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> with WidgetsBinding
                   color: Colors.black.withValues(alpha: 0.65),
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(color: Colors.white12),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Colors.black38,
+                      blurRadius: 8,
+                      offset: Offset(0, 2),
+                    ),
+                  ],
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -575,17 +583,44 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> with WidgetsBinding
                         color: Colors.white,
                       ),
                     ),
-                    if (!_isMicMuted && _currentAudioLevel > 0.05) ...[
-                      const SizedBox(width: 8),
+                    const SizedBox(width: 8),
+                    // Multi-bar Waveform Sound Indicator
+                    if (!_isMicMuted)
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: List.generate(4, (index) {
+                          final multipliers = [0.65, 1.0, 0.8, 0.95];
+                          const baseHeight = 4.0;
+                          const maxHeight = 16.0;
+                          final activeHeight = baseHeight + ((maxHeight - baseHeight) * _currentAudioLevel * multipliers[index]).clamp(0.0, maxHeight - baseHeight);
+                          return Container(
+                            margin: const EdgeInsets.symmetric(horizontal: 1.5),
+                            width: 3,
+                            height: activeHeight,
+                            decoration: BoxDecoration(
+                              color: _currentAudioLevel > 0.05 ? context.accentColor : Colors.white38,
+                              borderRadius: BorderRadius.circular(2),
+                            ),
+                          );
+                        }),
+                      )
+                    else
                       Container(
-                        width: 6,
-                        height: 6 + (14 * _currentAudioLevel),
+                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                         decoration: BoxDecoration(
-                          color: context.accentColor,
-                          borderRadius: BorderRadius.circular(3),
+                          color: Colors.redAccent.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          'MUTED',
+                          style: AppTypography.interTight(
+                            fontSize: 9,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.redAccent,
+                          ),
                         ),
                       ),
-                    ],
                   ],
                 ),
               ),
