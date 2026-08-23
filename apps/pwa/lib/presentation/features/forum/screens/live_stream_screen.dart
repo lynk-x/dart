@@ -42,10 +42,6 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> with WidgetsBinding
   bool _isFrontCamera = true;
   bool _showTelemetryOverlay = false;
   int _sessionDurationSeconds = 0;
-  String _selectedCamera = 'Built-in Front Camera';
-  String _selectedAudioInput = 'Default Microphone';
-  String _selectedAudioOutput = 'Default Speaker';
-  String _selectedStreamQuality = 'Auto (Adaptive HD)';
 
   Timer? _spectatorTimer;
   Timer? _audioLevelTimer;
@@ -507,347 +503,9 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> with WidgetsBinding
     );
   }
 
-  List<MediaDevice> _hardwareDevices = [];
 
-  void _showDeviceSelectorModal() {
-    // Query real hardware devices when modal opens
-    _videoService.getAvailableDevices().then((devices) {
-      if (mounted && devices.isNotEmpty) {
-        setState(() {
-          _hardwareDevices = devices;
-        });
-      }
-    });
 
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: const Color(0xFF121418),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setModalState) {
-            final videoDevices = _hardwareDevices
-                .where((d) => d.kind == 'videoinput')
-                .toList();
-            final audioInputDevices = _hardwareDevices
-                .where((d) => d.kind == 'audioinput')
-                .toList();
-            final audioOutputDevices = _hardwareDevices
-                .where((d) => d.kind == 'audiooutput')
-                .toList();
 
-            final cameraItems = videoDevices.isNotEmpty
-                ? videoDevices.map((d) {
-                    return DropdownMenuItem(
-                      value: d.deviceId,
-                      child: Text(
-                        d.label.isNotEmpty ? d.label : 'Camera ${d.deviceId.substring(0, 5)}',
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    );
-                  }).toList()
-                : const [
-                    DropdownMenuItem(
-                      value: 'Built-in Front Camera',
-                      child: Text('Built-in Front Camera'),
-                    ),
-                    DropdownMenuItem(
-                      value: 'Built-in Rear Camera',
-                      child: Text('Built-in Rear Camera'),
-                    ),
-                    DropdownMenuItem(
-                      value: 'External USB Cam Link (DSLR)',
-                      child: Text('External USB Cam Link (DSLR)'),
-                    ),
-                  ];
-
-            final audioInputItems = audioInputDevices.isNotEmpty
-                ? audioInputDevices.map((d) {
-                    return DropdownMenuItem(
-                      value: d.deviceId,
-                      child: Text(
-                        d.label.isNotEmpty ? d.label : 'Mic ${d.deviceId.substring(0, 5)}',
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    );
-                  }).toList()
-                : const [
-                    DropdownMenuItem(
-                      value: 'Default Microphone',
-                      child: Text('Default Microphone'),
-                    ),
-                    DropdownMenuItem(
-                      value: 'USB Audio Interface / Mixer',
-                      child: Text('USB Audio Interface / Mixer'),
-                    ),
-                    DropdownMenuItem(
-                      value: 'Wireless Bluetooth Headset',
-                      child: Text('Wireless Bluetooth Headset'),
-                    ),
-                  ];
-
-            final audioOutputItems = audioOutputDevices.isNotEmpty
-                ? audioOutputDevices.map((d) {
-                    return DropdownMenuItem(
-                      value: d.deviceId,
-                      child: Text(
-                        d.label.isNotEmpty ? d.label : 'Speaker ${d.deviceId.substring(0, 5)}',
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    );
-                  }).toList()
-                : const [
-                    DropdownMenuItem(
-                      value: 'Default Speaker',
-                      child: Text('Default Speaker'),
-                    ),
-                    DropdownMenuItem(
-                      value: 'Built-in Speaker / Headphones',
-                      child: Text('Built-in Speaker / Headphones'),
-                    ),
-                    DropdownMenuItem(
-                      value: 'Bluetooth Headset / AirPods',
-                      child: Text('Bluetooth Headset / AirPods'),
-                    ),
-                  ];
-
-            final qualityItems = const [
-              DropdownMenuItem(
-                value: 'Auto (Adaptive HD)',
-                child: Text('Auto (Adaptive HD)'),
-              ),
-              DropdownMenuItem(
-                value: '1080p Full HD',
-                child: Text('1080p Full HD'),
-              ),
-              DropdownMenuItem(
-                value: '720p HD (Data Saver)',
-                child: Text('720p HD (Data Saver)'),
-              ),
-              DropdownMenuItem(
-                value: '480p SD',
-                child: Text('480p SD'),
-              ),
-            ];
-
-            final selectedCamVal = cameraItems.any((item) => item.value == _selectedCamera)
-                ? _selectedCamera
-                : cameraItems.first.value;
-
-            final selectedAudioVal = audioInputItems.any((item) => item.value == _selectedAudioInput)
-                ? _selectedAudioInput
-                : audioInputItems.first.value;
-
-            final selectedOutputVal = audioOutputItems.any((item) => item.value == _selectedAudioOutput)
-                ? _selectedAudioOutput
-                : audioOutputItems.first.value;
-
-            final selectedQualityVal = qualityItems.any((item) => item.value == _selectedStreamQuality)
-                ? _selectedStreamQuality
-                : qualityItems.first.value;
-
-            return Container(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Center(
-                    child: Container(
-                      width: 36,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: Colors.white24,
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Settings',
-                    style: AppTypography.interTight(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-
-                  if (widget.isHost) ...[
-                    Text(
-                      'Camera Input',
-                      style: AppTypography.interTight(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white70,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    DropdownButtonFormField<String>(
-                      initialValue: selectedCamVal,
-                      dropdownColor: const Color(0xFF1E222A),
-                      style: const TextStyle(color: Colors.white),
-                      decoration: InputDecoration(
-                        filled: true,
-                        fillColor: Colors.white.withValues(alpha: 0.06),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                          borderSide: BorderSide.none,
-                        ),
-                      ),
-                      items: cameraItems,
-                      onChanged: (val) {
-                        if (val != null) {
-                          setModalState(() => _selectedCamera = val);
-                          setState(() => _selectedCamera = val);
-                          _videoService.switchCameraDevice(_elementId, val);
-                        }
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Microphone Input',
-                      style: AppTypography.interTight(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white70,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    DropdownButtonFormField<String>(
-                      initialValue: selectedAudioVal,
-                      dropdownColor: const Color(0xFF1E222A),
-                      style: const TextStyle(color: Colors.white),
-                      decoration: InputDecoration(
-                        filled: true,
-                        fillColor: Colors.white.withValues(alpha: 0.06),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                          borderSide: BorderSide.none,
-                        ),
-                      ),
-                      items: audioInputItems,
-                      onChanged: (val) {
-                        if (val != null) {
-                          setModalState(() => _selectedAudioInput = val);
-                          setState(() => _selectedAudioInput = val);
-                          _videoService.switchAudioDevice(val);
-                        }
-                      },
-                    ),
-                  ] else ...[
-                    Text(
-                      'Audio Routing',
-                      style: AppTypography.interTight(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white70,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    DropdownButtonFormField<String>(
-                      initialValue: selectedOutputVal,
-                      dropdownColor: const Color(0xFF1E222A),
-                      style: const TextStyle(color: Colors.white),
-                      decoration: InputDecoration(
-                        filled: true,
-                        fillColor: Colors.white.withValues(alpha: 0.06),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                          borderSide: BorderSide.none,
-                        ),
-                      ),
-                      items: audioOutputItems,
-                      onChanged: (val) {
-                        if (val != null) {
-                          setModalState(() => _selectedAudioOutput = val);
-                          setState(() => _selectedAudioOutput = val);
-                          _videoService.switchAudioOutputDevice(_elementId, val);
-                        }
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Stream Quality',
-                      style: AppTypography.interTight(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white70,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    DropdownButtonFormField<String>(
-                      initialValue: selectedQualityVal,
-                      dropdownColor: const Color(0xFF1E222A),
-                      style: const TextStyle(color: Colors.white),
-                      decoration: InputDecoration(
-                        filled: true,
-                        fillColor: Colors.white.withValues(alpha: 0.06),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                          borderSide: BorderSide.none,
-                        ),
-                      ),
-                      items: qualityItems,
-                      onChanged: (val) {
-                        if (val != null) {
-                          setModalState(() => _selectedStreamQuality = val);
-                          setState(() => _selectedStreamQuality = val);
-                          _videoService.setStreamQuality(_elementId, val);
-                        }
-                      },
-                    ),
-                  ],
-
-                  const SizedBox(height: 12),
-                  SwitchListTile(
-                    value: _showTelemetryOverlay,
-                    activeTrackColor: context.accentColor.withValues(alpha: 0.38),
-                    activeThumbColor: context.accentColor,
-                    thumbColor: WidgetStateProperty.resolveWith((states) {
-                      if (states.contains(WidgetState.selected)) {
-                        return context.accentColor;
-                      }
-                      return Colors.white54;
-                    }),
-                    trackColor: WidgetStateProperty.resolveWith((states) {
-                      if (states.contains(WidgetState.selected)) {
-                        return context.accentColor.withValues(alpha: 0.38);
-                      }
-                      return Colors.white12;
-                    }),
-                    contentPadding: EdgeInsets.zero,
-                    title: Text(
-                      'Stream Telemetry Overlay',
-                      style: AppTypography.interTight(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white,
-                      ),
-                    ),
-                    subtitle: Text(
-                      'Displays real-time bitrate, resolution & latency stats on video stage',
-                      style: AppTypography.interTight(
-                        fontSize: 12,
-                        color: Colors.white54,
-                      ),
-                    ),
-                    onChanged: (val) {
-                      setModalState(() => _showTelemetryOverlay = val);
-                      setState(() => _showTelemetryOverlay = val);
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                ],
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -1124,16 +782,18 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> with WidgetsBinding
             left: 16,
             right: 16,
             child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                // Collapse / Browser PiP Trigger
+                // Top Left: Minimize / Browser PiP Trigger
                 InkWell(
                   onTap: _triggerPictureInPicture,
                   borderRadius: BorderRadius.circular(20),
                   child: Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.5),
+                      color: Colors.black.withValues(alpha: 0.55),
                       shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white12),
                     ),
                     child: const Icon(
                       Icons.picture_in_picture_alt_rounded,
@@ -1142,90 +802,75 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> with WidgetsBinding
                     ),
                   ),
                 ),
-                const SizedBox(width: 12),
 
-                // Forum Name & LIVE Badge
-                Expanded(
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: Colors.redAccent,
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                          'LIVE',
-                          style: AppTypography.interTight(
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
+                // Top Right: Telemetry Toggle + Combined LIVE & Spectator Count Badge
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Telemetry Toggle Button
+                    IconButton(
+                      icon: Icon(
+                        _showTelemetryOverlay
+                            ? Icons.analytics_rounded
+                            : Icons.analytics_outlined,
+                        color: _showTelemetryOverlay
+                            ? context.accentColor
+                            : Colors.white70,
+                        size: 20,
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          _showTelemetryOverlay = !_showTelemetryOverlay;
+                        });
+                      },
+                      tooltip: 'Toggle Stream Telemetry',
+                    ),
+                    const SizedBox(width: 4),
+
+                    // Combined LIVE & Spectator Count Badge
+                    Container(
+                      padding:
+                          const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.55),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: Colors.white12),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.redAccent,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              'LIVE',
+                              style: AppTypography.interTight(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            ),
                           ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Flexible(
-                        child: Text(
-                          widget.forumName,
-                          style: AppTypography.interTight(
-                            fontSize: 15,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
+                          const SizedBox(width: 8),
+                          const Icon(Icons.remove_red_eye_rounded,
+                              color: Colors.white70, size: 14),
+                          const SizedBox(width: 4),
+                          Text(
+                            '${_videoService.spectatorCount}',
+                            style: AppTypography.interTight(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white,
+                            ),
                           ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
+                        ],
                       ),
-                    ],
-                  ),
-                ),
-
-                // Telemetry Toggle Button
-                IconButton(
-                  icon: Icon(
-                    _showTelemetryOverlay ? Icons.analytics_rounded : Icons.analytics_outlined,
-                    color: _showTelemetryOverlay ? context.accentColor : Colors.white70,
-                    size: 20,
-                  ),
-                  onPressed: () {
-                    setState(() {
-                      _showTelemetryOverlay = !_showTelemetryOverlay;
-                    });
-                  },
-                  tooltip: 'Toggle Stream Telemetry',
-                ),
-
-                // Media Device Settings Button
-                IconButton(
-                  icon: const Icon(
-                    Icons.tune_rounded,
-                    color: Colors.white70,
-                    size: 20,
-                  ),
-                  onPressed: _showDeviceSelectorModal,
-                  tooltip: 'Audio & Video Devices',
-                ),
-
-                // Spectator Counter Badge
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.5),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.remove_red_eye_rounded, color: Colors.white70, size: 14),
-                      const SizedBox(width: 4),
-                      Text(
-                        '${_videoService.spectatorCount}',
-                        style: AppTypography.interTight(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ],
             ),

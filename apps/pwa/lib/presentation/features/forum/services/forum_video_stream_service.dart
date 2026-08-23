@@ -269,21 +269,41 @@ class ForumVideoStreamService {
   }
 
   void toggleParticipantMic(String participantId) {
-    activeParticipantsNotifier.value = activeParticipantsNotifier.value.map((p) {
-      if (p.id == participantId) {
-        return p.copyWith(isMicMuted: !p.isMicMuted);
-      }
-      return p;
-    }).toList();
+    final list = List<StreamParticipant>.from(activeParticipantsNotifier.value);
+    final index = list.indexWhere(
+      (p) => p.id == participantId || (p.isHost && (participantId == 'host' || participantId.isNotEmpty)),
+    );
+    if (index != -1) {
+      list[index] = list[index].copyWith(isMicMuted: !list[index].isMicMuted);
+    } else {
+      list.add(StreamParticipant(
+        id: participantId,
+        name: participantId,
+        role: 'Speaker',
+        isMicMuted: false,
+        isCameraOn: false,
+      ));
+    }
+    activeParticipantsNotifier.value = list;
   }
 
   void toggleParticipantCamera(String participantId) {
-    activeParticipantsNotifier.value = activeParticipantsNotifier.value.map((p) {
-      if (p.id == participantId) {
-        return p.copyWith(isCameraOn: !p.isCameraOn);
-      }
-      return p;
-    }).toList();
+    final list = List<StreamParticipant>.from(activeParticipantsNotifier.value);
+    final index = list.indexWhere(
+      (p) => p.id == participantId || (p.isHost && (participantId == 'host' || participantId.isNotEmpty)),
+    );
+    if (index != -1) {
+      list[index] = list[index].copyWith(isCameraOn: !list[index].isCameraOn);
+    } else {
+      list.add(StreamParticipant(
+        id: participantId,
+        name: participantId,
+        role: 'Speaker',
+        isMicMuted: true,
+        isCameraOn: true,
+      ));
+    }
+    activeParticipantsNotifier.value = list;
   }
 
   void toggleParticipantStage(String participantId) {

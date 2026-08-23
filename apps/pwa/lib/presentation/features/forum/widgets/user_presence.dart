@@ -15,6 +15,7 @@ class UserPresenceCard extends StatefulWidget {
   final bool isOrganizer;
   final bool isPremium;
 
+  final bool showCameraControl;
   final bool? isMicMuted;
   final bool? isCameraOn;
   final ValueChanged<String>? onToggleMic;
@@ -29,6 +30,7 @@ class UserPresenceCard extends StatefulWidget {
     this.isPrimary = false,
     this.isOrganizer = false,
     this.isPremium = false,
+    this.showCameraControl = true,
     this.isMicMuted,
     this.isCameraOn,
     this.onToggleMic,
@@ -52,6 +54,26 @@ class UserPresenceCard extends StatefulWidget {
 
 class _UserPresenceCardState extends State<UserPresenceCard> {
   bool _showActions = false;
+  late bool _localMicMuted;
+  late bool _localCameraOn;
+
+  @override
+  void initState() {
+    super.initState();
+    _localMicMuted = widget.isMicMuted ?? true;
+    _localCameraOn = widget.isCameraOn ?? false;
+  }
+
+  @override
+  void didUpdateWidget(UserPresenceCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.isMicMuted != null) {
+      _localMicMuted = widget.isMicMuted!;
+    }
+    if (widget.isCameraOn != null) {
+      _localCameraOn = widget.isCameraOn!;
+    }
+  }
 
   void _toggleActions() {
     setState(() {
@@ -59,8 +81,29 @@ class _UserPresenceCardState extends State<UserPresenceCard> {
     });
   }
 
+  void _handleToggleMic() {
+    setState(() {
+      _localMicMuted = !_localMicMuted;
+    });
+    if (widget.onToggleMic != null) {
+      widget.onToggleMic!(widget.userId);
+    }
+  }
+
+  void _handleToggleCamera() {
+    setState(() {
+      _localCameraOn = !_localCameraOn;
+    });
+    if (widget.onToggleCamera != null) {
+      widget.onToggleCamera!(widget.userId);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final bool effectiveMicMuted = widget.isMicMuted ?? _localMicMuted;
+    final bool effectiveCameraOn = widget.isCameraOn ?? _localCameraOn;
+
     return Opacity(
       opacity: widget.isOnline ? 1.0 : 0.45,
       child: Column(
@@ -108,54 +151,48 @@ class _UserPresenceCardState extends State<UserPresenceCard> {
                       ],
                     ),
                   ),
-                  if (widget.isMicMuted != null || widget.isCameraOn != null)
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (widget.isMicMuted != null) ...[
-                          Tooltip(
-                            message: widget.isMicMuted! ? 'Unmute Mic' : 'Mute Mic',
-                            child: InkWell(
-                              onTap: widget.onToggleMic != null
-                                  ? () => widget.onToggleMic!(widget.userId)
-                                  : null,
-                              borderRadius: BorderRadius.circular(16),
-                              child: Padding(
-                                padding: const EdgeInsets.all(4.0),
-                                child: Icon(
-                                  widget.isMicMuted! ? Icons.mic_off_rounded : Icons.mic_rounded,
-                                  color: widget.isMicMuted!
-                                      ? Colors.redAccent
-                                      : (widget.isPrimary ? Colors.black87 : context.accentColor),
-                                  size: 18,
-                                ),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Tooltip(
+                        message: effectiveMicMuted ? 'Unmute Mic' : 'Mute Mic',
+                        child: InkWell(
+                          onTap: _handleToggleMic,
+                          borderRadius: BorderRadius.circular(16),
+                          child: Padding(
+                            padding: const EdgeInsets.all(4.0),
+                            child: Icon(
+                              effectiveMicMuted ? Icons.mic_off_rounded : Icons.mic_rounded,
+                              color: effectiveMicMuted
+                                  ? (widget.isPrimary ? Colors.black45 : Colors.redAccent)
+                                  : (widget.isPrimary ? Colors.black87 : context.accentColor),
+                              size: 20,
+                            ),
+                          ),
+                        ),
+                      ),
+                      if (widget.showCameraControl) ...[
+                        const SizedBox(width: 6),
+                        Tooltip(
+                          message: effectiveCameraOn ? 'Turn Camera Off' : 'Turn Camera On',
+                          child: InkWell(
+                            onTap: _handleToggleCamera,
+                            borderRadius: BorderRadius.circular(16),
+                            child: Padding(
+                              padding: const EdgeInsets.all(4.0),
+                              child: Icon(
+                                effectiveCameraOn ? Icons.videocam_rounded : Icons.videocam_off_rounded,
+                                color: effectiveCameraOn
+                                    ? (widget.isPrimary ? Colors.black87 : context.accentColor)
+                                    : (widget.isPrimary ? Colors.black45 : Colors.redAccent),
+                                size: 20,
                               ),
                             ),
                           ),
-                          const SizedBox(width: 6),
-                        ],
-                        if (widget.isCameraOn != null)
-                          Tooltip(
-                            message: widget.isCameraOn! ? 'Turn Camera Off' : 'Turn Camera On',
-                            child: InkWell(
-                              onTap: widget.onToggleCamera != null
-                                  ? () => widget.onToggleCamera!(widget.userId)
-                                  : null,
-                              borderRadius: BorderRadius.circular(16),
-                              child: Padding(
-                                padding: const EdgeInsets.all(4.0),
-                                child: Icon(
-                                  widget.isCameraOn! ? Icons.videocam_rounded : Icons.videocam_off_rounded,
-                                  color: widget.isCameraOn!
-                                      ? (widget.isPrimary ? Colors.black87 : context.accentColor)
-                                      : Colors.redAccent,
-                                  size: 18,
-                                ),
-                              ),
-                            ),
-                          ),
+                        ),
                       ],
-                    ),
+                    ],
+                  ),
                 ],
               ),
             ),

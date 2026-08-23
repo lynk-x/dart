@@ -463,9 +463,11 @@ class _ForumViewState extends State<ForumView> {
                                     }
                                   }
 
-                                  final totalHeaderHeight = 104.0 +
-                                      adsHeight +
-                                      (isStageActive ? 0 : extraHeight);
+                                  final forumHeaderHeight = 56.0;
+                                  final totalHeaderHeight =
+                                      (isStageActive ? forumHeaderHeight : 104.0) +
+                                          adsHeight +
+                                          (isStageActive ? 0 : extraHeight);
                                   return SliverOverlapAbsorber(
                                     handle:
                                         NestedScrollView.sliverOverlapAbsorberHandleFor(
