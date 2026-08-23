@@ -227,7 +227,7 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> with WidgetsBinding
           _isScreenSharing = true;
         });
       } else if (mounted) {
-        AppSnackBars.showInfo(context, 'Screen sharing cancelled or not supported');
+        AppSnackBars.showInfo(context, 'Screen share cancelled or restricted on this mobile browser. Try Desktop or Chrome Android.');
       }
     }
   }
@@ -352,6 +352,161 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> with WidgetsBinding
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  void _showStageLayoutModal() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF121418),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return ValueListenableBuilder<StageLayoutMode>(
+          valueListenable: _videoService.stageLayoutNotifier,
+          builder: (context, currentLayout, _) {
+            return Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.dashboard_customize_rounded, color: context.accentColor, size: 22),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Stage Display Layout',
+                        style: AppTypography.interTight(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const Spacer(),
+                      IconButton(
+                        icon: const Icon(Icons.close, color: Colors.white70),
+                        onPressed: () => Navigator.of(context).pop(),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Select how active speakers and streams are arranged on stage',
+                    style: AppTypography.interTight(
+                      fontSize: 12,
+                      color: Colors.white54,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  _buildLayoutOptionTile(
+                    context,
+                    mode: StageLayoutMode.focus,
+                    title: 'Focus Stage (Default)',
+                    subtitle: 'Pinned speaker fills the full video stage canvas',
+                    icon: Icons.crop_square_rounded,
+                    isSelected: currentLayout == StageLayoutMode.focus,
+                  ),
+                  const SizedBox(height: 12),
+                  _buildLayoutOptionTile(
+                    context,
+                    mode: StageLayoutMode.grid,
+                    title: 'Grid / Gallery View',
+                    subtitle: 'Multi-speaker equal split layout for panel discussions',
+                    icon: Icons.grid_view_rounded,
+                    isSelected: currentLayout == StageLayoutMode.grid,
+                  ),
+                  const SizedBox(height: 12),
+                  _buildLayoutOptionTile(
+                    context,
+                    mode: StageLayoutMode.presentation,
+                    title: 'Presentation Mode',
+                    subtitle: 'Screen share or main stream focus with side ribbon',
+                    icon: Icons.space_dashboard_rounded,
+                    isSelected: currentLayout == StageLayoutMode.presentation,
+                  ),
+                  const SizedBox(height: 16),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildLayoutOptionTile(
+    BuildContext context, {
+    required StageLayoutMode mode,
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required bool isSelected,
+  }) {
+    return InkWell(
+      onTap: () {
+        _videoService.setStageLayout(mode);
+        Navigator.of(context).pop();
+      },
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? context.accentColor.withValues(alpha: 0.12)
+              : Colors.white.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isSelected ? context.accentColor : Colors.white12,
+            width: isSelected ? 1.5 : 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: isSelected
+                    ? context.accentColor.withValues(alpha: 0.2)
+                    : Colors.white.withValues(alpha: 0.08),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                icon,
+                color: isSelected ? context.accentColor : Colors.white70,
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: AppTypography.interTight(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: AppTypography.interTight(
+                      fontSize: 12,
+                      color: Colors.white54,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (isSelected)
+              Icon(Icons.check_circle_rounded, color: context.accentColor, size: 20),
+          ],
+        ),
       ),
     );
   }
@@ -763,7 +918,7 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> with WidgetsBinding
                                         ),
                                         const SizedBox(height: 6),
                                         Text(
-                                          'Input: $_selectedCamera',
+                                          'Your camera is currently turned off',
                                           style: AppTypography.interTight(
                                             fontSize: 12,
                                             color: Colors.white54,
@@ -813,13 +968,20 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> with WidgetsBinding
                         return ValueListenableBuilder<String>(
                           valueListenable: _videoService.stageSpeakerIdNotifier,
                           builder: (context, pinnedId, _) {
-                            return GuestThumbnailStrip(
-                              participants: participants,
-                              pinnedId: pinnedId,
-                              isHost: widget.isHost,
-                              onPinSpeaker: (id) => _videoService.pinStageSpeaker(id),
-                              onAddStageSpeaker: () {
-                                AppSnackBars.showInfo(context, 'Stage Invite link copied to clipboard');
+                            return ValueListenableBuilder<StageLayoutMode>(
+                              valueListenable: _videoService.stageLayoutNotifier,
+                              builder: (context, layoutMode, _) {
+                                return GuestThumbnailStrip(
+                                  participants: participants,
+                                  pinnedId: pinnedId,
+                                  isHost: widget.isHost,
+                                  layoutMode: layoutMode,
+                                  onPinSpeaker: (id) => _videoService.pinStageSpeaker(id),
+                                  onAddStageSpeaker: () {
+                                    AppSnackBars.showInfo(context, 'Stage Invite link copied to clipboard');
+                                  },
+                                  onOpenLayoutSelector: _showStageLayoutModal,
+                                );
                               },
                             );
                           },

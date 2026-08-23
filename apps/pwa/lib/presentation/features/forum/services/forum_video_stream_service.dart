@@ -111,6 +111,12 @@ class StreamParticipant {
   });
 }
 
+enum StageLayoutMode {
+  focus,
+  grid,
+  presentation,
+}
+
 class ForumVideoStreamService {
   static final ForumVideoStreamService _instance = ForumVideoStreamService._internal();
   factory ForumVideoStreamService() => _instance;
@@ -120,6 +126,8 @@ class ForumVideoStreamService {
   final ValueNotifier<bool> isLiveNotifier = ValueNotifier<bool>(false);
   final ValueNotifier<TelemetryData> telemetryNotifier =
       ValueNotifier<TelemetryData>(const TelemetryData());
+  final ValueNotifier<StageLayoutMode> stageLayoutNotifier =
+      ValueNotifier<StageLayoutMode>(StageLayoutMode.focus);
 
   final ValueNotifier<List<StreamParticipant>> activeParticipantsNotifier =
       ValueNotifier<List<StreamParticipant>>([
@@ -166,6 +174,10 @@ class ForumVideoStreamService {
   String appId = '';
   String appSecret = '';
   String? cfSessionId;
+
+  void setStageLayout(StageLayoutMode mode) {
+    stageLayoutNotifier.value = mode;
+  }
 
   void pinStageSpeaker(String participantId) {
     stageSpeakerIdNotifier.value = participantId;

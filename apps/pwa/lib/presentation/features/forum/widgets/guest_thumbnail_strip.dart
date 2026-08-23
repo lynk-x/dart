@@ -6,17 +6,43 @@ class GuestThumbnailStrip extends StatelessWidget {
   final List<StreamParticipant> participants;
   final String pinnedId;
   final bool isHost;
+  final StageLayoutMode layoutMode;
   final ValueChanged<String> onPinSpeaker;
   final VoidCallback? onAddStageSpeaker;
+  final VoidCallback? onOpenLayoutSelector;
 
   const GuestThumbnailStrip({
     super.key,
     required this.participants,
     required this.pinnedId,
     required this.isHost,
+    required this.layoutMode,
     required this.onPinSpeaker,
     this.onAddStageSpeaker,
+    this.onOpenLayoutSelector,
   });
+
+  IconData _getLayoutIcon(StageLayoutMode mode) {
+    switch (mode) {
+      case StageLayoutMode.focus:
+        return Icons.crop_square_rounded;
+      case StageLayoutMode.grid:
+        return Icons.grid_view_rounded;
+      case StageLayoutMode.presentation:
+        return Icons.space_dashboard_rounded;
+    }
+  }
+
+  String _getLayoutName(StageLayoutMode mode) {
+    switch (mode) {
+      case StageLayoutMode.focus:
+        return 'Focus';
+      case StageLayoutMode.grid:
+        return 'Grid';
+      case StageLayoutMode.presentation:
+        return 'Present';
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -24,15 +50,64 @@ class GuestThumbnailStrip extends StatelessWidget {
 
     return SizedBox(
       height: 104,
-      child: Align(
-        alignment: Alignment.centerRight,
-        child: SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          physics: const BouncingScrollPhysics(),
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: List.generate(totalCount, (index) {
+      child: Row(
+        children: [
+          // Pinned Far-Left Layout Control Tile
+          Padding(
+            padding: const EdgeInsets.only(left: 16.0, right: 8.0),
+            child: InkWell(
+              onTap: onOpenLayoutSelector,
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                width: 68,
+                height: 98,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF161920).withValues(alpha: 0.90),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: context.accentColor.withValues(alpha: 0.5),
+                    width: 1.5,
+                  ),
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: context.accentColor.withValues(alpha: 0.15),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        _getLayoutIcon(layoutMode),
+                        color: context.accentColor,
+                        size: 20,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      _getLayoutName(layoutMode),
+                      style: AppTypography.interTight(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+
+          // Scrollable Guest Speakers
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              physics: const BouncingScrollPhysics(),
+              padding: const EdgeInsets.only(right: 16),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: List.generate(totalCount, (index) {
               final isLast = index == totalCount - 1;
               Widget itemWidget;
 
@@ -65,7 +140,7 @@ class GuestThumbnailStrip extends StatelessWidget {
                         ),
                         const SizedBox(height: 6),
                         Text(
-                          'Add Stage',
+                          'Add Speaker',
                           style: AppTypography.interTight(
                             fontSize: 10,
                             fontWeight: FontWeight.w600,
@@ -170,6 +245,8 @@ class GuestThumbnailStrip extends StatelessWidget {
           ),
         ),
       ),
-    );
+    ],
+  ),
+);
   }
 }

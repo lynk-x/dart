@@ -395,27 +395,25 @@ window.lynkVideoStreamHelper = {
 
   async startScreenShare(elementId) {
     try {
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
-        console.warn('[VideoStreamHelper] getDisplayMedia not supported on this browser');
+      if (!navigator.mediaDevices || typeof navigator.mediaDevices.getDisplayMedia !== 'function') {
+        console.warn('[VideoStreamHelper] getDisplayMedia API is not available on this mobile platform/browser environment.');
         return false;
       }
 
       let displayStream;
       try {
-        // Mobile-safe display media request (omitting mouse cursor constraint which causes OverconstrainedError on touch devices)
         displayStream = await navigator.mediaDevices.getDisplayMedia({
-          video: {
-            displaySurface: 'monitor',
-            logicalSurface: true
-          },
+          video: true,
           audio: false
         });
-      } catch (constraintErr) {
-        console.warn('[VideoStreamHelper] getDisplayMedia fallback to basic video constraint:', constraintErr);
-        // Fallback for mobile WebSockets / Safari mobile
-        displayStream = await navigator.mediaDevices.getDisplayMedia({
-          video: true
-        });
+      } catch (err1) {
+        console.warn('[VideoStreamHelper] Primary getDisplayMedia failed, trying unconstrained fallback:', err1);
+        try {
+          displayStream = await navigator.mediaDevices.getDisplayMedia();
+        } catch (err2) {
+          console.warn('[VideoStreamHelper] Fallback getDisplayMedia also failed:', err2);
+          return false;
+        }
       }
 
       let el = document.getElementById(elementId) || this.videoElement;
