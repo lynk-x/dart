@@ -515,7 +515,7 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> with WidgetsBinding
                               ),
 
                             // Camera Off Overlay Placeholder
-                            if (!_isCameraOn)
+                            if (!_isCameraOn && !_isScreenSharing)
                               Positioned.fill(
                                 child: Container(
                                   color: const Color(0xFF0F1115),
@@ -573,6 +573,7 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> with WidgetsBinding
                     valueListenable: _videoService.stageSpeakerIdNotifier,
                     builder: (context, pinnedId, _) {
                       final participants = _videoService.activeParticipantsNotifier.value;
+                      if (participants.isEmpty) return const SizedBox.shrink();
                       final activeParticipant = participants.firstWhere(
                         (p) => p.id == pinnedId,
                         orElse: () => participants.first,

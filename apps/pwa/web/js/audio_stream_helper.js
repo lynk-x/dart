@@ -270,6 +270,7 @@ window.lynkVideoStreamHelper = {
           el.muted = true;
           el.defaultMuted = true;
           el.srcObject = stream;
+          el.style.objectFit = 'cover';
           el.style.transform = isFrontCamera ? 'scaleX(-1)' : 'none';
           el.play().catch(e => console.warn('[VideoStreamHelper] video play failed:', e));
           this.videoElement = el;
@@ -298,27 +299,80 @@ window.lynkVideoStreamHelper = {
     }
   },
 
-  toggleCameraEnabled(enabled) {
+  async toggleCameraEnabled(enabled) {
     this.isCameraDisabled = !enabled;
-    if (!this.videoStream) return;
-    const videoTracks = this.videoStream.getVideoTracks();
-    for (let i = 0; i < videoTracks.length; i++) {
-      videoTracks[i].enabled = !!enabled;
-    }
-    if (enabled && this.videoElement) {
-      if (this.videoElement.srcObject !== this.videoStream) {
-        this.videoElement.srcObject = this.videoStream;
+    if (!enabled) {
+      // Stop video tracks to ensure hardware camera LED indicator turns off completely
+      if (this.videoStream) {
+        const videoTracks = this.videoStream.getVideoTracks();
+        for (let i = 0; i < videoTracks.length; i++) {
+          videoTracks[i].stop();
+          this.videoStream.removeTrack(videoTracks[i]);
+        }
       }
-      this.videoElement.play().catch(e => console.warn('[VideoStreamHelper] video play failed:', e));
+    } else {
+      // Re-acquire camera video track when toggled back ON
+      try {
+        const constraints = {
+          video: {
+            facingMode: this.isFrontCamera ? 'user' : 'environment',
+            width: { ideal: 1280, max: 1920 },
+            height: { ideal: 720, max: 1080 },
+            frameRate: { ideal: 30, max: 30 }
+          }
+        };
+        const newStream = await navigator.mediaDevices.getUserMedia(constraints);
+        const newTrack = newStream.getVideoTracks()[0];
+        if (newTrack && this.videoStream) {
+          this.videoStream.addTrack(newTrack);
+        }
+        if (this.videoElement) {
+          this.videoElement.srcObject = this.videoStream;
+          this.videoElement.play().catch(e => console.warn('[VideoStreamHelper] video play failed:', e));
+        }
+      } catch (e) {
+        console.warn('[VideoStreamHelper] re-enabling camera failed:', e);
+      }
     }
   },
 
-  toggleMicEnabled(enabled) {
+  async toggleMicEnabled(enabled) {
     this.isMicMuted = !enabled;
-    if (!this.videoStream) return;
-    const audioTracks = this.videoStream.getAudioTracks();
-    for (let i = 0; i < audioTracks.length; i++) {
-      audioTracks[i].enabled = !!enabled;
+    if (!enabled) {
+      // Stop audio tracks to ensure OS hardware microphone indicator light turns off completely
+      if (this.videoStream) {
+        const audioTracks = this.videoStream.getAudioTracks();
+        for (let i = 0; i < audioTracks.length; i++) {
+          audioTracks[i].stop();
+          this.videoStream.removeTrack(audioTracks[i]);
+        }
+      }
+      if (window.lynkAudioStreamHelper) {
+        window.lynkAudioStreamHelper.stopAudioAnalyser();
+      }
+    } else {
+      // Re-acquire microphone audio track when unmuted
+      try {
+        const audioConstraints = {
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+            channelCount: 1,
+            sampleRate: 48000
+          }
+        };
+        const newStream = await navigator.mediaDevices.getUserMedia(audioConstraints);
+        const newAudioTrack = newStream.getAudioTracks()[0];
+        if (newAudioTrack && this.videoStream) {
+          this.videoStream.addTrack(newAudioTrack);
+        }
+        if (window.lynkAudioStreamHelper) {
+          window.lynkAudioStreamHelper.setupAudioAnalyser(newStream);
+        }
+      } catch (e) {
+        console.warn('[VideoStreamHelper] re-enabling microphone failed:', e);
+      }
     }
   },
 
@@ -355,6 +409,7 @@ window.lynkVideoStreamHelper = {
         el.muted = true;
         el.defaultMuted = true;
         el.srcObject = displayStream;
+        el.style.objectFit = 'contain';
         el.style.transform = 'none';
         el.play().catch(e => console.warn('[VideoStreamHelper] screen share play failed:', e));
       }
@@ -364,6 +419,7 @@ window.lynkVideoStreamHelper = {
           el.muted = true;
           el.defaultMuted = true;
           el.srcObject = this.videoStream;
+          el.style.objectFit = 'cover';
           if (this.isFrontCamera) {
             el.style.transform = 'scaleX(-1)';
           }

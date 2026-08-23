@@ -14,7 +14,14 @@ class SpeakerTag extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final safeAudioLevel = (audioLevel.isNaN || audioLevel.isInfinite)
+        ? 0.0
+        : audioLevel.clamp(0.0, 1.0);
+
+    final maxTagWidth = MediaQuery.of(context).size.width - 64;
+
     return Container(
+      constraints: BoxConstraints(maxWidth: maxTagWidth > 120 ? maxTagWidth : 200),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
@@ -34,12 +41,16 @@ class SpeakerTag extends StatelessWidget {
             size: 16,
           ),
           const SizedBox(width: 6),
-          Text(
-            '${activeParticipant.name} (${activeParticipant.role})',
-            style: AppTypography.interTight(
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
+          Flexible(
+            child: Text(
+              '${activeParticipant.name} (${activeParticipant.role})',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: AppTypography.interTight(
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
             ),
           ),
           const SizedBox(width: 8),
@@ -52,14 +63,14 @@ class SpeakerTag extends StatelessWidget {
                 const baseHeight = 4.0;
                 const maxHeight = 16.0;
                 final activeHeight = baseHeight +
-                    ((maxHeight - baseHeight) * audioLevel * multipliers[index])
+                    ((maxHeight - baseHeight) * safeAudioLevel * multipliers[index])
                         .clamp(0.0, maxHeight - baseHeight);
                 return Container(
                   margin: const EdgeInsets.symmetric(horizontal: 1.5),
                   width: 3,
                   height: activeHeight,
                   decoration: BoxDecoration(
-                    color: audioLevel > 0.05 ? context.accentColor : Colors.white38,
+                    color: safeAudioLevel > 0.05 ? context.accentColor : Colors.white38,
                     borderRadius: BorderRadius.circular(2),
                   ),
                 );
