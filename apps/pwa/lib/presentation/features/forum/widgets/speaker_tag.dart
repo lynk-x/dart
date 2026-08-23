@@ -18,6 +18,8 @@ class SpeakerTag extends StatelessWidget {
         ? 0.0
         : audioLevel.clamp(0.0, 1.0);
 
+    final sensitiveAudioLevel = (safeAudioLevel * 2.0).clamp(0.0, 1.0);
+
     final maxTagWidth = MediaQuery.of(context).size.width - 64;
 
     return Container(
@@ -35,12 +37,6 @@ class SpeakerTag extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            activeParticipant.isMicMuted ? Icons.mic_off_rounded : Icons.mic_rounded,
-            color: activeParticipant.isMicMuted ? Colors.redAccent : context.accentColor,
-            size: 16,
-          ),
-          const SizedBox(width: 6),
           Flexible(
             child: Text(
               '${activeParticipant.name} (${activeParticipant.role})',
@@ -63,14 +59,14 @@ class SpeakerTag extends StatelessWidget {
                 const baseHeight = 4.0;
                 const maxHeight = 16.0;
                 final activeHeight = baseHeight +
-                    ((maxHeight - baseHeight) * safeAudioLevel * multipliers[index])
+                    ((maxHeight - baseHeight) * sensitiveAudioLevel * multipliers[index])
                         .clamp(0.0, maxHeight - baseHeight);
                 return Container(
                   margin: const EdgeInsets.symmetric(horizontal: 1.5),
                   width: 3,
                   height: activeHeight,
                   decoration: BoxDecoration(
-                    color: safeAudioLevel > 0.05 ? context.accentColor : Colors.white38,
+                    color: sensitiveAudioLevel > 0.02 ? context.accentColor : Colors.white38,
                     borderRadius: BorderRadius.circular(2),
                   ),
                 );

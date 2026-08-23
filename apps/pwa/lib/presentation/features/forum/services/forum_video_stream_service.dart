@@ -98,6 +98,7 @@ class StreamParticipant {
   final bool isCameraOn;
   final bool isMicMuted;
   final bool isSpeaking;
+  final bool isOnStage;
 
   const StreamParticipant({
     required this.id,
@@ -108,7 +109,32 @@ class StreamParticipant {
     this.isCameraOn = true,
     this.isMicMuted = false,
     this.isSpeaking = false,
+    this.isOnStage = true,
   });
+
+  StreamParticipant copyWith({
+    String? id,
+    String? name,
+    String? role,
+    String? avatarUrl,
+    bool? isHost,
+    bool? isCameraOn,
+    bool? isMicMuted,
+    bool? isSpeaking,
+    bool? isOnStage,
+  }) {
+    return StreamParticipant(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      role: role ?? this.role,
+      avatarUrl: avatarUrl ?? this.avatarUrl,
+      isHost: isHost ?? this.isHost,
+      isCameraOn: isCameraOn ?? this.isCameraOn,
+      isMicMuted: isMicMuted ?? this.isMicMuted,
+      isSpeaking: isSpeaking ?? this.isSpeaking,
+      isOnStage: isOnStage ?? this.isOnStage,
+    );
+  }
 }
 
 enum StageLayoutMode {
@@ -139,6 +165,7 @@ class ForumVideoStreamService {
       isCameraOn: true,
       isMicMuted: false,
       isSpeaking: true,
+      isOnStage: true,
     ),
     const StreamParticipant(
       id: 'co-host-1',
@@ -148,6 +175,7 @@ class ForumVideoStreamService {
       isCameraOn: true,
       isMicMuted: false,
       isSpeaking: false,
+      isOnStage: true,
     ),
     const StreamParticipant(
       id: 'speaker-2',
@@ -157,11 +185,15 @@ class ForumVideoStreamService {
       isCameraOn: false,
       isMicMuted: true,
       isSpeaking: false,
+      isOnStage: true,
     ),
   ]);
 
   final ValueNotifier<String> stageSpeakerIdNotifier =
       ValueNotifier<String>('host');
+
+  final ValueNotifier<bool> isStageLockedNotifier =
+      ValueNotifier<bool>(false);
 
   bool isMicMuted = false;
   bool isCameraOn = true;
@@ -177,6 +209,46 @@ class ForumVideoStreamService {
 
   void setStageLayout(StageLayoutMode mode) {
     stageLayoutNotifier.value = mode;
+  }
+
+  void toggleStageLock() {
+    isStageLockedNotifier.value = !isStageLockedNotifier.value;
+  }
+
+  void muteAllParticipants() {
+    activeParticipantsNotifier.value = activeParticipantsNotifier.value.map((p) {
+      if (!p.isHost) {
+        return p.copyWith(isMicMuted: true);
+      }
+      return p;
+    }).toList();
+  }
+
+  void toggleParticipantMic(String participantId) {
+    activeParticipantsNotifier.value = activeParticipantsNotifier.value.map((p) {
+      if (p.id == participantId) {
+        return p.copyWith(isMicMuted: !p.isMicMuted);
+      }
+      return p;
+    }).toList();
+  }
+
+  void toggleParticipantCamera(String participantId) {
+    activeParticipantsNotifier.value = activeParticipantsNotifier.value.map((p) {
+      if (p.id == participantId) {
+        return p.copyWith(isCameraOn: !p.isCameraOn);
+      }
+      return p;
+    }).toList();
+  }
+
+  void toggleParticipantStage(String participantId) {
+    activeParticipantsNotifier.value = activeParticipantsNotifier.value.map((p) {
+      if (p.id == participantId) {
+        return p.copyWith(isOnStage: !p.isOnStage);
+      }
+      return p;
+    }).toList();
   }
 
   void pinStageSpeaker(String participantId) {

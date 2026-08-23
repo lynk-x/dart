@@ -9,7 +9,8 @@ import 'package:web/web.dart' as web;
 import 'package:lynk_x/presentation/shared/utils/app_snackbars.dart';
 import '../services/forum_video_stream_service.dart';
 import '../widgets/bottom_dock.dart';
-import '../widgets/guest_thumbnail_strip.dart';
+import '../widgets/participant_sidebar.dart';
+import '../widgets/participant_strip.dart';
 import '../widgets/speaker_tag.dart';
 
 /// Interactive Live Stream screen featuring actual Web Camera capture,
@@ -42,7 +43,6 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> with WidgetsBinding
   bool _isCameraOn = true;
   bool _isFrontCamera = true;
   bool _showTelemetryOverlay = true;
-  int _spectatorCount = 142;
   int _sessionDurationSeconds = 0;
   String _selectedCamera = 'Built-in Front Camera';
   String _selectedAudioInput = 'Default Microphone';
@@ -170,7 +170,7 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> with WidgetsBinding
     _spectatorTimer = Timer.periodic(const Duration(seconds: 4), (_) {
       if (!mounted) return;
       setState(() {
-        _spectatorCount += (1 - (DateTime.now().second % 3));
+        _videoService.spectatorCount += (1 - (DateTime.now().second % 3));
       });
     });
   }
@@ -873,312 +873,396 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> with WidgetsBinding
     );
   }
 
+  Widget _buildParticipantStrip(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: ValueListenableBuilder<List<StreamParticipant>>(
+        valueListenable: _videoService.activeParticipantsNotifier,
+        builder: (context, participants, _) {
+          return ValueListenableBuilder<String>(
+            valueListenable: _videoService.stageSpeakerIdNotifier,
+            builder: (context, pinnedId, _) {
+              return ValueListenableBuilder<StageLayoutMode>(
+                valueListenable: _videoService.stageLayoutNotifier,
+                builder: (context, layoutMode, _) {
+                  return ValueListenableBuilder<bool>(
+                    valueListenable: _videoService.isStageLockedNotifier,
+                    builder: (context, isStageLocked, _) {
+                      return ParticipantStrip(
+                        participants: participants,
+                        pinnedId: pinnedId,
+                        isHost: widget.isHost,
+                        layoutMode: layoutMode,
+                        isStageLocked: isStageLocked,
+                        onToggleStageLock: () => _videoService.toggleStageLock(),
+                        onMuteAll: () {
+                          _videoService.muteAllParticipants();
+                          AppSnackBars.showInfo(context, 'All guest microphones muted');
+                        },
+                        onPinSpeaker: (id) => _videoService.pinStageSpeaker(id),
+                        onToggleMic: (id) => _videoService.toggleParticipantMic(id),
+                        onToggleCamera: (id) => _videoService.toggleParticipantCamera(id),
+                        onToggleStage: (id) => _videoService.toggleParticipantStage(id),
+                        onAddStageSpeaker: () {
+                          AppSnackBars.showInfo(context, 'Stage Invite link copied to clipboard');
+                        },
+                        onToggleLayout: _toggleStageLayoutMode,
+                      );
+                    },
+                  );
+                },
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildParticipantSidebar(BuildContext context) {
+    return ValueListenableBuilder<List<StreamParticipant>>(
+      valueListenable: _videoService.activeParticipantsNotifier,
+      builder: (context, participants, _) {
+        return ValueListenableBuilder<String>(
+          valueListenable: _videoService.stageSpeakerIdNotifier,
+          builder: (context, pinnedId, _) {
+            return ValueListenableBuilder<bool>(
+              valueListenable: _videoService.isStageLockedNotifier,
+              builder: (context, isStageLocked, _) {
+                return ParticipantSidebar(
+                  participants: participants,
+                  pinnedId: pinnedId,
+                  isHost: widget.isHost,
+                  isStageLocked: isStageLocked,
+                  onToggleStageLock: () => _videoService.toggleStageLock(),
+                  onMuteAll: () {
+                    _videoService.muteAllParticipants();
+                    AppSnackBars.showInfo(context, 'All guest microphones muted');
+                  },
+                  onPinSpeaker: (id) => _videoService.pinStageSpeaker(id),
+                  onToggleMic: (id) => _videoService.toggleParticipantMic(id),
+                  onToggleCamera: (id) => _videoService.toggleParticipantCamera(id),
+                  onToggleStage: (id) => _videoService.toggleParticipantStage(id),
+                  onAddStageSpeaker: () {
+                    AppSnackBars.showInfo(context, 'Stage Invite link copied to clipboard');
+                  },
+                );
+              },
+            );
+          },
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: SafeArea(
-        child: Column(
-          children: [
-            // 1. TOP MAIN STAGE AREA (EXPANDED STACK)
-            Expanded(
-              child: Stack(
-                children: [
-                  // VIDEO CANVAS STAGE
-                  Positioned.fill(
-                    child: GestureDetector(
-                      onDoubleTap: _flipCamera,
-                      behavior: HitTestBehavior.opaque,
-                      child: Container(
-                        decoration: const BoxDecoration(
-                          color: Color(0xFF0F1115),
-                        ),
-                        child: ValueListenableBuilder<StageLayoutMode>(
-                          valueListenable: _videoService.stageLayoutNotifier,
-                          builder: (context, layoutMode, _) {
-                            if (layoutMode == StageLayoutMode.grid) {
-                              return _buildGridStageOverlay(context);
-                            }
-                            if (layoutMode == StageLayoutMode.presentation) {
-                              return _buildPresentationStageOverlay(context);
-                            }
+    final isDesktop = MediaQuery.of(context).size.width >= 900;
 
-                            return Stack(
-                              children: [
-                                // Actual Web Video Stream PlatformView (Kept permanently mounted to preserve HTML element DOM node)
-                                if (kIsWeb)
-                                  const Positioned.fill(
-                                    child: HtmlElementView(viewType: _viewType),
-                                  ),
+    final mainStageArea = Expanded(
+      child: Stack(
+        children: [
+          // VIDEO CANVAS STAGE
+          Positioned.fill(
+            child: GestureDetector(
+              onDoubleTap: _flipCamera,
+              behavior: HitTestBehavior.opaque,
+              child: Container(
+                decoration: const BoxDecoration(
+                  color: Color(0xFF0F1115),
+                ),
+                child: ValueListenableBuilder<StageLayoutMode>(
+                  valueListenable: _videoService.stageLayoutNotifier,
+                  builder: (context, layoutMode, _) {
+                    if (layoutMode == StageLayoutMode.grid) {
+                      return _buildGridStageOverlay(context);
+                    }
+                    if (layoutMode == StageLayoutMode.presentation) {
+                      return _buildPresentationStageOverlay(context);
+                    }
 
-                                // Camera Off Overlay Placeholder
-                                if (!_isCameraOn && !_isScreenSharing)
-                                  Positioned.fill(
-                                    child: Container(
-                                      color: const Color(0xFF0F1115),
-                                      child: Center(
-                                        child: Column(
-                                          mainAxisAlignment: MainAxisAlignment.center,
-                                          children: [
-                                            Container(
-                                              width: 96,
-                                              height: 96,
-                                              decoration: BoxDecoration(
-                                                shape: BoxShape.circle,
-                                                color: const Color(0xFF1E222A),
-                                                border: Border.all(
-                                                  color: context.accentColor,
-                                                  width: 2,
-                                                ),
-                                              ),
-                                              child: const Icon(
-                                                Icons.videocam_off_rounded,
-                                                color: Colors.white,
-                                                size: 44,
-                                              ),
-                                            ),
-                                            const SizedBox(height: 16),
-                                            Text(
-                                              'Camera Off',
-                                              style: AppTypography.interTight(
-                                                fontSize: 18,
-                                                fontWeight: FontWeight.bold,
-                                                color: Colors.white,
-                                              ),
-                                            ),
-                                            const SizedBox(height: 6),
-                                            Text(
-                                              'Your camera is currently turned off',
-                                              style: AppTypography.interTight(
-                                                fontSize: 12,
-                                                color: Colors.white54,
-                                              ),
-                                            ),
-                                          ],
+                    return Stack(
+                      children: [
+                        // Actual Web Video Stream PlatformView (Kept permanently mounted to preserve HTML element DOM node)
+                        if (kIsWeb)
+                          const Positioned.fill(
+                            child: HtmlElementView(viewType: _viewType),
+                          ),
+
+                        // Camera Off Overlay Placeholder
+                        if (!_isCameraOn && !_isScreenSharing)
+                          Positioned.fill(
+                            child: Container(
+                              color: const Color(0xFF0F1115),
+                              child: Center(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Container(
+                                      width: 96,
+                                      height: 96,
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        color: const Color(0xFF1E222A),
+                                        border: Border.all(
+                                          color: context.accentColor,
+                                          width: 2,
                                         ),
                                       ),
+                                      child: const Icon(
+                                        Icons.videocam_off_rounded,
+                                        color: Colors.white,
+                                        size: 44,
+                                      ),
                                     ),
-                                  ),
-                              ],
-                            );
-                          },
-                        ),
-                      ),
-                    ),
+                                    const SizedBox(height: 16),
+                                    Text(
+                                      'Camera Off',
+                                      style: AppTypography.interTight(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 6),
+                                    Text(
+                                      'Your camera is currently turned off',
+                                      style: AppTypography.interTight(
+                                        fontSize: 12,
+                                        color: Colors.white54,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    );
+                  },
+                ),
+              ),
+            ),
+          ),
+
+          // 2. ACTIVE STAGE SPEAKER TAG & WAVEFORM
+          ValueListenableBuilder<String>(
+            valueListenable: _videoService.stageSpeakerIdNotifier,
+            builder: (context, pinnedId, _) {
+              final participants = _videoService.activeParticipantsNotifier.value;
+              if (participants.isEmpty) return const SizedBox.shrink();
+              final activeParticipant = participants.firstWhere(
+                (p) => p.id == pinnedId,
+                orElse: () => participants.first,
+              );
+
+              return Positioned(
+                right: 16,
+                bottom: 16,
+                child: SpeakerTag(
+                  activeParticipant: activeParticipant,
+                  audioLevel: _currentAudioLevel,
+                ),
+              );
+            },
+          ),
+
+          // STREAM TELEMETRY OVERLAY
+          if (_showTelemetryOverlay)
+            Positioned(
+              top: 56,
+              left: 16,
+              child: GestureDetector(
+                onTap: _showTelemetryDetailsModal,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.45),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.white10),
                   ),
-
-                  // 2. ACTIVE STAGE SPEAKER TAG & WAVEFORM
-                  ValueListenableBuilder<String>(
-                    valueListenable: _videoService.stageSpeakerIdNotifier,
-                    builder: (context, pinnedId, _) {
-                      final participants = _videoService.activeParticipantsNotifier.value;
-                      if (participants.isEmpty) return const SizedBox.shrink();
-                      final activeParticipant = participants.firstWhere(
-                        (p) => p.id == pinnedId,
-                        orElse: () => participants.first,
-                      );
-
-                      return Positioned(
-                        right: 16,
-                        bottom: 124,
-                        child: SpeakerTag(
-                          activeParticipant: activeParticipant,
-                          audioLevel: _currentAudioLevel,
-                        ),
+                  child: ValueListenableBuilder<TelemetryData>(
+                    valueListenable: _videoService.telemetryNotifier,
+                    builder: (context, telemetry, _) {
+                      return Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.info_outline_rounded, color: Colors.white38, size: 12),
+                          const SizedBox(width: 6),
+                          Text(
+                            '${telemetry.summaryLabel} • Uptime ${_formatDuration(_sessionDurationSeconds)}',
+                            style: AppTypography.interTight(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white70,
+                            ),
+                          ),
+                        ],
                       );
                     },
                   ),
-
-                  // HORIZONTAL ACTIVE SPEAKER & GUEST THUMBNAIL STRIP
-                  Positioned(
-                    left: 0,
-                    right: 0,
-                    bottom: 12,
-                    child: ValueListenableBuilder<List<StreamParticipant>>(
-                      valueListenable: _videoService.activeParticipantsNotifier,
-                      builder: (context, participants, _) {
-                        return ValueListenableBuilder<String>(
-                          valueListenable: _videoService.stageSpeakerIdNotifier,
-                          builder: (context, pinnedId, _) {
-                            return ValueListenableBuilder<StageLayoutMode>(
-                              valueListenable: _videoService.stageLayoutNotifier,
-                              builder: (context, layoutMode, _) {
-                                return GuestThumbnailStrip(
-                                  participants: participants,
-                                  pinnedId: pinnedId,
-                                  isHost: widget.isHost,
-                                  layoutMode: layoutMode,
-                                  onPinSpeaker: (id) => _videoService.pinStageSpeaker(id),
-                                  onAddStageSpeaker: () {
-                                    AppSnackBars.showInfo(context, 'Stage Invite link copied to clipboard');
-                                  },
-                                  onToggleLayout: _toggleStageLayoutMode,
-                                );
-                              },
-                            );
-                          },
-                        );
-                      },
-                    ),
-                  ),
-
-                  // STREAM TELEMETRY OVERLAY
-                  if (_showTelemetryOverlay)
-                    Positioned(
-                      top: 56,
-                      left: 16,
-                      child: GestureDetector(
-                        onTap: _showTelemetryDetailsModal,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: Colors.black.withValues(alpha: 0.45),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.white10),
-                          ),
-                          child: ValueListenableBuilder<TelemetryData>(
-                            valueListenable: _videoService.telemetryNotifier,
-                            builder: (context, telemetry, _) {
-                              return Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const Icon(Icons.info_outline_rounded, color: Colors.white38, size: 12),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    '${telemetry.summaryLabel} • Uptime ${_formatDuration(_sessionDurationSeconds)}',
-                                    style: AppTypography.interTight(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w600,
-                                      color: Colors.white70,
-                                    ),
-                                  ),
-                                ],
-                              );
-                            },
-                          ),
-                        ),
-                      ),
-                    ),
-
-            // 2. TOP BAR OVERLAY
-                  Positioned(
-                    top: 12,
-                    left: 16,
-                    right: 16,
-                    child: Row(
-                      children: [
-                        // Collapse / Browser PiP Trigger
-                        InkWell(
-                          onTap: _triggerPictureInPicture,
-                          borderRadius: BorderRadius.circular(20),
-                          child: Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: Colors.black.withValues(alpha: 0.5),
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(
-                              Icons.picture_in_picture_alt_rounded,
-                              color: Colors.white,
-                              size: 20,
-                            ),
-                          ),
-                        ),
-
-                        const Spacer(),
-
-                        // Stream Header Status Badge
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: Colors.black.withValues(alpha: 0.5),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Container(
-                                width: 8,
-                                height: 8,
-                                decoration: const BoxDecoration(
-                                  color: Colors.redAccent,
-                                  shape: BoxShape.circle,
-                                ),
-                              ),
-                              const SizedBox(width: 6),
-                              Text(
-                                'LIVE',
-                                style: AppTypography.interTight(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w900,
-                                  color: Colors.white,
-                                  letterSpacing: 1.0,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              const Icon(
-                                Icons.visibility_rounded,
-                                color: Colors.white70,
-                                size: 14,
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                '$_spectatorCount',
-                                style: AppTypography.interTight(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                  color: Colors.white70,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-
-                        const Spacer(),
-
-                        // Media Device & Settings Icon
-                        InkWell(
-                          onTap: _showDeviceSelectorModal,
-                          borderRadius: BorderRadius.circular(20),
-                          child: Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: Colors.black.withValues(alpha: 0.5),
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(
-                              Icons.tune_rounded,
-                              color: Colors.white,
-                              size: 20,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+                ),
               ),
             ),
 
-            // 2. BOTTOM CONTROL DOCK
-            BottomDock(
-              isScreenSharing: _isScreenSharing,
-              isMicMuted: _isMicMuted,
-              isCameraOn: _isCameraOn,
-              isFrontCamera: _isFrontCamera,
-              isLeaveRoom: !widget.isHost,
-              onToggleScreenShare: _toggleScreenShare,
-              onToggleMic: _toggleMic,
-              onToggleCamera: _toggleCamera,
-              onFlipCamera: _flipCamera,
-              onEndCall: () {
-                _videoService.setMinimized(false);
-                _videoService.stopVideoStream();
-                Navigator.of(context).pop();
-              },
+          // 2. TOP BAR OVERLAY
+          Positioned(
+            top: 12,
+            left: 16,
+            right: 16,
+            child: Row(
+              children: [
+                // Collapse / Browser PiP Trigger
+                InkWell(
+                  onTap: _triggerPictureInPicture,
+                  borderRadius: BorderRadius.circular(20),
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.5),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.picture_in_picture_alt_rounded,
+                      color: Colors.white,
+                      size: 20,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+
+                // Forum Name & LIVE Badge
+                Expanded(
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.redAccent,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          'LIVE',
+                          style: AppTypography.interTight(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Flexible(
+                        child: Text(
+                          widget.forumName,
+                          style: AppTypography.interTight(
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Telemetry Toggle Button
+                IconButton(
+                  icon: Icon(
+                    _showTelemetryOverlay ? Icons.analytics_rounded : Icons.analytics_outlined,
+                    color: _showTelemetryOverlay ? context.accentColor : Colors.white70,
+                    size: 20,
+                  ),
+                  onPressed: () {
+                    setState(() {
+                      _showTelemetryOverlay = !_showTelemetryOverlay;
+                    });
+                  },
+                  tooltip: 'Toggle Stream Telemetry',
+                ),
+
+                // Media Device Settings Button
+                IconButton(
+                  icon: const Icon(
+                    Icons.tune_rounded,
+                    color: Colors.white70,
+                    size: 20,
+                  ),
+                  onPressed: _showDeviceSelectorModal,
+                  tooltip: 'Audio & Video Devices',
+                ),
+
+                // Spectator Counter Badge
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.5),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.remove_red_eye_rounded, color: Colors.white70, size: 14),
+                      const SizedBox(width: 4),
+                      Text(
+                        '${_videoService.spectatorCount}',
+                        style: AppTypography.interTight(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
+      ),
+    );
+
+    final bottomDock = BottomDock(
+      isDisabled: !widget.isHost,
+      isScreenSharing: _isScreenSharing,
+      isMicMuted: _isMicMuted,
+      isCameraOn: _isCameraOn,
+      isFrontCamera: _isFrontCamera,
+      isLeaveRoom: !widget.isHost,
+      onToggleScreenShare: _toggleScreenShare,
+      onToggleMic: _toggleMic,
+      onToggleCamera: _toggleCamera,
+      onFlipCamera: _flipCamera,
+      onEndCall: () {
+        _videoService.setMinimized(false);
+        _videoService.stopVideoStream();
+        Navigator.of(context).pop();
+      },
+    );
+
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: SafeArea(
+        child: isDesktop
+            ? Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      children: [
+                        mainStageArea,
+                        bottomDock,
+                      ],
+                    ),
+                  ),
+                  if (widget.isHost) _buildParticipantSidebar(context),
+                ],
+              )
+            : Column(
+                children: [
+                  mainStageArea,
+                  if (widget.isHost) _buildParticipantStrip(context),
+                  bottomDock,
+                ],
+              ),
       ),
     );
   }
