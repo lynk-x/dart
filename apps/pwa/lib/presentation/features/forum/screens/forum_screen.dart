@@ -509,15 +509,9 @@ class _ForumViewState extends State<ForumView> {
                                                 icon: Icons.videocam_rounded,
                                                 actionLabel: 'Allow Camera & Mic',
                                                 onReady: () {
-                                                  Navigator.of(context).push(
-                                                    MaterialPageRoute(
-                                                      builder: (_) => LiveStreamScreen(
-                                                        forumName: forumState.forumName,
-                                                        hostName: cubit.state.userName,
-                                                        isHost: forumState.isOrganizer,
-                                                      ),
-                                                    ),
-                                                  );
+                                                  final videoService = ForumVideoStreamService();
+                                                  videoService.isLiveNotifier.value = true;
+                                                  videoService.setMinimized(false);
                                                 },
                                               );
                                             },
@@ -787,51 +781,71 @@ class _ForumViewState extends State<ForumView> {
   }
 
   Widget _buildTabContent() {
-    return BlocBuilder<FeatureFlagCubit, FeatureFlagState>(
-      builder: (context, _) {
-        final featureFlags = context.read<FeatureFlagCubit>();
-        final showUpdates =
-            featureFlags.isEnabled('enable_forum_announcements');
-        final showChat = featureFlags.isEnabled('enable_forum_live_chat');
-        final showMedia = featureFlags.isEnabled('enable_forum_media');
+    final videoService = ForumVideoStreamService();
+    return ValueListenableBuilder<bool>(
+      valueListenable: videoService.isLiveNotifier,
+      builder: (context, isLive, _) {
+        return ValueListenableBuilder<bool>(
+          valueListenable: videoService.isMinimizedNotifier,
+          builder: (context, isMinimized, _) {
+            final forumState = context.watch<ForumCubit>().state;
+            if (isLive && !isMinimized) {
+              return LiveStreamScreen(
+                forumName: forumState.forumName,
+                hostName: forumState.userName,
+                isHost: forumState.isOrganizer,
+              );
+            }
 
-        return BlocBuilder<ForumCubit, ForumState>(
-          buildWhen: (p, c) =>
-              p.selectedEmoji != c.selectedEmoji ||
-              p.emojiTrigger != c.emojiTrigger,
-          builder: (context, state) {
-            final mainCubit = context.read<ForumCubit>();
-            return PageView(
-              controller: _pageController,
-              physics: const NeverScrollableScrollPhysics(),
-              onPageChanged: (index) => mainCubit.setTabIndex(index),
-              children: [
-                showUpdates
-                    ? UpdatesTab(
-                        scrollController: _updatesScrollController,
-                        onActionTap: () => _navigateToTab(2),
-                        onMediaTap: (url) => _viewMedia(url),
-                        onCreatePollOrQuiz: () =>
-                            _showCreatePollOrQuizSheet(isLiveChat: false),
-                      )
-                    : const SizedBox.shrink(),
-                showChat
-                    ? LiveChatTab(
-                        scrollController: _chatScrollController,
-                        selectedEmoji: state.selectedEmoji,
-                        emojiTrigger: state.emojiTrigger,
-                        onActionTap: () => _navigateToTab(2),
-                        onMediaTap: (url) => _viewMedia(url),
-                        onCreatePollOrQuiz: () =>
-                            _showCreatePollOrQuizSheet(isLiveChat: true),
-                      )
-                    : const SizedBox.shrink(),
-                showMedia
-                    ? MediaTab(
-                        onMediaTap: (item) => _viewForumMedia(item),
-                      )
-                    : const SizedBox.shrink(),
-              ],
+            return BlocBuilder<FeatureFlagCubit, FeatureFlagState>(
+              builder: (context, _) {
+                final featureFlags = context.read<FeatureFlagCubit>();
+                final showUpdates =
+                    featureFlags.isEnabled('enable_forum_announcements');
+                final showChat = featureFlags.isEnabled('enable_forum_live_chat');
+                final showMedia = featureFlags.isEnabled('enable_forum_media');
+
+                return BlocBuilder<ForumCubit, ForumState>(
+                  buildWhen: (p, c) =>
+                      p.selectedEmoji != c.selectedEmoji ||
+                      p.emojiTrigger != c.emojiTrigger,
+                  builder: (context, state) {
+                    final mainCubit = context.read<ForumCubit>();
+                    return PageView(
+                      controller: _pageController,
+                      physics: const NeverScrollableScrollPhysics(),
+                      onPageChanged: (index) => mainCubit.setTabIndex(index),
+                      children: [
+                        showUpdates
+                            ? UpdatesTab(
+                                scrollController: _updatesScrollController,
+                                onActionTap: () => _navigateToTab(2),
+                                onMediaTap: (url) => _viewMedia(url),
+                                onCreatePollOrQuiz: () =>
+                                    _showCreatePollOrQuizSheet(isLiveChat: false),
+                              )
+                            : const SizedBox.shrink(),
+                        showChat
+                            ? LiveChatTab(
+                                scrollController: _chatScrollController,
+                                selectedEmoji: state.selectedEmoji,
+                                emojiTrigger: state.emojiTrigger,
+                                onActionTap: () => _navigateToTab(2),
+                                onMediaTap: (url) => _viewMedia(url),
+                                onCreatePollOrQuiz: () =>
+                                    _showCreatePollOrQuizSheet(isLiveChat: true),
+                              )
+                            : const SizedBox.shrink(),
+                        showMedia
+                            ? MediaTab(
+                                onMediaTap: (item) => _viewForumMedia(item),
+                              )
+                            : const SizedBox.shrink(),
+                      ],
+                    );
+                  },
+                );
+              },
             );
           },
         );

@@ -15,6 +15,9 @@ class UserPresenceCard extends StatefulWidget {
   final bool isOrganizer;
   final bool isPremium;
 
+  final bool? isMicMuted;
+  final bool? isCameraOn;
+
   const UserPresenceCard({
     super.key,
     required this.userId,
@@ -24,6 +27,8 @@ class UserPresenceCard extends StatefulWidget {
     this.isPrimary = false,
     this.isOrganizer = false,
     this.isPremium = false,
+    this.isMicMuted,
+    this.isCameraOn,
   });
 
   static const Map<String, String> _roleLabels = {
@@ -73,26 +78,56 @@ class _UserPresenceCardState extends State<UserPresenceCard> {
                       widget.isPremium ? AppColors.secondary : Colors.white12,
                 ),
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              child: Row(
                 children: [
-                  Text(
-                    widget.username,
-                    style: AppTypography.interTight(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: widget.isPrimary ? Colors.black : Colors.white,
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          widget.username,
+                          style: AppTypography.interTight(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: widget.isPrimary ? Colors.black : Colors.white,
+                          ),
+                        ),
+                        Text(
+                          widget.roleLabel,
+                          style: AppTypography.inter(
+                            fontSize: 12,
+                            color: widget.isPrimary
+                                ? Colors.black.withValues(alpha: 0.7)
+                                : Colors.white.withValues(alpha: 0.6),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  Text(
-                    widget.roleLabel,
-                    style: AppTypography.inter(
-                      fontSize: 12,
-                      color: widget.isPrimary
-                          ? Colors.black.withValues(alpha: 0.7)
-                          : Colors.white.withValues(alpha: 0.6),
+                  if (widget.isMicMuted != null || widget.isCameraOn != null)
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (widget.isMicMuted != null) ...[
+                          Icon(
+                            widget.isMicMuted! ? Icons.mic_off_rounded : Icons.mic_rounded,
+                            color: widget.isMicMuted!
+                                ? Colors.redAccent
+                                : (widget.isPrimary ? Colors.black87 : context.accentColor),
+                            size: 16,
+                          ),
+                          const SizedBox(width: 8),
+                        ],
+                        if (widget.isCameraOn != null)
+                          Icon(
+                            widget.isCameraOn! ? Icons.videocam_rounded : Icons.videocam_off_rounded,
+                            color: widget.isCameraOn!
+                                ? (widget.isPrimary ? Colors.black87 : context.accentColor)
+                                : Colors.redAccent,
+                            size: 16,
+                          ),
+                      ],
                     ),
-                  ),
                 ],
               ),
             ),

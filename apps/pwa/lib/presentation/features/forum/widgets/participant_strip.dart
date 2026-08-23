@@ -438,8 +438,10 @@ class ParticipantStrip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
+    return Container(
+      color: const Color(0xFF0F1115),
       height: 104,
+      padding: const EdgeInsets.symmetric(vertical: 4),
       child: LayoutBuilder(
         builder: (context, constraints) {
           const double tileWidth = 76.0;

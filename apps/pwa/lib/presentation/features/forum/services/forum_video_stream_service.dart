@@ -211,6 +211,50 @@ class ForumVideoStreamService {
     stageLayoutNotifier.value = mode;
   }
 
+  /// Syncs online presence users from [ForumPresenceCubit] into [activeParticipantsNotifier].
+  /// Preserves existing AV state (mic, camera, stage status) for active participants.
+  void syncWithPresenceUsers(List<Map<String, dynamic>> presenceUsers) {
+    if (presenceUsers.isEmpty) return;
+
+    final currentParticipants = List<StreamParticipant>.from(activeParticipantsNotifier.value);
+    final Map<String, StreamParticipant> existingMap = {
+      for (var p in currentParticipants) p.id: p
+    };
+
+    final List<StreamParticipant> updatedList = [];
+
+    for (final u in presenceUsers) {
+      final uid = u['user_id'] as String? ?? u['id'] as String? ?? '';
+      if (uid.isEmpty) continue;
+
+      final name = u['user_name'] as String? ?? u['full_name'] as String? ?? 'Member';
+      final isOrg = (u['is_organizer'] as bool?) ?? false;
+
+      if (existingMap.containsKey(uid)) {
+        final existing = existingMap[uid]!;
+        updatedList.add(existing.copyWith(
+          name: name,
+          role: isOrg ? 'Host' : existing.role,
+        ));
+      } else {
+        updatedList.add(StreamParticipant(
+          id: uid,
+          name: name,
+          role: isOrg ? 'Host' : 'Audience',
+          isHost: isOrg,
+          isCameraOn: false,
+          isMicMuted: true,
+          isSpeaking: false,
+          isOnStage: false,
+        ));
+      }
+    }
+
+    if (updatedList.isNotEmpty) {
+      activeParticipantsNotifier.value = updatedList;
+    }
+  }
+
   void toggleStageLock() {
     isStageLockedNotifier.value = !isStageLockedNotifier.value;
   }

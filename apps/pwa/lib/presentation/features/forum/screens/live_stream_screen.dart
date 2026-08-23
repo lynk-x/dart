@@ -42,7 +42,7 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> with WidgetsBinding
   bool _isMicMuted = false;
   bool _isCameraOn = true;
   bool _isFrontCamera = true;
-  bool _showTelemetryOverlay = true;
+  bool _showTelemetryOverlay = false;
   int _sessionDurationSeconds = 0;
   String _selectedCamera = 'Built-in Front Camera';
   String _selectedAudioInput = 'Default Microphone';
@@ -264,14 +264,6 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> with WidgetsBinding
     await _videoService.startVideoStream(_elementId, isFrontCamera: nextFront);
     _videoService.toggleMic(!_isMicMuted);
     _videoService.toggleCamera(_isCameraOn);
-  }
-
-  Future<void> _triggerPictureInPicture() async {
-    _videoService.setMinimized(true);
-    if (mounted) {
-      AppSnackBars.showInfo(context, 'Minimizing live stream to Forum');
-      Navigator.of(context).pop();
-    }
   }
 
   void _showTelemetryDetailsModal() {
@@ -874,8 +866,8 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> with WidgetsBinding
   }
 
   Widget _buildParticipantStrip(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
+    return Container(
+      color: const Color(0xFF0F1115),
       child: ValueListenableBuilder<List<StreamParticipant>>(
         valueListenable: _videoService.activeParticipantsNotifier,
         builder: (context, participants, _) {
@@ -1113,21 +1105,16 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> with WidgetsBinding
             child: Row(
               children: [
                 // Collapse / Browser PiP Trigger
-                InkWell(
-                  onTap: _triggerPictureInPicture,
-                  borderRadius: BorderRadius.circular(20),
-                  child: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.5),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.picture_in_picture_alt_rounded,
-                      color: Colors.white,
-                      size: 20,
-                    ),
+                IconButton(
+                  icon: const Icon(
+                    Icons.picture_in_picture_alt_rounded,
+                    color: Colors.white,
+                    size: 20,
                   ),
+                  onPressed: () {
+                    _videoService.setMinimized(true);
+                  },
+                  tooltip: 'Minimize to Picture-in-Picture',
                 ),
                 const SizedBox(width: 12),
 
@@ -1164,6 +1151,117 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> with WidgetsBinding
                       ),
                     ],
                   ),
+                ),
+
+                // Stage Layout Mode Selector Popup
+                ValueListenableBuilder<StageLayoutMode>(
+                  valueListenable: _videoService.stageLayoutNotifier,
+                  builder: (context, layoutMode, _) {
+                    IconData icon;
+                    String tooltipLabel;
+                    switch (layoutMode) {
+                      case StageLayoutMode.focus:
+                        icon = Icons.crop_square_rounded;
+                        tooltipLabel = 'Layout: Focus View';
+                        break;
+                      case StageLayoutMode.grid:
+                        icon = Icons.grid_view_rounded;
+                        tooltipLabel = 'Layout: Grid View';
+                        break;
+                      case StageLayoutMode.presentation:
+                        icon = Icons.space_dashboard_rounded;
+                        tooltipLabel = 'Layout: Presentation View';
+                        break;
+                    }
+
+                    return PopupMenuButton<StageLayoutMode>(
+                      tooltip: tooltipLabel,
+                      icon: Icon(icon, color: context.accentColor, size: 20),
+                      color: const Color(0xFF161920),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        side: const BorderSide(color: Colors.white12),
+                      ),
+                      onSelected: (mode) {
+                        _videoService.setStageLayout(mode);
+                        String modeName;
+                        switch (mode) {
+                          case StageLayoutMode.focus:
+                            modeName = 'Focus Mode (Active Speaker)';
+                            break;
+                          case StageLayoutMode.grid:
+                            modeName = 'Grid View (2x2 Multi-Speaker)';
+                            break;
+                          case StageLayoutMode.presentation:
+                            modeName = 'Presentation Mode';
+                            break;
+                        }
+                        AppSnackBars.showInfo(context, 'Switched to $modeName');
+                      },
+                      itemBuilder: (context) => [
+                        PopupMenuItem(
+                          value: StageLayoutMode.focus,
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.crop_square_rounded,
+                                color: layoutMode == StageLayoutMode.focus ? context.accentColor : Colors.white70,
+                                size: 18,
+                              ),
+                              const SizedBox(width: 10),
+                              Text(
+                                'Focus View',
+                                style: AppTypography.interTight(
+                                  color: layoutMode == StageLayoutMode.focus ? context.accentColor : Colors.white,
+                                  fontWeight: layoutMode == StageLayoutMode.focus ? FontWeight.bold : FontWeight.normal,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        PopupMenuItem(
+                          value: StageLayoutMode.grid,
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.grid_view_rounded,
+                                color: layoutMode == StageLayoutMode.grid ? context.accentColor : Colors.white70,
+                                size: 18,
+                              ),
+                              const SizedBox(width: 10),
+                              Text(
+                                'Grid View',
+                                style: AppTypography.interTight(
+                                  color: layoutMode == StageLayoutMode.grid ? context.accentColor : Colors.white,
+                                  fontWeight: layoutMode == StageLayoutMode.grid ? FontWeight.bold : FontWeight.normal,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        PopupMenuItem(
+                          value: StageLayoutMode.presentation,
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.space_dashboard_rounded,
+                                color: layoutMode == StageLayoutMode.presentation ? context.accentColor : Colors.white70,
+                                size: 18,
+                              ),
+                              const SizedBox(width: 10),
+                              Text(
+                                'Presentation View',
+                                style: AppTypography.interTight(
+                                  color: layoutMode == StageLayoutMode.presentation ? context.accentColor : Colors.white,
+                                  fontWeight: layoutMode == StageLayoutMode.presentation ? FontWeight.bold : FontWeight.normal,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    );
+                  },
                 ),
 
                 // Telemetry Toggle Button
@@ -1235,35 +1333,33 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> with WidgetsBinding
       onEndCall: () {
         _videoService.setMinimized(false);
         _videoService.stopVideoStream();
-        Navigator.of(context).pop();
+        _videoService.isLiveNotifier.value = false;
       },
     );
 
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: SafeArea(
-        child: isDesktop
-            ? Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      children: [
-                        mainStageArea,
-                        bottomDock,
-                      ],
-                    ),
+    return Container(
+      color: const Color(0xFF0F1115),
+      child: isDesktop
+          ? Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    children: [
+                      mainStageArea,
+                      bottomDock,
+                    ],
                   ),
-                  if (widget.isHost) _buildParticipantSidebar(context),
-                ],
-              )
-            : Column(
-                children: [
-                  mainStageArea,
-                  if (widget.isHost) _buildParticipantStrip(context),
-                  bottomDock,
-                ],
-              ),
-      ),
+                ),
+                if (widget.isHost) _buildParticipantSidebar(context),
+              ],
+            )
+          : Column(
+              children: [
+                mainStageArea,
+                if (widget.isHost) _buildParticipantStrip(context),
+                bottomDock,
+              ],
+            ),
     );
   }
 }

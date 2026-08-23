@@ -201,7 +201,7 @@ class ParticipantSidebar extends StatelessWidget {
                             width: 10,
                             height: 10,
                             decoration: BoxDecoration(
-                              color: Colors.greenAccent,
+                              color: context.accentColor,
                               shape: BoxShape.circle,
                               border: Border.all(color: const Color(0xFF14171D), width: 1.5),
                             ),

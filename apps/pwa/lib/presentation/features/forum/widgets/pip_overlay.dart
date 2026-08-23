@@ -1,7 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:lynk_core/core.dart';
-import 'package:lynk_x/presentation/features/forum/screens/live_stream_screen.dart';
 import 'package:lynk_x/presentation/features/forum/services/forum_video_stream_service.dart';
 
 /// Floating In-App Picture-in-Picture (PiP) card displayed on the Forum page
@@ -136,14 +135,5 @@ class _PipOverlayState extends State<PipOverlay> {
 
   void _expandStreamScreen() {
     _videoService.setMinimized(false);
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => LiveStreamScreen(
-          forumName: widget.forumName.isEmpty ? _videoService.forumName : widget.forumName,
-          hostName: widget.hostName.isEmpty ? _videoService.hostName : widget.hostName,
-          isHost: widget.isHost,
-        ),
-      ),
-    );
   }
 }
