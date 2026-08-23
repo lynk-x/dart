@@ -396,13 +396,27 @@ window.lynkVideoStreamHelper = {
   async startScreenShare(elementId) {
     try {
       if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
-        console.warn('[VideoStreamHelper] getDisplayMedia not supported');
+        console.warn('[VideoStreamHelper] getDisplayMedia not supported on this browser');
         return false;
       }
-      const displayStream = await navigator.mediaDevices.getDisplayMedia({
-        video: { cursor: 'always' },
-        audio: false
-      });
+
+      let displayStream;
+      try {
+        // Mobile-safe display media request (omitting mouse cursor constraint which causes OverconstrainedError on touch devices)
+        displayStream = await navigator.mediaDevices.getDisplayMedia({
+          video: {
+            displaySurface: 'monitor',
+            logicalSurface: true
+          },
+          audio: false
+        });
+      } catch (constraintErr) {
+        console.warn('[VideoStreamHelper] getDisplayMedia fallback to basic video constraint:', constraintErr);
+        // Fallback for mobile WebSockets / Safari mobile
+        displayStream = await navigator.mediaDevices.getDisplayMedia({
+          video: true
+        });
+      }
 
       let el = document.getElementById(elementId) || this.videoElement;
       if (el) {
@@ -414,18 +428,21 @@ window.lynkVideoStreamHelper = {
         el.play().catch(e => console.warn('[VideoStreamHelper] screen share play failed:', e));
       }
 
-      displayStream.getVideoTracks()[0].onended = () => {
-        if (this.videoStream && el) {
-          el.muted = true;
-          el.defaultMuted = true;
-          el.srcObject = this.videoStream;
-          el.style.objectFit = 'cover';
-          if (this.isFrontCamera) {
-            el.style.transform = 'scaleX(-1)';
+      const videoTrack = displayStream.getVideoTracks()[0];
+      if (videoTrack) {
+        videoTrack.onended = () => {
+          if (this.videoStream && el) {
+            el.muted = true;
+            el.defaultMuted = true;
+            el.srcObject = this.videoStream;
+            el.style.objectFit = 'cover';
+            if (this.isFrontCamera) {
+              el.style.transform = 'scaleX(-1)';
+            }
           }
-        }
-        window.dispatchEvent(new CustomEvent('lynkScreenShareEnded'));
-      };
+          window.dispatchEvent(new CustomEvent('lynkScreenShareEnded'));
+        };
+      }
 
       return true;
     } catch (e) {
@@ -434,7 +451,271 @@ window.lynkVideoStreamHelper = {
     }
   },
 
+  async getAvailableDevices() {
+    try {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) {
+        return JSON.stringify([]);
+      }
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const result = devices.map(d => ({
+        deviceId: d.deviceId,
+        kind: d.kind,
+        label: d.label || (d.kind === 'videoinput' ? 'Camera (' + d.deviceId.slice(0, 5) + '...)' : d.kind === 'audiooutput' ? 'Speaker (' + d.deviceId.slice(0, 5) + '...)' : 'Microphone (' + d.deviceId.slice(0, 5) + '...)')
+      }));
+      return JSON.stringify(result);
+    } catch (e) {
+      console.warn('[VideoStreamHelper] enumerateDevices error:', e);
+      return JSON.stringify([]);
+    }
+  },
+
+  async switchAudioDevice(deviceId) {
+    try {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return false;
+      const newStream = await navigator.mediaDevices.getUserMedia({
+        audio: { deviceId: { exact: deviceId } }
+      });
+      const newAudioTrack = newStream.getAudioTracks()[0];
+      if (this.videoStream && newAudioTrack) {
+        const oldAudioTrack = this.videoStream.getAudioTracks()[0];
+        if (oldAudioTrack) {
+          this.videoStream.removeTrack(oldAudioTrack);
+          oldAudioTrack.stop();
+        }
+        this.videoStream.addTrack(newAudioTrack);
+      }
+      return true;
+    } catch (e) {
+      console.warn('[VideoStreamHelper] switchAudioDevice error:', e);
+      return false;
+    }
+  },
+
+  async switchCameraDevice(elementId, deviceId) {
+    try {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return false;
+      const newStream = await navigator.mediaDevices.getUserMedia({
+        video: { deviceId: { exact: deviceId } },
+        audio: false
+      });
+      const newVideoTrack = newStream.getVideoTracks()[0];
+      let el = document.getElementById(elementId) || this.videoElement;
+      if (this.videoStream && newVideoTrack) {
+        const oldVideoTrack = this.videoStream.getVideoTracks()[0];
+        if (oldVideoTrack) {
+          this.videoStream.removeTrack(oldVideoTrack);
+          oldVideoTrack.stop();
+        }
+        this.videoStream.addTrack(newVideoTrack);
+        if (el) {
+          el.srcObject = this.videoStream;
+        }
+      }
+      return true;
+    } catch (e) {
+      console.warn('[VideoStreamHelper] switchCameraDevice error:', e);
+      return false;
+    }
+  },
+
+  async switchAudioOutputDevice(elementId, deviceId) {
+    try {
+      let el = document.getElementById(elementId) || this.videoElement;
+      if (el && typeof el.setSinkId === 'function') {
+        await el.setSinkId(deviceId);
+        return true;
+      }
+      return false;
+    } catch (e) {
+      console.warn('[VideoStreamHelper] setSinkId error:', e);
+      return false;
+    }
+  },
+
+  async setStreamQuality(elementId, quality) {
+    try {
+      if (!this.videoStream) return false;
+      const videoTrack = this.videoStream.getVideoTracks()[0];
+      if (!videoTrack) return false;
+      let height = 720;
+      let frameRate = 30;
+      if (quality.includes('1080')) {
+        height = 1080;
+        frameRate = 60;
+      } else if (quality.includes('720')) {
+        height = 720;
+        frameRate = 30;
+      } else if (quality.includes('480')) {
+        height = 480;
+        frameRate = 24;
+      }
+      if (videoTrack.applyConstraints) {
+        await videoTrack.applyConstraints({
+          height: { ideal: height },
+          frameRate: { ideal: frameRate }
+        });
+      }
+      return true;
+    } catch (e) {
+      console.warn('[VideoStreamHelper] setStreamQuality error:', e);
+      return false;
+    }
+  },
+
+  peerConnection: null,
+  cfSessionId: null,
+  cfAppId: null,
+
+  async initCloudflarePeerConnection(appId, sessionId) {
+    this.cfAppId = appId;
+    this.cfSessionId = sessionId;
+    if (this.peerConnection) {
+      try { this.peerConnection.close(); } catch (_) {}
+    }
+    this.peerConnection = new RTCPeerConnection({
+      iceServers: [{ urls: 'stun:stun.cloudflare.com:3478' }]
+    });
+    return true;
+  },
+
+  async publishCloudflareTracks(appId, sessionId) {
+    try {
+      if (!this.peerConnection) {
+        await this.initCloudflarePeerConnection(appId, sessionId);
+      }
+      if (!this.videoStream) return false;
+
+      const tracks = [];
+      const videoTrack = this.videoStream.getVideoTracks()[0];
+      const audioTrack = this.videoStream.getAudioTracks()[0];
+
+      if (videoTrack) {
+        const transceiver = this.peerConnection.addTransceiver(videoTrack, { direction: 'sendonly' });
+        tracks.push({
+          location: 'local',
+          mid: transceiver.mid,
+          trackName: 'video'
+        });
+      }
+      if (audioTrack) {
+        const transceiver = this.peerConnection.addTransceiver(audioTrack, { direction: 'sendonly' });
+        tracks.push({
+          location: 'local',
+          mid: transceiver.mid,
+          trackName: 'audio'
+        });
+      }
+
+      const offer = await this.peerConnection.createOffer();
+      await this.peerConnection.setLocalDescription(offer);
+
+      if (!appId || !sessionId || appId === '' || sessionId.startsWith('mock_')) {
+        console.log('[VideoStreamHelper] Mock Cloudflare WebRTC SDP exchange simulated');
+        return true;
+      }
+
+      const res = await fetch(`https://rtc.live.cloudflare.com/v1/apps/${appId}/sessions/${sessionId}/tracks/new`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionDescription: {
+            type: 'offer',
+            sdp: offer.sdp
+          },
+          tracks: tracks
+        })
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.sessionDescription && data.sessionDescription.sdp) {
+          await this.peerConnection.setRemoteDescription(new RTCSessionDescription(data.sessionDescription));
+          console.log('[VideoStreamHelper] Cloudflare Calls WebRTC stream published successfully');
+          return true;
+        }
+      }
+    } catch (e) {
+      console.warn('[VideoStreamHelper] Cloudflare Calls publish error:', e);
+    }
+    return false;
+  },
+
+  lastBytesSent: 0,
+  lastStatsTimestamp: 0,
+
+  async getTelemetryStats() {
+    let width = 1280;
+    let height = 720;
+    let fps = 30;
+    let rttMs = 28;
+    let bitrateMbps = '2.8';
+    let packetLossPercent = '0.0';
+    let codec = 'H.264 / Opus';
+
+    if (this.videoStream) {
+      const vTrack = this.videoStream.getVideoTracks()[0];
+      if (vTrack && vTrack.getSettings) {
+        const settings = vTrack.getSettings();
+        if (settings.width) width = settings.width;
+        if (settings.height) height = settings.height;
+        if (settings.frameRate) fps = Math.round(settings.frameRate);
+      }
+    } else if (this.videoElement) {
+      if (this.videoElement.videoWidth) width = this.videoElement.videoWidth;
+      if (this.videoElement.videoHeight) height = this.videoElement.videoHeight;
+    }
+
+    if (this.peerConnection) {
+      try {
+        const stats = await this.peerConnection.getStats();
+        const now = performance.now();
+        stats.forEach(report => {
+          if (report.type === 'outbound-rtp' && report.kind === 'video') {
+            if (this.lastBytesSent > 0 && this.lastStatsTimestamp > 0) {
+              const bytesDelta = report.bytesSent - this.lastBytesSent;
+              const timeDeltaMs = now - this.lastStatsTimestamp;
+              if (timeDeltaMs > 0) {
+                const bps = (bytesDelta * 8) / (timeDeltaMs / 1000);
+                bitrateMbps = (bps / 1000000).toFixed(1);
+              }
+            }
+            this.lastBytesSent = report.bytesSent;
+            this.lastStatsTimestamp = now;
+            if (report.framesPerSecond) fps = Math.round(report.framesPerSecond);
+          }
+          if (report.type === 'candidate-pair' && report.state === 'succeeded') {
+            if (report.currentRoundTripTime) {
+              rttMs = Math.round(report.currentRoundTripTime * 1000);
+            }
+          }
+          if (report.type === 'remote-inbound-rtp' && report.packetsLost !== undefined && report.packetsReceived !== undefined) {
+            const total = report.packetsLost + report.packetsReceived;
+            if (total > 0) {
+              packetLossPercent = ((report.packetsLost / total) * 100).toFixed(1);
+            }
+          }
+        });
+      } catch (e) {
+        console.warn('[VideoStreamHelper] getStats error:', e);
+      }
+    }
+
+    return JSON.stringify({
+      width: width,
+      height: height,
+      fps: fps,
+      rttMs: rttMs,
+      bitrateMbps: bitrateMbps,
+      packetLossPercent: packetLossPercent,
+      codec: codec
+    });
+  },
+
   stopVideoStream() {
+    if (this.peerConnection) {
+      try { this.peerConnection.close(); } catch (_) {}
+      this.peerConnection = null;
+    }
     if (this.videoStream) {
       try {
         const tracks = this.videoStream.getTracks();

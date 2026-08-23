@@ -46,10 +46,13 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> with WidgetsBinding
   int _sessionDurationSeconds = 0;
   String _selectedCamera = 'Built-in Front Camera';
   String _selectedAudioInput = 'Default Microphone';
+  String _selectedAudioOutput = 'Default Speaker';
+  String _selectedStreamQuality = 'Auto (Adaptive HD)';
 
   Timer? _spectatorTimer;
   Timer? _audioLevelTimer;
   Timer? _durationTimer;
+  Timer? _telemetryTimer;
   double _currentAudioLevel = 0.0;
   JSFunction? _onScreenShareEndedListener;
 
@@ -93,6 +96,15 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> with WidgetsBinding
     _startSpectatorSimulation();
     _startAudioLevelPolling();
     _startDurationTimer();
+    _startTelemetryPolling();
+  }
+
+  void _startTelemetryPolling() {
+    _telemetryTimer?.cancel();
+    _telemetryTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted) return;
+      _videoService.fetchTelemetryStats();
+    });
   }
 
   void _startDurationTimer() {
@@ -131,6 +143,14 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> with WidgetsBinding
     _videoService.forumName = widget.forumName;
     _videoService.hostName = widget.hostName;
     _videoService.isHost = widget.isHost;
+
+    if (widget.hostName.isNotEmpty) {
+      _videoService.updateHostSpeakerName(
+        widget.hostName,
+        role: widget.isHost ? 'Host' : 'Speaker',
+        isHostUser: widget.isHost,
+      );
+    }
 
     if (_videoElement != null) {
       _videoElement!.style.transform = _isFrontCamera ? 'scaleX(-1)' : 'none';
@@ -184,6 +204,7 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> with WidgetsBinding
     _spectatorTimer?.cancel();
     _audioLevelTimer?.cancel();
     _durationTimer?.cancel();
+    _telemetryTimer?.cancel();
     if (!_videoService.isMinimizedNotifier.value) {
       _videoService.releaseWakeLock();
       _videoService.stopVideoStream();
@@ -212,18 +233,22 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> with WidgetsBinding
   }
 
   void _toggleMic() {
+    final nextMuted = !_isMicMuted;
     setState(() {
-      _isMicMuted = !_isMicMuted;
+      _isMicMuted = nextMuted;
     });
-    _videoService.toggleMic(!_isMicMuted);
+    _videoService.toggleMic(!nextMuted);
+    _videoService.updateParticipantMediaState('host', isMicMuted: nextMuted);
   }
 
   void _toggleCamera() {
+    final nextCameraOn = !_isCameraOn;
     setState(() {
-      _isCameraOn = !_isCameraOn;
+      _isCameraOn = nextCameraOn;
     });
-    _videoService.isCameraOn = _isCameraOn;
-    _videoService.toggleCamera(_isCameraOn);
+    _videoService.isCameraOn = nextCameraOn;
+    _videoService.toggleCamera(nextCameraOn);
+    _videoService.updateParticipantMediaState('host', isCameraOn: nextCameraOn);
   }
 
   Future<void> _flipCamera() async {
@@ -257,8 +282,9 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> with WidgetsBinding
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setModalState) {
+        return ValueListenableBuilder<TelemetryData>(
+          valueListenable: _videoService.telemetryNotifier,
+          builder: (context, telemetry, _) {
             return Padding(
               padding: const EdgeInsets.all(24.0),
               child: Column(
@@ -286,11 +312,11 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> with WidgetsBinding
                   ),
                   const SizedBox(height: 16),
                   _buildTelemetryRow('Session Uptime', _formatDuration(_sessionDurationSeconds), Icons.timer_outlined),
-                  _buildTelemetryRow('Network Latency', '42 ms (RTT Ultra-Low)', Icons.speed_rounded),
-                  _buildTelemetryRow('Video Resolution', '1080p (1920x1080 @ 60 FPS)', Icons.hd_rounded),
-                  _buildTelemetryRow('Video Bitrate', '3.4 Mbps (H.264 High Profile)', Icons.graphic_eq_rounded),
+                  _buildTelemetryRow('Network Latency', '${telemetry.rttMs} ms (RTT Edge)', Icons.speed_rounded),
+                  _buildTelemetryRow('Video Resolution', '${telemetry.height}p (${telemetry.width}x${telemetry.height} @ ${telemetry.fps} FPS)', Icons.hd_rounded),
+                  _buildTelemetryRow('Video Bitrate', '${telemetry.bitrateMbps} Mbps (${telemetry.codec})', Icons.graphic_eq_rounded),
                   _buildTelemetryRow('Audio Bitrate', '128 kbps (Opus 48kHz Stereo)', Icons.mic_outlined),
-                  _buildTelemetryRow('Packet Loss', '0.0% (0 / 14,820 packets)', Icons.network_check_rounded),
+                  _buildTelemetryRow('Packet Loss', '${telemetry.packetLossPercent}%', Icons.network_check_rounded),
                   _buildTelemetryRow('Stream Security', 'DTLS-SRTP (End-to-End Encrypted)', Icons.lock_outline_rounded),
                   const SizedBox(height: 16),
                 ],
@@ -330,7 +356,18 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> with WidgetsBinding
     );
   }
 
+  List<MediaDevice> _hardwareDevices = [];
+
   void _showDeviceSelectorModal() {
+    // Query real hardware devices when modal opens
+    _videoService.getAvailableDevices().then((devices) {
+      if (mounted && devices.isNotEmpty) {
+        setState(() {
+          _hardwareDevices = devices;
+        });
+      }
+    });
+
     showModalBottomSheet(
       context: context,
       backgroundColor: const Color(0xFF121418),
@@ -340,6 +377,126 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> with WidgetsBinding
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setModalState) {
+            final videoDevices = _hardwareDevices
+                .where((d) => d.kind == 'videoinput')
+                .toList();
+            final audioInputDevices = _hardwareDevices
+                .where((d) => d.kind == 'audioinput')
+                .toList();
+            final audioOutputDevices = _hardwareDevices
+                .where((d) => d.kind == 'audiooutput')
+                .toList();
+
+            final cameraItems = videoDevices.isNotEmpty
+                ? videoDevices.map((d) {
+                    return DropdownMenuItem(
+                      value: d.deviceId,
+                      child: Text(
+                        d.label.isNotEmpty ? d.label : 'Camera ${d.deviceId.substring(0, 5)}',
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    );
+                  }).toList()
+                : const [
+                    DropdownMenuItem(
+                      value: 'Built-in Front Camera',
+                      child: Text('Built-in Front Camera'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'Built-in Rear Camera',
+                      child: Text('Built-in Rear Camera'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'External USB Cam Link (DSLR)',
+                      child: Text('External USB Cam Link (DSLR)'),
+                    ),
+                  ];
+
+            final audioInputItems = audioInputDevices.isNotEmpty
+                ? audioInputDevices.map((d) {
+                    return DropdownMenuItem(
+                      value: d.deviceId,
+                      child: Text(
+                        d.label.isNotEmpty ? d.label : 'Mic ${d.deviceId.substring(0, 5)}',
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    );
+                  }).toList()
+                : const [
+                    DropdownMenuItem(
+                      value: 'Default Microphone',
+                      child: Text('Default Microphone'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'USB Audio Interface / Mixer',
+                      child: Text('USB Audio Interface / Mixer'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'Wireless Bluetooth Headset',
+                      child: Text('Wireless Bluetooth Headset'),
+                    ),
+                  ];
+
+            final audioOutputItems = audioOutputDevices.isNotEmpty
+                ? audioOutputDevices.map((d) {
+                    return DropdownMenuItem(
+                      value: d.deviceId,
+                      child: Text(
+                        d.label.isNotEmpty ? d.label : 'Speaker ${d.deviceId.substring(0, 5)}',
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    );
+                  }).toList()
+                : const [
+                    DropdownMenuItem(
+                      value: 'Default Speaker',
+                      child: Text('Default Speaker'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'Built-in Speaker / Headphones',
+                      child: Text('Built-in Speaker / Headphones'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'Bluetooth Headset / AirPods',
+                      child: Text('Bluetooth Headset / AirPods'),
+                    ),
+                  ];
+
+            final qualityItems = const [
+              DropdownMenuItem(
+                value: 'Auto (Adaptive HD)',
+                child: Text('Auto (Adaptive HD)'),
+              ),
+              DropdownMenuItem(
+                value: '1080p Full HD',
+                child: Text('1080p Full HD'),
+              ),
+              DropdownMenuItem(
+                value: '720p HD (Data Saver)',
+                child: Text('720p HD (Data Saver)'),
+              ),
+              DropdownMenuItem(
+                value: '480p SD',
+                child: Text('480p SD'),
+              ),
+            ];
+
+            final selectedCamVal = cameraItems.any((item) => item.value == _selectedCamera)
+                ? _selectedCamera
+                : cameraItems.first.value;
+
+            final selectedAudioVal = audioInputItems.any((item) => item.value == _selectedAudioInput)
+                ? _selectedAudioInput
+                : audioInputItems.first.value;
+
+            final selectedOutputVal = audioOutputItems.any((item) => item.value == _selectedAudioOutput)
+                ? _selectedAudioOutput
+                : audioOutputItems.first.value;
+
+            final selectedQualityVal = qualityItems.any((item) => item.value == _selectedStreamQuality)
+                ? _selectedStreamQuality
+                : qualityItems.first.value;
+
             return Container(
               padding: const EdgeInsets.all(20),
               child: Column(
@@ -358,7 +515,7 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> with WidgetsBinding
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    'Media Device Settings',
+                    'Settings',
                     style: AppTypography.interTight(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
@@ -366,95 +523,150 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> with WidgetsBinding
                     ),
                   ),
                   const SizedBox(height: 16),
-                  Text(
-                    'Camera Input',
-                    style: AppTypography.interTight(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white70,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  DropdownButtonFormField<String>(
-                    initialValue: _selectedCamera,
-                    dropdownColor: const Color(0xFF1E222A),
-                    style: const TextStyle(color: Colors.white),
-                    decoration: InputDecoration(
-                      filled: true,
-                      fillColor: Colors.white.withValues(alpha: 0.06),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: BorderSide.none,
+
+                  if (widget.isHost) ...[
+                    Text(
+                      'Camera Input',
+                      style: AppTypography.interTight(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white70,
                       ),
                     ),
-                    items: const [
-                      DropdownMenuItem(
-                        value: 'Built-in Front Camera',
-                        child: Text('Built-in Front Camera'),
+                    const SizedBox(height: 8),
+                    DropdownButtonFormField<String>(
+                      initialValue: selectedCamVal,
+                      dropdownColor: const Color(0xFF1E222A),
+                      style: const TextStyle(color: Colors.white),
+                      decoration: InputDecoration(
+                        filled: true,
+                        fillColor: Colors.white.withValues(alpha: 0.06),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: BorderSide.none,
+                        ),
                       ),
-                      DropdownMenuItem(
-                        value: 'Built-in Rear Camera',
-                        child: Text('Built-in Rear Camera'),
-                      ),
-                      DropdownMenuItem(
-                        value: 'External USB Cam Link (DSLR)',
-                        child: Text('External USB Cam Link (DSLR)'),
-                      ),
-                    ],
-                    onChanged: (val) {
-                      if (val != null) {
-                        setModalState(() => _selectedCamera = val);
-                        setState(() => _selectedCamera = val);
-                      }
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Microphone Input',
-                    style: AppTypography.interTight(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white70,
+                      items: cameraItems,
+                      onChanged: (val) {
+                        if (val != null) {
+                          setModalState(() => _selectedCamera = val);
+                          setState(() => _selectedCamera = val);
+                          _videoService.switchCameraDevice(_elementId, val);
+                        }
+                      },
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  DropdownButtonFormField<String>(
-                    initialValue: _selectedAudioInput,
-                    dropdownColor: const Color(0xFF1E222A),
-                    style: const TextStyle(color: Colors.white),
-                    decoration: InputDecoration(
-                      filled: true,
-                      fillColor: Colors.white.withValues(alpha: 0.06),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: BorderSide.none,
+                    const SizedBox(height: 16),
+                    Text(
+                      'Microphone Input',
+                      style: AppTypography.interTight(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white70,
                       ),
                     ),
-                    items: const [
-                      DropdownMenuItem(
-                        value: 'Default Microphone',
-                        child: Text('Default Microphone'),
+                    const SizedBox(height: 8),
+                    DropdownButtonFormField<String>(
+                      initialValue: selectedAudioVal,
+                      dropdownColor: const Color(0xFF1E222A),
+                      style: const TextStyle(color: Colors.white),
+                      decoration: InputDecoration(
+                        filled: true,
+                        fillColor: Colors.white.withValues(alpha: 0.06),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: BorderSide.none,
+                        ),
                       ),
-                      DropdownMenuItem(
-                        value: 'USB Audio Interface / Mixer',
-                        child: Text('USB Audio Interface / Mixer'),
+                      items: audioInputItems,
+                      onChanged: (val) {
+                        if (val != null) {
+                          setModalState(() => _selectedAudioInput = val);
+                          setState(() => _selectedAudioInput = val);
+                          _videoService.switchAudioDevice(val);
+                        }
+                      },
+                    ),
+                  ] else ...[
+                    Text(
+                      'Audio Routing',
+                      style: AppTypography.interTight(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white70,
                       ),
-                      DropdownMenuItem(
-                        value: 'Wireless Bluetooth Headset',
-                        child: Text('Wireless Bluetooth Headset'),
+                    ),
+                    const SizedBox(height: 8),
+                    DropdownButtonFormField<String>(
+                      initialValue: selectedOutputVal,
+                      dropdownColor: const Color(0xFF1E222A),
+                      style: const TextStyle(color: Colors.white),
+                      decoration: InputDecoration(
+                        filled: true,
+                        fillColor: Colors.white.withValues(alpha: 0.06),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: BorderSide.none,
+                        ),
                       ),
-                    ],
-                    onChanged: (val) {
-                      if (val != null) {
-                        setModalState(() => _selectedAudioInput = val);
-                        setState(() => _selectedAudioInput = val);
-                      }
-                    },
-                  ),
+                      items: audioOutputItems,
+                      onChanged: (val) {
+                        if (val != null) {
+                          setModalState(() => _selectedAudioOutput = val);
+                          setState(() => _selectedAudioOutput = val);
+                          _videoService.switchAudioOutputDevice(_elementId, val);
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Stream Quality',
+                      style: AppTypography.interTight(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white70,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    DropdownButtonFormField<String>(
+                      initialValue: selectedQualityVal,
+                      dropdownColor: const Color(0xFF1E222A),
+                      style: const TextStyle(color: Colors.white),
+                      decoration: InputDecoration(
+                        filled: true,
+                        fillColor: Colors.white.withValues(alpha: 0.06),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: BorderSide.none,
+                        ),
+                      ),
+                      items: qualityItems,
+                      onChanged: (val) {
+                        if (val != null) {
+                          setModalState(() => _selectedStreamQuality = val);
+                          setState(() => _selectedStreamQuality = val);
+                          _videoService.setStreamQuality(_elementId, val);
+                        }
+                      },
+                    ),
+                  ],
+
                   const SizedBox(height: 12),
                   SwitchListTile(
                     value: _showTelemetryOverlay,
-                    activeTrackColor: context.accentColor,
+                    activeTrackColor: context.accentColor.withValues(alpha: 0.38),
+                    activeThumbColor: context.accentColor,
+                    thumbColor: WidgetStateProperty.resolveWith((states) {
+                      if (states.contains(WidgetState.selected)) {
+                        return context.accentColor;
+                      }
+                      return Colors.white54;
+                    }),
+                    trackColor: WidgetStateProperty.resolveWith((states) {
+                      if (states.contains(WidgetState.selected)) {
+                        return context.accentColor.withValues(alpha: 0.38);
+                      }
+                      return Colors.white12;
+                    }),
                     contentPadding: EdgeInsets.zero,
                     title: Text(
                       'Stream Telemetry Overlay',
@@ -595,29 +807,24 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> with WidgetsBinding
                     left: 0,
                     right: 0,
                     bottom: 12,
-                    child: Center(
-                      child: Container(
-                        constraints: const BoxConstraints(maxWidth: 760),
-                        child: ValueListenableBuilder<List<StreamParticipant>>(
-                          valueListenable: _videoService.activeParticipantsNotifier,
-                          builder: (context, participants, _) {
-                            return ValueListenableBuilder<String>(
-                              valueListenable: _videoService.stageSpeakerIdNotifier,
-                              builder: (context, pinnedId, _) {
-                                return GuestThumbnailStrip(
-                                  participants: participants,
-                                  pinnedId: pinnedId,
-                                  isHost: widget.isHost,
-                                  onPinSpeaker: (id) => _videoService.pinStageSpeaker(id),
-                                  onAddStageSpeaker: () {
-                                    AppSnackBars.showInfo(context, 'Stage Invite link copied to clipboard');
-                                  },
-                                );
+                    child: ValueListenableBuilder<List<StreamParticipant>>(
+                      valueListenable: _videoService.activeParticipantsNotifier,
+                      builder: (context, participants, _) {
+                        return ValueListenableBuilder<String>(
+                          valueListenable: _videoService.stageSpeakerIdNotifier,
+                          builder: (context, pinnedId, _) {
+                            return GuestThumbnailStrip(
+                              participants: participants,
+                              pinnedId: pinnedId,
+                              isHost: widget.isHost,
+                              onPinSpeaker: (id) => _videoService.pinStageSpeaker(id),
+                              onAddStageSpeaker: () {
+                                AppSnackBars.showInfo(context, 'Stage Invite link copied to clipboard');
                               },
                             );
                           },
-                        ),
-                      ),
+                        );
+                      },
                     ),
                   ),
 
@@ -635,20 +842,25 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> with WidgetsBinding
                             borderRadius: BorderRadius.circular(8),
                             border: Border.all(color: Colors.white10),
                           ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                '720p30 • 2.8 Mbps • Uptime ${_formatDuration(_sessionDurationSeconds)}',
-                                style: AppTypography.interTight(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                  color: Colors.white70,
-                                ),
-                              ),
-                              const SizedBox(width: 4),
-                              const Icon(Icons.info_outline_rounded, color: Colors.white38, size: 12),
-                            ],
+                          child: ValueListenableBuilder<TelemetryData>(
+                            valueListenable: _videoService.telemetryNotifier,
+                            builder: (context, telemetry, _) {
+                              return Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.info_outline_rounded, color: Colors.white38, size: 12),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    '${telemetry.summaryLabel} • Uptime ${_formatDuration(_sessionDurationSeconds)}',
+                                    style: AppTypography.interTight(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.white70,
+                                    ),
+                                  ),
+                                ],
+                              );
+                            },
                           ),
                         ),
                       ),
@@ -760,6 +972,7 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> with WidgetsBinding
               isMicMuted: _isMicMuted,
               isCameraOn: _isCameraOn,
               isFrontCamera: _isFrontCamera,
+              isLeaveRoom: !widget.isHost,
               onToggleScreenShare: _toggleScreenShare,
               onToggleMic: _toggleMic,
               onToggleCamera: _toggleCamera,

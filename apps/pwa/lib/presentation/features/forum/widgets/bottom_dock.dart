@@ -6,6 +6,8 @@ class BottomDock extends StatelessWidget {
   final bool isMicMuted;
   final bool isCameraOn;
   final bool isFrontCamera;
+  final bool isDisabled;
+  final bool isLeaveRoom;
   final VoidCallback onToggleScreenShare;
   final VoidCallback onToggleMic;
   final VoidCallback onToggleCamera;
@@ -18,6 +20,8 @@ class BottomDock extends StatelessWidget {
     required this.isMicMuted,
     required this.isCameraOn,
     required this.isFrontCamera,
+    this.isDisabled = false,
+    this.isLeaveRoom = false,
     required this.onToggleScreenShare,
     required this.onToggleMic,
     required this.onToggleCamera,
@@ -47,73 +51,90 @@ class BottomDock extends StatelessWidget {
                 ),
               ],
             ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              // Position 1: Share Screen
-              IconButton(
-                icon: Icon(
-                  isScreenSharing
-                      ? Icons.stop_screen_share_rounded
-                      : Icons.screen_share_rounded,
-                  color: isScreenSharing ? context.accentColor : Colors.white,
-                ),
-                onPressed: onToggleScreenShare,
-                tooltip: isScreenSharing ? 'Stop Screen Share' : 'Share Screen',
-              ),
-
-              // Position 2: Mic Toggle
-              IconButton(
-                icon: Icon(
-                  isMicMuted ? Icons.mic_off_rounded : Icons.mic_rounded,
-                  color: isMicMuted ? Colors.redAccent : Colors.white,
-                ),
-                onPressed: onToggleMic,
-                tooltip: isMicMuted ? 'Unmute Mic' : 'Mute Mic',
-              ),
-
-              // Position 3 (DEAD CENTER): Red End Call Button
-              InkWell(
-                onTap: onEndCall,
-                borderRadius: BorderRadius.circular(28),
-                child: Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: const BoxDecoration(
-                    color: Colors.redAccent,
-                    shape: BoxShape.circle,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                // Position 1: Share Screen
+                IconButton(
+                  icon: Icon(
+                    isScreenSharing
+                        ? Icons.stop_screen_share_rounded
+                        : Icons.screen_share_rounded,
+                    color: isDisabled
+                        ? Colors.white24
+                        : (isScreenSharing ? context.accentColor : Colors.white),
                   ),
-                  child: const Icon(
-                    Icons.call_end_rounded,
-                    color: Colors.white,
-                    size: 24,
+                  onPressed: isDisabled ? null : onToggleScreenShare,
+                  tooltip: isDisabled
+                      ? 'Controls Disabled'
+                      : (isScreenSharing ? 'Stop Screen Share' : 'Share Screen'),
+                ),
+
+                // Position 2: Mic Toggle
+                IconButton(
+                  icon: Icon(
+                    isMicMuted ? Icons.mic_off_rounded : Icons.mic_rounded,
+                    color: isDisabled
+                        ? Colors.white24
+                        : (isMicMuted ? Colors.redAccent : Colors.white),
+                  ),
+                  onPressed: isDisabled ? null : onToggleMic,
+                  tooltip: isDisabled
+                      ? 'Controls Disabled'
+                      : (isMicMuted ? 'Unmute Mic' : 'Mute Mic'),
+                ),
+
+                // Position 3 (DEAD CENTER): End Call / Leave Room Button
+                Tooltip(
+                  message: isLeaveRoom ? 'Leave Room' : 'End Call',
+                  child: InkWell(
+                    onTap: onEndCall,
+                    borderRadius: BorderRadius.circular(28),
+                    child: Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: isLeaveRoom ? Colors.redAccent.shade700 : Colors.redAccent,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        isLeaveRoom ? Icons.logout_rounded : Icons.call_end_rounded,
+                        color: Colors.white,
+                        size: 24,
+                      ),
+                    ),
                   ),
                 ),
-              ),
 
-              // Position 4: Camera Toggle
-              IconButton(
-                icon: Icon(
-                  isCameraOn ? Icons.videocam_rounded : Icons.videocam_off_rounded,
-                  color: isCameraOn ? Colors.white : Colors.redAccent,
+                // Position 4: Camera Toggle
+                IconButton(
+                  icon: Icon(
+                    isCameraOn ? Icons.videocam_rounded : Icons.videocam_off_rounded,
+                    color: isDisabled
+                        ? Colors.white24
+                        : (isCameraOn ? Colors.white : Colors.redAccent),
+                  ),
+                  onPressed: isDisabled ? null : onToggleCamera,
+                  tooltip: isDisabled
+                      ? 'Controls Disabled'
+                      : (isCameraOn ? 'Turn Camera Off' : 'Turn Camera On'),
                 ),
-                onPressed: onToggleCamera,
-                tooltip: isCameraOn ? 'Turn Camera Off' : 'Turn Camera On',
-              ),
 
-              // Position 5: Flip Camera
-              IconButton(
-                icon: Icon(
-                  Icons.flip_camera_ios_rounded,
-                  color: isFrontCamera ? Colors.white : context.accentColor,
+                // Position 5: Flip Camera
+                IconButton(
+                  icon: Icon(
+                    Icons.flip_camera_ios_rounded,
+                    color: isDisabled
+                        ? Colors.white24
+                        : (isFrontCamera ? Colors.white : context.accentColor),
+                  ),
+                  onPressed: isDisabled ? null : onFlipCamera,
+                  tooltip: isDisabled ? 'Controls Disabled' : 'Flip Camera',
                 ),
-                onPressed: onFlipCamera,
-                tooltip: 'Flip Camera',
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
-    ),
-  );
-}
+    );
+  }
 }
