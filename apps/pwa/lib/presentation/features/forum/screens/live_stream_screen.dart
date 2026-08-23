@@ -356,157 +356,177 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> with WidgetsBinding
     );
   }
 
-  void _showStageLayoutModal() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: const Color(0xFF121418),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) {
-        return ValueListenableBuilder<StageLayoutMode>(
-          valueListenable: _videoService.stageLayoutNotifier,
-          builder: (context, currentLayout, _) {
-            return Padding(
-              padding: const EdgeInsets.all(24.0),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
+  void _toggleStageLayoutMode() {
+    final current = _videoService.stageLayoutNotifier.value;
+    StageLayoutMode next;
+    String label;
+    switch (current) {
+      case StageLayoutMode.focus:
+        next = StageLayoutMode.grid;
+        label = 'Grid View (2x2 Multi-Speaker)';
+        break;
+      case StageLayoutMode.grid:
+        next = StageLayoutMode.presentation;
+        label = 'Presentation Mode';
+        break;
+      case StageLayoutMode.presentation:
+        next = StageLayoutMode.focus;
+        label = 'Focus Stage (Main Speaker)';
+        break;
+    }
+    _videoService.setStageLayout(next);
+    AppSnackBars.showInfo(context, 'Switched to $label');
+  }
+
+  Widget _buildGridStageOverlay(BuildContext context) {
+    final participants = _videoService.activeParticipantsNotifier.value;
+    return Container(
+      color: const Color(0xFF0C0E12),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        children: [
+          const SizedBox(height: 48),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: context.accentColor.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: context.accentColor.withValues(alpha: 0.3)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.grid_view_rounded, color: context.accentColor, size: 14),
+                const SizedBox(width: 6),
+                Text(
+                  'Grid View (2x2 Multi-Speaker)',
+                  style: AppTypography.interTight(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          Expanded(
+            child: GridView.builder(
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                crossAxisSpacing: 10,
+                mainAxisSpacing: 10,
+                childAspectRatio: 1.0,
+              ),
+              itemCount: participants.length.clamp(1, 4),
+              itemBuilder: (context, index) {
+                final p = participants[index];
+                return Container(
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF161920),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: p.isSpeaking ? context.accentColor : Colors.white12,
+                      width: p.isSpeaking ? 2 : 1,
+                    ),
+                  ),
+                  child: Stack(
                     children: [
-                      Icon(Icons.dashboard_customize_rounded, color: context.accentColor, size: 22),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Stage Display Layout',
-                        style: AppTypography.interTight(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
+                      Center(
+                        child: CircleAvatar(
+                          radius: 24,
+                          backgroundColor: p.isSpeaking ? context.accentColor : const Color(0xFF2A2E38),
+                          child: Text(
+                            p.name.substring(0, 1).toUpperCase(),
+                            style: AppTypography.interTight(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+                          ),
                         ),
                       ),
-                      const Spacer(),
-                      IconButton(
-                        icon: const Icon(Icons.close, color: Colors.white70),
-                        onPressed: () => Navigator.of(context).pop(),
+                      Positioned(
+                        left: 8,
+                        bottom: 8,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.75),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            p.name,
+                            style: AppTypography.interTight(fontSize: 10, fontWeight: FontWeight.w600, color: Colors.white),
+                          ),
+                        ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Select how active speakers and streams are arranged on stage',
-                    style: AppTypography.interTight(
-                      fontSize: 12,
-                      color: Colors.white54,
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  _buildLayoutOptionTile(
-                    context,
-                    mode: StageLayoutMode.focus,
-                    title: 'Focus Stage (Default)',
-                    subtitle: 'Pinned speaker fills the full video stage canvas',
-                    icon: Icons.crop_square_rounded,
-                    isSelected: currentLayout == StageLayoutMode.focus,
-                  ),
-                  const SizedBox(height: 12),
-                  _buildLayoutOptionTile(
-                    context,
-                    mode: StageLayoutMode.grid,
-                    title: 'Grid / Gallery View',
-                    subtitle: 'Multi-speaker equal split layout for panel discussions',
-                    icon: Icons.grid_view_rounded,
-                    isSelected: currentLayout == StageLayoutMode.grid,
-                  ),
-                  const SizedBox(height: 12),
-                  _buildLayoutOptionTile(
-                    context,
-                    mode: StageLayoutMode.presentation,
-                    title: 'Presentation Mode',
-                    subtitle: 'Screen share or main stream focus with side ribbon',
-                    icon: Icons.space_dashboard_rounded,
-                    isSelected: currentLayout == StageLayoutMode.presentation,
-                  ),
-                  const SizedBox(height: 16),
-                ],
-              ),
-            );
-          },
-        );
-      },
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 100),
+        ],
+      ),
     );
   }
 
-  Widget _buildLayoutOptionTile(
-    BuildContext context, {
-    required StageLayoutMode mode,
-    required String title,
-    required String subtitle,
-    required IconData icon,
-    required bool isSelected,
-  }) {
-    return InkWell(
-      onTap: () {
-        _videoService.setStageLayout(mode);
-        Navigator.of(context).pop();
-      },
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? context.accentColor.withValues(alpha: 0.12)
-              : Colors.white.withValues(alpha: 0.05),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: isSelected ? context.accentColor : Colors.white12,
-            width: isSelected ? 1.5 : 1,
+  Widget _buildPresentationStageOverlay(BuildContext context) {
+    return Container(
+      color: const Color(0xFF0A0C10),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        children: [
+          const SizedBox(height: 48),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.indigoAccent.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: Colors.indigoAccent.withValues(alpha: 0.4)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.space_dashboard_rounded, color: Colors.indigoAccent, size: 14),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Presentation Mode',
+                      style: AppTypography.interTight(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(10),
+          const SizedBox(height: 16),
+          Expanded(
+            child: Container(
+              width: double.infinity,
               decoration: BoxDecoration(
-                color: isSelected
-                    ? context.accentColor.withValues(alpha: 0.2)
-                    : Colors.white.withValues(alpha: 0.08),
-                shape: BoxShape.circle,
+                color: const Color(0xFF14171E),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: Colors.white12),
               ),
-              child: Icon(
-                icon,
-                color: isSelected ? context.accentColor : Colors.white70,
-                size: 20,
+              child: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.present_to_all_rounded, color: context.accentColor, size: 48),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Stage Presentation Canvas',
+                      style: AppTypography.interTight(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Main screen share & slide deck stream active',
+                      style: AppTypography.interTight(fontSize: 12, color: Colors.white54),
+                    ),
+                  ],
+                ),
               ),
             ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: AppTypography.interTight(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    subtitle,
-                    style: AppTypography.interTight(
-                      fontSize: 12,
-                      color: Colors.white54,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            if (isSelected)
-              Icon(Icons.check_circle_rounded, color: context.accentColor, size: 20),
-          ],
-        ),
+          ),
+          const SizedBox(height: 100),
+        ],
       ),
     );
   }
@@ -873,63 +893,75 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> with WidgetsBinding
                         decoration: const BoxDecoration(
                           color: Color(0xFF0F1115),
                         ),
-                        child: Stack(
-                          children: [
-                            // Actual Web Video Stream PlatformView (Kept permanently mounted to preserve HTML element DOM node)
-                            if (kIsWeb)
-                              const Positioned.fill(
-                                child: HtmlElementView(viewType: _viewType),
-                              ),
+                        child: ValueListenableBuilder<StageLayoutMode>(
+                          valueListenable: _videoService.stageLayoutNotifier,
+                          builder: (context, layoutMode, _) {
+                            if (layoutMode == StageLayoutMode.grid) {
+                              return _buildGridStageOverlay(context);
+                            }
+                            if (layoutMode == StageLayoutMode.presentation) {
+                              return _buildPresentationStageOverlay(context);
+                            }
 
-                            // Camera Off Overlay Placeholder
-                            if (!_isCameraOn && !_isScreenSharing)
-                              Positioned.fill(
-                                child: Container(
-                                  color: const Color(0xFF0F1115),
-                                  child: Center(
-                                    child: Column(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        Container(
-                                          width: 96,
-                                          height: 96,
-                                          decoration: BoxDecoration(
-                                            shape: BoxShape.circle,
-                                            color: const Color(0xFF1E222A),
-                                            border: Border.all(
-                                              color: context.accentColor,
-                                              width: 2,
+                            return Stack(
+                              children: [
+                                // Actual Web Video Stream PlatformView (Kept permanently mounted to preserve HTML element DOM node)
+                                if (kIsWeb)
+                                  const Positioned.fill(
+                                    child: HtmlElementView(viewType: _viewType),
+                                  ),
+
+                                // Camera Off Overlay Placeholder
+                                if (!_isCameraOn && !_isScreenSharing)
+                                  Positioned.fill(
+                                    child: Container(
+                                      color: const Color(0xFF0F1115),
+                                      child: Center(
+                                        child: Column(
+                                          mainAxisAlignment: MainAxisAlignment.center,
+                                          children: [
+                                            Container(
+                                              width: 96,
+                                              height: 96,
+                                              decoration: BoxDecoration(
+                                                shape: BoxShape.circle,
+                                                color: const Color(0xFF1E222A),
+                                                border: Border.all(
+                                                  color: context.accentColor,
+                                                  width: 2,
+                                                ),
+                                              ),
+                                              child: const Icon(
+                                                Icons.videocam_off_rounded,
+                                                color: Colors.white,
+                                                size: 44,
+                                              ),
                                             ),
-                                          ),
-                                          child: const Icon(
-                                            Icons.videocam_off_rounded,
-                                            color: Colors.white,
-                                            size: 44,
-                                          ),
+                                            const SizedBox(height: 16),
+                                            Text(
+                                              'Camera Off',
+                                              style: AppTypography.interTight(
+                                                fontSize: 18,
+                                                fontWeight: FontWeight.bold,
+                                                color: Colors.white,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 6),
+                                            Text(
+                                              'Your camera is currently turned off',
+                                              style: AppTypography.interTight(
+                                                fontSize: 12,
+                                                color: Colors.white54,
+                                              ),
+                                            ),
+                                          ],
                                         ),
-                                        const SizedBox(height: 16),
-                                        Text(
-                                          'Camera Off',
-                                          style: AppTypography.interTight(
-                                            fontSize: 18,
-                                            fontWeight: FontWeight.bold,
-                                            color: Colors.white,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 6),
-                                        Text(
-                                          'Your camera is currently turned off',
-                                          style: AppTypography.interTight(
-                                            fontSize: 12,
-                                            color: Colors.white54,
-                                          ),
-                                        ),
-                                      ],
+                                      ),
                                     ),
                                   ),
-                                ),
-                              ),
-                          ],
+                              ],
+                            );
+                          },
                         ),
                       ),
                     ),
@@ -980,7 +1012,7 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> with WidgetsBinding
                                   onAddStageSpeaker: () {
                                     AppSnackBars.showInfo(context, 'Stage Invite link copied to clipboard');
                                   },
-                                  onOpenLayoutSelector: _showStageLayoutModal,
+                                  onToggleLayout: _toggleStageLayoutMode,
                                 );
                               },
                             );
