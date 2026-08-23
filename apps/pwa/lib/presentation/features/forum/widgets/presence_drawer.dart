@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:lynk_core/core.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:lynk_x/l10n/app_localizations.dart';
+import '../services/forum_video_stream_service.dart';
 import 'forum_skeletons.dart';
 import 'user_presence.dart';
 
@@ -133,35 +134,55 @@ class PresenceDrawer extends StatelessWidget {
               child: SkeletonFade(
                 child: isLoading
                     ? const SkeletonPresenceList(key: ValueKey('skeleton'))
-                    : ListView.builder(
-                      key: const ValueKey('content'),
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      itemCount: roster.length,
-                      itemBuilder: (context, index) {
-                        try {
-                          final user = roster[index];
-                          final String userId = user['id'].toString();
-                          if (userId.isEmpty) return const SizedBox.shrink();
+                    : ValueListenableBuilder<List<StreamParticipant>>(
+                        valueListenable: ForumVideoStreamService().activeParticipantsNotifier,
+                        builder: (context, participants, _) {
+                          return ListView.builder(
+                            key: const ValueKey('content'),
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            itemCount: roster.length,
+                            itemBuilder: (context, index) {
+                              try {
+                                final user = roster[index];
+                                final String userId = user['id'].toString();
+                                if (userId.isEmpty) return const SizedBox.shrink();
 
-                          return UserPresenceCard(
-                            key: ValueKey('presence_$userId'),
-                            userId: userId,
-                            username:
-                                (user['user_name'] ?? 'Unknown').toString(),
-                            roleId: user['role_id'] as String?,
-                            isOnline: user['is_online'] == true,
-                            isOrganizer: user['is_organizer'] == true,
-                            isPremium: user['is_premium'] == true,
-                            isPrimary: userId ==
-                                Supabase.instance.client.auth.currentUser?.id,
+                                final match = participants.firstWhere(
+                                  (p) => p.id == userId,
+                                  orElse: () => const StreamParticipant(id: '', name: '', role: ''),
+                                );
+
+                                final bool isStreamActive = match.id.isNotEmpty;
+
+                                return UserPresenceCard(
+                                  key: ValueKey('presence_$userId'),
+                                  userId: userId,
+                                  username:
+                                      (user['user_name'] ?? 'Unknown').toString(),
+                                  roleId: user['role_id'] as String?,
+                                  isOnline: user['is_online'] == true,
+                                  isOrganizer: user['is_organizer'] == true,
+                                  isPremium: user['is_premium'] == true,
+                                  isPrimary: userId ==
+                                      Supabase.instance.client.auth.currentUser?.id,
+                                  isMicMuted: isStreamActive ? match.isMicMuted : null,
+                                  isCameraOn: isStreamActive ? match.isCameraOn : null,
+                                  onToggleMic: isStreamActive
+                                      ? (id) => ForumVideoStreamService().toggleParticipantMic(id)
+                                      : null,
+                                  onToggleCamera: isStreamActive
+                                      ? (id) => ForumVideoStreamService().toggleParticipantCamera(id)
+                                      : null,
+                                );
+                              } catch (e) {
+                                debugPrint(
+                                    '[PresenceDrawer] Error building user card: $e');
+                                return const SizedBox.shrink();
+                              }
+                            },
                           );
-                        } catch (e) {
-                          debugPrint(
-                              '[PresenceDrawer] Error building user card: $e');
-                          return const SizedBox.shrink();
-                        }
-                      },
-                    ),
+                        },
+                      ),
               ),
             ),
             // Persistent Bottom Section

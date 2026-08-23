@@ -9,8 +9,6 @@ import 'package:web/web.dart' as web;
 import 'package:lynk_x/presentation/shared/utils/app_snackbars.dart';
 import '../services/forum_video_stream_service.dart';
 import '../widgets/bottom_dock.dart';
-import '../widgets/participant_sidebar.dart';
-import '../widgets/participant_strip.dart';
 import '../widgets/speaker_tag.dart';
 
 /// Interactive Live Stream screen featuring actual Web Camera capture,
@@ -266,6 +264,14 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> with WidgetsBinding
     _videoService.toggleCamera(_isCameraOn);
   }
 
+  Future<void> _triggerPictureInPicture() async {
+    _videoService.setMinimized(true);
+    if (mounted) {
+      AppSnackBars.showInfo(context, 'Minimizing live stream to Forum');
+      Navigator.of(context).pop();
+    }
+  }
+
   void _showTelemetryDetailsModal() {
     showModalBottomSheet(
       context: context,
@@ -346,28 +352,6 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> with WidgetsBinding
         ],
       ),
     );
-  }
-
-  void _toggleStageLayoutMode() {
-    final current = _videoService.stageLayoutNotifier.value;
-    StageLayoutMode next;
-    String label;
-    switch (current) {
-      case StageLayoutMode.focus:
-        next = StageLayoutMode.grid;
-        label = 'Grid View (2x2 Multi-Speaker)';
-        break;
-      case StageLayoutMode.grid:
-        next = StageLayoutMode.presentation;
-        label = 'Presentation Mode';
-        break;
-      case StageLayoutMode.presentation:
-        next = StageLayoutMode.focus;
-        label = 'Focus Stage (Main Speaker)';
-        break;
-    }
-    _videoService.setStageLayout(next);
-    AppSnackBars.showInfo(context, 'Switched to $label');
   }
 
   Widget _buildGridStageOverlay(BuildContext context) {
@@ -865,92 +849,8 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> with WidgetsBinding
     );
   }
 
-  Widget _buildParticipantStrip(BuildContext context) {
-    return Container(
-      color: const Color(0xFF0F1115),
-      child: ValueListenableBuilder<List<StreamParticipant>>(
-        valueListenable: _videoService.activeParticipantsNotifier,
-        builder: (context, participants, _) {
-          return ValueListenableBuilder<String>(
-            valueListenable: _videoService.stageSpeakerIdNotifier,
-            builder: (context, pinnedId, _) {
-              return ValueListenableBuilder<StageLayoutMode>(
-                valueListenable: _videoService.stageLayoutNotifier,
-                builder: (context, layoutMode, _) {
-                  return ValueListenableBuilder<bool>(
-                    valueListenable: _videoService.isStageLockedNotifier,
-                    builder: (context, isStageLocked, _) {
-                      return ParticipantStrip(
-                        participants: participants,
-                        pinnedId: pinnedId,
-                        isHost: widget.isHost,
-                        layoutMode: layoutMode,
-                        isStageLocked: isStageLocked,
-                        onToggleStageLock: () => _videoService.toggleStageLock(),
-                        onMuteAll: () {
-                          _videoService.muteAllParticipants();
-                          AppSnackBars.showInfo(context, 'All guest microphones muted');
-                        },
-                        onPinSpeaker: (id) => _videoService.pinStageSpeaker(id),
-                        onToggleMic: (id) => _videoService.toggleParticipantMic(id),
-                        onToggleCamera: (id) => _videoService.toggleParticipantCamera(id),
-                        onToggleStage: (id) => _videoService.toggleParticipantStage(id),
-                        onAddStageSpeaker: () {
-                          AppSnackBars.showInfo(context, 'Stage Invite link copied to clipboard');
-                        },
-                        onToggleLayout: _toggleStageLayoutMode,
-                      );
-                    },
-                  );
-                },
-              );
-            },
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _buildParticipantSidebar(BuildContext context) {
-    return ValueListenableBuilder<List<StreamParticipant>>(
-      valueListenable: _videoService.activeParticipantsNotifier,
-      builder: (context, participants, _) {
-        return ValueListenableBuilder<String>(
-          valueListenable: _videoService.stageSpeakerIdNotifier,
-          builder: (context, pinnedId, _) {
-            return ValueListenableBuilder<bool>(
-              valueListenable: _videoService.isStageLockedNotifier,
-              builder: (context, isStageLocked, _) {
-                return ParticipantSidebar(
-                  participants: participants,
-                  pinnedId: pinnedId,
-                  isHost: widget.isHost,
-                  isStageLocked: isStageLocked,
-                  onToggleStageLock: () => _videoService.toggleStageLock(),
-                  onMuteAll: () {
-                    _videoService.muteAllParticipants();
-                    AppSnackBars.showInfo(context, 'All guest microphones muted');
-                  },
-                  onPinSpeaker: (id) => _videoService.pinStageSpeaker(id),
-                  onToggleMic: (id) => _videoService.toggleParticipantMic(id),
-                  onToggleCamera: (id) => _videoService.toggleParticipantCamera(id),
-                  onToggleStage: (id) => _videoService.toggleParticipantStage(id),
-                  onAddStageSpeaker: () {
-                    AppSnackBars.showInfo(context, 'Stage Invite link copied to clipboard');
-                  },
-                );
-              },
-            );
-          },
-        );
-      },
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
-    final isDesktop = MediaQuery.of(context).size.width >= 900;
-
     final mainStageArea = Expanded(
       child: Stack(
         children: [
@@ -1059,6 +959,127 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> with WidgetsBinding
             },
           ),
 
+          // STAGE LAYOUT MODE SELECTOR (BOTTOM LEFT OF VIDEO STAGE)
+          Positioned(
+            left: 16,
+            bottom: 16,
+            child: ValueListenableBuilder<StageLayoutMode>(
+              valueListenable: _videoService.stageLayoutNotifier,
+              builder: (context, layoutMode, _) {
+                IconData icon;
+                String tooltipLabel;
+                switch (layoutMode) {
+                  case StageLayoutMode.focus:
+                    icon = Icons.crop_square_rounded;
+                    tooltipLabel = 'Layout: Focus View';
+                    break;
+                  case StageLayoutMode.grid:
+                    icon = Icons.grid_view_rounded;
+                    tooltipLabel = 'Layout: Grid View';
+                    break;
+                  case StageLayoutMode.presentation:
+                    icon = Icons.space_dashboard_rounded;
+                    tooltipLabel = 'Layout: Presentation View';
+                    break;
+                }
+
+                return Container(
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.5),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: PopupMenuButton<StageLayoutMode>(
+                    tooltip: tooltipLabel,
+                    icon: Icon(icon, color: context.accentColor, size: 20),
+                    color: const Color(0xFF161920),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      side: const BorderSide(color: Colors.white12),
+                    ),
+                    onSelected: (mode) {
+                      _videoService.setStageLayout(mode);
+                      String modeName;
+                      switch (mode) {
+                        case StageLayoutMode.focus:
+                          modeName = 'Focus Mode (Active Speaker)';
+                          break;
+                        case StageLayoutMode.grid:
+                          modeName = 'Grid View (2x2 Multi-Speaker)';
+                          break;
+                        case StageLayoutMode.presentation:
+                          modeName = 'Presentation Mode';
+                          break;
+                      }
+                      AppSnackBars.showInfo(context, 'Switched to $modeName');
+                    },
+                    itemBuilder: (context) => [
+                      PopupMenuItem(
+                        value: StageLayoutMode.focus,
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.crop_square_rounded,
+                              color: layoutMode == StageLayoutMode.focus ? context.accentColor : Colors.white70,
+                              size: 18,
+                            ),
+                            const SizedBox(width: 10),
+                            Text(
+                              'Focus View',
+                              style: AppTypography.interTight(
+                                color: layoutMode == StageLayoutMode.focus ? context.accentColor : Colors.white,
+                                fontWeight: layoutMode == StageLayoutMode.focus ? FontWeight.bold : FontWeight.normal,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      PopupMenuItem(
+                        value: StageLayoutMode.grid,
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.grid_view_rounded,
+                              color: layoutMode == StageLayoutMode.grid ? context.accentColor : Colors.white70,
+                              size: 18,
+                            ),
+                            const SizedBox(width: 10),
+                            Text(
+                              'Grid View',
+                              style: AppTypography.interTight(
+                                color: layoutMode == StageLayoutMode.grid ? context.accentColor : Colors.white,
+                                fontWeight: layoutMode == StageLayoutMode.grid ? FontWeight.bold : FontWeight.normal,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      PopupMenuItem(
+                        value: StageLayoutMode.presentation,
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.space_dashboard_rounded,
+                              color: layoutMode == StageLayoutMode.presentation ? context.accentColor : Colors.white70,
+                              size: 18,
+                            ),
+                            const SizedBox(width: 10),
+                            Text(
+                              'Presentation View',
+                              style: AppTypography.interTight(
+                                color: layoutMode == StageLayoutMode.presentation ? context.accentColor : Colors.white,
+                                fontWeight: layoutMode == StageLayoutMode.presentation ? FontWeight.bold : FontWeight.normal,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+
           // STREAM TELEMETRY OVERLAY
           if (_showTelemetryOverlay)
             Positioned(
@@ -1105,16 +1126,21 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> with WidgetsBinding
             child: Row(
               children: [
                 // Collapse / Browser PiP Trigger
-                IconButton(
-                  icon: const Icon(
-                    Icons.picture_in_picture_alt_rounded,
-                    color: Colors.white,
-                    size: 20,
+                InkWell(
+                  onTap: _triggerPictureInPicture,
+                  borderRadius: BorderRadius.circular(20),
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.5),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.picture_in_picture_alt_rounded,
+                      color: Colors.white,
+                      size: 20,
+                    ),
                   ),
-                  onPressed: () {
-                    _videoService.setMinimized(true);
-                  },
-                  tooltip: 'Minimize to Picture-in-Picture',
                 ),
                 const SizedBox(width: 12),
 
@@ -1151,117 +1177,6 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> with WidgetsBinding
                       ),
                     ],
                   ),
-                ),
-
-                // Stage Layout Mode Selector Popup
-                ValueListenableBuilder<StageLayoutMode>(
-                  valueListenable: _videoService.stageLayoutNotifier,
-                  builder: (context, layoutMode, _) {
-                    IconData icon;
-                    String tooltipLabel;
-                    switch (layoutMode) {
-                      case StageLayoutMode.focus:
-                        icon = Icons.crop_square_rounded;
-                        tooltipLabel = 'Layout: Focus View';
-                        break;
-                      case StageLayoutMode.grid:
-                        icon = Icons.grid_view_rounded;
-                        tooltipLabel = 'Layout: Grid View';
-                        break;
-                      case StageLayoutMode.presentation:
-                        icon = Icons.space_dashboard_rounded;
-                        tooltipLabel = 'Layout: Presentation View';
-                        break;
-                    }
-
-                    return PopupMenuButton<StageLayoutMode>(
-                      tooltip: tooltipLabel,
-                      icon: Icon(icon, color: context.accentColor, size: 20),
-                      color: const Color(0xFF161920),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        side: const BorderSide(color: Colors.white12),
-                      ),
-                      onSelected: (mode) {
-                        _videoService.setStageLayout(mode);
-                        String modeName;
-                        switch (mode) {
-                          case StageLayoutMode.focus:
-                            modeName = 'Focus Mode (Active Speaker)';
-                            break;
-                          case StageLayoutMode.grid:
-                            modeName = 'Grid View (2x2 Multi-Speaker)';
-                            break;
-                          case StageLayoutMode.presentation:
-                            modeName = 'Presentation Mode';
-                            break;
-                        }
-                        AppSnackBars.showInfo(context, 'Switched to $modeName');
-                      },
-                      itemBuilder: (context) => [
-                        PopupMenuItem(
-                          value: StageLayoutMode.focus,
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.crop_square_rounded,
-                                color: layoutMode == StageLayoutMode.focus ? context.accentColor : Colors.white70,
-                                size: 18,
-                              ),
-                              const SizedBox(width: 10),
-                              Text(
-                                'Focus View',
-                                style: AppTypography.interTight(
-                                  color: layoutMode == StageLayoutMode.focus ? context.accentColor : Colors.white,
-                                  fontWeight: layoutMode == StageLayoutMode.focus ? FontWeight.bold : FontWeight.normal,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        PopupMenuItem(
-                          value: StageLayoutMode.grid,
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.grid_view_rounded,
-                                color: layoutMode == StageLayoutMode.grid ? context.accentColor : Colors.white70,
-                                size: 18,
-                              ),
-                              const SizedBox(width: 10),
-                              Text(
-                                'Grid View',
-                                style: AppTypography.interTight(
-                                  color: layoutMode == StageLayoutMode.grid ? context.accentColor : Colors.white,
-                                  fontWeight: layoutMode == StageLayoutMode.grid ? FontWeight.bold : FontWeight.normal,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        PopupMenuItem(
-                          value: StageLayoutMode.presentation,
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.space_dashboard_rounded,
-                                color: layoutMode == StageLayoutMode.presentation ? context.accentColor : Colors.white70,
-                                size: 18,
-                              ),
-                              const SizedBox(width: 10),
-                              Text(
-                                'Presentation View',
-                                style: AppTypography.interTight(
-                                  color: layoutMode == StageLayoutMode.presentation ? context.accentColor : Colors.white,
-                                  fontWeight: layoutMode == StageLayoutMode.presentation ? FontWeight.bold : FontWeight.normal,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    );
-                  },
                 ),
 
                 // Telemetry Toggle Button
@@ -1333,33 +1248,18 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> with WidgetsBinding
       onEndCall: () {
         _videoService.setMinimized(false);
         _videoService.stopVideoStream();
-        _videoService.isLiveNotifier.value = false;
+        _videoService.setLive(false);
       },
     );
 
     return Container(
       color: const Color(0xFF0F1115),
-      child: isDesktop
-          ? Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    children: [
-                      mainStageArea,
-                      bottomDock,
-                    ],
-                  ),
-                ),
-                if (widget.isHost) _buildParticipantSidebar(context),
-              ],
-            )
-          : Column(
-              children: [
-                mainStageArea,
-                if (widget.isHost) _buildParticipantStrip(context),
-                bottomDock,
-              ],
-            ),
+      child: Column(
+        children: [
+          mainStageArea,
+          bottomDock,
+        ],
+      ),
     );
   }
 }

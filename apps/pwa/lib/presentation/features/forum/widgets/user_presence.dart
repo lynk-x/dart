@@ -17,6 +17,8 @@ class UserPresenceCard extends StatefulWidget {
 
   final bool? isMicMuted;
   final bool? isCameraOn;
+  final ValueChanged<String>? onToggleMic;
+  final ValueChanged<String>? onToggleCamera;
 
   const UserPresenceCard({
     super.key,
@@ -29,6 +31,8 @@ class UserPresenceCard extends StatefulWidget {
     this.isPremium = false,
     this.isMicMuted,
     this.isCameraOn,
+    this.onToggleMic,
+    this.onToggleCamera,
   });
 
   static const Map<String, String> _roleLabels = {
@@ -109,22 +113,46 @@ class _UserPresenceCardState extends State<UserPresenceCard> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         if (widget.isMicMuted != null) ...[
-                          Icon(
-                            widget.isMicMuted! ? Icons.mic_off_rounded : Icons.mic_rounded,
-                            color: widget.isMicMuted!
-                                ? Colors.redAccent
-                                : (widget.isPrimary ? Colors.black87 : context.accentColor),
-                            size: 16,
+                          Tooltip(
+                            message: widget.isMicMuted! ? 'Unmute Mic' : 'Mute Mic',
+                            child: InkWell(
+                              onTap: widget.onToggleMic != null
+                                  ? () => widget.onToggleMic!(widget.userId)
+                                  : null,
+                              borderRadius: BorderRadius.circular(16),
+                              child: Padding(
+                                padding: const EdgeInsets.all(4.0),
+                                child: Icon(
+                                  widget.isMicMuted! ? Icons.mic_off_rounded : Icons.mic_rounded,
+                                  color: widget.isMicMuted!
+                                      ? Colors.redAccent
+                                      : (widget.isPrimary ? Colors.black87 : context.accentColor),
+                                  size: 18,
+                                ),
+                              ),
+                            ),
                           ),
-                          const SizedBox(width: 8),
+                          const SizedBox(width: 6),
                         ],
                         if (widget.isCameraOn != null)
-                          Icon(
-                            widget.isCameraOn! ? Icons.videocam_rounded : Icons.videocam_off_rounded,
-                            color: widget.isCameraOn!
-                                ? (widget.isPrimary ? Colors.black87 : context.accentColor)
-                                : Colors.redAccent,
-                            size: 16,
+                          Tooltip(
+                            message: widget.isCameraOn! ? 'Turn Camera Off' : 'Turn Camera On',
+                            child: InkWell(
+                              onTap: widget.onToggleCamera != null
+                                  ? () => widget.onToggleCamera!(widget.userId)
+                                  : null,
+                              borderRadius: BorderRadius.circular(16),
+                              child: Padding(
+                                padding: const EdgeInsets.all(4.0),
+                                child: Icon(
+                                  widget.isCameraOn! ? Icons.videocam_rounded : Icons.videocam_off_rounded,
+                                  color: widget.isCameraOn!
+                                      ? (widget.isPrimary ? Colors.black87 : context.accentColor)
+                                      : Colors.redAccent,
+                                  size: 18,
+                                ),
+                              ),
+                            ),
                           ),
                       ],
                     ),

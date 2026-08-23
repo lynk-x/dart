@@ -353,261 +353,282 @@ class _ForumViewState extends State<ForumView> {
                   },
                 ),
               ),
-            NestedScrollView(
-              headerSliverBuilder: (context, innerBoxIsScrolled) {
-                return [
-                  BlocBuilder<ForumCubit, ForumState>(
-                    buildWhen: (p, c) =>
-                        p.isPremium != c.isPremium ||
-                        p.showAds != c.showAds ||
-                        p.currentTabIndex != c.currentTabIndex ||
-                        p.forumStatus != c.forumStatus,
-                    builder: (context, forumState) {
-                      return BlocBuilder<ForumAdsCubit, ForumAdsState>(
-                        builder: (context, adsState) {
-                          final showBannerAd = context
-                              .read<FeatureFlagCubit>()
-                              .isEnabled('enable_banner_ad');
-                          final hasAds = !forumState.isPremium &&
-                              showBannerAd &&
-                              context
-                                  .read<FeatureFlagCubit>()
-                                  .isEnabled('enable_forum_ads') &&
-                              adsState.ads.isNotEmpty;
+            ValueListenableBuilder<bool>(
+              valueListenable: ForumVideoStreamService().isLiveNotifier,
+              builder: (context, isLive, _) {
+                return ValueListenableBuilder<bool>(
+                  valueListenable: ForumVideoStreamService().isMinimizedNotifier,
+                  builder: (context, isMinimized, _) {
+                    final isStageActive = isLive && !isMinimized;
 
-                          final adsHeight = hasAds ? 50.0 : 0.0;
+                    return NestedScrollView(
+                      headerSliverBuilder: (context, innerBoxIsScrolled) {
+                        return [
+                          BlocBuilder<ForumCubit, ForumState>(
+                            buildWhen: (p, c) =>
+                                p.isPremium != c.isPremium ||
+                                p.showAds != c.showAds ||
+                                p.currentTabIndex != c.currentTabIndex ||
+                                p.forumStatus != c.forumStatus,
+                            builder: (context, forumState) {
+                              return BlocBuilder<ForumAdsCubit, ForumAdsState>(
+                                builder: (context, adsState) {
+                                  final showBannerAd = context
+                                      .read<FeatureFlagCubit>()
+                                      .isEnabled('enable_banner_ad');
+                                  final hasAds = !forumState.isPremium &&
+                                      showBannerAd &&
+                                      context
+                                          .read<FeatureFlagCubit>()
+                                          .isEnabled('enable_forum_ads') &&
+                                      adsState.ads.isNotEmpty;
 
-                          double extraHeight = 0;
-                          Widget? extraHeaderWidgets;
+                                  final adsHeight = hasAds ? 50.0 : 0.0;
 
-                          final featureFlags = context.read<FeatureFlagCubit>();
-                          final showUpdates = featureFlags
-                              .isEnabled('enable_forum_announcements');
-                          final showChat =
-                              featureFlags.isEnabled('enable_forum_live_chat');
-                          final chatTabIndex = showUpdates ? 1 : 0;
+                                  double extraHeight = 0;
+                                  Widget? extraHeaderWidgets;
 
-                          if (forumState.currentTabIndex == 0 && showUpdates) {
-                            final updatesCubit =
-                                context.read<ForumUpdatesCubit>();
-                            final selectedCategory =
-                                context.select<ForumUpdatesCubit, String?>(
-                              (c) => c.state.selectedCategory,
-                            );
-                            final pinnedMessage =
-                                context.select<ForumUpdatesCubit, ChatMessage?>(
-                              (c) {
-                                for (final m in c.state.messages) {
-                                  if (m.isPinned) return m;
-                                }
-                                return null;
-                              },
-                            );
+                                  if (!isStageActive) {
+                                    final featureFlags = context.read<FeatureFlagCubit>();
+                                    final showUpdates = featureFlags
+                                        .isEnabled('enable_forum_announcements');
+                                    final showChat =
+                                        featureFlags.isEnabled('enable_forum_live_chat');
+                                    final chatTabIndex = showUpdates ? 1 : 0;
 
-                            extraHeight += 52.0; // CategoryFilterBar
-                            if (pinnedMessage != null) {
-                              extraHeight +=
-                                  48.0; // InfoBanner exact calculated height for 2 lines
-                            }
+                                    if (forumState.currentTabIndex == 0 && showUpdates) {
+                                      final updatesCubit =
+                                          context.read<ForumUpdatesCubit>();
+                                      final selectedCategory =
+                                          context.select<ForumUpdatesCubit, String?>(
+                                        (c) => c.state.selectedCategory,
+                                      );
+                                      final pinnedMessage =
+                                          context.select<ForumUpdatesCubit, ChatMessage?>(
+                                        (c) {
+                                          for (final m in c.state.messages) {
+                                            if (m.isPinned) return m;
+                                          }
+                                          return null;
+                                        },
+                                      );
 
-                            extraHeaderWidgets = Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                ColoredBox(
-                                  color: AppColors.primaryBackground,
-                                  child: CategoryFilterBar(
-                                    selectedCategory: selectedCategory,
-                                    onSelectionChanged: (cat) =>
-                                        updatesCubit.setCategory(cat),
-                                  ),
-                                ),
-                                if (pinnedMessage != null)
-                                  Padding(
-                                    padding:
-                                        const EdgeInsets.fromLTRB(4, 4, 4, 4),
-                                    child: InfoBanner(
-                                      icon: Icons.push_pin,
-                                      text: pinnedMessage.message.length > 80
-                                          ? '${pinnedMessage.message.substring(0, 80)}…'
-                                          : pinnedMessage.message,
-                                    ),
-                                  ),
-                              ],
-                            );
-                          } else if (forumState.currentTabIndex ==
-                                  chatTabIndex &&
-                              showChat) {
-                            extraHeight +=
-                                44.0; // ReactionBar height + vertical padding
-                            extraHeaderWidgets = ColoredBox(
-                              color: AppColors.primaryBackground,
-                              child: Padding(
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 8.0),
-                                child: ReactionBar(
-                                  onEmojiTap: (emoji) => context
-                                      .read<ForumCubit>()
-                                      .handleEmojiTap(emoji),
-                                ),
-                              ),
-                            );
-                          }
+                                      extraHeight += 52.0; // CategoryFilterBar
+                                      if (pinnedMessage != null) {
+                                        extraHeight +=
+                                            48.0; // InfoBanner exact calculated height for 2 lines
+                                      }
 
-                          final totalHeaderHeight = 104.0 +
-                              adsHeight +
-                              extraHeight;
-                          return SliverOverlapAbsorber(
-                            handle:
-                                NestedScrollView.sliverOverlapAbsorberHandleFor(
-                                    context),
-                            sliver: SliverPersistentHeader(
-                              pinned: true,
-                              delegate: _SliverAppBarDelegate(
-                                height: totalHeaderHeight,
-                                child: SizedBox(
-                                  height: totalHeaderHeight,
-                                  child: Column(
-                                    mainAxisAlignment: MainAxisAlignment.start,
-                                    children: [
-                                      BlocBuilder<ForumAudioStreamCubit, ForumAudioStreamState>(
-                                        builder: (context, audioState) {
-                                          final audioCubit = context.read<ForumAudioStreamCubit>();
-                                          return ForumHeader(
-                                            isVideoStreamLive: ForumVideoStreamService().isLiveNotifier.value,
-                                            isAudioLive: audioState.isLive,
-                                            role: audioState.role,
-                                            activeSpeakerNames: audioState.activeSpeakerNames,
-                                            currentUserName: cubit.state.userName,
-                                            isMicMuted: audioState.isMicMuted,
-                                            isBroadcastMuted: audioState.isBroadcastMuted,
-                                            getAudioLevel: () => audioCubit.service.getAudioLevel(),
-                                            onToggleMic: () {
-                                              if (audioState.isMicMuted) {
-                                                PermissionAcks.ensureAcknowledged(
-                                                  context,
-                                                  PermissionAckType.microphone,
-                                                  title: 'Microphone Permission',
-                                                  description:
-                                                      'To speak in live community streams, Lynk-X needs access to your microphone.',
-                                                  icon: Icons.mic_rounded,
-                                                  actionLabel: 'Allow Microphone',
-                                                  onReady: () => audioCubit.toggleMic(),
-                                                );
-                                              } else {
-                                                audioCubit.toggleMic();
-                                              }
-                                            },
-                                            onToggleBroadcastMute: () => audioCubit.toggleBroadcastMute(),
-                                            onEndBroadcast: () => audioCubit.endAudioStream(),
-                                            onStartLiveStream: () {
-                                              PermissionAcks.ensureAcknowledged(
-                                                context,
-                                                PermissionAckType.camera,
-                                                title: 'Host Live Video Stream',
-                                                description:
-                                                    'To host a live video stream, Lynk-X needs access to your camera and microphone.',
-                                                icon: Icons.videocam_rounded,
-                                                actionLabel: 'Allow Camera & Mic',
-                                                onReady: () {
-                                                  final videoService = ForumVideoStreamService();
-                                                  videoService.isLiveNotifier.value = true;
-                                                  videoService.setMinimized(false);
+                                      extraHeaderWidgets = Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          ColoredBox(
+                                            color: AppColors.primaryBackground,
+                                            child: CategoryFilterBar(
+                                              selectedCategory: selectedCategory,
+                                              onSelectionChanged: (cat) =>
+                                                  updatesCubit.setCategory(cat),
+                                            ),
+                                          ),
+                                          if (pinnedMessage != null)
+                                            Padding(
+                                              padding:
+                                                  const EdgeInsets.fromLTRB(4, 4, 4, 4),
+                                              child: InfoBanner(
+                                                icon: Icons.push_pin,
+                                                text: pinnedMessage.message.length > 80
+                                                    ? '${pinnedMessage.message.substring(0, 80)}…'
+                                                    : pinnedMessage.message,
+                                              ),
+                                            ),
+                                        ],
+                                      );
+                                    } else if (forumState.currentTabIndex ==
+                                            chatTabIndex &&
+                                        showChat) {
+                                      extraHeight +=
+                                          44.0; // ReactionBar height + vertical padding
+                                      extraHeaderWidgets = ColoredBox(
+                                        color: AppColors.primaryBackground,
+                                        child: Padding(
+                                          padding:
+                                              const EdgeInsets.symmetric(vertical: 8.0),
+                                          child: ReactionBar(
+                                            onEmojiTap: (emoji) => context
+                                                .read<ForumCubit>()
+                                                .handleEmojiTap(emoji),
+                                          ),
+                                        ),
+                                      );
+                                    }
+                                  }
+
+                                  final totalHeaderHeight = 104.0 +
+                                      adsHeight +
+                                      (isStageActive ? 0 : extraHeight);
+                                  return SliverOverlapAbsorber(
+                                    handle:
+                                        NestedScrollView.sliverOverlapAbsorberHandleFor(
+                                            context),
+                                    sliver: SliverPersistentHeader(
+                                      pinned: true,
+                                      delegate: _SliverAppBarDelegate(
+                                        height: totalHeaderHeight,
+                                        child: SizedBox(
+                                          height: totalHeaderHeight,
+                                          child: Column(
+                                            mainAxisAlignment: MainAxisAlignment.start,
+                                            children: [
+                                              BlocBuilder<ForumAudioStreamCubit, ForumAudioStreamState>(
+                                                builder: (context, audioState) {
+                                                  final audioCubit = context.read<ForumAudioStreamCubit>();
+                                                  return ForumHeader(
+                                                    isVideoStreamLive: isLive,
+                                                    isAudioLive: audioState.isLive,
+                                                    role: audioState.role,
+                                                    activeSpeakerNames: audioState.activeSpeakerNames,
+                                                    currentUserName: cubit.state.userName,
+                                                    isMicMuted: audioState.isMicMuted,
+                                                    isBroadcastMuted: audioState.isBroadcastMuted,
+                                                    getAudioLevel: () => audioCubit.service.getAudioLevel(),
+                                                    onToggleMic: () {
+                                                      if (audioState.isMicMuted) {
+                                                        PermissionAcks.ensureAcknowledged(
+                                                          context,
+                                                          PermissionAckType.microphone,
+                                                          title: 'Microphone Permission',
+                                                          description:
+                                                              'To speak in live community streams, Lynk-X needs access to your microphone.',
+                                                          icon: Icons.mic_rounded,
+                                                          actionLabel: 'Allow Microphone',
+                                                          onReady: () => audioCubit.toggleMic(),
+                                                        );
+                                                      } else {
+                                                        audioCubit.toggleMic();
+                                                      }
+                                                    },
+                                                    onToggleBroadcastMute: () => audioCubit.toggleBroadcastMute(),
+                                                    onEndBroadcast: () => audioCubit.endAudioStream(),
+                                                    onStartLiveStream: () {
+                                                      PermissionAcks.ensureAcknowledged(
+                                                        context,
+                                                        PermissionAckType.camera,
+                                                        title: 'Host Live Video Stream',
+                                                        description:
+                                                            'To host a live video stream, Lynk-X needs access to your camera and microphone.',
+                                                        icon: Icons.videocam_rounded,
+                                                        actionLabel: 'Allow Camera & Mic',
+                                                        onReady: () {
+                                                          ForumVideoStreamService().setLive(true);
+                                                          ForumVideoStreamService().setMinimized(false);
+                                                        },
+                                                      );
+                                                    },
+                                                    onStartAudioStream: () {
+                                                      PermissionAcks.ensureAcknowledged(
+                                                        context,
+                                                        PermissionAckType.microphone,
+                                                        title: 'Host Audio Stream',
+                                                        description:
+                                                            'To start a live audio stream and speak with attendees, Lynk-X needs access to your microphone.',
+                                                        icon: Icons.mic_rounded,
+                                                        actionLabel: 'Allow Microphone',
+                                                        onReady: () => audioCubit.startAudioStream(),
+                                                      );
+                                                    },
+                                                isOrganizer: forumState.isOrganizer,
+                                                isReadOnly: forumState.isReadOnly,
+                                                forumName: forumState.forumName,
+                                                onLockToggle: () {
+                                                  final nextStatus =
+                                                      forumState.isReadOnly
+                                                          ? 'open'
+                                                          : 'read_only';
+                                                  cubit.updateForumStatus(nextStatus);
+                                                  AppSnackBars.showInfo(
+                                                    context,
+                                                    forumState.isReadOnly
+                                                        ? 'Chat unlocked'
+                                                        : 'Chat locked',
+                                                  );
+                                                },
+                                                onSearch: (q) {
+                                                  context
+                                                      .read<ForumUpdatesCubit>()
+                                                      .setSearchQuery(q);
+                                                  context
+                                                      .read<ForumChatCubit>()
+                                                      .setSearchQuery(q);
+                                                },
+                                                onSearchToggle: () {
+                                                  final updatesCubit =
+                                                      context.read<ForumUpdatesCubit>();
+                                                  final chatCubit =
+                                                      context.read<ForumChatCubit>();
+                                                  if (updatesCubit.state.searchQuery
+                                                          .isNotEmpty ||
+                                                      chatCubit.state.searchQuery
+                                                          .isNotEmpty) {
+                                                    updatesCubit.setSearchQuery('');
+                                                    chatCubit.setSearchQuery('');
+                                                  }
                                                 },
                                               );
                                             },
-                                            onStartAudioStream: () {
-                                              PermissionAcks.ensureAcknowledged(
-                                                context,
-                                                PermissionAckType.microphone,
-                                                title: 'Host Audio Stream',
-                                                description:
-                                                    'To start a live audio stream and speak with attendees, Lynk-X needs access to your microphone.',
-                                                icon: Icons.mic_rounded,
-                                                actionLabel: 'Allow Microphone',
-                                                onReady: () => audioCubit.startAudioStream(),
-                                              );
-                                            },
-                                        isOrganizer: forumState.isOrganizer,
-                                        isReadOnly: forumState.isReadOnly,
-                                        forumName: forumState.forumName,
-                                        onLockToggle: () {
-                                          final nextStatus =
-                                              forumState.isReadOnly
-                                                  ? 'open'
-                                                  : 'read_only';
-                                          cubit.updateForumStatus(nextStatus);
-                                          AppSnackBars.showInfo(
-                                            context,
-                                            forumState.isReadOnly
-                                                ? 'Chat unlocked'
-                                                : 'Chat locked',
-                                          );
-                                        },
-                                        onSearch: (q) {
-                                          context
-                                              .read<ForumUpdatesCubit>()
-                                              .setSearchQuery(q);
-                                          context
-                                              .read<ForumChatCubit>()
-                                              .setSearchQuery(q);
-                                        },
-                                        onSearchToggle: () {
-                                          final updatesCubit =
-                                              context.read<ForumUpdatesCubit>();
-                                          final chatCubit =
-                                              context.read<ForumChatCubit>();
-                                          if (updatesCubit.state.searchQuery
-                                                  .isNotEmpty ||
-                                              chatCubit.state.searchQuery
-                                                  .isNotEmpty) {
-                                            updatesCubit.setSearchQuery('');
-                                            chatCubit.setSearchQuery('');
-                                          }
-                                        },
-                                      );
-                                    },
-                                  ),
-                                      if (hasAds)
-                                        RepaintBoundary(
-                                          child: AdCarousel(
-                                            ads: adsState.ads,
-                                            onAdViewed: (adId) => context
-                                                .read<ForumAdsCubit>()
-                                                .logAdImpression(adId),
-                                            onAdClicked: (ad) async {
-                                              context
-                                                  .read<ForumAdsCubit>()
-                                                  .logAdClick(ad.id);
-                                              if (ad.targetUrl != null) {
-                                                final uri =
-                                                    Uri.parse(ad.targetUrl!);
-                                                if (await canLaunchUrl(uri)) {
-                                                  await launchUrl(uri);
-                                                }
-                                              } else if (ad.targetEventId !=
-                                                  null) {
-                                                context.push(
-                                                    '/events/${ad.targetEventId}');
-                                              }
-                                            },
+                                          ),
+                                              if (hasAds)
+                                                RepaintBoundary(
+                                                  child: AdCarousel(
+                                                    ads: adsState.ads,
+                                                    onAdViewed: (adId) => context
+                                                        .read<ForumAdsCubit>()
+                                                        .logAdImpression(adId),
+                                                    onAdClicked: (ad) async {
+                                                      context
+                                                          .read<ForumAdsCubit>()
+                                                          .logAdClick(ad.id);
+                                                      if (ad.targetUrl != null) {
+                                                        final uri =
+                                                            Uri.parse(ad.targetUrl!);
+                                                        if (await canLaunchUrl(uri)) {
+                                                          await launchUrl(uri);
+                                                        }
+                                                      } else if (ad.targetEventId !=
+                                                          null) {
+                                                        context.push(
+                                                            '/events/${ad.targetEventId}');
+                                                      }
+                                                    },
+                                                  ),
+                                                ),
+                                              if (!isStageActive) ...[
+                                                _buildTabs(),
+                                                if (extraHeaderWidgets != null)
+                                                  extraHeaderWidgets,
+                                              ],
+                                            ],
                                           ),
                                         ),
-                                      _buildTabs(),
-                                      if (extraHeaderWidgets != null)
-                                        extraHeaderWidgets,
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                          );
-                        },
-                      );
-                    },
-                  ),
-                ];
+                                      ),
+                                    ),
+                                  );
+                                },
+                              );
+                            },
+                          ),
+                        ];
+                      },
+                      body: isStageActive
+                          ? LiveStreamScreen(
+                              forumName: context.read<ForumCubit>().state.forumName,
+                              hostName: cubit.state.userName,
+                              isHost: context.read<ForumCubit>().state.isOrganizer,
+                            )
+                          : _buildTabContent(),
+                    );
+                  },
+                );
               },
-              body: _buildTabContent(),
             ),
             IgnorePointer(
               child: BlocBuilder<ForumCubit, ForumState>(
@@ -781,71 +802,51 @@ class _ForumViewState extends State<ForumView> {
   }
 
   Widget _buildTabContent() {
-    final videoService = ForumVideoStreamService();
-    return ValueListenableBuilder<bool>(
-      valueListenable: videoService.isLiveNotifier,
-      builder: (context, isLive, _) {
-        return ValueListenableBuilder<bool>(
-          valueListenable: videoService.isMinimizedNotifier,
-          builder: (context, isMinimized, _) {
-            final forumState = context.watch<ForumCubit>().state;
-            if (isLive && !isMinimized) {
-              return LiveStreamScreen(
-                forumName: forumState.forumName,
-                hostName: forumState.userName,
-                isHost: forumState.isOrganizer,
-              );
-            }
+    return BlocBuilder<FeatureFlagCubit, FeatureFlagState>(
+      builder: (context, _) {
+        final featureFlags = context.read<FeatureFlagCubit>();
+        final showUpdates =
+            featureFlags.isEnabled('enable_forum_announcements');
+        final showChat = featureFlags.isEnabled('enable_forum_live_chat');
+        final showMedia = featureFlags.isEnabled('enable_forum_media');
 
-            return BlocBuilder<FeatureFlagCubit, FeatureFlagState>(
-              builder: (context, _) {
-                final featureFlags = context.read<FeatureFlagCubit>();
-                final showUpdates =
-                    featureFlags.isEnabled('enable_forum_announcements');
-                final showChat = featureFlags.isEnabled('enable_forum_live_chat');
-                final showMedia = featureFlags.isEnabled('enable_forum_media');
-
-                return BlocBuilder<ForumCubit, ForumState>(
-                  buildWhen: (p, c) =>
-                      p.selectedEmoji != c.selectedEmoji ||
-                      p.emojiTrigger != c.emojiTrigger,
-                  builder: (context, state) {
-                    final mainCubit = context.read<ForumCubit>();
-                    return PageView(
-                      controller: _pageController,
-                      physics: const NeverScrollableScrollPhysics(),
-                      onPageChanged: (index) => mainCubit.setTabIndex(index),
-                      children: [
-                        showUpdates
-                            ? UpdatesTab(
-                                scrollController: _updatesScrollController,
-                                onActionTap: () => _navigateToTab(2),
-                                onMediaTap: (url) => _viewMedia(url),
-                                onCreatePollOrQuiz: () =>
-                                    _showCreatePollOrQuizSheet(isLiveChat: false),
-                              )
-                            : const SizedBox.shrink(),
-                        showChat
-                            ? LiveChatTab(
-                                scrollController: _chatScrollController,
-                                selectedEmoji: state.selectedEmoji,
-                                emojiTrigger: state.emojiTrigger,
-                                onActionTap: () => _navigateToTab(2),
-                                onMediaTap: (url) => _viewMedia(url),
-                                onCreatePollOrQuiz: () =>
-                                    _showCreatePollOrQuizSheet(isLiveChat: true),
-                              )
-                            : const SizedBox.shrink(),
-                        showMedia
-                            ? MediaTab(
-                                onMediaTap: (item) => _viewForumMedia(item),
-                              )
-                            : const SizedBox.shrink(),
-                      ],
-                    );
-                  },
-                );
-              },
+        return BlocBuilder<ForumCubit, ForumState>(
+          buildWhen: (p, c) =>
+              p.selectedEmoji != c.selectedEmoji ||
+              p.emojiTrigger != c.emojiTrigger,
+          builder: (context, state) {
+            final mainCubit = context.read<ForumCubit>();
+            return PageView(
+              controller: _pageController,
+              physics: const NeverScrollableScrollPhysics(),
+              onPageChanged: (index) => mainCubit.setTabIndex(index),
+              children: [
+                showUpdates
+                    ? UpdatesTab(
+                        scrollController: _updatesScrollController,
+                        onActionTap: () => _navigateToTab(2),
+                        onMediaTap: (url) => _viewMedia(url),
+                        onCreatePollOrQuiz: () =>
+                            _showCreatePollOrQuizSheet(isLiveChat: false),
+                      )
+                    : const SizedBox.shrink(),
+                showChat
+                    ? LiveChatTab(
+                        scrollController: _chatScrollController,
+                        selectedEmoji: state.selectedEmoji,
+                        emojiTrigger: state.emojiTrigger,
+                        onActionTap: () => _navigateToTab(2),
+                        onMediaTap: (url) => _viewMedia(url),
+                        onCreatePollOrQuiz: () =>
+                            _showCreatePollOrQuizSheet(isLiveChat: true),
+                      )
+                    : const SizedBox.shrink(),
+                showMedia
+                    ? MediaTab(
+                        onMediaTap: (item) => _viewForumMedia(item),
+                      )
+                    : const SizedBox.shrink(),
+              ],
             );
           },
         );
