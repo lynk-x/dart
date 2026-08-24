@@ -8,6 +8,7 @@ void showMediaDeviceSelectorSheet(BuildContext context) {
     if (!context.mounted) return;
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
       backgroundColor: const Color(0xFF121418),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
@@ -142,104 +143,121 @@ void showMediaDeviceSelectorSheet(BuildContext context) {
                 ? selectedAudioOutput
                 : audioOutputItems.first.value;
 
-            return Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Audio & Video Settings',
-                        style: AppTypography.interTight(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
+            return SafeArea(
+              child: Padding(
+                padding: EdgeInsets.only(
+                  left: 20,
+                  right: 20,
+                  top: 20,
+                  bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Settings',
+                          style: AppTypography.interTight(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
                         ),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.close, color: Colors.white54),
-                        onPressed: () => Navigator.pop(context),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  _buildDropdownRow(
-                    context,
-                    label: 'Camera Device',
-                    icon: Icons.videocam_rounded,
-                    value: selectedCamVal,
-                    items: cameraItems,
-                    onChanged: (val) {
-                      if (val != null) {
-                        setModalState(() => selectedCamera = val);
-                      }
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  _buildDropdownRow(
-                    context,
-                    label: 'Microphone Input',
-                    icon: Icons.mic_rounded,
-                    value: selectedAudioVal,
-                    items: audioInputItems,
-                    onChanged: (val) {
-                      if (val != null) {
-                        setModalState(() => selectedAudioInput = val);
-                      }
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  _buildDropdownRow(
-                    context,
-                    label: 'Audio Output',
-                    icon: Icons.volume_up_rounded,
-                    value: selectedOutputVal,
-                    items: audioOutputItems,
-                    onChanged: (val) {
-                      if (val != null) {
-                        setModalState(() => selectedAudioOutput = val);
-                      }
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  _buildDropdownRow(
-                    context,
-                    label: 'Stream Resolution',
-                    icon: Icons.high_quality_rounded,
-                    value: streamQuality,
-                    items: qualityItems,
-                    onChanged: (val) {
-                      if (val != null) {
-                        setModalState(() => streamQuality = val);
-                      }
-                    },
-                  ),
-                  const SizedBox(height: 20),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: () => Navigator.pop(context),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: context.accentColor,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                        IconButton(
+                          icon: const Icon(Icons.close, color: Colors.white54),
+                          onPressed: () => Navigator.pop(context),
                         ),
-                      ),
-                      child: Text(
-                        'Apply Settings',
-                        style: AppTypography.interTight(
-                          fontSize: 15,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black,
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Flexible(
+                      child: SingleChildScrollView(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildDropdownRow(
+                              context,
+                              label: 'Camera Device',
+                              icon: Icons.videocam_rounded,
+                              value: selectedCamVal,
+                              items: cameraItems,
+                              onChanged: (val) {
+                                if (val != null) {
+                                  setModalState(() => selectedCamera = val);
+                                }
+                              },
+                            ),
+                            const SizedBox(height: 12),
+                            _buildDropdownRow(
+                              context,
+                              label: 'Microphone Input',
+                              icon: Icons.mic_rounded,
+                              value: selectedAudioVal,
+                              items: audioInputItems,
+                              onChanged: (val) {
+                                if (val != null) {
+                                  setModalState(() => selectedAudioInput = val);
+                                }
+                              },
+                            ),
+                            const SizedBox(height: 12),
+                            _buildDropdownRow(
+                              context,
+                              label: 'Audio Output',
+                              icon: Icons.volume_up_rounded,
+                              value: selectedOutputVal,
+                              items: audioOutputItems,
+                              onChanged: (val) {
+                                if (val != null) {
+                                  setModalState(() => selectedAudioOutput = val);
+                                }
+                              },
+                            ),
+                            const SizedBox(height: 12),
+                            _buildDropdownRow(
+                              context,
+                              label: 'Stream Resolution',
+                              icon: Icons.high_quality_rounded,
+                              value: streamQuality,
+                              items: qualityItems,
+                              onChanged: (val) {
+                                if (val != null) {
+                                  setModalState(() => streamQuality = val);
+                                }
+                              },
+                            ),
+                          ],
                         ),
                       ),
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: () => Navigator.pop(context),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: context.accentColor,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: Text(
+                          'Apply Settings',
+                          style: AppTypography.interTight(
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             );
           },

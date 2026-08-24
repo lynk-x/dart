@@ -242,11 +242,13 @@ class _ForumHeaderState extends State<ForumHeader> {
 class AnimatedSoundwaveWidget extends StatefulWidget {
   final bool isSpeaking;
   final double Function()? getAudioLevel;
+  final Color? barColor;
 
   const AnimatedSoundwaveWidget({
     super.key,
     required this.isSpeaking,
     this.getAudioLevel,
+    this.barColor,
   });
 
   @override
@@ -285,6 +287,7 @@ class _AnimatedSoundwaveWidgetState extends State<AnimatedSoundwaveWidget> {
   Widget build(BuildContext context) {
     final active = widget.isSpeaking;
     final lvl = active ? (_currentLevel > 0.04 ? _currentLevel : 0.25) : 0.0;
+    final color = widget.barColor ?? Colors.black;
 
     return SizedBox(
       width: 20,
@@ -292,9 +295,9 @@ class _AnimatedSoundwaveWidgetState extends State<AnimatedSoundwaveWidget> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          _Bar(height: active ? 6.0 + (lvl * 10.0) : 4.0),
-          _Bar(height: active ? 8.0 + (lvl * 12.0) : 4.0),
-          _Bar(height: active ? 5.0 + (lvl * 8.0) : 4.0),
+          _Bar(height: active ? 6.0 + (lvl * 10.0) : 4.0, color: color),
+          _Bar(height: active ? 8.0 + (lvl * 12.0) : 4.0, color: color),
+          _Bar(height: active ? 5.0 + (lvl * 8.0) : 4.0, color: color),
         ],
       ),
     );
@@ -303,8 +306,9 @@ class _AnimatedSoundwaveWidgetState extends State<AnimatedSoundwaveWidget> {
 
 class _Bar extends StatelessWidget {
   final double height;
+  final Color color;
 
-  const _Bar({required this.height});
+  const _Bar({required this.height, required this.color});
 
   @override
   Widget build(BuildContext context) {
@@ -313,7 +317,7 @@ class _Bar extends StatelessWidget {
       width: 3,
       height: height.clamp(4.0, 18.0),
       decoration: BoxDecoration(
-        color: Colors.black,
+        color: color,
         borderRadius: BorderRadius.circular(2),
       ),
     );

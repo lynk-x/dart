@@ -141,7 +141,7 @@ class PresenceDrawer extends StatelessWidget {
                   ),
                   IconButton(
                     icon: const Icon(Icons.tune_rounded, color: Colors.white70, size: 20),
-                    tooltip: 'Audio & Video Settings',
+                    tooltip: 'Settings',
                     onPressed: () => showMediaDeviceSelectorSheet(context),
                   ),
                 ],
@@ -169,8 +169,15 @@ class PresenceDrawer extends StatelessWidget {
                                     if (userId.isEmpty) return const SizedBox.shrink();
 
                                     final match = participants.firstWhere(
-                                      (p) => p.id == userId || (p.isHost && (user['is_organizer'] == true || userId == Supabase.instance.client.auth.currentUser?.id)),
-                                      orElse: () => const StreamParticipant(id: '', name: '', role: ''),
+                                      (p) =>
+                                          p.id == userId ||
+                                          (p.isHost &&
+                                              p.id == 'host' &&
+                                              userId ==
+                                                  Supabase.instance.client.auth
+                                                      .currentUser?.id),
+                                      orElse: () => const StreamParticipant(
+                                          id: '', name: '', role: ''),
                                     );
 
                                     final bool isStreamActive = match.id.isNotEmpty;

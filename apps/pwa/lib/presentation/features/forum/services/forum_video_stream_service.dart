@@ -271,7 +271,7 @@ class ForumVideoStreamService {
   void toggleParticipantMic(String participantId) {
     final list = List<StreamParticipant>.from(activeParticipantsNotifier.value);
     final index = list.indexWhere(
-      (p) => p.id == participantId || (p.isHost && (participantId == 'host' || participantId.isNotEmpty)),
+      (p) => p.id == participantId || (participantId == 'host' && p.isHost),
     );
     if (index != -1) {
       list[index] = list[index].copyWith(isMicMuted: !list[index].isMicMuted);
@@ -290,7 +290,7 @@ class ForumVideoStreamService {
   void toggleParticipantCamera(String participantId) {
     final list = List<StreamParticipant>.from(activeParticipantsNotifier.value);
     final index = list.indexWhere(
-      (p) => p.id == participantId || (p.isHost && (participantId == 'host' || participantId.isNotEmpty)),
+      (p) => p.id == participantId || (participantId == 'host' && p.isHost),
     );
     if (index != -1) {
       list[index] = list[index].copyWith(isCameraOn: !list[index].isCameraOn);

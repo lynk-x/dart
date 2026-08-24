@@ -9,6 +9,7 @@ import 'package:web/web.dart' as web;
 import 'package:lynk_x/presentation/shared/utils/app_snackbars.dart';
 import '../services/forum_video_stream_service.dart';
 import '../widgets/bottom_dock.dart';
+import '../widgets/forum_header.dart';
 import '../widgets/speaker_tag.dart';
 
 /// Interactive Live Stream screen featuring actual Web Camera capture,
@@ -357,7 +358,7 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> with WidgetsBinding
       padding: const EdgeInsets.all(16),
       child: Column(
         children: [
-          const SizedBox(height: 48),
+          const SizedBox(height: 96),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
@@ -426,6 +427,27 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> with WidgetsBinding
                           ),
                         ),
                       ),
+                      Positioned(
+                        right: 8,
+                        bottom: 8,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.75),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(
+                              color: p.isSpeaking
+                                  ? context.accentColor.withValues(alpha: 0.5)
+                                  : Colors.white12,
+                            ),
+                          ),
+                          child: AnimatedSoundwaveWidget(
+                            isSpeaking: p.isSpeaking,
+                            getAudioLevel: () => _currentAudioLevel,
+                            barColor: p.isSpeaking ? context.accentColor : Colors.white54,
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                 );
@@ -444,7 +466,7 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> with WidgetsBinding
       padding: const EdgeInsets.all(16),
       child: Column(
         children: [
-          const SizedBox(height: 48),
+          const SizedBox(height: 96),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -741,7 +763,7 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> with WidgetsBinding
           // STREAM TELEMETRY OVERLAY
           if (_showTelemetryOverlay)
             Positioned(
-              top: 56,
+              top: 112,
               left: 16,
               child: GestureDetector(
                 onTap: _showTelemetryDetailsModal,
@@ -778,7 +800,7 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> with WidgetsBinding
 
           // 2. TOP BAR OVERLAY
           Positioned(
-            top: 12,
+            top: 64,
             left: 16,
             right: 16,
             child: Row(
