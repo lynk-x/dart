@@ -23,6 +23,7 @@ class PresenceDrawer extends StatefulWidget {
 
   final bool isPremium;
   final bool isOrganizer;
+  final bool isAudioLive;
   final String? eventId;
   final String forumId;
   final DateTime? eventCreatedAt;
@@ -38,6 +39,7 @@ class PresenceDrawer extends StatefulWidget {
     required this.isOrganizer,
     required this.forumId,
     required this.isLoading,
+    this.isAudioLive = false,
     this.eventId,
     this.eventCreatedAt,
     this.onEventProgressTap,
@@ -396,6 +398,7 @@ class _PresenceDrawerState extends State<PresenceDrawer> {
                             isOnline: user['is_online'] == true,
                             isOrganizer: user['is_organizer'] == true,
                             isPremium: user['is_premium'] == true,
+                            showMicControl: isVideoLive || widget.isAudioLive,
                             showCameraControl: isVideoLive,
                             isPrimary: userId ==
                                 Supabase

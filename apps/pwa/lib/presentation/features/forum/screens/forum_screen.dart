@@ -1250,6 +1250,7 @@ class _ForumPresenceDrawerWrapper extends StatelessWidget {
   Widget build(BuildContext context) {
     final presenceState = context.watch<ForumPresenceCubit>().state;
     final forumState = context.watch<ForumCubit>().state;
+    final audioState = context.watch<ForumAudioStreamCubit>().state;
 
     return PresenceDrawer(
       members: forumState.members,
@@ -1257,6 +1258,7 @@ class _ForumPresenceDrawerWrapper extends StatelessWidget {
       eventProgress: forumState.eventProgress,
       isPremium: forumState.isPremium,
       isOrganizer: forumState.isOrganizer,
+      isAudioLive: audioState.isLive,
       eventId: forumState.eventId,
       forumId: forumId,
       isLoading: presenceState.isLoading,
