@@ -487,7 +487,7 @@ class _ForumViewState extends State<ForumView> {
                                                   return ForumHeader(
                                                     isVideoStreamLive: isLive,
                                                     isAudioLive: audioState.isLive,
-                                                    role: audioState.role,
+                                                    role: isLive && forumState.isOrganizer ? ForumHeaderRole.host : audioState.role,
                                                     activeSpeakerNames: audioState.activeSpeakerNames,
                                                     currentUserName: cubit.state.userName,
                                                     isMicMuted: audioState.isMicMuted,
@@ -510,7 +510,15 @@ class _ForumViewState extends State<ForumView> {
                                                       }
                                                     },
                                                     onToggleBroadcastMute: () => audioCubit.toggleBroadcastMute(),
-                                                    onEndBroadcast: () => audioCubit.endAudioStream(),
+                                                    onEndBroadcast: () {
+                                                      if (isLive) {
+                                                        ForumVideoStreamService().setMinimized(false);
+                                                        ForumVideoStreamService().stopVideoStream();
+                                                        ForumVideoStreamService().setLive(false);
+                                                      } else {
+                                                        audioCubit.endAudioStream();
+                                                      }
+                                                    },
                                                     onStartLiveStream: () {
                                                       PermissionAcks.ensureAcknowledged(
                                                         context,

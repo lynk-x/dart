@@ -197,7 +197,13 @@ class _ForumHeaderState extends State<ForumHeader> {
           ),
 
           // SLOT 3: Right Icon (Audio Mute Toggle / End Broadcast / Search Toggle)
-          if (widget.isVideoStreamLive)
+          if (widget.isVideoStreamLive && (widget.role == ForumHeaderRole.host || widget.isOrganizer))
+            IconButton(
+              icon: const Icon(Icons.call_end_rounded, color: Colors.redAccent),
+              onPressed: widget.onEndBroadcast,
+              tooltip: 'End Live Stream',
+            )
+          else if (widget.isVideoStreamLive)
             IconButton(
               icon: Icon(
                 widget.isBroadcastMuted ? Icons.volume_off_rounded : Icons.volume_up_rounded,

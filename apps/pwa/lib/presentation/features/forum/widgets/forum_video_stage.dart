@@ -8,7 +8,7 @@ import 'package:web/web.dart' as web;
 
 import 'package:lynk_x/presentation/shared/utils/app_snackbars.dart';
 import '../services/forum_video_stream_service.dart';
-import 'bottom_dock.dart';
+import 'message_input.dart';
 import 'forum_header.dart';
 import 'speaker_tag.dart';
 
@@ -38,14 +38,14 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
   static bool _viewRegistered = false;
 
   web.HTMLVideoElement? _videoElement;
-  bool _isMicMuted = false;
-  bool _isCameraOn = true;
+  final bool _isMicMuted = false;
+  final bool _isCameraOn = true;
   bool _isFrontCamera = true;
   bool _showTelemetryOverlay = false;
-  bool _showLiveChatOverlay = true;
+  final bool _showLiveChatOverlay = true;
   int _sessionDurationSeconds = 0;
 
-  final List<Map<String, dynamic>> _unifiedStreamMessages = const [
+  final List<Map<String, dynamic>> _unifiedStreamMessages = [
     {
       'id': 'm1',
       'type': 'chat',
@@ -257,25 +257,6 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
         AppSnackBars.showInfo(context, 'Screen share cancelled or restricted on this mobile browser. Try Desktop or Chrome Android.');
       }
     }
-  }
-
-  void _toggleMic() {
-    final nextMuted = !_isMicMuted;
-    setState(() {
-      _isMicMuted = nextMuted;
-    });
-    _videoService.toggleMic(!nextMuted);
-    _videoService.updateParticipantMediaState('host', isMicMuted: nextMuted);
-  }
-
-  void _toggleCamera() {
-    final nextCameraOn = !_isCameraOn;
-    setState(() {
-      _isCameraOn = nextCameraOn;
-    });
-    _videoService.isCameraOn = nextCameraOn;
-    _videoService.toggleCamera(nextCameraOn);
-    _videoService.updateParticipantMediaState('host', isCameraOn: nextCameraOn);
   }
 
   Future<void> _flipCamera() async {
@@ -753,33 +734,6 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
                           ),
                         ),
                       ),
-                      const SizedBox(width: 2),
-                      InkWell(
-                        onTap: () {
-                          setState(() {
-                            _showLiveChatOverlay = !_showLiveChatOverlay;
-                          });
-                        },
-                        borderRadius: BorderRadius.circular(16),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: _showLiveChatOverlay
-                                ? context.accentColor.withValues(alpha: 0.2)
-                                : Colors.transparent,
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          child: Icon(
-                            _showLiveChatOverlay
-                                ? Icons.chat_bubble_rounded
-                                : Icons.chat_bubble_outline_rounded,
-                            size: 14,
-                            color: _showLiveChatOverlay
-                                ? context.accentColor
-                                : Colors.white60,
-                          ),
-                        ),
-                      ),
                     ],
                   ),
                 );
@@ -974,10 +928,38 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
                   ),
                 ),
 
-                // Top Right: Telemetry Toggle + Combined LIVE & Spectator Count Badge
+                // Top Right: Screen Share + Flip Camera + Telemetry Toggle + Combined LIVE & Spectator Count Badge
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    // Screen Share Button
+                    IconButton(
+                      icon: Icon(
+                        _isScreenSharing
+                            ? Icons.stop_screen_share_rounded
+                            : Icons.screen_share_rounded,
+                        color: !widget.isHost
+                            ? Colors.white24
+                            : (_isScreenSharing ? context.accentColor : Colors.white70),
+                        size: 20,
+                      ),
+                      onPressed: !widget.isHost ? null : _toggleScreenShare,
+                      tooltip: _isScreenSharing ? 'Stop Screen Share' : 'Share Screen',
+                    ),
+
+                    // Flip Camera Button
+                    IconButton(
+                      icon: Icon(
+                        Icons.flip_camera_ios_rounded,
+                        color: !widget.isHost
+                            ? Colors.white24
+                            : (_isFrontCamera ? Colors.white70 : context.accentColor),
+                        size: 20,
+                      ),
+                      onPressed: !widget.isHost ? null : _flipCamera,
+                      tooltip: 'Flip Camera',
+                    ),
+
                     // Telemetry Toggle Button
                     IconButton(
                       icon: Icon(
@@ -1050,30 +1032,27 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
       ),
     );
 
-    final bottomDock = BottomDock(
-      isDisabled: !widget.isHost,
-      isScreenSharing: _isScreenSharing,
-      isMicMuted: _isMicMuted,
-      isCameraOn: _isCameraOn,
-      isFrontCamera: _isFrontCamera,
-      isLeaveRoom: !widget.isHost,
-      onToggleScreenShare: _toggleScreenShare,
-      onToggleMic: _toggleMic,
-      onToggleCamera: _toggleCamera,
-      onFlipCamera: _flipCamera,
-      onEndCall: () {
-        _videoService.setMinimized(false);
-        _videoService.stopVideoStream();
-        _videoService.setLive(false);
-      },
-    );
-
     return Container(
       color: const Color(0xFF0F1115),
       child: Column(
         children: [
           mainStageArea,
-          bottomDock,
+          MessageInput(
+            isOrganizer: widget.isHost,
+            onSendMessage: (text, replyTo) {
+              if (text.trim().isNotEmpty) {
+                setState(() {
+                  _unifiedStreamMessages.add({
+                    'id': DateTime.now().millisecondsSinceEpoch.toString(),
+                    'type': 'chat',
+                    'sender': widget.isHost ? 'Host' : 'You',
+                    'role': widget.isHost ? 'Organizer' : 'Spectator',
+                    'text': text,
+                  });
+                });
+              }
+            },
+          ),
         ],
       ),
     );
