@@ -22,7 +22,7 @@ import 'package:lynk_x/presentation/features/forum/cubit/forum_media_state.dart'
 import 'package:lynk_x/presentation/features/forum/models/forum_model.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/ad_carousel.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/forum_header.dart';
-import 'package:lynk_x/presentation/features/forum/screens/live_stream_screen.dart';
+import 'package:lynk_x/presentation/features/forum/widgets/forum_video_stage.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/pip_overlay.dart';
 import 'package:lynk_x/presentation/features/forum/services/forum_video_stream_service.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/presence_drawer.dart';
@@ -621,10 +621,29 @@ class _ForumViewState extends State<ForumView> {
                         ];
                       },
                       body: isStageActive
-                          ? LiveStreamScreen(
-                              forumName: context.read<ForumCubit>().state.forumName,
-                              hostName: cubit.state.userName,
-                              isHost: context.read<ForumCubit>().state.isOrganizer,
+                          ? BlocBuilder<ForumAdsCubit, ForumAdsState>(
+                              builder: (context, adsState) {
+                                final forumState = context.read<ForumCubit>().state;
+                                final showBannerAd = context
+                                    .read<FeatureFlagCubit>()
+                                    .isEnabled('enable_banner_ad');
+                                final hasAds = !forumState.isPremium &&
+                                    showBannerAd &&
+                                    context
+                                        .read<FeatureFlagCubit>()
+                                        .isEnabled('enable_forum_ads') &&
+                                    adsState.ads.isNotEmpty;
+                                final stageHeaderHeight = 56.0 + (hasAds ? 50.0 : 0.0);
+
+                                return Padding(
+                                  padding: EdgeInsets.only(top: stageHeaderHeight),
+                                  child: ForumVideoStage(
+                                    forumName: forumState.forumName,
+                                    hostName: cubit.state.userName,
+                                    isHost: forumState.isOrganizer,
+                                  ),
+                                );
+                              },
                             )
                           : _buildTabContent(),
                     );

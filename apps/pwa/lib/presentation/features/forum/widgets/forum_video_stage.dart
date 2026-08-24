@@ -8,18 +8,18 @@ import 'package:web/web.dart' as web;
 
 import 'package:lynk_x/presentation/shared/utils/app_snackbars.dart';
 import '../services/forum_video_stream_service.dart';
-import '../widgets/bottom_dock.dart';
-import '../widgets/forum_header.dart';
-import '../widgets/speaker_tag.dart';
+import 'bottom_dock.dart';
+import 'forum_header.dart';
+import 'speaker_tag.dart';
 
-/// Interactive Live Stream screen featuring actual Web Camera capture,
+/// Interactive Forum Video Stage featuring actual Web Camera capture,
 /// hardware mic control, browser Picture-in-Picture (PiP), and refined stage controls.
-class LiveStreamScreen extends StatefulWidget {
+class ForumVideoStage extends StatefulWidget {
   final String forumName;
   final String hostName;
   final bool isHost;
 
-  const LiveStreamScreen({
+  const ForumVideoStage({
     super.key,
     this.forumName = 'Community Live Stream',
     this.hostName = 'Alex',
@@ -27,10 +27,10 @@ class LiveStreamScreen extends StatefulWidget {
   });
 
   @override
-  State<LiveStreamScreen> createState() => _LiveStreamScreenState();
+  State<ForumVideoStage> createState() => _ForumVideoStageState();
 }
 
-class _LiveStreamScreenState extends State<LiveStreamScreen> with WidgetsBindingObserver {
+class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingObserver {
   final ForumVideoStreamService _videoService = ForumVideoStreamService();
 
   static const String _elementId = 'lynk_live_video_stage';
@@ -264,8 +264,7 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> with WidgetsBinding
   Future<void> _triggerPictureInPicture() async {
     _videoService.setMinimized(true);
     if (mounted) {
-      AppSnackBars.showInfo(context, 'Minimizing live stream to Forum');
-      Navigator.of(context).pop();
+      AppSnackBars.showInfo(context, 'Minimizing live stage');
     }
   }
 
@@ -358,7 +357,7 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> with WidgetsBinding
       padding: const EdgeInsets.all(16),
       child: Column(
         children: [
-          const SizedBox(height: 96),
+          const SizedBox(height: 48),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
@@ -454,7 +453,6 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> with WidgetsBinding
               },
             ),
           ),
-          const SizedBox(height: 100),
         ],
       ),
     );
@@ -466,7 +464,7 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> with WidgetsBinding
       padding: const EdgeInsets.all(16),
       child: Column(
         children: [
-          const SizedBox(height: 96),
+          const SizedBox(height: 48),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -493,41 +491,30 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> with WidgetsBinding
           const SizedBox(height: 16),
           Expanded(
             child: Container(
-              width: double.infinity,
               decoration: BoxDecoration(
-                color: const Color(0xFF14171E),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: Colors.white12),
+                color: const Color(0xFF131722),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.white10),
               ),
               child: Center(
                 child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.present_to_all_rounded, color: context.accentColor, size: 48),
+                    const Icon(Icons.present_to_all_rounded, size: 48, color: Colors.indigoAccent),
                     const SizedBox(height: 12),
                     Text(
-                      'Stage Presentation Canvas',
-                      style: AppTypography.interTight(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Main screen share & slide deck stream active',
-                      style: AppTypography.interTight(fontSize: 12, color: Colors.white54),
+                      'Shared Presentation Stage',
+                      style: AppTypography.interTight(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.white),
                     ),
                   ],
                 ),
               ),
             ),
           ),
-          const SizedBox(height: 100),
         ],
       ),
     );
   }
-
-
-
-
 
   @override
   Widget build(BuildContext context) {
@@ -555,7 +542,7 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> with WidgetsBinding
 
                     return Stack(
                       children: [
-                        // Actual Web Video Stream PlatformView (Kept permanently mounted to preserve HTML element DOM node)
+                        // Actual Web Video Stream PlatformView
                         if (kIsWeb)
                           const Positioned.fill(
                             child: HtmlElementView(viewType: _viewType),
@@ -568,40 +555,37 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> with WidgetsBinding
                               color: const Color(0xFF0F1115),
                               child: Center(
                                 child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    Container(
-                                      width: 96,
-                                      height: 96,
-                                      decoration: BoxDecoration(
-                                        shape: BoxShape.circle,
-                                        color: const Color(0xFF1E222A),
-                                        border: Border.all(
-                                          color: context.accentColor,
-                                          width: 2,
+                                    CircleAvatar(
+                                      radius: 36,
+                                      backgroundColor: const Color(0xFF1E222B),
+                                      child: Text(
+                                        widget.hostName.isNotEmpty
+                                            ? widget.hostName.substring(0, 1).toUpperCase()
+                                            : 'L',
+                                        style: AppTypography.interTight(
+                                          fontSize: 28,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.white70,
                                         ),
                                       ),
-                                      child: const Icon(
-                                        Icons.videocam_off_rounded,
+                                    ),
+                                    const SizedBox(height: 12),
+                                    Text(
+                                      widget.hostName,
+                                      style: AppTypography.interTight(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w600,
                                         color: Colors.white,
-                                        size: 44,
                                       ),
                                     ),
-                                    const SizedBox(height: 16),
+                                    const SizedBox(height: 4),
                                     Text(
                                       'Camera Off',
                                       style: AppTypography.interTight(
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.white,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 6),
-                                    Text(
-                                      'Your camera is currently turned off',
-                                      style: AppTypography.interTight(
                                         fontSize: 12,
-                                        color: Colors.white54,
+                                        color: Colors.white38,
                                       ),
                                     ),
                                   ],
@@ -617,140 +601,133 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> with WidgetsBinding
             ),
           ),
 
-          // 2. ACTIVE STAGE SPEAKER TAG & WAVEFORM
-          ValueListenableBuilder<String>(
-            valueListenable: _videoService.stageSpeakerIdNotifier,
-            builder: (context, pinnedId, _) {
-              final participants = _videoService.activeParticipantsNotifier.value;
-              if (participants.isEmpty) return const SizedBox.shrink();
-              final activeParticipant = participants.firstWhere(
-                (p) => p.id == pinnedId,
-                orElse: () => participants.first,
-              );
-
-              return Positioned(
-                right: 16,
-                bottom: 16,
-                child: SpeakerTag(
+          Positioned(
+            bottom: 16,
+            right: 16,
+            child: ValueListenableBuilder<List<StreamParticipant>>(
+              valueListenable: _videoService.activeParticipantsNotifier,
+              builder: (context, participants, _) {
+                final activeParticipant = participants.firstWhere(
+                  (p) => p.isHost,
+                  orElse: () => StreamParticipant(
+                    id: 'host',
+                    name: widget.hostName,
+                    role: widget.isHost ? 'Host' : 'Speaker',
+                    isSpeaking: !_isMicMuted,
+                  ),
+                );
+                return SpeakerTag(
                   activeParticipant: activeParticipant,
                   audioLevel: _currentAudioLevel,
-                ),
-              );
-            },
+                );
+              },
+            ),
           ),
 
-          // STAGE LAYOUT MODE SELECTOR (BOTTOM LEFT OF VIDEO STAGE)
+          // STAGE MODE SELECTOR OVERLAY (Bottom Left)
           Positioned(
-            left: 16,
             bottom: 16,
+            left: 16,
             child: ValueListenableBuilder<StageLayoutMode>(
               valueListenable: _videoService.stageLayoutNotifier,
               builder: (context, layoutMode, _) {
-                IconData icon;
-                String tooltipLabel;
-                switch (layoutMode) {
-                  case StageLayoutMode.focus:
-                    icon = Icons.crop_square_rounded;
-                    tooltipLabel = 'Layout: Focus View';
-                    break;
-                  case StageLayoutMode.grid:
-                    icon = Icons.grid_view_rounded;
-                    tooltipLabel = 'Layout: Grid View';
-                    break;
-                  case StageLayoutMode.presentation:
-                    icon = Icons.space_dashboard_rounded;
-                    tooltipLabel = 'Layout: Presentation View';
-                    break;
-                }
-
                 return Container(
+                  padding: const EdgeInsets.all(4),
                   decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.5),
+                    color: Colors.black.withValues(alpha: 0.65),
                     borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: Colors.white12),
                   ),
-                  child: PopupMenuButton<StageLayoutMode>(
-                    tooltip: tooltipLabel,
-                    icon: Icon(icon, color: context.accentColor, size: 20),
-                    color: const Color(0xFF161920),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      side: const BorderSide(color: Colors.white12),
-                    ),
-                    onSelected: (mode) {
-                      _videoService.setStageLayout(mode);
-                      String modeName;
-                      switch (mode) {
-                        case StageLayoutMode.focus:
-                          modeName = 'Focus Mode (Active Speaker)';
-                          break;
-                        case StageLayoutMode.grid:
-                          modeName = 'Grid View (2x2 Multi-Speaker)';
-                          break;
-                        case StageLayoutMode.presentation:
-                          modeName = 'Presentation Mode';
-                          break;
-                      }
-                      AppSnackBars.showInfo(context, 'Switched to $modeName');
-                    },
-                    itemBuilder: (context) => [
-                      PopupMenuItem(
-                        value: StageLayoutMode.focus,
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.crop_square_rounded,
-                              color: layoutMode == StageLayoutMode.focus ? context.accentColor : Colors.white70,
-                              size: 18,
-                            ),
-                            const SizedBox(width: 10),
-                            Text(
-                              'Focus View',
-                              style: AppTypography.interTight(
-                                color: layoutMode == StageLayoutMode.focus ? context.accentColor : Colors.white,
-                                fontWeight: layoutMode == StageLayoutMode.focus ? FontWeight.bold : FontWeight.normal,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      InkWell(
+                        onTap: () => _videoService.setStageLayout(StageLayoutMode.focus),
+                        borderRadius: BorderRadius.circular(16),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: layoutMode == StageLayoutMode.focus ? context.accentColor : Colors.transparent,
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.person_rounded,
+                                size: 14,
+                                color: layoutMode == StageLayoutMode.focus ? Colors.white : Colors.white60,
                               ),
-                            ),
-                          ],
+                              const SizedBox(width: 4),
+                              Text(
+                                'Focus',
+                                style: AppTypography.interTight(
+                                  fontSize: 11,
+                                  color: layoutMode == StageLayoutMode.focus ? Colors.white : Colors.white60,
+                                  fontWeight: layoutMode == StageLayoutMode.focus ? FontWeight.bold : FontWeight.normal,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
-                      PopupMenuItem(
-                        value: StageLayoutMode.grid,
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.grid_view_rounded,
-                              color: layoutMode == StageLayoutMode.grid ? context.accentColor : Colors.white70,
-                              size: 18,
-                            ),
-                            const SizedBox(width: 10),
-                            Text(
-                              'Grid View',
-                              style: AppTypography.interTight(
-                                color: layoutMode == StageLayoutMode.grid ? context.accentColor : Colors.white,
-                                fontWeight: layoutMode == StageLayoutMode.grid ? FontWeight.bold : FontWeight.normal,
+                      const SizedBox(width: 2),
+                      InkWell(
+                        onTap: () => _videoService.setStageLayout(StageLayoutMode.grid),
+                        borderRadius: BorderRadius.circular(16),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: layoutMode == StageLayoutMode.grid ? context.accentColor : Colors.transparent,
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.grid_view_rounded,
+                                size: 14,
+                                color: layoutMode == StageLayoutMode.grid ? Colors.white : Colors.white60,
                               ),
-                            ),
-                          ],
+                              const SizedBox(width: 4),
+                              Text(
+                                'Grid',
+                                style: AppTypography.interTight(
+                                  fontSize: 11,
+                                  color: layoutMode == StageLayoutMode.grid ? Colors.white : Colors.white60,
+                                  fontWeight: layoutMode == StageLayoutMode.grid ? FontWeight.bold : FontWeight.normal,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
-                      PopupMenuItem(
-                        value: StageLayoutMode.presentation,
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.space_dashboard_rounded,
-                              color: layoutMode == StageLayoutMode.presentation ? context.accentColor : Colors.white70,
-                              size: 18,
-                            ),
-                            const SizedBox(width: 10),
-                            Text(
-                              'Presentation View',
-                              style: AppTypography.interTight(
-                                color: layoutMode == StageLayoutMode.presentation ? context.accentColor : Colors.white,
-                                fontWeight: layoutMode == StageLayoutMode.presentation ? FontWeight.bold : FontWeight.normal,
+                      const SizedBox(width: 2),
+                      InkWell(
+                        onTap: () => _videoService.setStageLayout(StageLayoutMode.presentation),
+                        borderRadius: BorderRadius.circular(16),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: layoutMode == StageLayoutMode.presentation ? context.accentColor : Colors.transparent,
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.present_to_all_rounded,
+                                size: 14,
+                                color: layoutMode == StageLayoutMode.presentation ? Colors.white : Colors.white60,
                               ),
-                            ),
-                          ],
+                              const SizedBox(width: 4),
+                              Text(
+                                'Deck',
+                                style: AppTypography.interTight(
+                                  fontSize: 11,
+                                  color: layoutMode == StageLayoutMode.presentation ? Colors.white : Colors.white60,
+                                  fontWeight: layoutMode == StageLayoutMode.presentation ? FontWeight.bold : FontWeight.normal,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ],
@@ -763,7 +740,7 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> with WidgetsBinding
           // STREAM TELEMETRY OVERLAY
           if (_showTelemetryOverlay)
             Positioned(
-              top: 112,
+              top: 56,
               left: 16,
               child: GestureDetector(
                 onTap: _showTelemetryDetailsModal,
@@ -798,9 +775,9 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> with WidgetsBinding
               ),
             ),
 
-          // 2. TOP BAR OVERLAY
+          // TOP BAR OVERLAY
           Positioned(
-            top: 64,
+            top: 12,
             left: 16,
             right: 16,
             child: Row(
