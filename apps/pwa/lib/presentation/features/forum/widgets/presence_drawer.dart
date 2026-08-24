@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:lynk_core/core.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:lynk_x/l10n/app_localizations.dart';
-import 'package:lynk_x/presentation/shared/utils/app_snackbars.dart';
 import '../services/forum_video_stream_service.dart';
 import 'forum_skeletons.dart';
 import 'user_presence.dart';
@@ -301,79 +300,53 @@ class _PresenceDrawerState extends State<PresenceDrawer> {
       ),
     ];
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildDropdownSection(
-            label: 'Camera Input',
-            icon: Icons.videocam_rounded,
-            value: _selectedCamera,
-            items: cameraItems,
-            onChanged: (val) {
-              if (val != null) setState(() => _selectedCamera = val);
-            },
-          ),
-          _buildDropdownSection(
-            label: 'Microphone Input',
-            icon: Icons.mic_rounded,
-            value: _selectedAudioInput,
-            items: audioInputItems,
-            onChanged: (val) {
-              if (val != null) setState(() => _selectedAudioInput = val);
-            },
-          ),
-          _buildDropdownSection(
-            label: 'Audio Output',
-            icon: Icons.volume_up_rounded,
-            value: _selectedAudioOutput,
-            items: audioOutputItems,
-            onChanged: (val) {
-              if (val != null) setState(() => _selectedAudioOutput = val);
-            },
-          ),
-          _buildDropdownSection(
-            label: 'Stream Quality Preset',
-            icon: Icons.high_quality_rounded,
-            value: _streamQuality,
-            items: qualityItems,
-            onChanged: (val) {
-              if (val != null) setState(() => _streamQuality = val);
-            },
-          ),
-          const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            height: 44,
-            child: ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: context.accentColor,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              onPressed: () {
-                AppSnackBars.showInfo(
-                  context,
-                  'Hardware & stream settings updated',
-                );
-                setState(() {
-                  _showSettingsView = false;
-                });
+    return Align(
+      alignment: Alignment.topCenter,
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.start,
+          children: [
+            _buildDropdownSection(
+              label: 'Camera Input',
+              icon: Icons.videocam_rounded,
+              value: _selectedCamera,
+              items: cameraItems,
+              onChanged: (val) {
+                if (val != null) setState(() => _selectedCamera = val);
               },
-              child: Text(
-                'Apply Settings',
-                style: AppTypography.interTight(
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-              ),
             ),
-          ),
-          const SizedBox(height: 16),
-        ],
+            _buildDropdownSection(
+              label: 'Microphone Input',
+              icon: Icons.mic_rounded,
+              value: _selectedAudioInput,
+              items: audioInputItems,
+              onChanged: (val) {
+                if (val != null) setState(() => _selectedAudioInput = val);
+              },
+            ),
+            _buildDropdownSection(
+              label: 'Audio Output',
+              icon: Icons.volume_up_rounded,
+              value: _selectedAudioOutput,
+              items: audioOutputItems,
+              onChanged: (val) {
+                if (val != null) setState(() => _selectedAudioOutput = val);
+              },
+            ),
+            _buildDropdownSection(
+              label: 'Stream Quality Preset',
+              icon: Icons.high_quality_rounded,
+              value: _streamQuality,
+              items: qualityItems,
+              onChanged: (val) {
+                if (val != null) setState(() => _streamQuality = val);
+              },
+            ),
+            const SizedBox(height: 16),
+          ],
+        ),
       ),
     );
   }
@@ -475,19 +448,7 @@ class _PresenceDrawerState extends State<PresenceDrawer> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  if (_showSettingsView)
-                    IconButton(
-                      icon: const Icon(Icons.arrow_back_rounded,
-                          color: Colors.white70, size: 20),
-                      tooltip: 'Back to Members',
-                      onPressed: () {
-                        setState(() {
-                          _showSettingsView = false;
-                        });
-                      },
-                    )
-                  else
-                    const SizedBox(width: 40),
+                  const SizedBox(width: 40),
                   Text(
                     _showSettingsView
                         ? 'SETTINGS'

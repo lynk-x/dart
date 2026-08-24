@@ -42,7 +42,39 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
   bool _isCameraOn = true;
   bool _isFrontCamera = true;
   bool _showTelemetryOverlay = false;
+  bool _showLiveChatOverlay = true;
   int _sessionDurationSeconds = 0;
+
+  final List<Map<String, dynamic>> _unifiedStreamMessages = const [
+    {
+      'id': 'm1',
+      'type': 'chat',
+      'sender': 'Marcus',
+      'role': 'VIP',
+      'text': 'Great video clarity today! 🔥',
+    },
+    {
+      'id': 'm2',
+      'type': 'announcement',
+      'sender': 'Alex (Host)',
+      'role': 'Organizer',
+      'text': 'Welcome everyone! Taking Q&A right after the deck presentation.',
+    },
+    {
+      'id': 'm3',
+      'type': 'chat',
+      'sender': 'Sarah_K',
+      'role': 'Speaker',
+      'text': 'Excited for the live feature announcement!',
+    },
+    {
+      'id': 'm4',
+      'type': 'chat',
+      'sender': 'David_Dev',
+      'role': 'Spectator',
+      'text': 'Can we ask questions about offline sync capability?',
+    },
+  ];
 
   Timer? _spectatorTimer;
   Timer? _audioLevelTimer;
@@ -352,42 +384,44 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
 
   Widget _buildGridStageOverlay(BuildContext context) {
     final participants = _videoService.activeParticipantsNotifier.value;
+    final count = participants.length.clamp(1, 4);
+
     return Container(
       color: const Color(0xFF0C0E12),
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        children: [
-          const SizedBox(height: 48),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: context.accentColor.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: context.accentColor.withValues(alpha: 0.3)),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.grid_view_rounded, color: context.accentColor, size: 14),
-                const SizedBox(width: 6),
-                Text(
-                  'Grid View (2x2 Multi-Speaker)',
-                  style: AppTypography.interTight(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-          Expanded(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final availableWidth = constraints.maxWidth;
+          final availableHeight = constraints.maxHeight;
+
+          const double padding = 8.0;
+          const double spacing = 8.0;
+
+          int crossAxisCount = 2;
+          if (count == 1) {
+            crossAxisCount = 1;
+          }
+
+          final int rowCount = (count / crossAxisCount).ceil();
+          final double totalSpacingX = (crossAxisCount - 1) * spacing + (padding * 2);
+          final double totalSpacingY = (rowCount - 1) * spacing + (padding * 2);
+
+          final double tileWidth = (availableWidth - totalSpacingX) / crossAxisCount;
+          final double tileHeight = (availableHeight - totalSpacingY) / rowCount;
+          final double childAspectRatio = (tileWidth > 0 && tileHeight > 0)
+              ? tileWidth / tileHeight
+              : 1.0;
+
+          return Padding(
+            padding: const EdgeInsets.all(padding),
             child: GridView.builder(
               physics: const NeverScrollableScrollPhysics(),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                crossAxisSpacing: 10,
-                mainAxisSpacing: 10,
-                childAspectRatio: 1.0,
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: crossAxisCount,
+                crossAxisSpacing: spacing,
+                mainAxisSpacing: spacing,
+                childAspectRatio: childAspectRatio,
               ),
-              itemCount: participants.length.clamp(1, 4),
+              itemCount: count,
               itemBuilder: (context, index) {
                 final p = participants[index];
                 return Container(
@@ -403,32 +437,32 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
                     children: [
                       Center(
                         child: CircleAvatar(
-                          radius: 24,
+                          radius: 28,
                           backgroundColor: p.isSpeaking ? context.accentColor : const Color(0xFF2A2E38),
                           child: Text(
-                            p.name.substring(0, 1).toUpperCase(),
-                            style: AppTypography.interTight(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+                            p.name.isNotEmpty ? p.name.substring(0, 1).toUpperCase() : '?',
+                            style: AppTypography.interTight(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white),
                           ),
                         ),
                       ),
                       Positioned(
-                        left: 8,
-                        bottom: 8,
+                        left: 10,
+                        bottom: 10,
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                           decoration: BoxDecoration(
                             color: Colors.black.withValues(alpha: 0.75),
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text(
                             p.name,
-                            style: AppTypography.interTight(fontSize: 10, fontWeight: FontWeight.w600, color: Colors.white),
+                            style: AppTypography.interTight(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.white),
                           ),
                         ),
                       ),
                       Positioned(
-                        right: 8,
-                        bottom: 8,
+                        right: 10,
+                        bottom: 10,
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
                           decoration: BoxDecoration(
@@ -452,8 +486,8 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
                 );
               },
             ),
-          ),
-        ],
+          );
+        },
       ),
     );
   }
@@ -461,57 +495,46 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
   Widget _buildPresentationStageOverlay(BuildContext context) {
     return Container(
       color: const Color(0xFF0A0C10),
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        children: [
-          const SizedBox(height: 48),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
+      child: Padding(
+        padding: const EdgeInsets.all(8.0),
+        child: Container(
+          width: double.infinity,
+          height: double.infinity,
+          decoration: BoxDecoration(
+            color: const Color(0xFF131722),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.white12),
+          ),
+          child: Stack(
             children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: Colors.indigoAccent.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: Colors.indigoAccent.withValues(alpha: 0.4)),
-                ),
-                child: Row(
+              Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.space_dashboard_rounded, color: Colors.indigoAccent, size: 14),
-                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.indigoAccent.withValues(alpha: 0.15),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.present_to_all_rounded, size: 42, color: Colors.indigoAccent),
+                    ),
+                    const SizedBox(height: 12),
                     Text(
-                      'Presentation Mode',
-                      style: AppTypography.interTight(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
+                      'Shared Presentation Stage',
+                      style: AppTypography.interTight(fontSize: 15, fontWeight: FontWeight.w600, color: Colors.white),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Screen share or slides deck actively broadcasting',
+                      style: AppTypography.interTight(fontSize: 12, color: Colors.white38),
                     ),
                   ],
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          Expanded(
-            child: Container(
-              decoration: BoxDecoration(
-                color: const Color(0xFF131722),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.white10),
-              ),
-              child: Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.present_to_all_rounded, size: 48, color: Colors.indigoAccent),
-                    const SizedBox(height: 12),
-                    Text(
-                      'Shared Presentation Stage',
-                      style: AppTypography.interTight(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.white),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -655,14 +678,14 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
                               Icon(
                                 Icons.person_rounded,
                                 size: 14,
-                                color: layoutMode == StageLayoutMode.focus ? Colors.white : Colors.white60,
+                                color: layoutMode == StageLayoutMode.focus ? Colors.black : Colors.white60,
                               ),
                               const SizedBox(width: 4),
                               Text(
                                 'Focus',
                                 style: AppTypography.interTight(
                                   fontSize: 11,
-                                  color: layoutMode == StageLayoutMode.focus ? Colors.white : Colors.white60,
+                                  color: layoutMode == StageLayoutMode.focus ? Colors.black : Colors.white60,
                                   fontWeight: layoutMode == StageLayoutMode.focus ? FontWeight.bold : FontWeight.normal,
                                 ),
                               ),
@@ -685,14 +708,14 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
                               Icon(
                                 Icons.grid_view_rounded,
                                 size: 14,
-                                color: layoutMode == StageLayoutMode.grid ? Colors.white : Colors.white60,
+                                color: layoutMode == StageLayoutMode.grid ? Colors.black : Colors.white60,
                               ),
                               const SizedBox(width: 4),
                               Text(
                                 'Grid',
                                 style: AppTypography.interTight(
                                   fontSize: 11,
-                                  color: layoutMode == StageLayoutMode.grid ? Colors.white : Colors.white60,
+                                  color: layoutMode == StageLayoutMode.grid ? Colors.black : Colors.white60,
                                   fontWeight: layoutMode == StageLayoutMode.grid ? FontWeight.bold : FontWeight.normal,
                                 ),
                               ),
@@ -715,18 +738,45 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
                               Icon(
                                 Icons.present_to_all_rounded,
                                 size: 14,
-                                color: layoutMode == StageLayoutMode.presentation ? Colors.white : Colors.white60,
+                                color: layoutMode == StageLayoutMode.presentation ? Colors.black : Colors.white60,
                               ),
                               const SizedBox(width: 4),
                               Text(
                                 'Deck',
                                 style: AppTypography.interTight(
                                   fontSize: 11,
-                                  color: layoutMode == StageLayoutMode.presentation ? Colors.white : Colors.white60,
+                                  color: layoutMode == StageLayoutMode.presentation ? Colors.black : Colors.white60,
                                   fontWeight: layoutMode == StageLayoutMode.presentation ? FontWeight.bold : FontWeight.normal,
                                 ),
                               ),
                             ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 2),
+                      InkWell(
+                        onTap: () {
+                          setState(() {
+                            _showLiveChatOverlay = !_showLiveChatOverlay;
+                          });
+                        },
+                        borderRadius: BorderRadius.circular(16),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: _showLiveChatOverlay
+                                ? context.accentColor.withValues(alpha: 0.2)
+                                : Colors.transparent,
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Icon(
+                            _showLiveChatOverlay
+                                ? Icons.chat_bubble_rounded
+                                : Icons.chat_bubble_outline_rounded,
+                            size: 14,
+                            color: _showLiveChatOverlay
+                                ? context.accentColor
+                                : Colors.white60,
                           ),
                         ),
                       ),
@@ -736,6 +786,128 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
               },
             ),
           ),
+
+          // UNIFIED LIVE CHAT STREAM SLIVERLIST OVERLAY
+          if (_showLiveChatOverlay)
+            Positioned(
+              bottom: 60,
+              left: 16,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: (MediaQuery.of(context).size.width * 0.7).clamp(200, 320),
+                  maxHeight: 160,
+                ),
+                child: ShaderMask(
+                  shaderCallback: (Rect bounds) {
+                    return const LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [Colors.transparent, Colors.black, Colors.black],
+                      stops: [0.0, 0.2, 1.0],
+                    ).createShader(bounds);
+                  },
+                  blendMode: BlendMode.dstIn,
+                  child: CustomScrollView(
+                    reverse: true,
+                    shrinkWrap: true,
+                    physics: const BouncingScrollPhysics(),
+                    slivers: [
+                      SliverList(
+                        delegate: SliverChildBuilderDelegate(
+                          (context, index) {
+                            final msg = _unifiedStreamMessages[index];
+                            final isAnnouncement = msg['type'] == 'announcement';
+                            final sender = (msg['sender'] ?? 'User').toString();
+                            final text = (msg['text'] ?? '').toString();
+                            final role = (msg['role'] ?? 'Spectator').toString();
+
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 6.0),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: isAnnouncement
+                                      ? context.accentColor.withValues(alpha: 0.25)
+                                      : Colors.black.withValues(alpha: 0.65),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: isAnnouncement
+                                        ? context.accentColor.withValues(alpha: 0.6)
+                                        : Colors.white12,
+                                    width: isAnnouncement ? 1.5 : 1.0,
+                                  ),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        if (isAnnouncement) ...[
+                                          Icon(Icons.campaign_rounded, size: 12, color: context.accentColor),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            'ANNOUNCEMENT',
+                                            style: AppTypography.interTight(
+                                              fontSize: 9,
+                                              fontWeight: FontWeight.w800,
+                                              color: context.accentColor,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 6),
+                                        ],
+                                        Text(
+                                          sender,
+                                          style: AppTypography.interTight(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.white,
+                                          ),
+                                        ),
+                                        if (role.isNotEmpty) ...[
+                                          const SizedBox(width: 4),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                                            decoration: BoxDecoration(
+                                              color: isAnnouncement
+                                                  ? context.accentColor
+                                                  : Colors.white24,
+                                              borderRadius: BorderRadius.circular(4),
+                                            ),
+                                            child: Text(
+                                              role.toUpperCase(),
+                                              style: AppTypography.inter(
+                                                fontSize: 8,
+                                                fontWeight: FontWeight.bold,
+                                                color: isAnnouncement ? Colors.black : Colors.white,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ],
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      text,
+                                      style: AppTypography.interTight(
+                                        fontSize: 11,
+                                        color: Colors.white.withValues(alpha: 0.95),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                          childCount: _unifiedStreamMessages.length,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
 
           // STREAM TELEMETRY OVERLAY
           if (_showTelemetryOverlay)

@@ -29,10 +29,6 @@ class SpeakerTag extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.black.withValues(alpha: 0.65),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: context.accentColor.withValues(alpha: 0.6),
-          width: 1.5,
-        ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
