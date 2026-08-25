@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:lynk_core/core.dart';
-import '../services/forum_video_stream_service.dart';
+import '../services/stream_service.dart';
 
 class SpeakerTag extends StatelessWidget {
   final StreamParticipant activeParticipant;

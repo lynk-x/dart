@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:lynk_core/core.dart';
-import 'package:lynk_x/presentation/features/forum/services/forum_video_stream_service.dart';
+import 'package:lynk_x/presentation/features/forum/services/stream_service.dart';
 
 /// Floating In-App Picture-in-Picture (PiP) card displayed on the Forum page
 /// when a live video stream is minimized.

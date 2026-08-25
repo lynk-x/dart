@@ -22,9 +22,9 @@ import 'package:lynk_x/presentation/features/forum/cubit/forum_media_state.dart'
 import 'package:lynk_x/presentation/features/forum/models/forum_model.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/ad_carousel.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/forum_header.dart';
-import 'package:lynk_x/presentation/features/forum/widgets/forum_video_stage.dart';
+import 'package:lynk_x/presentation/features/forum/widgets/stream_stage.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/pip_overlay.dart';
-import 'package:lynk_x/presentation/features/forum/services/forum_video_stream_service.dart';
+import 'package:lynk_x/presentation/features/forum/services/stream_service.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/presence_drawer.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/media_viewer.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/tabs/updates_tab.dart';
@@ -531,6 +531,12 @@ class _ForumViewState extends State<ForumView> {
                                                         onReady: () {
                                                           ForumVideoStreamService().setLive(true);
                                                           ForumVideoStreamService().setMinimized(false);
+                                                          final name = forumState.userName.isNotEmpty ? forumState.userName : 'Host';
+                                                          context.read<ForumChatCubit>().sendMessage(
+                                                            '🎥 $name started the live stream',
+                                                            isOrganizer: forumState.isOrganizer,
+                                                            isPremium: forumState.isPremium,
+                                                          );
                                                         },
                                                       );
                                                     },
@@ -543,7 +549,15 @@ class _ForumViewState extends State<ForumView> {
                                                             'To start a live audio stream and speak with attendees, Lynk-X needs access to your microphone.',
                                                         icon: Icons.mic_rounded,
                                                         actionLabel: 'Allow Microphone',
-                                                        onReady: () => audioCubit.startAudioStream(),
+                                                        onReady: () {
+                                                          audioCubit.startAudioStream();
+                                                          final name = forumState.userName.isNotEmpty ? forumState.userName : 'Host';
+                                                          context.read<ForumChatCubit>().sendMessage(
+                                                            '🎙️ $name started the live call',
+                                                            isOrganizer: forumState.isOrganizer,
+                                                            isPremium: forumState.isPremium,
+                                                          );
+                                                        },
                                                       );
                                                     },
                                                 isOrganizer: forumState.isOrganizer,

@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../cubit/forum_chat_cubit.dart';
+import '../../cubit/forum_cubit.dart';
 import 'poll_quiz_card_shell.dart';
 
 enum JoinCardType { liveCall, liveStream, quiz }
@@ -83,6 +86,37 @@ class JoinCard extends StatelessWidget {
     }
   }
 
+  void _broadcastJoinPresence(BuildContext context) {
+    try {
+      final chatCubit = context.read<ForumChatCubit>();
+      final forumCubit = context.read<ForumCubit>();
+      final userName = forumCubit.state.userName.isNotEmpty
+          ? forumCubit.state.userName
+          : 'A member';
+      final isOrganizer = forumCubit.state.isOrganizer;
+      final isPremium = forumCubit.state.isPremium;
+
+      String joinMessage = '';
+      if (type == JoinCardType.liveStream) {
+        joinMessage = '👋 $userName joined the live stream';
+      } else if (type == JoinCardType.liveCall) {
+        joinMessage = '🎙️ $userName joined the live call';
+      } else if (type == JoinCardType.quiz) {
+        joinMessage = '🎯 $userName joined the quiz session';
+      }
+
+      if (joinMessage.isNotEmpty) {
+        chatCubit.sendMessage(
+          joinMessage,
+          isOrganizer: isOrganizer,
+          isPremium: isPremium,
+        );
+      }
+    } catch (e) {
+      debugPrint('[JoinCard] Error broadcasting join presence: $e');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final onCardColor = PollQuizCardShell.onCardColor(isMe);
@@ -138,7 +172,12 @@ class JoinCard extends StatelessWidget {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
-              onPressed: isEnded || state == JoinCardState.connecting ? null : onAction,
+              onPressed: isEnded || state == JoinCardState.connecting
+                  ? null
+                  : () {
+                      _broadcastJoinPresence(context);
+                      onAction?.call();
+                    },
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.white,
                 foregroundColor: Colors.black,

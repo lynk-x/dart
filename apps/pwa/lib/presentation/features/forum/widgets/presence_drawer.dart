@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:lynk_core/core.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:lynk_x/l10n/app_localizations.dart';
-import '../services/forum_video_stream_service.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import '../cubit/forum_audio_stream_cubit.dart';
+import '../services/stream_service.dart';
 import 'forum_skeletons.dart';
 import 'user_presence.dart';
 
@@ -375,19 +377,32 @@ class _PresenceDrawerState extends State<PresenceDrawer> {
                           final String userId = user['id'].toString();
                           if (userId.isEmpty) return const SizedBox.shrink();
 
+                          final currentUserId =
+                              Supabase.instance.client.auth.currentUser?.id;
+                          final bool isSelf = userId == currentUserId;
+
                           final match = participants.firstWhere(
                             (p) =>
                                 p.id == userId ||
-                                (p.isHost &&
-                                    p.id == 'host' &&
-                                    userId ==
-                                        Supabase.instance.client.auth.currentUser
-                                            ?.id),
+                                (p.isHost && user['is_organizer'] == true) ||
+                                (p.isHost && isSelf),
                             orElse: () => const StreamParticipant(
                                 id: '', name: '', role: ''),
                           );
 
-                          final bool isStreamActive = match.id.isNotEmpty;
+                          final bool isStreamActive =
+                              match.id.isNotEmpty || isVideoLive || widget.isAudioLive;
+
+                          ForumAudioStreamCubit? audioCubit;
+                          if (widget.isAudioLive && isSelf) {
+                            try {
+                              audioCubit = context.watch<ForumAudioStreamCubit>();
+                            } catch (_) {}
+                          }
+
+                          final bool? isMicMuted = widget.isAudioLive && isSelf
+                              ? (audioCubit?.state.isMicMuted ?? (isStreamActive ? match.isMicMuted : null))
+                              : (isStreamActive ? match.isMicMuted : null);
 
                           return UserPresenceCard(
                             key: ValueKey('presence_$userId'),
@@ -400,15 +415,20 @@ class _PresenceDrawerState extends State<PresenceDrawer> {
                             isPremium: user['is_premium'] == true,
                             showMicControl: isVideoLive || widget.isAudioLive,
                             showCameraControl: isVideoLive,
-                            isPrimary: userId ==
-                                Supabase
-                                    .instance.client.auth.currentUser?.id,
-                            isMicMuted: isStreamActive ? match.isMicMuted : null,
+                            isPrimary: isSelf,
+                            isMicMuted: isMicMuted,
                             isCameraOn: isStreamActive ? match.isCameraOn : null,
-                            onToggleMic: (id) => ForumVideoStreamService()
-                                .toggleParticipantMic(id),
-                            onToggleCamera: (id) => ForumVideoStreamService()
-                                .toggleParticipantCamera(id),
+                            onToggleMic: (id) {
+                              if (widget.isAudioLive && id == currentUserId) {
+                                try {
+                                  context.read<ForumAudioStreamCubit>().toggleMic();
+                                } catch (_) {}
+                              }
+                              ForumVideoStreamService().toggleParticipantMic(id);
+                            },
+                            onToggleCamera: (id) {
+                              ForumVideoStreamService().toggleParticipantCamera(id);
+                            },
                           );
                         } catch (e) {
                           debugPrint(

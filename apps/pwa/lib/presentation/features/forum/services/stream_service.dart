@@ -274,7 +274,11 @@ class ForumVideoStreamService {
       (p) => p.id == participantId || (participantId == 'host' && p.isHost),
     );
     if (index != -1) {
-      list[index] = list[index].copyWith(isMicMuted: !list[index].isMicMuted);
+      final nextMicMuted = !list[index].isMicMuted;
+      list[index] = list[index].copyWith(isMicMuted: nextMicMuted);
+      if (list[index].isHost || list[index].id == participantId) {
+        toggleMic(!nextMicMuted);
+      }
     } else {
       list.add(StreamParticipant(
         id: participantId,
@@ -283,6 +287,7 @@ class ForumVideoStreamService {
         isMicMuted: false,
         isCameraOn: false,
       ));
+      toggleMic(true);
     }
     activeParticipantsNotifier.value = list;
   }
@@ -293,7 +298,11 @@ class ForumVideoStreamService {
       (p) => p.id == participantId || (participantId == 'host' && p.isHost),
     );
     if (index != -1) {
-      list[index] = list[index].copyWith(isCameraOn: !list[index].isCameraOn);
+      final nextCamOn = !list[index].isCameraOn;
+      list[index] = list[index].copyWith(isCameraOn: nextCamOn);
+      if (list[index].isHost || list[index].id == participantId) {
+        toggleCamera(nextCamOn);
+      }
     } else {
       list.add(StreamParticipant(
         id: participantId,
@@ -302,6 +311,7 @@ class ForumVideoStreamService {
         isMicMuted: true,
         isCameraOn: true,
       ));
+      toggleCamera(true);
     }
     activeParticipantsNotifier.value = list;
   }

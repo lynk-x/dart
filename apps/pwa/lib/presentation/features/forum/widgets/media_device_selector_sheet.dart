@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:lynk_core/core.dart';
-import '../services/forum_video_stream_service.dart';
+import '../services/stream_service.dart';
 
 /// Opens a modal bottom sheet allowing users to select hardware audio/video devices and stream resolution.
 void showMediaDeviceSelectorSheet(BuildContext context) {
