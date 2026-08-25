@@ -72,23 +72,25 @@ class _SoundwaveWidgetState extends State<SoundwaveWidget> {
     final active = widget.isSpeaking && _smoothedLevel > 0.03;
     final lvl = active ? _smoothedLevel.clamp(0.0, 1.0) : 0.0;
 
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        _Bar(
-          height: active ? (5.0 + (lvl * 9.0)).clamp(4.0, 14.0) : 4.0,
-          color: active ? widget.barColor : Colors.white24,
-        ),
-        _Bar(
-          height: active ? (7.0 + (lvl * 12.0)).clamp(4.0, 18.0) : 4.0,
-          color: active ? widget.barColor : Colors.white24,
-        ),
-        _Bar(
-          height: active ? (4.5 + (lvl * 8.0)).clamp(4.0, 13.0) : 4.0,
-          color: active ? widget.barColor : Colors.white24,
-        ),
-      ],
+    return RepaintBoundary(
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          _Bar(
+            height: active ? (5.0 + (lvl * 9.0)).clamp(4.0, 14.0) : 4.0,
+            color: active ? widget.barColor : Colors.white24,
+          ),
+          _Bar(
+            height: active ? (7.0 + (lvl * 12.0)).clamp(4.0, 18.0) : 4.0,
+            color: active ? widget.barColor : Colors.white24,
+          ),
+          _Bar(
+            height: active ? (4.5 + (lvl * 8.0)).clamp(4.0, 13.0) : 4.0,
+            color: active ? widget.barColor : Colors.white24,
+          ),
+        ],
+      ),
     );
   }
 }

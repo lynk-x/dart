@@ -25,13 +25,6 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
   /// Initializes Supabase Realtime channel subscription & initial state fetch
   Future<void> initRealtimeSubscription() async {
     await _subscribeAndSyncState();
-
-    // Network Drop Recovery Guard (1D): Periodically re-sync state on connectivity changes
-    _reconnectTimer?.cancel();
-    _reconnectTimer = Timer.periodic(const Duration(seconds: 15), (_) {
-      if (isClosed) return;
-      _subscribeAndSyncState();
-    });
   }
 
   Future<void> _subscribeAndSyncState() async {
