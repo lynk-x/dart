@@ -39,11 +39,11 @@ import 'package:lynk_x/presentation/shared/utils/permission_acks.dart';
 
 import 'package:lynk_x/presentation/features/forum/cubit/forum_audio_stream_cubit.dart';
 import 'package:lynk_x/presentation/features/forum/cubit/forum_audio_stream_state.dart';
-import 'package:lynk_x/presentation/features/forum/services/forum_audio_stream_service.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/welcome_banner.dart';
 import 'package:lynk_x/data/repositories/repository_providers.dart';
 import 'package:lynk_x/presentation/shared/utils/app_snackbars.dart';
+import 'package:lynk_x/presentation/features/forum/widgets/forum_bloc_providers.dart';
+import 'package:lynk_x/presentation/features/forum/core/forum_config.dart';
 
 class ForumPage extends StatelessWidget {
   /// The forum to display. Provided as a path parameter via `/forum/:reference`.
@@ -74,95 +74,10 @@ class ForumPage extends StatelessWidget {
           }
           final mainCubit = context.read<ForumCubit>();
           return SkeletonFadeSingleMount(
-            child: MultiBlocProvider(
-              key: const ValueKey('content'),
-              providers: [
-              BlocProvider(
-                create: (context) {
-                  final ads = ForumAdsCubit(
-                    forumId: fId,
-                    userId: mainCubit.userId,
-                    isPremium: !state.showAds,
-                    eventId: state.eventId,
-                    eventCreatedAt: state.eventCreatedAt,
-                  );
-                  if (context
-                      .read<FeatureFlagCubit>()
-                      .isEnabled('enable_forum_ads')) {
-                    ads.init();
-                  }
-                  return ads;
-                },
-              ),
-              BlocProvider(
-                create: (context) {
-                  final cubit = ForumPresenceCubit(
-                    forumId: fId,
-                    userId: mainCubit.userId,
-                    userName: mainCubit.userName,
-                    isOrganizer: state.isOrganizer,
-                    isPremium: state.isPremium,
-                  );
-                  final flagEnabled = context
-                      .read<FeatureFlagCubit>()
-                      .isEnabled('enable_realtime_presence');
-                  if (flagEnabled) {
-                    cubit.init();
-                  }
-                  return cubit;
-                },
-              ),
-              BlocProvider(
-                create: (context) {
-                  final cubit = ForumUpdatesCubit(
-                    forumId: fId,
-                    userId: mainCubit.userId,
-                    userName: mainCubit.userName,
-                    repo: forumRepository,
-                  )..init();
-                  cubit.syncForumContext(
-                    forumCreatedAt: state.forumCreatedAt,
-                    channelId: state.channelId,
-                    channelCreatedAt: state.channelCreatedAt,
-                  );
-                  return cubit;
-                },
-              ),
-              BlocProvider(
-                create: (context) {
-                  final cubit = ForumChatCubit(
-                    forumId: fId,
-                    userId: mainCubit.userId,
-                    userName: mainCubit.userName,
-                    repo: forumRepository,
-                  )..init();
-                  cubit.syncForumContext(
-                    forumCreatedAt: state.forumCreatedAt,
-                    channelId: state.channelId,
-                    channelCreatedAt: state.channelCreatedAt,
-                  );
-                  return cubit;
-                },
-              ),
-              BlocProvider(
-                create: (context) => ForumMediaCubit(
-                  forumId: fId,
-                  userId: mainCubit.userId,
-                  isOrganizer: state.isOrganizer,
-                  isModerator: state.isModerator,
-                  repo: forumRepository,
-                )..init(),
-              ),
-              BlocProvider(
-                create: (context) => ForumAudioStreamCubit(
-                  service: ForumAudioStreamService(supabase: Supabase.instance.client),
-                  forumId: fId,
-                  userId: mainCubit.userId,
-                  userName: mainCubit.userName,
-                  isOrganizer: state.isOrganizer,
-                )..initRealtimeSubscription(),
-              ),
-              ],
+            child: ForumBlocProviders(
+              forumId: fId,
+              mainCubit: mainCubit,
+              state: state,
               child: const ForumView(),
             ),
           );
@@ -201,6 +116,9 @@ class _ForumViewState extends State<ForumView> {
     for (final item in itemsToPrecache) {
       final url = item.thumbnailUrl ?? item.url;
       if (url.isNotEmpty && !_precachedUrls.contains(url)) {
+        if (_precachedUrls.length >= ForumConfig.maxPrecachedMediaUrls) {
+          _precachedUrls.remove(_precachedUrls.first);
+        }
         _precachedUrls.add(url);
         precacheImage(CachedNetworkImageProvider(url), context);
       }
@@ -229,6 +147,7 @@ class _ForumViewState extends State<ForumView> {
 
   @override
   void dispose() {
+    _precachedUrls.clear();
     _updatesScrollController.dispose();
     _chatScrollController.dispose();
     _pageController.dispose();
@@ -503,7 +422,7 @@ class _ForumViewState extends State<ForumView> {
                                                         videoService.isMicMuted = nextMicMuted;
                                                         videoService.toggleMic(!nextMicMuted);
                                                         videoService.updateParticipantMediaState('host', isMicMuted: nextMicMuted);
-                                                        (context as Element).markNeedsBuild();
+                                                        if (mounted) setState(() {});
                                                       } else {
                                                         if (audioState.isMicMuted) {
                                                           PermissionAcks.ensureAcknowledged(
@@ -527,7 +446,7 @@ class _ForumViewState extends State<ForumView> {
                                                         videoService.isCameraOn = nextCamOn;
                                                         videoService.toggleCamera(nextCamOn);
                                                         videoService.updateParticipantMediaState('host', isCameraOn: nextCamOn);
-                                                        (context as Element).markNeedsBuild();
+                                                        if (mounted) setState(() {});
                                                       }
                                                     },
                                                     onToggleBroadcastMute: () => audioCubit.toggleBroadcastMute(),

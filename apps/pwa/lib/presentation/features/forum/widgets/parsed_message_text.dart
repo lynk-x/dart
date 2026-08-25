@@ -1,5 +1,6 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:lynk_x/presentation/features/forum/core/forum_config.dart';
 
 /// A widget that parses and renders message text, styling and making clickable:
 /// 1. User mentions (@username)
@@ -39,6 +40,27 @@ class _ParsedMessageTextState extends State<ParsedMessageText> {
 
   @override
   Widget build(BuildContext context) {
+    // DoS Safeguard: Fallback to plain text rendering for oversized payloads (>5,000 chars)
+    if (widget.text.length > ForumConfig.maxRegexScanLength) {
+      if (widget.isEdited) {
+        return Text.rich(TextSpan(
+          children: [
+            TextSpan(text: widget.text, style: widget.style),
+            TextSpan(
+              text: ' [edited]',
+              style: widget.style.copyWith(
+                color: widget.style.color?.withValues(alpha: 0.4) ?? Colors.white38,
+                fontSize: (widget.style.fontSize ?? 14) - 2,
+                fontStyle: FontStyle.italic,
+                fontWeight: FontWeight.normal,
+              ),
+            ),
+          ],
+        ));
+      }
+      return Text(widget.text, style: widget.style);
+    }
+
     // Regex matching either URLs or mentions
     final combinedRegex = RegExp(
       r'((?:https?|ftp)://[^\s/$.?#].[^\s]*|[\w/\-?=%.]+\.[\w/\-?=%.]+|@\w+)',

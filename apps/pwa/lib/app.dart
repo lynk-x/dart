@@ -64,7 +64,7 @@ class LynkXApp extends StatefulWidget {
   State<LynkXApp> createState() => _LynkXAppState();
 }
 
-class _LynkXAppState extends State<LynkXApp> {
+class _LynkXAppState extends State<LynkXApp> with WidgetsBindingObserver {
   late GoRouter _router;
   StreamSubscription<AuthState>? _authSubscription;
   StreamSubscription<FeatureFlagState>? _featureFlagSubscription;
@@ -74,6 +74,12 @@ class _LynkXAppState extends State<LynkXApp> {
   @override
   void initState() {
     super.initState();
+    // Mobile PWA Memory Optimization: Bound Flutter Web image cache to 30MB / 50 images
+    // to prevent mobile browser tab low-memory process kills during media-heavy sessions.
+    PaintingBinding.instance.imageCache.maximumSizeBytes = 30 * 1024 * 1024;
+    PaintingBinding.instance.imageCache.maximumSize = 50;
+
+    WidgetsBinding.instance.addObserver(this);
     _checkSupabaseInitialization();
   }
 
@@ -206,7 +212,25 @@ class _LynkXAppState extends State<LynkXApp> {
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && _isSupabaseInitialized) {
+      // Re-verify Supabase session freshness on app foregrounding
+      try {
+        final session = Supabase.instance.client.auth.currentSession;
+        if (session == null || session.isExpired) {
+          Supabase.instance.client.auth.refreshSession();
+        }
+      } catch (e) {
+        debugPrint('[LynkXApp] Session refresh check on resume failed: $e');
+      }
+      // Force repaint to recover lost WebGL / CanvasKit surface after resume
+      if (mounted) setState(() {});
+    }
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _authSubscription?.cancel();
     _featureFlagSubscription?.cancel();
     super.dispose();

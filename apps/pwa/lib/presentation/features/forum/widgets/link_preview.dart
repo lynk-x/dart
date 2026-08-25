@@ -74,7 +74,7 @@ class _ChatLinkPreviewState extends State<ChatLinkPreview> {
 
   Future<void> _launchUrl() async {
     final uri = Uri.tryParse(widget.url);
-    if (uri != null) {
+    if (uri != null && (uri.scheme == 'http' || uri.scheme == 'https')) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
     }
   }
@@ -87,7 +87,7 @@ class _ChatLinkPreviewState extends State<ChatLinkPreview> {
       onMentionTap: widget.onMentionTap,
       onUrlTap: (url) async {
         final uri = Uri.tryParse(url);
-        if (uri != null) {
+        if (uri != null && (uri.scheme == 'http' || uri.scheme == 'https')) {
           await launchUrl(uri, mode: LaunchMode.externalApplication);
         }
       },

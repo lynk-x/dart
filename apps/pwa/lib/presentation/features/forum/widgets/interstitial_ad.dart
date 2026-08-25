@@ -53,9 +53,11 @@ class _InterstitialAdState extends State<InterstitialAd> {
     }
 
     if (widget.ad.targetUrl != null) {
-      final uri = Uri.parse(widget.ad.targetUrl!);
-      if (await canLaunchUrl(uri)) {
-        await launchUrl(uri);
+      final uri = Uri.tryParse(widget.ad.targetUrl!);
+      if (uri != null && (uri.scheme == 'http' || uri.scheme == 'https')) {
+        if (await canLaunchUrl(uri)) {
+          await launchUrl(uri);
+        }
       }
     }
   }

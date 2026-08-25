@@ -46,7 +46,9 @@ class ForumAudioStreamService {
     if (!kIsWeb) return;
     try {
       _jsSetBroadcastMuted(muted.toJS);
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[AudioStreamService] setBroadcastMuted error: $e');
+    }
   }
 
   /// Captures local browser microphone media stream via navigator.mediaDevices.getUserMedia
@@ -66,7 +68,9 @@ class ForumAudioStreamService {
     if (!kIsWeb) return;
     try {
       _jsStopLocalMicrophone();
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[AudioStreamService] stopLocalMicrophone error: $e');
+    }
   }
 
   /// Retrieves current real-time vocal intensity (0.0 to 1.0) from AnalyserNode
@@ -74,7 +78,7 @@ class ForumAudioStreamService {
     if (!kIsWeb) return 0.0;
     try {
       return _jsGetAudioLevel().toDartDouble;
-    } catch (_) {
+    } catch (e) {
       return 0.0;
     }
   }
@@ -92,7 +96,9 @@ class ForumAudioStreamService {
         artist.toJS,
         (artworkUrl ?? 'icons/Icon-maskable-512.png').toJS,
       );
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[AudioStreamService] configureMediaSession error: $e');
+    }
   }
 
   /// Requests Screen WakeLock to prevent device dimming when host/speaker is active
@@ -100,7 +106,9 @@ class ForumAudioStreamService {
     if (!kIsWeb) return;
     try {
       _jsRequestWakeLock();
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[AudioStreamService] requestWakeLock error: $e');
+    }
   }
 
   /// Releases Screen WakeLock
@@ -108,7 +116,9 @@ class ForumAudioStreamService {
     if (!kIsWeb) return;
     try {
       _jsReleaseWakeLock();
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[AudioStreamService] releaseWakeLock error: $e');
+    }
   }
 
   /// Clears OS Media Session metadata and stops background audio DOM node
@@ -116,7 +126,9 @@ class ForumAudioStreamService {
     if (!kIsWeb) return;
     try {
       _jsClearMediaSession();
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[AudioStreamService] clearMediaSession error: $e');
+    }
   }
 
   final Map<String, Map<String, dynamic>> _localConfigCache = {};
@@ -135,7 +147,9 @@ class ForumAudioStreamService {
         _localConfigCache[forumId] = config;
         return config;
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[AudioStreamService] fetchInitialStreamingConfig error: $e');
+    }
     return _localConfigCache[forumId];
   }
 
@@ -207,7 +221,7 @@ class ForumAudioStreamService {
         return data['sessionId'] as String?;
       }
     } catch (e) {
-      // Fallback mock session ID on error
+      debugPrint('[AudioStreamService] createCloudflareSession error: $e');
     }
     return 'mock_cf_session_${DateTime.now().millisecondsSinceEpoch}';
   }
@@ -231,7 +245,7 @@ class ForumAudioStreamService {
         'streaming_config': _localConfigCache[forumId]
       }).eq('id', forumId);
     } catch (e) {
-      // Fallback silently if RLS or column schema permits
+      debugPrint('[AudioStreamService] updateForumStreamingConfig error: $e');
     }
   }
 }

@@ -337,11 +337,11 @@ abstract class BaseMessageCubit<T extends BaseMessageState> extends HydratedCubi
   /// `created_at` with composite PK (id, created_at), so the message's
   /// `createdAt` must be in the WHERE clause or the UPDATE matches no rows.
   Future<void> deleteMessage(ChatMessage message) async {
+    if (userId == kGuestUserId) return;
     final originalMessages = List<ChatMessage>.from(state.messages);
     if (!isClosed) emit(copyWithState(messages: state.messages.where((m) => m.id != message.id).toList()));
 
     try {
-      if (userId == kGuestUserId) return;
       await Supabase.instance.client
           .schema('social').from('forum_messages')
           .update({'deleted_at': DateTime.now().toIso8601String()})
@@ -370,11 +370,11 @@ abstract class BaseMessageCubit<T extends BaseMessageState> extends HydratedCubi
   }
 
   Future<void> editMessage(ChatMessage message, String newContent) async {
+    if (userId == kGuestUserId) return;
     final originalMessages = List<ChatMessage>.from(state.messages);
     updateMessageInPlace(message.id, content: newContent);
 
     try {
-      if (userId == kGuestUserId) return;
       await Supabase.instance.client
           .schema('social').from('forum_messages')
           .update({'content': newContent})

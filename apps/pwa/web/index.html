@@ -218,6 +218,18 @@
     // 3. Fallback: If everything else fails (e.g. script error), clear it
     setTimeout(removeLoader, 8000);
 
+    // ── Mobile PWA Resume & WebGL Context Restoration Safeguard ─────────────
+    // Minimizing/backgrounding the mobile PWA can purge GPU textures or lose WebGL context.
+    // On resume, dispatch a synthetic resize event so Flutter Web repaints the canvas.
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        window.dispatchEvent(new Event('resize'));
+      }
+    });
+    window.addEventListener('webglcontextrestored', () => {
+      window.dispatchEvent(new Event('resize'));
+    });
+
     // ── Service Worker Registration ──────────────────────────────────────────
     // Registers the Workbox-generated service-worker.js for offline caching
     // and the firebase-messaging-sw.js for background push notifications.

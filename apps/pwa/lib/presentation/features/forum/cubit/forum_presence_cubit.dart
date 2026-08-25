@@ -113,7 +113,13 @@ class ForumPresenceCubit extends Cubit<ForumPresenceState> {
       users.add(me);
     }
 
-    if (users.length == state.onlineUsers.length) return;
+    final currentIds = uniqueUserIds;
+    final prevIds = state.onlineUsers
+        .map((u) => u['user_id'] as String? ?? u['id'] as String?)
+        .whereType<String>()
+        .toSet();
+
+    if (setEquals(currentIds, prevIds)) return;
 
     if (!isClosed) emit(state.copyWith(onlineUsers: users));
   }

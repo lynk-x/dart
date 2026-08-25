@@ -197,7 +197,8 @@ window.flutterCameraStream = {
           resolve(null);
           return;
         }
-        resolve(URL.createObjectURL(blob));
+        const url = URL.createObjectURL(blob);
+        resolve(this._registerObjectUrlAutoRevoke(url));
       }, "image/jpeg", 0.9);
     });
   },
@@ -353,7 +354,8 @@ window.flutterCameraStream = {
         }
         const blob = new Blob(this.recordedChunks, { type: mimeType });
         this.recordedChunks = [];
-        resolve(URL.createObjectURL(blob));
+        const url = URL.createObjectURL(blob);
+        resolve(this._registerObjectUrlAutoRevoke(url));
       };
 
       try {
@@ -366,7 +368,23 @@ window.flutterCameraStream = {
     });
   },
 
+  _autoRevokeTimers: {},
+
+  _registerObjectUrlAutoRevoke(url) {
+    if (!url) return url;
+    // Set 60-second fallback auto-revocation to prevent blob memory leaks
+    this._autoRevokeTimers[url] = setTimeout(() => {
+      this.revokeObjectUrl(url);
+    }, 60000);
+    return url;
+  },
+
   revokeObjectUrl(url) {
+    if (!url) return;
+    if (this._autoRevokeTimers[url]) {
+      clearTimeout(this._autoRevokeTimers[url]);
+      delete this._autoRevokeTimers[url];
+    }
     try {
       URL.revokeObjectURL(url);
     } catch (e) {
