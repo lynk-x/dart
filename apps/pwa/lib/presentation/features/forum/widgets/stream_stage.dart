@@ -54,36 +54,7 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
   final bool _showLiveChatOverlay = true;
   int _sessionDurationSeconds = 0;
 
-  final List<Map<String, dynamic>> _unifiedStreamMessages = [
-    {
-      'id': 'm4',
-      'type': 'chat',
-      'sender': 'David_Dev',
-      'role': 'Spectator',
-      'text': 'Can we ask questions about offline sync capability?',
-    },
-    {
-      'id': 'm3',
-      'type': 'chat',
-      'sender': 'Sarah_K',
-      'role': 'Speaker',
-      'text': 'Excited for the live feature announcement!',
-    },
-    {
-      'id': 'm2',
-      'type': 'announcement',
-      'sender': 'Alex (Host)',
-      'role': 'Organizer',
-      'text': 'Welcome everyone! Taking Q&A right after the deck presentation.',
-    },
-    {
-      'id': 'm1',
-      'type': 'chat',
-      'sender': 'Marcus',
-      'role': 'VIP',
-      'text': 'Great video clarity today! 🔥',
-    },
-  ];
+  final List<Map<String, dynamic>> _unifiedStreamMessages = [];
 
   Timer? _spectatorTimer;
   Timer? _audioLevelTimer;
@@ -211,11 +182,9 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
       } catch (_) {}
 
       final online = presenceCubit?.state.onlineUsers ?? [];
-      if (online.isEmpty) {
-        setState(() {
-          _videoService.spectatorCount += (1 - (DateTime.now().second % 3));
-        });
-      }
+      setState(() {
+        _videoService.spectatorCount = online.length;
+      });
     });
   }
 
@@ -551,57 +520,18 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
             onSendMessage: (text, replyTo) {
               if (text.trim().isEmpty) return;
 
-              if (widget.isHost) {
-                // ORGANIZER MESSAGES -> EXCLUSIVELY POST TO UPDATES / ANNOUNCEMENTS
-                ForumUpdatesCubit? updatesCubit;
-                try {
-                  updatesCubit = context.read<ForumUpdatesCubit>();
-                } catch (_) {}
-
-                if (updatesCubit != null) {
-                  updatesCubit.sendMessage(
-                    text,
-                    isOrganizer: true,
-                    isPremium: true,
-                  );
-                } else {
-                  setState(() {
-                    _unifiedStreamMessages.insert(0, {
-                      'id': DateTime.now().millisecondsSinceEpoch.toString(),
-                      'type': 'announcement',
-                      'sender': widget.hostName.isNotEmpty ? widget.hostName : 'Host',
-                      'role': 'Organizer',
-                      'text': text,
-                      'createdAt': DateTime.now(),
-                    });
-                  });
-                }
-              } else {
-                // REGULAR ATTENDEES -> EXCLUSIVELY POST TO LIVE CHAT
-                ForumChatCubit? chatCubit;
-                try {
-                  chatCubit = context.read<ForumChatCubit>();
-                } catch (_) {}
-
-                if (chatCubit != null) {
-                  chatCubit.sendMessage(
-                    text,
-                    isOrganizer: false,
-                    isPremium: true,
-                  );
-                } else {
-                  setState(() {
-                    _unifiedStreamMessages.insert(0, {
-                      'id': DateTime.now().millisecondsSinceEpoch.toString(),
-                      'type': 'chat',
-                      'sender': 'You',
-                      'role': 'Spectator',
-                      'text': text,
-                      'createdAt': DateTime.now(),
-                    });
-                  });
-                }
-              }
+              setState(() {
+                _unifiedStreamMessages.insert(0, {
+                  'id': DateTime.now().millisecondsSinceEpoch.toString(),
+                  'type': widget.isHost ? 'announcement' : 'stream_chat',
+                  'sender': widget.isHost
+                      ? (widget.hostName.isNotEmpty ? widget.hostName : 'Host')
+                      : 'You',
+                  'role': widget.isHost ? 'Organizer' : 'Spectator',
+                  'text': text,
+                  'createdAt': DateTime.now(),
+                });
+              });
             },
           ),
         ],

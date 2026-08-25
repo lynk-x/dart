@@ -9,7 +9,6 @@ import 'package:lynk_x/core/sync/sync_manager.dart';
 import 'package:lynk_x/core/utils/storage_utils.dart';
 import 'package:lynk_x/core/utils/embedding_manager.dart';
 import 'package:lynk_x/core/utils/i_embedding_service.dart';
-import 'package:lynk_x/presentation/features/forum/services/stream_service.dart';
 import 'base_message_cubit.dart';
 import 'forum_chat_state.dart';
 
@@ -36,7 +35,7 @@ class ForumChatCubit extends BaseMessageCubit<ForumChatState> {
         _embeddingService = embeddingService ?? EmbeddingManager.instance,
         super(
           messageType: 'chat',
-          messageTypes: const ['chat', 'livechat_poll', 'livechat_quiz', 'stream_chat', 'stream_event'],
+          messageTypes: const ['chat', 'livechat_poll', 'livechat_quiz'],
           initialState: const ForumChatState(),
           channel: channel ?? Supabase.instance.client.channel('forum_chat_$forumId'),
         );
@@ -224,8 +223,7 @@ class ForumChatCubit extends BaseMessageCubit<ForumChatState> {
       }
     }
 
-    final isStreamActive = ForumVideoStreamService().isLiveNotifier.value;
-    final messageType = isStreamActive ? MessageType.streamChat : MessageType.chat;
+    final messageType = MessageType.chat;
 
     final newMessage = ChatMessage(
       id: messageId,

@@ -149,6 +149,11 @@ enum StageLayoutMode {
   presentation,
 }
 
+enum StreamType {
+  liveCall,
+  liveStream,
+}
+
 class ForumVideoStreamService {
   static final ForumVideoStreamService _instance = ForumVideoStreamService._internal();
   factory ForumVideoStreamService() => _instance;
@@ -156,6 +161,8 @@ class ForumVideoStreamService {
 
   final ValueNotifier<bool> isMinimizedNotifier = ValueNotifier<bool>(false);
   final ValueNotifier<bool> isLiveNotifier = ValueNotifier<bool>(false);
+  final ValueNotifier<StreamType> streamTypeNotifier =
+      ValueNotifier<StreamType>(StreamType.liveStream);
   final ValueNotifier<bool> isLowBandwidthNotifier = ValueNotifier<bool>(false);
   final ValueNotifier<TelemetryData> telemetryNotifier =
       ValueNotifier<TelemetryData>(const TelemetryData());
@@ -167,41 +174,10 @@ class ForumVideoStreamService {
   }
 
   final ValueNotifier<List<StreamParticipant>> activeParticipantsNotifier =
-      ValueNotifier<List<StreamParticipant>>([
-    const StreamParticipant(
-      id: 'host',
-      name: 'Alex Rivers',
-      role: 'Host',
-      isHost: true,
-      isCameraOn: true,
-      isMicMuted: false,
-      isSpeaking: true,
-      isOnStage: true,
-    ),
-    const StreamParticipant(
-      id: 'co-host-1',
-      name: 'Sarah Jenkins',
-      role: 'Co-Host',
-      isHost: false,
-      isCameraOn: true,
-      isMicMuted: false,
-      isSpeaking: false,
-      isOnStage: true,
-    ),
-    const StreamParticipant(
-      id: 'speaker-2',
-      name: 'Marcus Chen',
-      role: 'Speaker',
-      isHost: false,
-      isCameraOn: false,
-      isMicMuted: true,
-      isSpeaking: false,
-      isOnStage: true,
-    ),
-  ]);
+      ValueNotifier<List<StreamParticipant>>([]);
 
   final ValueNotifier<String> stageSpeakerIdNotifier =
-      ValueNotifier<String>('host');
+      ValueNotifier<String>('');
 
   final ValueNotifier<bool> isStageLockedNotifier =
       ValueNotifier<bool>(false);
@@ -212,7 +188,7 @@ class ForumVideoStreamService {
   String forumName = '';
   String hostName = '';
   bool isHost = true;
-  int spectatorCount = 142;
+  int spectatorCount = 0;
 
   String appId = '';
   String appSecret = '';

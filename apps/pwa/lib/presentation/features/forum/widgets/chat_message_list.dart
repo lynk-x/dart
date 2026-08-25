@@ -74,11 +74,6 @@ class ChatMessageList extends StatelessWidget {
         controller: scrollController,
         physics: const AlwaysScrollableScrollPhysics(),
         slivers: [
-          // Unconditional — forum_screen.dart's NestedScrollView header
-          // always has exactly one SliverOverlapAbsorber expecting exactly
-          // one injector per frame. Every branch here needs its own, or the
-          // absorber above throws (opaque minified exception, blank grey
-          // content area) whenever this branch is the one showing.
           SliverOverlapInjector(
             handle: NestedScrollView.sliverOverlapAbsorberHandleFor(context),
           ),
@@ -93,9 +88,6 @@ class ChatMessageList extends StatelessWidget {
     }
 
     if (chatState.messages.isEmpty && chatState.isLoading) {
-      // A delayed spinner rather than a bare CustomScrollView return —
-      // still needs the CustomScrollView wrapper purely so it can carry the
-      // same mandatory SliverOverlapInjector as every other branch here.
       return CustomScrollView(
         key: const ValueKey('skeleton'),
         controller: scrollController,
