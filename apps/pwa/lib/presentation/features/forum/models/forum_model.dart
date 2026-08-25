@@ -14,7 +14,9 @@ enum MessageType {
   livechatPoll,
   livechatQuiz,
   updatePoll,
-  updateQuiz;
+  updateQuiz,
+  streamChat,
+  streamEvent;
 
   /// True if this message IS a poll/quiz (see surveys.polls / quiz_sessions,
   /// keyed on this message's own id) rather than a plain chat/announcement.
@@ -26,6 +28,8 @@ enum MessageType {
 
   bool get isPoll => this == livechatPoll || this == updatePoll;
   bool get isQuiz => this == livechatQuiz || this == updateQuiz;
+  bool get isStreamMessage => this == streamChat || this == streamEvent;
+  bool get isLiveChat => this == chat || this == streamChat || this == livechatPoll || this == livechatQuiz;
 
   static MessageType fromValue(String? value) {
     switch (value) {
@@ -39,6 +43,10 @@ enum MessageType {
         return MessageType.updatePoll;
       case 'update_quiz':
         return MessageType.updateQuiz;
+      case 'stream_chat':
+        return MessageType.streamChat;
+      case 'stream_event':
+        return MessageType.streamEvent;
       default:
         return MessageType.chat;
     }
@@ -56,6 +64,10 @@ enum MessageType {
         return 'update_poll';
       case MessageType.updateQuiz:
         return 'update_quiz';
+      case MessageType.streamChat:
+        return 'stream_chat';
+      case MessageType.streamEvent:
+        return 'stream_event';
       case MessageType.chat:
         return 'chat';
     }

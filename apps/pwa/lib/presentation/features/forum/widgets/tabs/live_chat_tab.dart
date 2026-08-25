@@ -100,7 +100,7 @@ class _LiveChatTabState extends State<LiveChatTab>
             ValueListenableBuilder<int>(
               valueListenable: SyncManager.instance.pendingCountNotifier,
               builder: (context, pendingCount, _) {
-                final displayCount = pendingCount > 0 ? pendingCount : 2; // Temporary mock for visual preview
+                if (pendingCount <= 0) return const SizedBox.shrink();
                 return Container(
                   width: double.infinity,
                   padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
@@ -118,7 +118,7 @@ class _LiveChatTabState extends State<LiveChatTab>
                       ),
                       const SizedBox(width: 8),
                       Text(
-                        'Offline Mode • Syncing $displayCount queued message${displayCount > 1 ? 's' : ''}...',
+                        'Offline Mode • Syncing $pendingCount queued message${pendingCount > 1 ? 's' : ''}...',
                         style: AppTypography.interTight(
                           fontSize: 11,
                           fontWeight: FontWeight.w600,

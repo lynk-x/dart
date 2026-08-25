@@ -331,6 +331,8 @@ class _ChatBubbleState extends State<ChatBubble> {
 
     switch (widget.message.type) {
       case MessageType.chat:
+      case MessageType.streamChat:
+      case MessageType.streamEvent:
       case MessageType.announcement:
         return _buildMessageContent(textColor);
 
