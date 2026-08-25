@@ -87,6 +87,12 @@ class TelemetryData {
 
   String get resolutionLabel => '${height}p$fps';
   String get summaryLabel => '$resolutionLabel • $bitrateMbps Mbps';
+
+  /// Evaluates connection quality to trigger automated Low-Bandwidth fallback mode
+  bool get isPoorConnection {
+    final loss = double.tryParse(packetLossPercent) ?? 0.0;
+    return loss >= 5.0 || rttMs >= 250;
+  }
 }
 
 class StreamParticipant {
@@ -150,10 +156,15 @@ class ForumVideoStreamService {
 
   final ValueNotifier<bool> isMinimizedNotifier = ValueNotifier<bool>(false);
   final ValueNotifier<bool> isLiveNotifier = ValueNotifier<bool>(false);
+  final ValueNotifier<bool> isLowBandwidthNotifier = ValueNotifier<bool>(false);
   final ValueNotifier<TelemetryData> telemetryNotifier =
       ValueNotifier<TelemetryData>(const TelemetryData());
   final ValueNotifier<StageLayoutMode> stageLayoutNotifier =
       ValueNotifier<StageLayoutMode>(StageLayoutMode.focus);
+
+  void toggleLowBandwidthMode([bool? enabled]) {
+    isLowBandwidthNotifier.value = enabled ?? !isLowBandwidthNotifier.value;
+  }
 
   final ValueNotifier<List<StreamParticipant>> activeParticipantsNotifier =
       ValueNotifier<List<StreamParticipant>>([
@@ -268,7 +279,7 @@ class ForumVideoStreamService {
     }).toList();
   }
 
-  void toggleParticipantMic(String participantId) {
+  void toggleParticipantMic(String participantId, {String? currentUserId}) {
     final list = List<StreamParticipant>.from(activeParticipantsNotifier.value);
     final index = list.indexWhere(
       (p) => p.id == participantId || (participantId == 'host' && p.isHost),
@@ -276,7 +287,12 @@ class ForumVideoStreamService {
     if (index != -1) {
       final nextMicMuted = !list[index].isMicMuted;
       list[index] = list[index].copyWith(isMicMuted: nextMicMuted);
-      if (list[index].isHost || list[index].id == participantId) {
+
+      final isSelf = (currentUserId != null && currentUserId.isNotEmpty)
+          ? (participantId == currentUserId || (list[index].isHost && participantId == 'host'))
+          : (participantId == 'host' || list[index].isHost);
+
+      if (isSelf) {
         toggleMic(!nextMicMuted);
       }
     } else {
@@ -287,12 +303,14 @@ class ForumVideoStreamService {
         isMicMuted: false,
         isCameraOn: false,
       ));
-      toggleMic(true);
+      if (participantId == 'host' || (currentUserId != null && participantId == currentUserId)) {
+        toggleMic(true);
+      }
     }
     activeParticipantsNotifier.value = list;
   }
 
-  void toggleParticipantCamera(String participantId) {
+  void toggleParticipantCamera(String participantId, {String? currentUserId}) {
     final list = List<StreamParticipant>.from(activeParticipantsNotifier.value);
     final index = list.indexWhere(
       (p) => p.id == participantId || (participantId == 'host' && p.isHost),
@@ -300,7 +318,12 @@ class ForumVideoStreamService {
     if (index != -1) {
       final nextCamOn = !list[index].isCameraOn;
       list[index] = list[index].copyWith(isCameraOn: nextCamOn);
-      if (list[index].isHost || list[index].id == participantId) {
+
+      final isSelf = (currentUserId != null && currentUserId.isNotEmpty)
+          ? (participantId == currentUserId || (list[index].isHost && participantId == 'host'))
+          : (participantId == 'host' || list[index].isHost);
+
+      if (isSelf) {
         toggleCamera(nextCamOn);
       }
     } else {
@@ -311,7 +334,9 @@ class ForumVideoStreamService {
         isMicMuted: true,
         isCameraOn: true,
       ));
-      toggleCamera(true);
+      if (participantId == 'host' || (currentUserId != null && participantId == currentUserId)) {
+        toggleCamera(true);
+      }
     }
     activeParticipantsNotifier.value = list;
   }
@@ -417,6 +442,9 @@ class ForumVideoStreamService {
         codec: (data['codec'] as String?) ?? 'H.264 / Opus',
       );
       telemetryNotifier.value = telemetry;
+      if (telemetry.isPoorConnection && !isLowBandwidthNotifier.value) {
+        isLowBandwidthNotifier.value = true;
+      }
       return telemetry;
     } catch (e) {
       debugPrint('[VideoStreamService] fetchTelemetryStats error: $e');

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:lynk_core/core.dart';
 import '../../services/stream_service.dart';
@@ -9,6 +10,7 @@ class GridStageOverlay extends StatelessWidget {
   final double currentAudioLevel;
   final bool isCameraOn;
   final bool isMicMuted;
+  final String viewType;
 
   const GridStageOverlay({
     super.key,
@@ -16,147 +18,173 @@ class GridStageOverlay extends StatelessWidget {
     required this.currentAudioLevel,
     required this.isCameraOn,
     required this.isMicMuted,
+    this.viewType = 'lynk-video-stage-view',
   });
 
   @override
+  @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder<List<StreamParticipant>>(
-      valueListenable: videoService.activeParticipantsNotifier,
-      builder: (context, participants, _) {
-        final count = participants.isEmpty ? 1 : participants.length.clamp(1, 4);
-        final list = participants.isEmpty
-            ? [
-                StreamParticipant(
-                  id: 'host',
-                  name: videoService.hostName.isNotEmpty ? videoService.hostName : 'Host',
-                  role: 'Host',
-                  isHost: true,
-                  isCameraOn: isCameraOn,
-                  isMicMuted: isMicMuted,
-                )
-              ]
-            : participants;
+    return ValueListenableBuilder<bool>(
+      valueListenable: videoService.isLowBandwidthNotifier,
+      builder: (context, isLowBandwidth, _) {
+        return ValueListenableBuilder<List<StreamParticipant>>(
+          valueListenable: videoService.activeParticipantsNotifier,
+          builder: (context, participants, _) {
+            final count = participants.isEmpty ? 1 : participants.length.clamp(1, 4);
+            final list = participants.isEmpty
+                ? [
+                    StreamParticipant(
+                      id: 'host',
+                      name: videoService.hostName.isNotEmpty ? videoService.hostName : 'Host',
+                      role: 'Host',
+                      isHost: true,
+                      isCameraOn: isCameraOn,
+                      isMicMuted: isMicMuted,
+                    )
+                  ]
+                : participants;
 
-        return Container(
-          color: Colors.transparent,
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final availableWidth = constraints.maxWidth;
-              final availableHeight = constraints.maxHeight;
+            return Container(
+              color: const Color(0xFF0F1115),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final availableWidth = constraints.maxWidth;
+                  final availableHeight = constraints.maxHeight;
 
-              const double padding = 8.0;
-              const double spacing = 8.0;
+                  const double padding = 8.0;
+                  const double spacing = 8.0;
 
-              int crossAxisCount = 2;
-              if (count == 1) {
-                crossAxisCount = 1;
-              }
+                  int crossAxisCount = 2;
+                  if (count == 1) {
+                    crossAxisCount = 1;
+                  }
 
-              final int rowCount = (count / crossAxisCount).ceil();
-              final double totalSpacingX = (crossAxisCount - 1) * spacing + (padding * 2);
-              final double totalSpacingY = (rowCount - 1) * spacing + (padding * 2);
+                  final int rowCount = (count / crossAxisCount).ceil();
+                  final double totalSpacingX = (crossAxisCount - 1) * spacing + (padding * 2);
+                  final double totalSpacingY = (rowCount - 1) * spacing + (padding * 2);
 
-              final double tileWidth = (availableWidth - totalSpacingX) / crossAxisCount;
-              final double tileHeight = (availableHeight - totalSpacingY) / rowCount;
-              final double childAspectRatio = (tileWidth > 0 && tileHeight > 0)
-                  ? tileWidth / tileHeight
-                  : 1.0;
+                  final double tileWidth = (availableWidth - totalSpacingX) / crossAxisCount;
+                  final double tileHeight = (availableHeight - totalSpacingY) / rowCount;
+                  final double childAspectRatio = (tileWidth > 0 && tileHeight > 0)
+                      ? tileWidth / tileHeight
+                      : 1.0;
 
-              return Padding(
-                padding: const EdgeInsets.all(padding),
-                child: GridView.builder(
-                  physics: const NeverScrollableScrollPhysics(),
-                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: crossAxisCount,
-                    crossAxisSpacing: spacing,
-                    mainAxisSpacing: spacing,
-                    childAspectRatio: childAspectRatio,
-                  ),
-                  itemCount: count,
-                  itemBuilder: (context, index) {
-                    final p = list[index];
-                    final isHostTile = p.isHost || index == 0;
-                    final tileCamOn = isHostTile ? isCameraOn : p.isCameraOn;
-                    final tileMicMuted = isHostTile ? isMicMuted : p.isMicMuted;
-                    final isSpeakingNow = !tileMicMuted && (p.isSpeaking || currentAudioLevel > 0.05);
-
-                    return Container(
-                      decoration: BoxDecoration(
-                        color: tileCamOn
-                            ? Colors.black.withValues(alpha: 0.15)
-                            : const Color(0xFF161920),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: isSpeakingNow ? context.accentColor : Colors.white12,
-                          width: isSpeakingNow ? 2 : 1,
-                        ),
+                  return Padding(
+                    padding: const EdgeInsets.all(padding),
+                    child: GridView.builder(
+                      physics: const NeverScrollableScrollPhysics(),
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: crossAxisCount,
+                        crossAxisSpacing: spacing,
+                        mainAxisSpacing: spacing,
+                        childAspectRatio: childAspectRatio,
                       ),
-                      child: Stack(
-                        children: [
-                          if (!tileCamOn)
-                            Center(
-                              child: CircleAvatar(
-                                radius: 28,
-                                backgroundColor: isSpeakingNow ? context.accentColor : const Color(0xFF2A2E38),
-                                child: Text(
-                                  p.name.isNotEmpty ? p.name.substring(0, 1).toUpperCase() : '?',
-                                  style: AppTypography.interTight(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white),
-                                ),
+                      itemCount: count,
+                      itemBuilder: (context, index) {
+                        final p = list[index];
+                        final isHostTile = p.isHost || index == 0;
+                        final tileCamOn = isHostTile ? isCameraOn : p.isCameraOn;
+                        final tileMicMuted = isHostTile ? isMicMuted : p.isMicMuted;
+                        final isSpeakingNow = !tileMicMuted && (p.isSpeaking || currentAudioLevel > 0.05);
+
+                        return ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF161920),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: isSpeakingNow ? context.accentColor : Colors.white12,
+                                width: isSpeakingNow ? 2 : 1,
                               ),
                             ),
-                          Positioned(
-                            left: 10,
-                            bottom: 10,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: Colors.black.withValues(alpha: 0.75),
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  if (tileMicMuted) ...[
-                                    const Icon(Icons.mic_off_rounded, size: 12, color: Colors.redAccent),
-                                    const SizedBox(width: 4),
-                                  ],
-                                  Text(
-                                    p.name,
-                                    style: AppTypography.interTight(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.white),
+                            child: Stack(
+                              children: [
+                                // Mount actual Web Video Stream exclusively inside host's grid tile when not in low-bandwidth mode
+                                if (isHostTile && tileCamOn && kIsWeb && !isLowBandwidth)
+                                  Positioned.fill(
+                                    child: HtmlElementView(viewType: viewType),
                                   ),
-                                ],
-                              ),
-                            ),
-                          ),
-                          Positioned(
-                            right: 10,
-                            bottom: 10,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: Colors.black.withValues(alpha: 0.75),
-                                borderRadius: BorderRadius.circular(6),
-                                border: Border.all(
-                                  color: isSpeakingNow
-                                      ? context.accentColor.withValues(alpha: 0.5)
-                                      : Colors.white12,
+
+                                if (!tileCamOn || isLowBandwidth)
+                                  Center(
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        CircleAvatar(
+                                          radius: 28,
+                                          backgroundColor: isSpeakingNow ? context.accentColor : const Color(0xFF2A2E38),
+                                          child: Text(
+                                            p.name.isNotEmpty ? p.name.substring(0, 1).toUpperCase() : '?',
+                                            style: AppTypography.interTight(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white),
+                                          ),
+                                        ),
+                                        if (isLowBandwidth) ...[
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            'Audio Only',
+                                            style: AppTypography.interTight(fontSize: 10, color: Colors.amberAccent),
+                                          ),
+                                        ],
+                                      ],
+                                    ),
+                                  ),
+                                Positioned(
+                                  left: 10,
+                                  bottom: 10,
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: Colors.black.withValues(alpha: 0.75),
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        if (tileMicMuted) ...[
+                                          const Icon(Icons.mic_off_rounded, size: 12, color: Colors.redAccent),
+                                          const SizedBox(width: 4),
+                                        ],
+                                        Text(
+                                          p.name,
+                                          style: AppTypography.interTight(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.white),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
                                 ),
-                              ),
-                              child: AnimatedSoundwaveWidget(
-                                isSpeaking: isSpeakingNow,
-                                getAudioLevel: () => tileMicMuted ? 0.0 : currentAudioLevel,
-                                barColor: isSpeakingNow ? context.accentColor : Colors.white54,
-                              ),
+                                Positioned(
+                                  right: 10,
+                                  bottom: 10,
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: Colors.black.withValues(alpha: 0.75),
+                                      borderRadius: BorderRadius.circular(6),
+                                      border: Border.all(
+                                        color: isSpeakingNow
+                                            ? context.accentColor.withValues(alpha: 0.5)
+                                            : Colors.white12,
+                                      ),
+                                    ),
+                                    child: AnimatedSoundwaveWidget(
+                                      isSpeaking: isSpeakingNow,
+                                      getAudioLevel: () => tileMicMuted ? 0.0 : currentAudioLevel,
+                                      barColor: isSpeakingNow ? context.accentColor : Colors.white54,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                        ],
-                      ),
-                    );
-                  },
-                ),
-              );
-            },
-          ),
+                        );
+                      },
+                    ),
+                  );
+                },
+              ),
+            );
+          },
         );
       },
     );
@@ -258,6 +286,85 @@ class CameraOffOverlay extends StatelessWidget {
               const SizedBox(height: 4),
               Text(
                 'Camera Off',
+                style: AppTypography.interTight(
+                  fontSize: 12,
+                  color: Colors.white38,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Low-bandwidth fallback mode placeholder overlay.
+class LowBandwidthFallbackOverlay extends StatelessWidget {
+  final String hostName;
+
+  const LowBandwidthFallbackOverlay({
+    super.key,
+    required this.hostName,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned.fill(
+      child: Container(
+        color: const Color(0xFF0F1115),
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                margin: const EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(
+                  color: Colors.amber.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: Colors.amber.withValues(alpha: 0.4)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.bolt_rounded, size: 14, color: Colors.amber),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Low-Bandwidth Mode • Audio Preserved',
+                      style: AppTypography.interTight(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.amber,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              CircleAvatar(
+                radius: 36,
+                backgroundColor: const Color(0xFF1E222B),
+                child: Text(
+                  hostName.isNotEmpty ? hostName.substring(0, 1).toUpperCase() : 'L',
+                  style: AppTypography.interTight(
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white70,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                hostName,
+                style: AppTypography.interTight(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Video feed paused to conserve network throughput',
                 style: AppTypography.interTight(
                   fontSize: 12,
                   color: Colors.white38,

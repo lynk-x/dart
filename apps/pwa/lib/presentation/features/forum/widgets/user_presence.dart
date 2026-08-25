@@ -114,25 +114,26 @@ class _UserPresenceCardState extends State<UserPresenceCard> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          GestureDetector(
-            onTap: _toggleActions,
-            child: Container(
-              width: double.infinity,
-              margin: const EdgeInsets.only(bottom: 8),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              decoration: BoxDecoration(
-                color: widget.isPrimary
-                    ? context.accentColor
-                    : AppColors.surface,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                  color:
-                      widget.isPremium ? AppColors.secondary : Colors.white12,
-                ),
+          Container(
+            width: double.infinity,
+            margin: const EdgeInsets.only(bottom: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: widget.isPrimary
+                  ? context.accentColor
+                  : AppColors.surface,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color:
+                    widget.isPremium ? AppColors.secondary : Colors.white12,
               ),
-              child: Row(
-                children: [
-                  Expanded(
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: GestureDetector(
+                    onTap: _toggleActions,
+                    behavior: HitTestBehavior.opaque,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -156,7 +157,8 @@ class _UserPresenceCardState extends State<UserPresenceCard> {
                       ],
                     ),
                   ),
-                  if (widget.showMicControl || widget.showCameraControl)
+                ),
+                if (widget.showMicControl || widget.showCameraControl)
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -231,7 +233,6 @@ class _UserPresenceCardState extends State<UserPresenceCard> {
                 ],
               ),
             ),
-          ),
           if (_showActions) _buildActionRow(),
         ],
       ),

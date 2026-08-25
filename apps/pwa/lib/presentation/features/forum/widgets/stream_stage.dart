@@ -389,39 +389,46 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
                 decoration: const BoxDecoration(
                   color: Color(0xFF0F1115),
                 ),
-                child: Stack(
-                  children: [
-                    // Actual Web Video Stream PlatformView (Kept permanently mounted to preserve media streams across layout switches)
-                    if (kIsWeb)
-                      const Positioned.fill(
-                        child: HtmlElementView(viewType: _viewType),
-                      ),
-
-                    // Stage Layout Mode Overlays
-                    ValueListenableBuilder<StageLayoutMode>(
+                child: ValueListenableBuilder<bool>(
+                  valueListenable: _videoService.isLowBandwidthNotifier,
+                  builder: (context, isLowBandwidth, _) {
+                    return ValueListenableBuilder<StageLayoutMode>(
                       valueListenable: _videoService.stageLayoutNotifier,
                       builder: (context, layoutMode, _) {
-                        if (layoutMode == StageLayoutMode.grid) {
-                          return GridStageOverlay(
-                            videoService: _videoService,
-                            currentAudioLevel: _currentAudioLevel,
-                            isCameraOn: _isCameraOn,
-                            isMicMuted: _isMicMuted,
-                          );
-                        }
-                        if (layoutMode == StageLayoutMode.presentation) {
-                          return const PresentationStageOverlay();
-                        }
+                        final isGridMode = layoutMode == StageLayoutMode.grid;
 
-                        // Focus / Deck mode Camera Off Overlay Placeholder
-                        if (!_isCameraOn && !_isScreenSharing) {
-                          return CameraOffOverlay(hostName: widget.hostName);
-                        }
+                        return Stack(
+                          children: [
+                            // Actual Web Video Stream PlatformView for non-grid layout modes (Focus, Deck, Presentation)
+                            if (kIsWeb && !isGridMode && !isLowBandwidth)
+                              const Positioned.fill(
+                                child: HtmlElementView(viewType: _viewType),
+                              ),
 
-                        return const SizedBox.shrink();
+                            if (isGridMode)
+                              GridStageOverlay(
+                                videoService: _videoService,
+                                currentAudioLevel: _currentAudioLevel,
+                                isCameraOn: _isCameraOn,
+                                isMicMuted: _isMicMuted,
+                                viewType: _viewType,
+                              ),
+
+                            if (layoutMode == StageLayoutMode.presentation)
+                              const PresentationStageOverlay(),
+
+                            // Focus / Deck mode Camera Off Overlay Placeholder
+                            if (!isGridMode && !_isCameraOn && !_isScreenSharing && !isLowBandwidth)
+                              CameraOffOverlay(hostName: widget.hostName),
+
+                            // Low-Bandwidth Mode Overlay Placeholder
+                            if (!isGridMode && isLowBandwidth)
+                              LowBandwidthFallbackOverlay(hostName: widget.hostName),
+                          ],
+                        );
                       },
-                    ),
-                  ],
+                    );
+                  },
                 ),
               ),
             ),

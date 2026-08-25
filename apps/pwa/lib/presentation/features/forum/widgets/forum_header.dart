@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:lynk_core/core.dart';
 
@@ -108,8 +107,6 @@ class _ForumHeaderState extends State<ForumHeader> {
 
   @override
   Widget build(BuildContext context) {
-    final isSpeaking = widget.activeSpeakerNames.isNotEmpty;
-
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 4),
       margin: const EdgeInsets.symmetric(horizontal: 2),
@@ -127,18 +124,17 @@ class _ForumHeaderState extends State<ForumHeader> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 // MIC TOGGLE BUTTON
-                widget.isMicMuted
-                    ? IconButton(
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                        icon: const Icon(Icons.mic_off_rounded, color: Colors.red, size: 20),
-                        onPressed: widget.onToggleMic,
-                        tooltip: 'Unmute Mic',
-                      )
-                    : _ActiveMicWaveButton(
-                        onToggleMic: widget.onToggleMic,
-                        getAudioLevel: widget.getAudioLevel,
-                      ),
+                IconButton(
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                  icon: Icon(
+                    widget.isMicMuted ? Icons.mic_off_rounded : Icons.mic_rounded,
+                    color: widget.isMicMuted ? Colors.red : Colors.black,
+                    size: 20,
+                  ),
+                  onPressed: widget.onToggleMic,
+                  tooltip: widget.isMicMuted ? 'Unmute Mic' : 'Mute Mic',
+                ),
 
                 // CAMERA TOGGLE BUTTON
                 IconButton(
@@ -155,23 +151,21 @@ class _ForumHeaderState extends State<ForumHeader> {
               ],
             )
           else if (widget.isAudioLive && (widget.role == ForumHeaderRole.host || widget.role == ForumHeaderRole.speaker))
-            widget.isMicMuted
-                ? IconButton(
-                    icon: const Icon(Icons.mic_off_rounded, color: Colors.red),
-                    onPressed: widget.onToggleMic,
-                    tooltip: 'Unmute Mic',
-                  )
-                : _ActiveMicWaveButton(
-                    onToggleMic: widget.onToggleMic,
-                    getAudioLevel: widget.getAudioLevel,
-                  )
-          else if (widget.isAudioLive)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8.0),
-              child: AnimatedSoundwaveWidget(
-                isSpeaking: isSpeaking,
-                getAudioLevel: widget.getAudioLevel,
+            IconButton(
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+              icon: Icon(
+                widget.isMicMuted ? Icons.mic_off_rounded : Icons.mic_rounded,
+                color: widget.isMicMuted ? Colors.red : Colors.black,
+                size: 20,
               ),
+              onPressed: widget.onToggleMic,
+              tooltip: widget.isMicMuted ? 'Unmute Mic' : 'Mute Mic',
+            )
+          else if (widget.isAudioLive)
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 8.0),
+              child: Icon(Icons.volume_up_rounded, color: Colors.black, size: 20),
             )
           else
             GestureDetector(
@@ -260,216 +254,6 @@ class _ForumHeaderState extends State<ForumHeader> {
               },
             ),
         ],
-      ),
-    );
-  }
-}
-
-/// Animated Soundwave Widget for Flutter PWA listeners
-class AnimatedSoundwaveWidget extends StatefulWidget {
-  final bool isSpeaking;
-  final double Function()? getAudioLevel;
-  final Color? barColor;
-
-  const AnimatedSoundwaveWidget({
-    super.key,
-    required this.isSpeaking,
-    this.getAudioLevel,
-    this.barColor,
-  });
-
-  @override
-  State<AnimatedSoundwaveWidget> createState() => _AnimatedSoundwaveWidgetState();
-}
-
-class _AnimatedSoundwaveWidgetState extends State<AnimatedSoundwaveWidget> {
-  Timer? _levelTimer;
-  double _currentLevel = 0.0;
-
-  @override
-  void initState() {
-    super.initState();
-    _startPolling();
-  }
-
-  void _startPolling() {
-    _levelTimer = Timer.periodic(const Duration(milliseconds: 60), (_) {
-      if (!mounted) return;
-      final raw = widget.getAudioLevel?.call() ?? 0.0;
-      if ((raw - _currentLevel).abs() > 0.01) {
-        setState(() {
-          _currentLevel = (_currentLevel * 0.3) + (raw * 0.7);
-        });
-      }
-    });
-  }
-
-  @override
-  void dispose() {
-    _levelTimer?.cancel();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final active = widget.isSpeaking;
-    final lvl = active ? (_currentLevel > 0.04 ? _currentLevel : 0.25) : 0.0;
-    final color = widget.barColor ?? Colors.black;
-
-    return SizedBox(
-      width: 20,
-      height: 18,
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: [
-          _Bar(height: active ? 6.0 + (lvl * 10.0) : 4.0, color: color),
-          _Bar(height: active ? 8.0 + (lvl * 12.0) : 4.0, color: color),
-          _Bar(height: active ? 5.0 + (lvl * 8.0) : 4.0, color: color),
-        ],
-      ),
-    );
-  }
-}
-
-class _Bar extends StatelessWidget {
-  final double height;
-  final Color color;
-
-  const _Bar({required this.height, required this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 80),
-      width: 3,
-      height: height.clamp(4.0, 18.0),
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(2),
-      ),
-    );
-  }
-}
-
-/// Interactive Microphone button displaying a real-time vocal amplitude wave animation when active.
-class _ActiveMicWaveButton extends StatefulWidget {
-  final VoidCallback? onToggleMic;
-  final double Function()? getAudioLevel;
-
-  const _ActiveMicWaveButton({
-    required this.onToggleMic,
-    this.getAudioLevel,
-  });
-
-  @override
-  State<_ActiveMicWaveButton> createState() => _ActiveMicWaveButtonState();
-}
-
-class _ActiveMicWaveButtonState extends State<_ActiveMicWaveButton>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _idleController;
-  Timer? _levelTimer;
-  double _currentLevel = 0.0;
-
-  @override
-  void initState() {
-    super.initState();
-    _idleController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1200),
-    )..repeat(reverse: true);
-
-    _startLevelPolling();
-  }
-
-  void _startLevelPolling() {
-    _levelTimer = Timer.periodic(const Duration(milliseconds: 50), (_) {
-      if (!mounted) return;
-      final rawLevel = widget.getAudioLevel?.call() ?? 0.0;
-      final smoothed = (_currentLevel * 0.3) + (rawLevel * 0.7);
-      if ((smoothed - _currentLevel).abs() > 0.005) {
-        setState(() {
-          _currentLevel = smoothed;
-        });
-      }
-    });
-  }
-
-  @override
-  void dispose() {
-    _levelTimer?.cancel();
-    _idleController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: widget.onToggleMic,
-      borderRadius: BorderRadius.circular(20),
-      child: Tooltip(
-        message: 'Mute Mic',
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 6.0),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(
-                Icons.mic_rounded,
-                color: Colors.black,
-                size: 20,
-              ),
-              const SizedBox(width: 4),
-              AnimatedBuilder(
-                animation: _idleController,
-                builder: (context, child) {
-                  final idleVal = _idleController.value;
-                  final isSpeaking = _currentLevel > 0.03;
-
-                  final h1 = isSpeaking
-                      ? (6.0 + (_currentLevel * 14.0))
-                      : (4.0 + (3.0 * idleVal));
-                  final h2 = isSpeaking
-                      ? (8.0 + (_currentLevel * 18.0))
-                      : (5.0 + (4.0 * (1.0 - idleVal)));
-                  final h3 = isSpeaking
-                      ? (5.0 + (_currentLevel * 12.0))
-                      : (4.0 + (3.0 * idleVal));
-
-                  return Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      _WaveBar(height: h1),
-                      const SizedBox(width: 2.5),
-                      _WaveBar(height: h2),
-                      const SizedBox(width: 2.5),
-                      _WaveBar(height: h3),
-                    ],
-                  );
-                },
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _WaveBar extends StatelessWidget {
-  final double height;
-
-  const _WaveBar({required this.height});
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 60),
-      width: 2.5,
-      height: height.clamp(4.0, 20.0),
-      decoration: BoxDecoration(
-        color: Colors.black,
-        borderRadius: BorderRadius.circular(2),
       ),
     );
   }

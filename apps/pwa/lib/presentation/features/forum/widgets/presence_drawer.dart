@@ -384,7 +384,6 @@ class _PresenceDrawerState extends State<PresenceDrawer> {
                           final match = participants.firstWhere(
                             (p) =>
                                 p.id == userId ||
-                                (p.isHost && user['is_organizer'] == true) ||
                                 (p.isHost && isSelf),
                             orElse: () => const StreamParticipant(
                                 id: '', name: '', role: ''),
@@ -425,10 +424,10 @@ class _PresenceDrawerState extends State<PresenceDrawer> {
                                   context.read<ForumAudioStreamCubit>().toggleMic();
                                 } catch (_) {}
                               }
-                              ForumVideoStreamService().toggleParticipantMic(id);
+                              ForumVideoStreamService().toggleParticipantMic(id, currentUserId: currentUserId);
                             },
                             onToggleCamera: (id) {
-                              ForumVideoStreamService().toggleParticipantCamera(id);
+                              ForumVideoStreamService().toggleParticipantCamera(id, currentUserId: currentUserId);
                             },
                           );
                         } catch (e) {

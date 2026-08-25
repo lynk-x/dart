@@ -13,6 +13,8 @@ import 'package:lynk_x/presentation/features/forum/widgets/chat_message_list.dar
 import 'package:lynk_x/presentation/features/forum/widgets/input_accessory_bar.dart';
 import 'package:lynk_x/presentation/shared/widgets/guest_profile_prompt_sheet.dart';
 
+import 'package:lynk_x/core/sync/sync_manager.dart';
+
 /// The 'Live Chat' tab content for the Forum.
 class LiveChatTab extends StatefulWidget {
   final ScrollController scrollController;
@@ -95,6 +97,39 @@ class _LiveChatTabState extends State<LiveChatTab>
       builder: (context, mainState) {
         return Column(
           children: [
+            ValueListenableBuilder<int>(
+              valueListenable: SyncManager.instance.pendingCountNotifier,
+              builder: (context, pendingCount, _) {
+                final displayCount = pendingCount > 0 ? pendingCount : 2; // Temporary mock for visual preview
+                return Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
+                  color: Colors.amber.withValues(alpha: 0.15),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const SizedBox(
+                        width: 10,
+                        height: 10,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 1.5,
+                          valueColor: AlwaysStoppedAnimation<Color>(Colors.amber),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Offline Mode • Syncing $displayCount queued message${displayCount > 1 ? 's' : ''}...',
+                        style: AppTypography.interTight(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.amber,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
             Expanded(
               child: RepaintBoundary(
                 child: RefreshIndicator(

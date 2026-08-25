@@ -73,32 +73,6 @@ class StageTopBar extends StatelessWidget {
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // MIC TOGGLE BUTTON
-              IconButton(
-                icon: Icon(
-                  isMicMuted ? Icons.mic_off_rounded : Icons.mic_rounded,
-                  color: !isHost
-                      ? Colors.white24
-                      : (isMicMuted ? Colors.redAccent : Colors.white70),
-                  size: 20,
-                ),
-                onPressed: !isHost ? null : onToggleMic,
-                tooltip: isMicMuted ? 'Unmute Mic' : 'Mute Mic',
-              ),
-
-              // CAMERA TOGGLE BUTTON
-              IconButton(
-                icon: Icon(
-                  isCameraOn ? Icons.videocam_rounded : Icons.videocam_off_rounded,
-                  color: !isHost
-                      ? Colors.white24
-                      : (isCameraOn ? Colors.white70 : Colors.redAccent),
-                  size: 20,
-                ),
-                onPressed: !isHost ? null : onToggleCamera,
-                tooltip: isCameraOn ? 'Turn Camera Off' : 'Turn Camera On',
-              ),
-
               // SCREEN SHARE BUTTON
               IconButton(
                 icon: Icon(
@@ -127,26 +101,20 @@ class StageTopBar extends StatelessWidget {
                 tooltip: 'Flip Camera',
               ),
 
-              // TELEMETRY TOGGLE BUTTON
-              InkWell(
-                onTap: onToggleTelemetry,
+              // TELEMETRY TOGGLE BUTTON (Without background container)
+              GestureDetector(
                 onLongPress: onShowTelemetryModal,
-                borderRadius: BorderRadius.circular(20),
-                child: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: showTelemetryOverlay ? context.accentColor : Colors.black.withValues(alpha: 0.65),
-                    shape: BoxShape.circle,
-                    border: Border.all(color: Colors.white12),
-                  ),
-                  child: Icon(
+                child: IconButton(
+                  icon: Icon(
                     Icons.analytics_rounded,
-                    size: 16,
-                    color: showTelemetryOverlay ? Colors.black : Colors.white70,
+                    size: 20,
+                    color: showTelemetryOverlay ? context.accentColor : Colors.white70,
                   ),
+                  onPressed: onToggleTelemetry,
+                  tooltip: 'Telemetry Stats',
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 4),
 
               // COMBINED LIVE & SPECTATOR COUNT BADGE
               Container(

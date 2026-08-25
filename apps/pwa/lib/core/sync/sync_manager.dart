@@ -27,8 +27,17 @@ import 'sync_item.dart';
 ///     invokes [resolveConflict].
 ///
 /// INSERT and DELETE actions never trigger conflict detection.
+import '../utils/connectivity_helper.dart';
+
+/// SyncManager
+///
+/// Orchestrates background synchronisation for the PWA.
+/// Enables "Optimistic UI" by queuing actions and retrying them when network
+/// returns.
 class SyncManager {
-  SyncManager._();
+  SyncManager._() {
+    _initConnectivityListener();
+  }
   static final instance = SyncManager._();
 
   final List<SyncItem> _queue = [];
@@ -37,6 +46,11 @@ class SyncManager {
   final Set<String> _pausedIds = {};
 
   bool _isSyncing = false;
+
+  /// Exposes the current number of pending items queued for sync.
+  final ValueNotifier<int> pendingCountNotifier = ValueNotifier<int>(0);
+
+  StreamSubscription<bool>? _connectivitySub;
 
   /// `{itemId: success}` broadcast — consumed by cubits to confirm or revert
   /// their optimistic state.
@@ -49,10 +63,27 @@ class SyncManager {
   final _conflictController = StreamController<SyncConflict>.broadcast();
   Stream<SyncConflict> get conflictStream => _conflictController.stream;
 
+  void _initConnectivityListener() {
+    _connectivitySub = ConnectivityHelper.onConnectivityChanged.listen((isOnline) {
+      if (isOnline) {
+        debugPrint('[SyncManager] Connectivity restored, triggering queue processing immediately.');
+        triggerSync();
+      }
+    });
+  }
+
+  void dispose() {
+    _connectivitySub?.cancel();
+    _statusController.close();
+    _conflictController.close();
+    pendingCountNotifier.dispose();
+  }
+
   /// Add a pending action to the queue.
   /// The calling cubit should have already applied its optimistic state update.
   void addWork(SyncItem item) {
     _queue.add(item);
+    _updatePendingCount();
     _processQueue();
   }
 
@@ -60,7 +91,6 @@ class SyncManager {
   bool isQueued(String id) {
     return _queue.any((item) => item.id == id);
   }
-
 
   /// Resolve a [ConflictPolicy.manual] conflict that was previously paused.
   ///
@@ -73,6 +103,7 @@ class SyncManager {
 
     if (resolution == ConflictResolution.discardClient) {
       _queue.removeAt(idx);
+      _updatePendingCount();
       _statusController.add({itemId: false});
     } else {
       _processQueue();
@@ -81,6 +112,12 @@ class SyncManager {
 
   /// Trigger a sync attempt (e.g. when connectivity is restored).
   void triggerSync() => _processQueue();
+
+  void _updatePendingCount() {
+    if (pendingCountNotifier.value != _queue.length) {
+      pendingCountNotifier.value = _queue.length;
+    }
+  }
 
   // ─── Private ───────────────────────────────────────────────────────────────
 
@@ -101,10 +138,12 @@ class SyncManager {
 
         if (outcome == _ExecuteOutcome.success) {
           _queue.removeAt(0);
+          _updatePendingCount();
           _statusController.add({item.id: true});
         } else if (outcome == _ExecuteOutcome.conflictServerWins) {
           // Server won — revert the optimistic UI state.
           _queue.removeAt(0);
+          _updatePendingCount();
           _statusController.add({item.id: false});
         } else if (outcome == _ExecuteOutcome.conflictManual) {
           // Paused — do not advance the queue until resolved.
@@ -117,10 +156,11 @@ class SyncManager {
         _queue[0] = item.copyWith(retryCount: item.retryCount + 1);
         if (_queue[0].retryCount >= 5) {
           _queue.removeAt(0);
+          _updatePendingCount();
           _statusController.add({item.id: false});
           debugPrint('[SyncManager] Discarded ${item.id} after max retries');
         } else {
-          break; // Back off; retry on next triggerSync call
+          break; // Back off; retry on next triggerSync call or timer
         }
       }
     }
@@ -128,8 +168,10 @@ class SyncManager {
     _isSyncing = false;
 
     if (_queue.isNotEmpty && _pausedIds.length < _queue.length) {
-      // There are still executable items — retry after back-off.
-      Timer(const Duration(seconds: 30), _processQueue);
+      final retryCount = _queue.first.retryCount;
+      final backoffSeconds = (1 << retryCount).clamp(1, 30);
+      debugPrint('[SyncManager] Scheduling retry in ${backoffSeconds}s (attempt #$retryCount)');
+      Timer(Duration(seconds: backoffSeconds), _processQueue);
     }
   }
 
