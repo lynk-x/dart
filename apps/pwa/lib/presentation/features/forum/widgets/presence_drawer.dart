@@ -5,6 +5,7 @@ import 'package:lynk_x/l10n/app_localizations.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../cubit/forum_audio_stream_cubit.dart';
 import '../services/stream_service.dart';
+import '../services/participant_service.dart';
 import 'forum_skeletons.dart';
 import 'user_presence.dart';
 
@@ -71,7 +72,7 @@ class _PresenceDrawerState extends State<PresenceDrawer> {
     setState(() {
       _isLoadingDevices = true;
     });
-    final devices = await ForumVideoStreamService().getAvailableDevices();
+    final devices = await MediaDeviceManager().getAvailableDevices();
     if (mounted) {
       setState(() {
         _availableDevices = devices;
@@ -389,6 +390,7 @@ class _PresenceDrawerState extends State<PresenceDrawer> {
                                 id: '', name: '', role: ''),
                           );
 
+                          final userName = (user['user_name'] ?? 'Unknown').toString();
                           final bool isStreamActive =
                               match.id.isNotEmpty || isVideoLive || widget.isAudioLive;
 
@@ -399,15 +401,19 @@ class _PresenceDrawerState extends State<PresenceDrawer> {
                             } catch (_) {}
                           }
 
-                          final bool? isMicMuted = widget.isAudioLive && isSelf
-                              ? (audioCubit?.state.isMicMuted ?? (isStreamActive ? match.isMicMuted : null))
-                              : (isStreamActive ? match.isMicMuted : null);
+                          final mediaState = StreamParticipantService().resolveParticipantState(
+                            userId: userId,
+                            userName: userName,
+                            currentUserId: currentUserId ?? '',
+                            videoParticipant: match.id.isNotEmpty ? match : null,
+                            audioCubit: audioCubit,
+                            isStreamActive: isStreamActive,
+                          );
 
                           return UserPresenceCard(
                             key: ValueKey('presence_$userId'),
                             userId: userId,
-                            username:
-                                (user['user_name'] ?? 'Unknown').toString(),
+                            username: userName,
                             roleId: user['role_id'] as String?,
                             isOnline: user['is_online'] == true,
                             isOrganizer: user['is_organizer'] == true,
@@ -416,18 +422,20 @@ class _PresenceDrawerState extends State<PresenceDrawer> {
                             showMicControl: isVideoLive || widget.isAudioLive,
                             showCameraControl: isVideoLive,
                             isPrimary: isSelf,
-                            isMicMuted: isMicMuted,
-                            isCameraOn: isStreamActive ? match.isCameraOn : null,
+                            isMicMuted: mediaState.isMicMuted,
+                            isCameraOn: isStreamActive ? mediaState.isCameraOn : null,
                             onToggleMic: (id) {
-                              if (widget.isAudioLive && id == currentUserId) {
-                                try {
-                                  context.read<ForumAudioStreamCubit>().toggleMic();
-                                } catch (_) {}
-                              }
-                              ForumVideoStreamService().toggleParticipantMic(id, currentUserId: currentUserId);
+                              StreamParticipantService().toggleMic(
+                                userId: id,
+                                currentUserId: currentUserId ?? '',
+                                audioCubit: audioCubit,
+                              );
                             },
                             onToggleCamera: (id) {
-                              ForumVideoStreamService().toggleParticipantCamera(id, currentUserId: currentUserId);
+                              StreamParticipantService().toggleCamera(
+                                userId: id,
+                                currentUserId: currentUserId ?? '',
+                              );
                             },
                           );
                         } catch (e) {

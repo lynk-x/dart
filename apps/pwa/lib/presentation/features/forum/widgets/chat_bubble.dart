@@ -64,8 +64,41 @@ class ChatBubble extends StatefulWidget {
 }
 
 class _ChatBubbleState extends State<ChatBubble> {
+  bool get _isSystemMessage {
+    if (widget.message.type.isSystem) return true;
+    final msg = widget.message.message.toLowerCase();
+    return msg.contains('started the live stream') ||
+        msg.contains('started the live call') ||
+        msg.contains('ended the live stream') ||
+        msg.contains('ended the live call');
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (_isSystemMessage) {
+      final timeStr = DateFormat('h:mm a').format(widget.message.createdAt);
+      final cleanText = widget.message.message
+          .replaceAll(RegExp(r'^[^\w\s]+'), '')
+          .trim()
+          .toUpperCase();
+
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+        child: Center(
+          child: Text(
+            '$cleanText  ·  $timeStr',
+            textAlign: TextAlign.center,
+            style: AppTypography.interTight(
+              fontSize: 10.5,
+              fontWeight: FontWeight.w700,
+              color: Colors.white38,
+              letterSpacing: 1.4,
+            ),
+          ),
+        ),
+      );
+    }
+
     return Align(
       alignment:
           widget.message.isMe ? Alignment.centerRight : Alignment.centerLeft,
@@ -333,6 +366,8 @@ class _ChatBubbleState extends State<ChatBubble> {
       case MessageType.chat:
       case MessageType.streamChat:
       case MessageType.streamEvent:
+      case MessageType.systemChat:
+      case MessageType.systemAnnouncement:
       case MessageType.announcement:
         return _buildMessageContent(textColor);
 

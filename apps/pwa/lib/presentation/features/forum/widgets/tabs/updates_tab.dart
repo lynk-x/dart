@@ -11,6 +11,9 @@ import 'package:lynk_x/presentation/features/forum/widgets/disabled_state_bar.da
 import 'package:lynk_x/presentation/features/forum/widgets/chat_bubble.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/forum_skeletons.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/swipe_to_reply.dart';
+import 'package:lynk_x/presentation/features/forum/widgets/polls/join_card.dart';
+import 'package:lynk_x/presentation/features/forum/models/forum_model.dart';
+import 'package:lynk_x/presentation/features/forum/services/pip_service.dart';
 import 'package:lynk_x/presentation/shared/widgets/empty_state.dart';
 
 /// The 'Updates' tab content for the Forum.
@@ -227,6 +230,34 @@ class _UpdatesScrollView extends StatelessWidget {
                   }
 
                   final message = updatesState.messages[index];
+                  final isStreamAnnouncement = message.type == MessageType.systemAnnouncement ||
+                      (message.type.isSystem && (message.message.toLowerCase().contains('started the live stream') ||
+                       message.message.toLowerCase().contains('started the live call')));
+
+                  if (isStreamAnnouncement) {
+                    final isAudio = message.message.toLowerCase().contains('call');
+                    final isEnded = message.message.toLowerCase().contains('ended');
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      child: JoinCard(
+                        type: isAudio ? JoinCardType.liveCall : JoinCardType.liveStream,
+                        state: isEnded ? JoinCardState.ended : JoinCardState.live,
+                        title: message.message,
+                        subtitle: isEnded ? 'Session finished' : 'Tap to join live session',
+                        isMe: message.isMe,
+                        onAction: isEnded
+                            ? null
+                            : () {
+                                if (isAudio) {
+                                  StreamPipService().activateLiveCall(hostName: 'Host');
+                                } else {
+                                  StreamPipService().activateLiveStream(hostName: 'Host');
+                                }
+                              },
+                      ),
+                    );
+                  }
+
                   final bubble = ChatBubble(
                     message: message,
                     isOrganizer: mainState.isOrganizer,
@@ -246,10 +277,6 @@ class _UpdatesScrollView extends StatelessWidget {
                     onTapBubble: () => onSelectMessage(null),
                   );
 
-                  // Mirrors chat_message_list.dart's Live Chat wrapping —
-                  // without this, mobile has no touch-reachable reply
-                  // trigger at all (the reply icon in ChatBubble is
-                  // desktop-only), for any message type.
                   return SwipeToReply(
                     onReply: () => updatesCubit.setReplyTo(message),
                     child: bubble,

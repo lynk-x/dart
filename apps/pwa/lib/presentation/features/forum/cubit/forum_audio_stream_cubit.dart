@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../services/forum_audio_stream_service.dart';
+import '../services/pip_service.dart';
 import '../widgets/forum_header.dart';
 import 'forum_audio_stream_state.dart';
 
@@ -57,6 +58,8 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
           );
           if (isHost) service.requestWakeLock();
 
+          StreamPipService().activateLiveCall(hostName: isHost ? userName : 'Host');
+
           emit(state.copyWith(
             isLive: true,
             role: isHost ? ForumHeaderRole.host : ForumHeaderRole.listener,
@@ -68,6 +71,8 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
       } else if (state.isLive && state.role != ForumHeaderRole.host) {
         // If stream explicitly ended according to config and we are not the active local host
         service.clearMediaSession();
+        StreamPipService().endPipSession();
+
         emit(const ForumAudioStreamState(
           isLive: false,
           role: ForumHeaderRole.listener,
@@ -95,6 +100,8 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
           artist: isHost ? userName : 'Community Stream',
         );
 
+        StreamPipService().activateLiveCall(hostName: isHost ? userName : 'Host');
+
         emit(state.copyWith(
           isLive: true,
           role: isHost ? ForumHeaderRole.host : ForumHeaderRole.listener,
@@ -107,6 +114,8 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
 
       case 'end_stream':
         service.clearMediaSession();
+        StreamPipService().endPipSession();
+
         emit(const ForumAudioStreamState(
           isLive: false,
           role: ForumHeaderRole.listener,
@@ -155,6 +164,8 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
       );
       service.requestWakeLock();
 
+      StreamPipService().activateLiveCall(hostName: userName);
+
       emit(state.copyWith(
         isLive: true,
         role: ForumHeaderRole.host,
@@ -188,6 +199,8 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
         forumId: forumId,
         isLive: false,
       );
+
+      StreamPipService().endPipSession();
 
       emit(const ForumAudioStreamState(
         isLive: false,

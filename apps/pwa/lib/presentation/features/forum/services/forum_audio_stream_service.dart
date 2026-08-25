@@ -36,10 +36,10 @@ class ForumAudioStreamService {
   RealtimeChannel? _channel;
 
   ForumAudioStreamService({
-    required this.supabase,
+    SupabaseClient? supabase,
     this.appId = '',
     this.appSecret = '',
-  });
+  }) : supabase = supabase ?? Supabase.instance.client;
 
   /// Controls HTML5 audio element broadcast mute state on Web
   void setBroadcastMuted(bool muted) {

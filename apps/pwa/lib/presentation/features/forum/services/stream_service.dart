@@ -2,6 +2,9 @@ import 'dart:convert';
 import 'dart:js_interop';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'pip_service.dart';
+import 'media_device_manager.dart';
+export 'media_device_manager.dart';
 
 @JS('window.lynkVideoStreamHelper.startVideoStream')
 external JSPromise<JSBoolean> _jsStartVideoStream(JSString elementId, JSBoolean isFrontCamera);
@@ -39,32 +42,8 @@ external JSPromise<JSBoolean> _jsPublishCloudflareTracks(JSString appId, JSStrin
 @JS('window.lynkVideoStreamHelper.getTelemetryStats')
 external JSPromise<JSString> _jsGetTelemetryStats();
 
-@JS('window.lynkVideoStreamHelper.getAvailableDevices')
-external JSPromise<JSString> _jsGetAvailableDevices();
-
-@JS('window.lynkVideoStreamHelper.switchAudioDevice')
-external JSPromise<JSBoolean> _jsSwitchAudioDevice(JSString deviceId);
-
-@JS('window.lynkVideoStreamHelper.switchCameraDevice')
-external JSPromise<JSBoolean> _jsSwitchCameraDevice(JSString elementId, JSString deviceId);
-
-@JS('window.lynkVideoStreamHelper.switchAudioOutputDevice')
-external JSPromise<JSBoolean> _jsSwitchAudioOutputDevice(JSString elementId, JSString deviceId);
-
 @JS('window.lynkVideoStreamHelper.setStreamQuality')
 external JSPromise<JSBoolean> _jsSetStreamQuality(JSString elementId, JSString quality);
-
-class MediaDevice {
-  final String deviceId;
-  final String kind;
-  final String label;
-
-  const MediaDevice({
-    required this.deviceId,
-    required this.kind,
-    required this.label,
-  });
-}
 
 class TelemetryData {
   final int width;
@@ -372,12 +351,14 @@ class ForumVideoStreamService {
 
   void setMinimized(bool minimized) {
     isMinimizedNotifier.value = minimized;
+    StreamPipService().setMinimized(minimized);
   }
 
   void setLive(bool live) {
     isLiveNotifier.value = live;
     if (!live) {
       isMinimizedNotifier.value = false;
+      StreamPipService().endPipSession();
     }
   }
 
@@ -542,55 +523,19 @@ class ForumVideoStreamService {
   }
 
   Future<List<MediaDevice>> getAvailableDevices() async {
-    if (!kIsWeb) return [];
-    try {
-      final rawJson = await _jsGetAvailableDevices().toDart;
-      final List<dynamic> list = jsonDecode(rawJson.toDart);
-      return list.map((item) {
-        final map = item as Map<String, dynamic>;
-        return MediaDevice(
-          deviceId: map['deviceId'] as String? ?? '',
-          kind: map['kind'] as String? ?? '',
-          label: map['label'] as String? ?? 'Device',
-        );
-      }).toList();
-    } catch (e) {
-      debugPrint('[VideoStreamService] getAvailableDevices error: $e');
-      return [];
-    }
+    return MediaDeviceManager().getAvailableDevices();
   }
 
   Future<bool> switchAudioDevice(String deviceId) async {
-    if (!kIsWeb) return false;
-    try {
-      final res = await _jsSwitchAudioDevice(deviceId.toJS).toDart;
-      return res.toDart;
-    } catch (e) {
-      debugPrint('[VideoStreamService] switchAudioDevice error: $e');
-      return false;
-    }
+    return MediaDeviceManager().switchAudioDevice(deviceId);
   }
 
   Future<bool> switchCameraDevice(String elementId, String deviceId) async {
-    if (!kIsWeb) return false;
-    try {
-      final res = await _jsSwitchCameraDevice(elementId.toJS, deviceId.toJS).toDart;
-      return res.toDart;
-    } catch (e) {
-      debugPrint('[VideoStreamService] switchCameraDevice error: $e');
-      return false;
-    }
+    return MediaDeviceManager().switchCameraDevice(elementId, deviceId);
   }
 
   Future<bool> switchAudioOutputDevice(String elementId, String deviceId) async {
-    if (!kIsWeb) return false;
-    try {
-      final res = await _jsSwitchAudioOutputDevice(elementId.toJS, deviceId.toJS).toDart;
-      return res.toDart;
-    } catch (e) {
-      debugPrint('[VideoStreamService] switchAudioOutputDevice error: $e');
-      return false;
-    }
+    return MediaDeviceManager().switchAudioOutputDevice(elementId, deviceId);
   }
 
   Future<bool> setStreamQuality(String elementId, String quality) async {

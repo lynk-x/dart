@@ -460,7 +460,7 @@ abstract class BaseMessageCubit<T extends BaseMessageState> extends HydratedCubi
   }
 
   void sendMessage(String text,
-      {required bool isOrganizer, required bool isPremium});
+      {required bool isOrganizer, required bool isPremium, MessageType? messageType});
 
   @override
   Future<void> close() {

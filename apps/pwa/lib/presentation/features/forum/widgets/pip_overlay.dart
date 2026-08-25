@@ -1,11 +1,13 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:lynk_core/core.dart';
+import 'package:lynk_x/presentation/features/forum/services/audio_telemetry_service.dart';
+import 'package:lynk_x/presentation/features/forum/services/pip_service.dart';
 import 'package:lynk_x/presentation/features/forum/services/stream_service.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/stage/animated_soundwave_widget.dart';
 
 /// Floating In-App Picture-in-Picture (PiP) card displayed on the Forum page
-/// when a live video stream is minimized. Supports Live Call / Live Chat context switching.
+/// when a live video stream or audio call is minimized. Supports Live Call / Live Chat context switching.
 class PipOverlay extends StatefulWidget {
   final String forumName;
   final String hostName;
@@ -23,6 +25,7 @@ class PipOverlay extends StatefulWidget {
 }
 
 class _PipOverlayState extends State<PipOverlay> {
+  final StreamPipService _pipService = StreamPipService();
   final ForumVideoStreamService _videoService = ForumVideoStreamService();
 
   double? _left;
@@ -40,16 +43,16 @@ class _PipOverlayState extends State<PipOverlay> {
     _top ??= topPadding + 220.0;
 
     return ValueListenableBuilder<bool>(
-      valueListenable: _videoService.isMinimizedNotifier,
+      valueListenable: _pipService.isMinimizedNotifier,
       builder: (context, isMinimized, child) {
-        if (!isMinimized || !_videoService.isLiveNotifier.value) {
+        if (!isMinimized || !_pipService.isLiveNotifier.value) {
           return const SizedBox.shrink();
         }
 
-        return ValueListenableBuilder<StreamType>(
-          valueListenable: _videoService.streamTypeNotifier,
+        return ValueListenableBuilder<PipStreamType>(
+          valueListenable: _pipService.streamTypeNotifier,
           builder: (context, streamType, _) {
-            final isLiveCall = streamType == StreamType.liveCall;
+            final isLiveCall = streamType == PipStreamType.liveCall;
 
             // Dimensions: Live Call uses a slim strip; Live Stream uses 16:9 widescreen canvas
             final double currentWidth = isLiveCall ? 210.0 : 192.0;
@@ -115,7 +118,7 @@ class _PipOverlayState extends State<PipOverlay> {
           const SizedBox(width: 6),
           AnimatedSoundwaveWidget(
             isSpeaking: true,
-            getAudioLevel: () => 0.5,
+            getAudioLevel: () => AudioTelemetryService().getActiveAudioLevel(),
             barColor: context.accentColor,
           ),
         ],
@@ -125,8 +128,13 @@ class _PipOverlayState extends State<PipOverlay> {
 
   /// 16:9 Video Broadcast Container for Live Streams (Tap reverts/expands stream stage)
   Widget _buildLiveStreamContainer(BuildContext context) {
+    void expandStream() {
+      _pipService.setMinimized(false);
+      _videoService.setMinimized(false);
+    }
+
     return GestureDetector(
-      onTap: () => _videoService.setMinimized(false),
+      onTap: expandStream,
       child: Container(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(8),
@@ -179,7 +187,7 @@ class _PipOverlayState extends State<PipOverlay> {
                     const SizedBox(width: 5),
                     AnimatedSoundwaveWidget(
                       isSpeaking: true,
-                      getAudioLevel: () => 0.5,
+                      getAudioLevel: () => AudioTelemetryService().getActiveAudioLevel(),
                       barColor: context.accentColor,
                     ),
                   ],

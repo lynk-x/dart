@@ -25,6 +25,7 @@ import 'package:lynk_x/presentation/features/forum/widgets/forum_header.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/stream_stage.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/pip_overlay.dart';
 import 'package:lynk_x/presentation/features/forum/services/stream_service.dart';
+import 'package:lynk_x/presentation/features/forum/services/pip_service.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/presence_drawer.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/media_viewer.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/tabs/updates_tab.dart';
@@ -534,8 +535,10 @@ class _ForumViewState extends State<ForumView> {
                                                         ForumVideoStreamService().setMinimized(false);
                                                         ForumVideoStreamService().stopVideoStream();
                                                         ForumVideoStreamService().setLive(false);
+                                                        StreamPipService().endPipSession();
                                                       } else {
                                                         audioCubit.endAudioStream();
+                                                        StreamPipService().endPipSession();
                                                       }
                                                     },
                                                     onStartLiveStream: () {
@@ -548,13 +551,21 @@ class _ForumViewState extends State<ForumView> {
                                                         icon: Icons.videocam_rounded,
                                                         actionLabel: 'Allow Camera & Mic',
                                                         onReady: () {
+                                                          final name = forumState.userName.isNotEmpty ? forumState.userName : 'Host';
                                                           ForumVideoStreamService().setLive(true);
                                                           ForumVideoStreamService().setMinimized(false);
-                                                          final name = forumState.userName.isNotEmpty ? forumState.userName : 'Host';
+                                                          StreamPipService().activateLiveStream(hostName: name);
                                                           context.read<ForumChatCubit>().sendMessage(
-                                                            '🎥 $name started the live stream',
+                                                            '$name started the live stream',
                                                             isOrganizer: forumState.isOrganizer,
                                                             isPremium: forumState.isPremium,
+                                                            messageType: MessageType.systemChat,
+                                                          );
+                                                          context.read<ForumUpdatesCubit>().sendMessage(
+                                                            '$name started the live stream',
+                                                            isOrganizer: forumState.isOrganizer,
+                                                            isPremium: forumState.isPremium,
+                                                            messageType: MessageType.systemAnnouncement,
                                                           );
                                                         },
                                                       );
@@ -569,12 +580,20 @@ class _ForumViewState extends State<ForumView> {
                                                         icon: Icons.mic_rounded,
                                                         actionLabel: 'Allow Microphone',
                                                         onReady: () {
-                                                          audioCubit.startAudioStream();
                                                           final name = forumState.userName.isNotEmpty ? forumState.userName : 'Host';
+                                                          StreamPipService().activateLiveCall(hostName: name);
+                                                          audioCubit.startAudioStream();
                                                           context.read<ForumChatCubit>().sendMessage(
-                                                            '🎙️ $name started the live call',
+                                                            '$name started the live call',
                                                             isOrganizer: forumState.isOrganizer,
                                                             isPremium: forumState.isPremium,
+                                                            messageType: MessageType.systemChat,
+                                                          );
+                                                          context.read<ForumUpdatesCubit>().sendMessage(
+                                                            '$name started the live call',
+                                                            isOrganizer: forumState.isOrganizer,
+                                                            isPremium: forumState.isPremium,
+                                                            messageType: MessageType.systemAnnouncement,
                                                           );
                                                         },
                                                       );

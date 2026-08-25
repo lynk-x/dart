@@ -35,7 +35,7 @@ class ForumChatCubit extends BaseMessageCubit<ForumChatState> {
         _embeddingService = embeddingService ?? EmbeddingManager.instance,
         super(
           messageType: 'chat',
-          messageTypes: const ['chat', 'livechat_poll', 'livechat_quiz'],
+          messageTypes: const ['chat', 'livechat_poll', 'livechat_quiz', 'stream_event', 'system_chat'],
           initialState: const ForumChatState(),
           channel: channel ?? Supabase.instance.client.channel('forum_chat_$forumId'),
         );
@@ -199,7 +199,7 @@ class ForumChatCubit extends BaseMessageCubit<ForumChatState> {
 
   @override
   void sendMessage(String text,
-      {required bool isOrganizer, required bool isPremium}) async {
+      {required bool isOrganizer, required bool isPremium, MessageType? messageType}) async {
     final messageId = BaseMessageCubit.uuid.v4();
     final now = DateTime.now();
     final replyTo = state.replyingTo;
@@ -223,7 +223,7 @@ class ForumChatCubit extends BaseMessageCubit<ForumChatState> {
       }
     }
 
-    final messageType = MessageType.chat;
+    final effectiveType = messageType ?? MessageType.chat;
 
     final newMessage = ChatMessage(
       id: messageId,
@@ -232,7 +232,7 @@ class ForumChatCubit extends BaseMessageCubit<ForumChatState> {
       message: text,
       createdAt: now,
       isMe: true,
-      type: messageType,
+      type: effectiveType,
       replyTo: replyTo,
       imageUrl: imageUrl,
       thumbnailUrl: thumbnailUrl,
@@ -246,15 +246,7 @@ class ForumChatCubit extends BaseMessageCubit<ForumChatState> {
       clearMentionedMedia: true,
     ));
 
-
-
     if (userId != kGuestUserId) {
-      // Send the explicit `created_at` we generated locally so:
-      //  (a) the broadcast and the DB row share the same timestamp (prevents
-      //      cross-client divergence on subsequent UPDATE/DELETE),
-      //  (b) the partition-keyed FKs to media_id and reply_to_id resolve.
-      // Both forum_media and forum_messages are partitioned by created_at and
-      // their FKs are composite (id, created_at) — partial keys never match.
       final mediaCreatedAt = state.mentionedMedia?.createdAt.toIso8601String();
       final replyCreatedAt = replyTo?.createdAt.toIso8601String();
       final messageCreatedAt = now.toIso8601String();
@@ -277,7 +269,7 @@ class ForumChatCubit extends BaseMessageCubit<ForumChatState> {
           if (channelCreatedAt != null) 'channel_created_at': channelCreatedAt?.toIso8601String(),
           'author_id': userId,
           'content': text,
-          'message_type': 'chat',
+          'message_type': effectiveType.value,
           'hashtag': category,
           'created_at': messageCreatedAt,
           if (mediaId != null) 'media_id': mediaId,
@@ -294,7 +286,7 @@ class ForumChatCubit extends BaseMessageCubit<ForumChatState> {
           'id': messageId,
           'author_id': userId,
           'content': text,
-          'message_type': 'chat',
+          'message_type': effectiveType.value,
           'hashtag': category,
           'created_at': now.toIso8601String(),
           if (mediaId != null) 'media_id': mediaId,

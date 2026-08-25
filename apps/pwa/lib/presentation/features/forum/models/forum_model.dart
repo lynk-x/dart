@@ -11,12 +11,18 @@ import 'package:flutter/material.dart';
 enum MessageType {
   chat,
   announcement,
+  systemAnnouncement,
+  systemChat,
   livechatPoll,
   livechatQuiz,
   updatePoll,
   updateQuiz,
   streamChat,
   streamEvent;
+
+  /// True if this is an automated system message.
+  bool get isSystem =>
+      this == systemChat || this == systemAnnouncement || this == streamEvent;
 
   /// True if this message IS a poll/quiz (see surveys.polls / quiz_sessions,
   /// keyed on this message's own id) rather than a plain chat/announcement.
@@ -29,12 +35,16 @@ enum MessageType {
   bool get isPoll => this == livechatPoll || this == updatePoll;
   bool get isQuiz => this == livechatQuiz || this == updateQuiz;
   bool get isStreamMessage => this == streamChat || this == streamEvent;
-  bool get isLiveChat => this == chat || this == streamChat || this == livechatPoll || this == livechatQuiz;
+  bool get isLiveChat => this == chat || this == streamChat || this == livechatPoll || this == livechatQuiz || this == systemChat;
 
   static MessageType fromValue(String? value) {
     switch (value) {
       case 'announcement':
         return MessageType.announcement;
+      case 'system_announcement':
+        return MessageType.systemAnnouncement;
+      case 'system_chat':
+        return MessageType.systemChat;
       case 'livechat_poll':
         return MessageType.livechatPoll;
       case 'livechat_quiz':
@@ -56,6 +66,10 @@ enum MessageType {
     switch (this) {
       case MessageType.announcement:
         return 'announcement';
+      case MessageType.systemAnnouncement:
+        return 'system_announcement';
+      case MessageType.systemChat:
+        return 'system_chat';
       case MessageType.livechatPoll:
         return 'livechat_poll';
       case MessageType.livechatQuiz:

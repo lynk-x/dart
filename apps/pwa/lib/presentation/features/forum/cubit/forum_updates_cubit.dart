@@ -28,7 +28,7 @@ class ForumUpdatesCubit extends BaseMessageCubit<ForumUpdatesState> {
   })  : _embeddingService = embeddingService ?? EmbeddingManager.instance,
         super(
           messageType: 'announcement',
-          messageTypes: const ['announcement', 'update_poll', 'update_quiz'],
+          messageTypes: const ['announcement', 'update_poll', 'update_quiz', 'system_announcement'],
           initialState: const ForumUpdatesState(),
           channel: channel ?? Supabase.instance.client.channel('forum_updates_$forumId'),
         );
@@ -201,7 +201,7 @@ class ForumUpdatesCubit extends BaseMessageCubit<ForumUpdatesState> {
 
   @override
   void sendMessage(String text,
-      {required bool isOrganizer, required bool isPremium}) async {
+      {required bool isOrganizer, required bool isPremium, MessageType? messageType}) async {
     if (!isOrganizer) return; // Only organizers send updates
     final messageId = BaseMessageCubit.uuid.v4();
     final now = DateTime.now();
