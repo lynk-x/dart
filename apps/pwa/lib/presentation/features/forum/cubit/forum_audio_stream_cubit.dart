@@ -267,6 +267,7 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
   @override
   Future<void> close() async {
     _reconnectTimer?.cancel();
+    service.stopLocalMicrophone();
     service.clearMediaSession();
     await service.unsubscribe();
     return super.close();

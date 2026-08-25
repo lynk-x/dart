@@ -3,10 +3,12 @@ import 'package:lynk_core/core.dart';
 import '../../services/stream_service.dart';
 
 /// Top bar overlay on the video stage displaying session duration, spectator badge, telemetry toggle, screen share, camera flip, and exit/minimize buttons.
+/// Uses a [ValueNotifier<int>] for session duration so only the duration text
+/// rebuilds on each timer tick — not the entire parent stage widget.
 class StageTopBar extends StatelessWidget {
   final ForumVideoStreamService videoService;
-  final int sessionDurationSeconds;
-  final String Function(int) formatDuration;
+  /// Notifier updated every second by the parent's duration timer.
+  final ValueNotifier<int> sessionDurationNotifier;
   final bool showTelemetryOverlay;
   final bool isHost;
   final bool isScreenSharing;
@@ -24,8 +26,7 @@ class StageTopBar extends StatelessWidget {
   const StageTopBar({
     super.key,
     required this.videoService,
-    required this.sessionDurationSeconds,
-    required this.formatDuration,
+    required this.sessionDurationNotifier,
     required this.showTelemetryOverlay,
     this.isHost = false,
     this.isScreenSharing = false,

@@ -7,6 +7,9 @@ import 'package:uuid/uuid.dart';
 import 'package:lynk_x/presentation/features/forum/models/forum_model.dart';
 import 'package:lynk_x/core/utils/storage_utils.dart';
 import 'package:lynk_x/core/sync/sync_manager.dart';
+import 'package:lynk_x/presentation/features/forum/services/stream_service.dart';
+import 'package:lynk_x/presentation/features/forum/services/pip_service.dart';
+import 'package:lynk_x/presentation/features/forum/services/forum_cdc_service.dart';
 import 'base_message_state.dart';
 
 abstract class BaseMessageCubit<T extends BaseMessageState> extends HydratedCubit<T> {
@@ -25,10 +28,19 @@ abstract class BaseMessageCubit<T extends BaseMessageState> extends HydratedCubi
   final List<String> messageTypes;
 
   Timer? searchTimer;
-  RealtimeChannel? _postgresChannel;
+  /// Stored function reference for [ForumCdcService] — must be the same object
+  /// used in both [register] and [unregister] calls.
+  void Function(PostgresChangePayload)? _cdcListener;
   StreamSubscription? _syncSubscription;
   bool _wasDisconnected = false;
 
+  /// Snapshot taken before the first search query so we can restore it
+  /// on query-clear without a network round-trip.
+  List<ChatMessage> _preSearchMessages = const [];
+
+  /// Maximum number of messages kept in memory state during live sessions.
+  /// Prevents unbounded heap growth in busy streams; older items load on demand.
+  static const int maxInMemoryMessages = 100;
 
   bool hasCompletedInitialRefresh = false;
 
@@ -157,74 +169,63 @@ abstract class BaseMessageCubit<T extends BaseMessageState> extends HydratedCubi
       }
     });
 
-    // Setup a dedicated postgres CDC channel to ensure that listeners
-    // are registered before the subscribe() handshake is initiated.
-    final client = Supabase.instance.client;
-    final pgChannelName = 'forum_messages_cdc_${messageType}_$forumId';
-    
-    _postgresChannel = client
-        .channel(pgChannelName)
-        .onPostgresChanges(
-          event: PostgresChangeEvent.all,
-          schema: 'social',
-          table: 'forum_messages',
-          filter: PostgresChangeFilter(
-            type: PostgresChangeFilterType.eq,
-            column: 'forum_id',
-            value: forumId,
-          ),
-          callback: (payload) {
-            try {
-              if (payload.eventType == PostgresChangeEvent.delete) {
-                final id = payload.oldRecord['id'] as String?;
-                final updated = state.messages.where((m) => m.id != id).toList();
-                if (!isClosed) emit(copyWithState(messages: updated));
-              } else if (payload.eventType == PostgresChangeEvent.insert) {
-                final data = payload.newRecord;
-                if (!messageTypes.contains(data['message_type'])) return;
+    // Register with the shared CDC singleton — one channel per forumId
+    // regardless of how many cubits are subscribed. Each cubit filters
+    // by its own messageTypes inside _handleCdcPayload.
+    _cdcListener = _handleCdcPayload;
+    ForumCdcService().register(forumId, _cdcListener!);
+  }
 
-                final id = data['id'] as String;
-                
-                // Reconcile optimistic insert if it's already in our state
-                final index = state.messages.indexWhere((m) => m.id == id);
-                if (index != -1) {
-                  final existingMsg = state.messages[index];
-                  if (existingMsg.isSending) {
-                    updateMessageInPlace(id, isSending: false, hasError: false);
-                  }
-                  return;
-                }
+  /// Handles a Postgres CDC event dispatched by [ForumCdcService].
+  /// Filters by [messageTypes] so Chat and Updates cubits sharing the same
+  /// channel each only act on their own message kinds.
+  void _handleCdcPayload(PostgresChangePayload payload) {
+    try {
+      if (payload.eventType == PostgresChangeEvent.delete) {
+        final id = payload.oldRecord['id'] as String?;
+        final updated = state.messages.where((m) => m.id != id).toList();
+        if (!isClosed) emit(copyWithState(messages: updated));
+      } else if (payload.eventType == PostgresChangeEvent.insert) {
+        final data = payload.newRecord;
+        if (!messageTypes.contains(data['message_type'])) return;
 
-                final msg = ChatMessage.fromMap(data, userId);
-                onBroadcastMessageReceived(msg);
-              } else if (payload.eventType == PostgresChangeEvent.update) {
-                final data = payload.newRecord;
-                if (!messageTypes.contains(data['message_type'])) return;
+        final id = data['id'] as String;
+        final index = state.messages.indexWhere((m) => m.id == id);
+        if (index != -1) {
+          final existingMsg = state.messages[index];
+          if (existingMsg.isSending) {
+            updateMessageInPlace(id, isSending: false, hasError: false);
+          }
+          return;
+        }
 
-                if (data['deleted_at'] != null) {
-                  final id = data['id'] as String?;
-                  final updated = state.messages.where((m) => m.id != id).toList();
-                  if (!isClosed) emit(copyWithState(messages: updated));
-                } else {
-                  updateMessageInPlace(
-                    data['id'] as String,
-                    content: data['content'] as String?,
-                    isPinned: data['is_pinned'] == true,
-                    isSending: false, // Updated rows are confirmed in the DB
-                    hasError: false,
-                  );
-                }
-              }
-            } catch (e, stack) {
-              debugPrint('[BaseMessageCubit] postgres CDC payload parse error: $e\n$stack');
-            }
-          },
-        );
+        final msg = ChatMessage.fromMap(data, userId);
+        onBroadcastMessageReceived(msg);
+      } else if (payload.eventType == PostgresChangeEvent.update) {
+        final data = payload.newRecord;
+        if (!messageTypes.contains(data['message_type'])) return;
 
-    _postgresChannel?.subscribe();
+        if (data['deleted_at'] != null) {
+          final id = data['id'] as String?;
+          final updated = state.messages.where((m) => m.id != id).toList();
+          if (!isClosed) emit(copyWithState(messages: updated));
+        } else {
+          updateMessageInPlace(
+            data['id'] as String,
+            content: data['content'] as String?,
+            isPinned: data['is_pinned'] == true,
+            isSending: false,
+            hasError: false,
+          );
+        }
+      }
+    } catch (e, stack) {
+      debugPrint('[BaseMessageCubit] CDC payload parse error: $e\n$stack');
+    }
   }
 
   void onBroadcastMessageReceived(ChatMessage msg) {
+    _syncLogicalServicesForSystemMessage(msg);
     final index = state.messages.indexWhere((m) => m.id == msg.id);
     if (index != -1) {
       final existingMsg = state.messages[index];
@@ -248,7 +249,29 @@ abstract class BaseMessageCubit<T extends BaseMessageState> extends HydratedCubi
     if (msg.imageUrl != null && msg.imageUrl!.isNotEmpty) {
       _signMessageUrlAndEmit(msg);
     } else {
-      if (!isClosed) emit(copyWithState(messages: [msg, ...state.messages]));
+      final updated = _capMessages([msg, ...state.messages]);
+      if (!isClosed) emit(copyWithState(messages: updated));
+    }
+  }
+
+  List<ChatMessage> _capMessages(List<ChatMessage> msgs) {
+    if (msgs.length > maxInMemoryMessages) {
+      return msgs.sublist(0, maxInMemoryMessages);
+    }
+    return msgs;
+  }
+
+  void _syncLogicalServicesForSystemMessage(ChatMessage msg) {
+    if (!msg.type.isSystem) return;
+    final content = msg.message.toLowerCase();
+
+    if (content.contains('started the live stream')) {
+      ForumVideoStreamService().setLive(true);
+    } else if (content.contains('ended the live stream')) {
+      ForumVideoStreamService().setLive(false);
+      StreamPipService().endPipSession();
+    } else if (content.contains('ended the live call')) {
+      StreamPipService().endPipSession();
     }
   }
 
@@ -263,13 +286,16 @@ abstract class BaseMessageCubit<T extends BaseMessageState> extends HydratedCubi
             imageUrl: signedUrl,
             thumbnailUrl: signedUrl,
           );
-          if (!isClosed) emit(copyWithState(messages: [updatedMsg, ...state.messages]));
+          final updated = _capMessages([updatedMsg, ...state.messages]);
+          if (!isClosed) emit(copyWithState(messages: updated));
           return;
         }
       }
-      if (!isClosed) emit(copyWithState(messages: [msg, ...state.messages]));
+      final updated = _capMessages([msg, ...state.messages]);
+      if (!isClosed) emit(copyWithState(messages: updated));
     } catch (_) {
-      if (!isClosed) emit(copyWithState(messages: [msg, ...state.messages]));
+      final updated = _capMessages([msg, ...state.messages]);
+      if (!isClosed) emit(copyWithState(messages: updated));
     }
   }
 
@@ -282,6 +308,25 @@ abstract class BaseMessageCubit<T extends BaseMessageState> extends HydratedCubi
   void setSearchQuery(String query) {
     if (!isClosed) emit(copyWithState(searchQuery: query));
     searchTimer?.cancel();
+
+    if (query.isEmpty) {
+      // Restore pre-search snapshot without a network round-trip when
+      // the user clears the search field.
+      if (_preSearchMessages.isNotEmpty) {
+        if (!isClosed) emit(copyWithState(messages: _preSearchMessages));
+        _preSearchMessages = const [];
+      } else {
+        // No snapshot — fall back to a normal refresh.
+        refresh();
+      }
+      return;
+    }
+
+    // Capture snapshot before first search so clear can restore it.
+    if (_preSearchMessages.isEmpty && state.messages.isNotEmpty) {
+      _preSearchMessages = List.unmodifiable(state.messages);
+    }
+
     searchTimer = Timer(const Duration(milliseconds: 300), () {
       if (!isClosed) emit(copyWithState(messages: []));
       refresh();
@@ -309,8 +354,8 @@ abstract class BaseMessageCubit<T extends BaseMessageState> extends HydratedCubi
           'id': message.id,
         },
       );
-
-      await refresh();
+      // No refresh() needed: the optimistic removal, broadcast to peers,
+      // and CDC pipeline already guarantee consistency.
     } catch (_) {
       if (!isClosed) emit(copyWithState(messages: originalMessages));
     }
@@ -466,7 +511,12 @@ abstract class BaseMessageCubit<T extends BaseMessageState> extends HydratedCubi
   Future<void> close() {
     _syncSubscription?.cancel();
     searchTimer?.cancel();
-    _postgresChannel?.unsubscribe();
+    _preSearchMessages = const [];
+    if (_cdcListener != null) {
+      // Unregister from the shared CDC singleton — decrements ref count;
+      // channel is torn down automatically when no listeners remain.
+      ForumCdcService().unregister(forumId, _cdcListener!);
+    }
     channel?.unsubscribe();
     return super.close();
   }

@@ -2,12 +2,14 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:lynk_core/core.dart';
 import '../../services/stream_service.dart';
-import 'animated_soundwave_widget.dart';
+import 'soundwave_widget.dart';
 
 /// Grid layout overlay rendering participant tiles.
 class GridStageOverlay extends StatelessWidget {
   final ForumVideoStreamService videoService;
-  final double currentAudioLevel;
+  /// Shared audio level notifier — consumed by each SoundwaveWidget via listener,
+  /// eliminating per-tile timers.
+  final ValueNotifier<double> audioLevelNotifier;
   final bool isCameraOn;
   final bool isMicMuted;
   final String viewType;
@@ -15,13 +17,12 @@ class GridStageOverlay extends StatelessWidget {
   const GridStageOverlay({
     super.key,
     required this.videoService,
-    required this.currentAudioLevel,
+    required this.audioLevelNotifier,
     required this.isCameraOn,
     required this.isMicMuted,
     this.viewType = 'lynk-video-stage-view',
   });
 
-  @override
   @override
   Widget build(BuildContext context) {
     return ValueListenableBuilder<bool>(
@@ -85,7 +86,7 @@ class GridStageOverlay extends StatelessWidget {
                         final isHostTile = p.isHost || index == 0;
                         final tileCamOn = isHostTile ? isCameraOn : p.isCameraOn;
                         final tileMicMuted = isHostTile ? isMicMuted : p.isMicMuted;
-                        final isSpeakingNow = !tileMicMuted && (p.isSpeaking || currentAudioLevel > 0.05);
+                        final isSpeakingNow = !tileMicMuted && (p.isSpeaking || audioLevelNotifier.value > 0.05);
 
                         return ClipRRect(
                           borderRadius: BorderRadius.circular(12),
@@ -167,9 +168,9 @@ class GridStageOverlay extends StatelessWidget {
                                             : Colors.white12,
                                       ),
                                     ),
-                                    child: AnimatedSoundwaveWidget(
+                                    child: SoundwaveWidget(
                                       isSpeaking: isSpeakingNow,
-                                      getAudioLevel: () => tileMicMuted ? 0.0 : currentAudioLevel,
+                                      audioLevelNotifier: audioLevelNotifier,
                                       barColor: isSpeakingNow ? context.accentColor : Colors.white54,
                                     ),
                                   ),
@@ -209,34 +210,30 @@ class PresentationStageOverlay extends StatelessWidget {
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: Colors.white12),
           ),
-          child: Stack(
-            children: [
-              Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.indigoAccent.withValues(alpha: 0.15),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(Icons.present_to_all_rounded, size: 42, color: Colors.indigoAccent),
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      'Shared Presentation Stage',
-                      style: AppTypography.interTight(fontSize: 15, fontWeight: FontWeight.w600, color: Colors.white),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Screen share or slides deck actively broadcasting',
-                      style: AppTypography.interTight(fontSize: 12, color: Colors.white38),
-                    ),
-                  ],
+          child: Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.indigoAccent.withValues(alpha: 0.15),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.present_to_all_rounded, size: 42, color: Colors.indigoAccent),
                 ),
-              ),
-            ],
+                const SizedBox(height: 12),
+                Text(
+                  'Shared Presentation Stage',
+                  style: AppTypography.interTight(fontSize: 15, fontWeight: FontWeight.w600, color: Colors.white),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Screen share or slides deck actively broadcasting',
+                  style: AppTypography.interTight(fontSize: 12, color: Colors.white38),
+                ),
+              ],
+            ),
           ),
         ),
       ),

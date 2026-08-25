@@ -172,6 +172,7 @@ class ForumVideoStreamService {
   String appId = '';
   String appSecret = '';
   String? cfSessionId;
+  bool _isPublished = false;
 
   void setStageLayout(StageLayoutMode mode) {
     stageLayoutNotifier.value = mode;
@@ -217,8 +218,26 @@ class ForumVideoStreamService {
     }
 
     if (updatedList.isNotEmpty) {
-      activeParticipantsNotifier.value = updatedList;
+      if (!_areParticipantsEqual(currentParticipants, updatedList)) {
+        activeParticipantsNotifier.value = updatedList;
+      }
     }
+  }
+
+  bool _areParticipantsEqual(List<StreamParticipant> a, List<StreamParticipant> b) {
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i].id != b[i].id ||
+          a[i].name != b[i].name ||
+          a[i].role != b[i].role ||
+          a[i].isMicMuted != b[i].isMicMuted ||
+          a[i].isCameraOn != b[i].isCameraOn ||
+          a[i].isSpeaking != b[i].isSpeaking ||
+          a[i].isOnStage != b[i].isOnStage) {
+        return false;
+      }
+    }
+    return true;
   }
 
   void toggleStageLock() {
@@ -437,13 +456,17 @@ class ForumVideoStreamService {
     return cfSessionId;
   }
 
-  /// Publishes local video & audio WebRTC tracks to Cloudflare Calls SFU
+  /// Publishes local video & audio WebRTC tracks to Cloudflare Calls SFU.
+  /// No-op if tracks for the current [cfSessionId] are already published.
   Future<bool> publishCloudflareStream({String? customSessionId}) async {
     if (!kIsWeb) return true;
+    final targetSessionId = customSessionId ?? cfSessionId ?? 'mock_cf_session';
+    // Skip re-publishing if already live on the same session.
+    if (_isPublished && customSessionId == null) return true;
     try {
-      final targetSessionId = customSessionId ?? cfSessionId ?? 'mock_cf_session';
       final res = await _jsPublishCloudflareTracks(appId.toJS, targetSessionId.toJS).toDart;
-      return res.toDart;
+      _isPublished = res.toDart;
+      return _isPublished;
     } catch (e) {
       debugPrint('[VideoStreamService] publishCloudflareStream error: $e');
       return false;
@@ -507,6 +530,7 @@ class ForumVideoStreamService {
     setLive(false);
     releaseWakeLock();
     cfSessionId = null;
+    _isPublished = false;
     if (!kIsWeb) return;
     try {
       _jsStopVideoStream();

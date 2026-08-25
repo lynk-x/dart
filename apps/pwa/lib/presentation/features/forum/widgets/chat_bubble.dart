@@ -76,7 +76,6 @@ class _ChatBubbleState extends State<ChatBubble> {
   @override
   Widget build(BuildContext context) {
     if (_isSystemMessage) {
-      final timeStr = DateFormat('h:mm a').format(widget.message.createdAt);
       final cleanText = widget.message.message
           .replaceAll(RegExp(r'^[^\w\s]+'), '')
           .trim()
@@ -86,7 +85,7 @@ class _ChatBubbleState extends State<ChatBubble> {
         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
         child: Center(
           child: Text(
-            '$cleanText  ·  $timeStr',
+            cleanText,
             textAlign: TextAlign.center,
             style: AppTypography.interTight(
               fontSize: 10.5,

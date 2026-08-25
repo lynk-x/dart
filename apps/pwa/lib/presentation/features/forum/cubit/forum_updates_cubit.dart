@@ -9,8 +9,10 @@ import 'package:lynk_x/core/sync/sync_manager.dart';
 import 'package:lynk_x/core/sync/sync_item.dart';
 import 'package:lynk_x/core/utils/embedding_manager.dart';
 import 'package:lynk_x/core/utils/i_embedding_service.dart';
+import 'package:lynk_x/data/repositories/repositories.dart';
 
 class ForumUpdatesCubit extends BaseMessageCubit<ForumUpdatesState> {
+  final ForumRepository _repo;
   final IEmbeddingService _embeddingService;
   DateTime? forumCreatedAt;
   String? channelId;
@@ -23,9 +25,11 @@ class ForumUpdatesCubit extends BaseMessageCubit<ForumUpdatesState> {
     this.forumCreatedAt,
     this.channelId,
     this.channelCreatedAt,
+    ForumRepository? repo,
     IEmbeddingService? embeddingService,
     RealtimeChannel? channel,
-  })  : _embeddingService = embeddingService ?? EmbeddingManager.instance,
+  })  : _repo = repo ?? ForumRepository(Supabase.instance.client),
+        _embeddingService = embeddingService ?? EmbeddingManager.instance,
         super(
           messageType: 'announcement',
           messageTypes: const ['announcement', 'update_poll', 'update_quiz', 'system_announcement'],
@@ -83,25 +87,13 @@ class ForumUpdatesCubit extends BaseMessageCubit<ForumUpdatesState> {
     if (isClosed) return;
     emit(state.copyWith(isLoading: true));
     try {
-      var query = Supabase.instance.client
-          .from('vw_forum_messages')
-          .select()
-          .eq('forum_id', forumId)
-          .inFilter('message_type', messageTypes)
-          .filter('deleted_at', 'is', null);
-
-      if (state.selectedCategory != null) {
-        query = query.eq('hashtag', state.selectedCategory!);
-      }
-
-      if (state.searchQuery.isNotEmpty) {
-        query = query.textSearch('fts', state.searchQuery, config: 'english');
-      }
-
-      final data = await query
-          .order('is_pinned', ascending: false)
-          .order('created_at', ascending: false)
-          .limit(20);
+      final data = await _repo.getMessages(
+        forumId: forumId,
+        limit: 20,
+        searchQuery: state.searchQuery,
+        messageTypes: messageTypes,
+        hashtag: state.selectedCategory,
+      );
       var messages =
           data.map((json) => ChatMessage.fromMap(json, userId)).toList();
 
@@ -134,27 +126,19 @@ class ForumUpdatesCubit extends BaseMessageCubit<ForumUpdatesState> {
   Future<void> loadMore() async {
     if (state.isLoading || isClosed) return;
     emit(state.copyWith(isLoading: true));
-    final startIndex = state.messages.length;
     try {
-      var query = Supabase.instance.client
-          .from('vw_forum_messages')
-          .select()
-          .eq('forum_id', forumId)
-          .inFilter('message_type', messageTypes)
-          .filter('deleted_at', 'is', null);
+      final oldest = state.messages.isNotEmpty
+          ? state.messages.last.createdAt.toIso8601String()
+          : null;
 
-      if (state.selectedCategory != null) {
-        query = query.eq('hashtag', state.selectedCategory!);
-      }
-
-      if (state.searchQuery.isNotEmpty) {
-        query = query.textSearch('fts', state.searchQuery, config: 'english');
-      }
-
-      final data = await query
-          .order('is_pinned', ascending: false)
-          .order('created_at', ascending: false)
-          .range(startIndex, startIndex + 20);
+      final data = await _repo.getMessages(
+        forumId: forumId,
+        limit: 20,
+        before: oldest,
+        searchQuery: state.searchQuery,
+        messageTypes: messageTypes,
+        hashtag: state.selectedCategory,
+      );
 
       var more =
           data.map((json) => ChatMessage.fromMap(json, userId)).toList();
@@ -317,8 +301,7 @@ class ForumUpdatesCubit extends BaseMessageCubit<ForumUpdatesState> {
 
       final data = await query
           .order('created_at', ascending: false)
-          .limit(100);
-
+          .limit(50);
       final deletedIds = data
           .where((json) => json['deleted_at'] != null)
           .map((json) => json['id'] as String)
@@ -345,8 +328,10 @@ class ForumUpdatesCubit extends BaseMessageCubit<ForumUpdatesState> {
       }
 
       final updatedList = List<ChatMessage>.from(state.messages);
+      // Use a Set for O(1) duplicate detection instead of O(N²) .any() scan.
+      final existingIds = {for (final m in updatedList) m.id};
       for (final msg in newMsgs) {
-        if (!updatedList.any((m) => m.id == msg.id)) {
+        if (existingIds.add(msg.id)) {
           updatedList.add(msg);
         }
       }

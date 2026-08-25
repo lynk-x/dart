@@ -25,8 +25,22 @@ String getPathFromStorageUrl(String url, String bucket) {
   return '';
 }
 
+class _CachedSignedUrl {
+  final String signedUrl;
+  final DateTime expiresAt;
+
+  _CachedSignedUrl(this.signedUrl, this.expiresAt);
+
+  bool get isValid => DateTime.now().isBefore(expiresAt);
+}
+
+final Map<String, _CachedSignedUrl> _signedUrlCache = {};
+
 /// Batch-sign media paths using the media-signer Edge Function.
 /// Returns a map of path -> signedUrl.
+///
+/// Implements an in-memory cache with expiration buffer to prevent redundant
+/// network round-trips for already-signed URLs.
 Future<Map<String, String>> batchSignStorageUrls(List<String> urls, String bucket, {int expiresIn = 3600}) async {
   if (urls.isEmpty) return {};
   final paths = urls
@@ -36,29 +50,57 @@ Future<Map<String, String>> batchSignStorageUrls(List<String> urls, String bucke
       .toList();
   if (paths.isEmpty) return {};
 
+  final resultMap = <String, String>{};
+  final uncachedPaths = <String>[];
+
+  // 1. Check in-memory cache for valid non-expired signed URLs
+  for (final path in paths) {
+    final cached = _signedUrlCache[path];
+    if (cached != null && cached.isValid) {
+      resultMap[path] = cached.signedUrl;
+    } else {
+      uncachedPaths.add(path);
+    }
+  }
+
+  // 2. Return early if all paths were served from cache
+  if (uncachedPaths.isEmpty) {
+    return resultMap;
+  }
+
   try {
     final response = await Supabase.instance.client.functions.invoke(
       'media-signer',
       body: {
         'action': 'sign_read_batch',
-        'fileKeys': paths,
+        'fileKeys': uncachedPaths,
       },
     );
 
     if (response.status != 200) {
       debugPrint('[StorageUtils] Edge function returned status ${response.status}');
-      return {};
+      return resultMap;
     }
 
     final data = response.data;
     if (data == null || data['signedUrls'] == null) {
-      return {};
+      return resultMap;
     }
 
-    return Map<String, String>.from(data['signedUrls']);
+    final newSignedUrls = Map<String, String>.from(data['signedUrls']);
+    // Cache valid for (expiresIn - 10 minutes) buffer to avoid race conditions
+    final ttlSeconds = (expiresIn - 600).clamp(60, expiresIn);
+    final expiresAt = DateTime.now().add(Duration(seconds: ttlSeconds));
+
+    newSignedUrls.forEach((path, signedUrl) {
+      _signedUrlCache[path] = _CachedSignedUrl(signedUrl, expiresAt);
+      resultMap[path] = signedUrl;
+    });
+
+    return resultMap;
   } catch (e) {
     debugPrint('[StorageUtils] Error batch signing URLs via Edge Function: $e');
-    return {};
+    return resultMap;
   }
 }
 

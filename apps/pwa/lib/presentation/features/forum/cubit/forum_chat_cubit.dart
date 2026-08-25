@@ -334,7 +334,7 @@ class ForumChatCubit extends BaseMessageCubit<ForumChatState> {
     try {
       final data = await _repo.getMessages(
         forumId: forumId,
-        limit: 100,
+        limit: 50, 
         after: afterTimestamp,
         messageTypes: messageTypes,
       );
@@ -365,8 +365,9 @@ class ForumChatCubit extends BaseMessageCubit<ForumChatState> {
       }
 
       final updatedList = List<ChatMessage>.from(state.messages);
+      final existingIds = {for (final m in updatedList) m.id};
       for (final msg in newMsgs) {
-        if (!updatedList.any((m) => m.id == msg.id)) {
+        if (existingIds.add(msg.id)) {
           updatedList.add(msg);
         }
       }

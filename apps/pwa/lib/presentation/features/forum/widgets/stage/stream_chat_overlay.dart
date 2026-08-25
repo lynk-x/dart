@@ -1,9 +1,30 @@
 import 'package:flutter/material.dart';
 import 'package:lynk_core/core.dart';
 
+/// Typed value class representing a single entry in the live stage chat overlay.
+/// Replaces the previous untyped `Map<String, dynamic>` pipeline for type safety
+/// and zero-allocation reuse between builds.
+class StageChatEntry {
+  final String id;
+  final String type; // 'chat' | 'announcement'
+  final String sender;
+  final String role;
+  final String text;
+  final DateTime createdAt;
+
+  const StageChatEntry({
+    required this.id,
+    required this.type,
+    required this.sender,
+    required this.role,
+    required this.text,
+    required this.createdAt,
+  });
+}
+
 /// Translucent live stream chat overlay displayed on the stage bottom-left.
 class StageChatOverlay extends StatelessWidget {
-  final List<Map<String, dynamic>> combinedStream;
+  final List<StageChatEntry> combinedStream;
 
   const StageChatOverlay({
     super.key,
@@ -17,7 +38,7 @@ class StageChatOverlay extends StatelessWidget {
       left: 16,
       child: ConstrainedBox(
         constraints: BoxConstraints(
-          maxWidth: (MediaQuery.of(context).size.width * 0.7).clamp(200, 320),
+          maxWidth: (MediaQuery.sizeOf(context).width * 0.7).clamp(200, 320),
           maxHeight: 160,
         ),
         child: ShaderMask(
@@ -31,49 +52,15 @@ class StageChatOverlay extends StatelessWidget {
           },
           blendMode: BlendMode.dstIn,
           child: CustomScrollView(
-            reverse: true,
+            reverse: false,
             shrinkWrap: true,
             physics: const BouncingScrollPhysics(),
             slivers: [
               SliverList(
                 delegate: SliverChildBuilderDelegate(
                   (context, index) {
-                    final msg = combinedStream[index];
-                    final isAnnouncement = msg['type'] == 'announcement';
-                    final isPresenceJoin = msg['type'] == 'presence_join';
-                    final sender = (msg['sender'] ?? 'User').toString();
-                    final text = (msg['text'] ?? '').toString();
-                    final role = (msg['role'] ?? 'Spectator').toString();
-
-                    final isJoinEvent = isPresenceJoin ||
-                        text.contains('joined the live stream') ||
-                        text.contains('joined the live call') ||
-                        text.contains('joined the quiz session');
-
-                    if (isJoinEvent) {
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 6.0),
-                        child: Align(
-                          alignment: Alignment.centerLeft,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                            decoration: BoxDecoration(
-                              color: Colors.black.withValues(alpha: 0.6),
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(color: Colors.white24, width: 0.8),
-                            ),
-                            child: Text(
-                              text,
-                              style: AppTypography.interTight(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.white.withValues(alpha: 0.9),
-                              ),
-                            ),
-                          ),
-                        ),
-                      );
-                    }
+                    final entry = combinedStream[index];
+                    final isAnnouncement = entry.type == 'announcement';
 
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 6.0),
@@ -112,14 +99,14 @@ class StageChatOverlay extends StatelessWidget {
                                   const SizedBox(width: 6),
                                 ],
                                 Text(
-                                  sender,
+                                  entry.sender,
                                   style: AppTypography.interTight(
                                     fontSize: 11,
                                     fontWeight: FontWeight.bold,
                                     color: Colors.white,
                                   ),
                                 ),
-                                if (role.isNotEmpty) ...[
+                                if (entry.role.isNotEmpty) ...[
                                   const SizedBox(width: 4),
                                   Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
@@ -130,7 +117,7 @@ class StageChatOverlay extends StatelessWidget {
                                       borderRadius: BorderRadius.circular(4),
                                     ),
                                     child: Text(
-                                      role.toUpperCase(),
+                                      entry.role.toUpperCase(),
                                       style: AppTypography.inter(
                                         fontSize: 8,
                                         fontWeight: FontWeight.bold,
@@ -143,7 +130,7 @@ class StageChatOverlay extends StatelessWidget {
                             ),
                             const SizedBox(height: 2),
                             Text(
-                              text,
+                              entry.text,
                               style: AppTypography.interTight(
                                 fontSize: 12,
                                 color: Colors.white.withValues(alpha: 0.9),

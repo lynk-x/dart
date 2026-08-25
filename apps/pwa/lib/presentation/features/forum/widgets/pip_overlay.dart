@@ -4,7 +4,7 @@ import 'package:lynk_core/core.dart';
 import 'package:lynk_x/presentation/features/forum/services/audio_telemetry_service.dart';
 import 'package:lynk_x/presentation/features/forum/services/pip_service.dart';
 import 'package:lynk_x/presentation/features/forum/services/stream_service.dart';
-import 'package:lynk_x/presentation/features/forum/widgets/stage/animated_soundwave_widget.dart';
+import 'package:lynk_x/presentation/features/forum/widgets/stage/soundwave_widget.dart';
 
 /// Floating In-App Picture-in-Picture (PiP) card displayed on the Forum page
 /// when a live video stream or audio call is minimized. Supports Live Call / Live Chat context switching.
@@ -27,12 +27,26 @@ class PipOverlay extends StatefulWidget {
 class _PipOverlayState extends State<PipOverlay> {
   final StreamPipService _pipService = StreamPipService();
   final ForumVideoStreamService _videoService = ForumVideoStreamService();
+  final AudioTelemetryService _telemetry = AudioTelemetryService();
 
   double? _left;
   double? _top;
 
   static const double _bottomAllowance = 96.0;
   static const double _margin = 16.0;
+
+  @override
+  void initState() {
+    super.initState();
+    // Start shared polling timer — ref-counted, safe to call multiple times.
+    _telemetry.startPolling();
+  }
+
+  @override
+  void dispose() {
+    _telemetry.stopPolling();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -116,9 +130,9 @@ class _PipOverlayState extends State<PipOverlay> {
             ),
           ),
           const SizedBox(width: 6),
-          AnimatedSoundwaveWidget(
+          SoundwaveWidget(
             isSpeaking: true,
-            getAudioLevel: () => AudioTelemetryService().getActiveAudioLevel(),
+            audioLevelNotifier: _telemetry.levelNotifier,
             barColor: context.accentColor,
           ),
         ],
@@ -185,9 +199,9 @@ class _PipOverlayState extends State<PipOverlay> {
                       ),
                     ),
                     const SizedBox(width: 5),
-                    AnimatedSoundwaveWidget(
+                    SoundwaveWidget(
                       isSpeaking: true,
-                      getAudioLevel: () => AudioTelemetryService().getActiveAudioLevel(),
+                      audioLevelNotifier: _telemetry.levelNotifier,
                       barColor: context.accentColor,
                     ),
                   ],

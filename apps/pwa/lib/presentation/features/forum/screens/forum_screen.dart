@@ -118,6 +118,7 @@ class ForumPage extends StatelessWidget {
                     forumId: fId,
                     userId: mainCubit.userId,
                     userName: mainCubit.userName,
+                    repo: forumRepository,
                   )..init();
                   cubit.syncForumContext(
                     forumCreatedAt: state.forumCreatedAt,
@@ -602,18 +603,18 @@ class _ForumViewState extends State<ForumView> {
                                                 isReadOnly: forumState.isReadOnly,
                                                 forumName: forumState.forumName,
                                                 onLockToggle: () {
-                                                  final nextStatus =
-                                                      forumState.isReadOnly
-                                                          ? 'open'
-                                                          : 'read_only';
-                                                  cubit.updateForumStatus(nextStatus);
-                                                  AppSnackBars.showInfo(
-                                                    context,
-                                                    forumState.isReadOnly
-                                                        ? 'Chat unlocked'
-                                                        : 'Chat locked',
-                                                  );
-                                                },
+                                                   final nextStatus =
+                                                       forumState.isReadOnly
+                                                           ? 'open'
+                                                           : 'read_only';
+                                                   cubit.updateForumStatus(nextStatus);
+                                                   AppSnackBars.showInfo(
+                                                     context,
+                                                     forumState.isReadOnly
+                                                         ? 'Chat unlocked'
+                                                         : 'Chat locked',
+                                                   );
+                                                 },
                                                 onSearch: (q) {
                                                   context
                                                       .read<ForumUpdatesCubit>()

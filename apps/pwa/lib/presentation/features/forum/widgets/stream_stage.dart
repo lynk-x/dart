@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:js_interop';
 import 'dart:ui_web' as ui_web;
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb, listEquals;
 import 'package:flutter/material.dart';
 import 'package:lynk_core/core.dart';
 import 'package:web/web.dart' as web;
@@ -45,82 +45,125 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
   static const String _elementId = 'lynk_live_video_stage';
   static const String _viewType = 'lynk-video-stage-view';
   static bool _viewRegistered = false;
+  static web.HTMLVideoElement? _sharedVideoElement;
 
   web.HTMLVideoElement? _videoElement;
+
+  // --- UI state fields ---
   bool _isMicMuted = false;
   bool _isCameraOn = true;
   bool _isFrontCamera = true;
+  bool _isScreenSharing = false;
   bool _showTelemetryOverlay = false;
-  final bool _showLiveChatOverlay = true;
-  int _sessionDurationSeconds = 0;
 
-  final List<Map<String, dynamic>> _unifiedStreamMessages = [];
+  // --- Notifiers: update without triggering full build() rebuild ---
+  /// Updated by the 100ms audio timer; consumed by SpeakerTag and GridStageOverlay
+  /// via ValueListenableBuilder — no setState() needed.
+  final ValueNotifier<double> _audioLevelNotifier = ValueNotifier(0.0);
+  /// Updated by the 1s duration timer; consumed by StageTopBar's internal
+  /// ValueListenableBuilder — avoids a full stage rebuild every second.
+  final ValueNotifier<int> _sessionDurationNotifier = ValueNotifier(0);
 
-  Timer? _spectatorTimer;
+  // --- Timers ---
   Timer? _audioLevelTimer;
   Timer? _durationTimer;
   Timer? _telemetryTimer;
-  double _currentAudioLevel = 0.0;
+
+  // --- Local stream message fallback (when cubit is unavailable) ---
+  final List<StageChatEntry> _unifiedStreamMessages = [];
+
+  // --- Memoization fields for combinedStream (fix #1) ---
+  List<String> _lastChatMsgIds = const [];
+  List<String> _lastUpdateMsgIds = const [];
+  List<StageChatEntry> _combinedStream = const [];
+
   JSFunction? _onScreenShareEndedListener;
+
+  // ---------------------------------------------------------------------------
+  // Lifecycle
+  // ---------------------------------------------------------------------------
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+
     if (kIsWeb) {
       _onScreenShareEndedListener = (web.Event event) {
         if (mounted && _isScreenSharing) {
-          setState(() {
-            _isScreenSharing = false;
-          });
+          setState(() => _isScreenSharing = false);
         }
       }.toJS;
       web.window.addEventListener('lynkScreenShareEnded', _onScreenShareEndedListener);
 
       if (!_viewRegistered) {
-        _videoElement = web.HTMLVideoElement()
+        _sharedVideoElement = web.HTMLVideoElement()
           ..id = _elementId
           ..style.width = '100%'
           ..style.height = '100%'
           ..style.objectFit = 'cover';
-        _videoElement!.setAttribute('playsinline', 'true');
-        _videoElement!.setAttribute('autoplay', 'true');
-        _videoElement!.setAttribute('muted', 'true');
-        _videoElement!.muted = true;
+        _sharedVideoElement!.setAttribute('playsinline', 'true');
+        _sharedVideoElement!.setAttribute('autoplay', 'true');
+        _sharedVideoElement!.setAttribute('muted', 'true');
+        _sharedVideoElement!.muted = true;
 
         ui_web.platformViewRegistry.registerViewFactory(
           _viewType,
-          (int viewId) => _videoElement!,
+          (int viewId) => _sharedVideoElement!,
         );
         _viewRegistered = true;
       }
+      _videoElement = _sharedVideoElement;
     }
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initCameraAndAudio();
     });
 
-    _startSpectatorSimulation();
     _startAudioLevelPolling();
     _startDurationTimer();
     _startTelemetryPolling();
   }
 
-  void _startTelemetryPolling() {
-    _telemetryTimer?.cancel();
-    _telemetryTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+  // ---------------------------------------------------------------------------
+  // Timers
+  // ---------------------------------------------------------------------------
+
+  /// Polls audio level every 100ms and updates [_audioLevelNotifier].
+  /// Uses ValueNotifier.value = instead of setState() to avoid full rebuild.
+  void _startAudioLevelPolling() {
+    _audioLevelTimer?.cancel();
+    _audioLevelTimer = Timer.periodic(const Duration(milliseconds: 100), (_) {
       if (!mounted) return;
-      _videoService.fetchTelemetryStats();
+      if (_isMicMuted) {
+        if (_audioLevelNotifier.value != 0.0) _audioLevelNotifier.value = 0.0;
+        return;
+      }
+      final level = _videoService.getAudioLevel();
+      if ((level - _audioLevelNotifier.value).abs() > 0.05) {
+        _audioLevelNotifier.value = level;
+      }
     });
   }
 
+  /// Increments session duration every second via [_sessionDurationNotifier].
+  /// Avoids setState() so only StageTopBar's internal ValueListenableBuilder
+  /// rebuilds — not the entire stage widget tree.
   void _startDurationTimer() {
     _durationTimer?.cancel();
     _durationTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!mounted) return;
-      setState(() {
-        _sessionDurationSeconds++;
-      });
+      _sessionDurationNotifier.value++;
+    });
+  }
+
+  /// Polls telemetry stats from the video service every second.
+  /// Only fetches when the telemetry overlay is visible to avoid redundant work.
+  void _startTelemetryPolling() {
+    _telemetryTimer?.cancel();
+    _telemetryTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted || !_showTelemetryOverlay) return;
+      _videoService.fetchTelemetryStats();
     });
   }
 
@@ -129,11 +172,72 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
     final seconds = (totalSeconds % 60).toString().padLeft(2, '0');
     final hours = totalSeconds ~/ 3600;
     if (hours > 0) {
-      final h = hours.toString().padLeft(2, '0');
-      return '$h:$minutes:$seconds';
+      return '${hours.toString().padLeft(2, '0')}:$minutes:$seconds';
     }
     return '$minutes:$seconds';
   }
+
+  // ---------------------------------------------------------------------------
+  // Combined stream memoization 
+  // ---------------------------------------------------------------------------
+
+  /// Rebuilds [_combinedStream] only when the underlying cubit message IDs have
+  /// changed. Skips the sort work on every build() call when nothing has changed
+  /// — O(1) fast-reject on identical list lengths, O(N) ID comparison only when lengths match.
+  void _maybeRebuildCombinedStream(
+    List<ChatMessage> chatMsgs,
+    List<ChatMessage> updateMsgs,
+  ) {
+    // Fast-reject: if list lengths differ, something definitely changed.
+    // Only allocate ID lists when lengths match (the more expensive check).
+    if (chatMsgs.length != _lastChatMsgIds.length ||
+        updateMsgs.length != _lastUpdateMsgIds.length) {
+      _lastChatMsgIds = chatMsgs.map((m) => m.id).toList();
+      _lastUpdateMsgIds = updateMsgs.map((m) => m.id).toList();
+    } else {
+      final chatIds = chatMsgs.map((m) => m.id).toList();
+      final updateIds = updateMsgs.map((m) => m.id).toList();
+      if (listEquals(chatIds, _lastChatMsgIds) && listEquals(updateIds, _lastUpdateMsgIds)) {
+        return; // Nothing changed — skip rebuild.
+      }
+      _lastChatMsgIds = chatIds;
+      _lastUpdateMsgIds = updateIds;
+    }
+
+    final entries = <StageChatEntry>[
+      for (final msg in chatMsgs)
+        StageChatEntry(
+          id: msg.id,
+          type: msg.type == MessageType.announcement ? 'announcement' : 'chat',
+          sender: msg.sender,
+          role: msg.role == 'organizer' ? 'Organizer' : (msg.role ?? 'Spectator'),
+          text: msg.message,
+          createdAt: msg.createdAt,
+        ),
+      for (final msg in updateMsgs)
+        StageChatEntry(
+          id: msg.id,
+          type: 'announcement',
+          sender: msg.sender,
+          role: 'Organizer',
+          text: msg.message,
+          createdAt: msg.createdAt,
+        ),
+    ];
+
+    // Filter out join messages (no longer displayed in stage overlay).
+    // Sort ascending so newest messages appear at the bottom.
+    entries.removeWhere((e) =>
+        e.text.contains('joined the live stream') ||
+        e.text.contains('joined the live call') ||
+        e.text.contains('joined the quiz session'));
+    entries.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+    _combinedStream = entries;
+  }
+
+  // ---------------------------------------------------------------------------
+  // App lifecycle
+  // ---------------------------------------------------------------------------
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
@@ -173,72 +277,39 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
     }
   }
 
-  void _startSpectatorSimulation() {
-    _spectatorTimer = Timer.periodic(const Duration(seconds: 4), (_) {
-      if (!mounted) return;
-      ForumPresenceCubit? presenceCubit;
-      try {
-        presenceCubit = context.read<ForumPresenceCubit>();
-      } catch (_) {}
-
-      final online = presenceCubit?.state.onlineUsers ?? [];
-      setState(() {
-        _videoService.spectatorCount = online.length;
-      });
-    });
-  }
-
-  void _startAudioLevelPolling() {
-    _audioLevelTimer = Timer.periodic(const Duration(milliseconds: 100), (_) {
-      if (!mounted) return;
-      if (_isMicMuted) {
-        if (_currentAudioLevel != 0.0) {
-          setState(() {
-            _currentAudioLevel = 0.0;
-          });
-        }
-        return;
-      }
-      final level = _videoService.getAudioLevel();
-      if ((level - _currentAudioLevel).abs() > 0.05) {
-        setState(() {
-          _currentAudioLevel = level;
-        });
-      }
-    });
-  }
-
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     if (kIsWeb && _onScreenShareEndedListener != null) {
       web.window.removeEventListener('lynkScreenShareEnded', _onScreenShareEndedListener);
     }
-    _spectatorTimer?.cancel();
     _audioLevelTimer?.cancel();
     _durationTimer?.cancel();
     _telemetryTimer?.cancel();
+    _audioLevelNotifier.dispose();
+    _sessionDurationNotifier.dispose();
     if (!_videoService.isMinimizedNotifier.value) {
       _videoService.releaseWakeLock();
       _videoService.stopVideoStream();
+      if (kIsWeb && _videoElement != null) {
+        _videoElement!.srcObject = null;
+      }
     }
     super.dispose();
   }
 
-  bool _isScreenSharing = false;
+  // ---------------------------------------------------------------------------
+  // Controls
+  // ---------------------------------------------------------------------------
 
   Future<void> _toggleScreenShare() async {
     if (_isScreenSharing) {
       await _videoService.startVideoStream(_elementId, isFrontCamera: _isFrontCamera);
-      setState(() {
-        _isScreenSharing = false;
-      });
+      setState(() => _isScreenSharing = false);
     } else {
       final success = await _videoService.startScreenShare(_elementId);
       if (success) {
-        setState(() {
-          _isScreenSharing = true;
-        });
+        setState(() => _isScreenSharing = true);
       } else if (mounted) {
         AppSnackBars.showInfo(context, 'Screen share cancelled or restricted on this mobile browser. Try Desktop or Chrome Android.');
       }
@@ -246,18 +317,14 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
   }
 
   void _toggleMic() {
-    setState(() {
-      _isMicMuted = !_isMicMuted;
-    });
+    setState(() => _isMicMuted = !_isMicMuted);
     _videoService.isMicMuted = _isMicMuted;
     _videoService.toggleMic(!_isMicMuted);
     _videoService.updateParticipantMediaState('host', isMicMuted: _isMicMuted);
   }
 
   void _toggleCamera() {
-    setState(() {
-      _isCameraOn = !_isCameraOn;
-    });
+    setState(() => _isCameraOn = !_isCameraOn);
     _videoService.isCameraOn = _isCameraOn;
     _videoService.toggleCamera(_isCameraOn);
     _videoService.updateParticipantMediaState('host', isCameraOn: _isCameraOn);
@@ -265,9 +332,7 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
 
   Future<void> _flipCamera() async {
     final nextFront = !_isFrontCamera;
-    setState(() {
-      _isFrontCamera = nextFront;
-    });
+    setState(() => _isFrontCamera = nextFront);
     _videoService.isFrontCamera = nextFront;
     if (_videoElement != null) {
       _videoElement!.style.transform = nextFront ? 'scaleX(-1)' : 'none';
@@ -289,63 +354,39 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
     StageTelemetryModal.show(
       context,
       videoService: _videoService,
-      sessionDurationSeconds: _sessionDurationSeconds,
+      sessionDurationSeconds: _sessionDurationNotifier.value,
       formatDuration: _formatDuration,
     );
   }
+
+  // ---------------------------------------------------------------------------
+  // Build
+  // ---------------------------------------------------------------------------
 
   @override
   Widget build(BuildContext context) {
     ForumChatCubit? chatCubit;
     ForumUpdatesCubit? updatesCubit;
     ForumPresenceCubit? presenceCubit;
-    try {
-      chatCubit = context.watch<ForumChatCubit>();
-    } catch (_) {}
-    try {
-      updatesCubit = context.watch<ForumUpdatesCubit>();
-    } catch (_) {}
-    try {
-      presenceCubit = context.watch<ForumPresenceCubit>();
-    } catch (_) {}
+    try { chatCubit = context.watch<ForumChatCubit>(); } catch (_) {}
+    try { updatesCubit = context.watch<ForumUpdatesCubit>(); } catch (_) {}
+    try { presenceCubit = context.watch<ForumPresenceCubit>(); } catch (_) {}
 
     final presenceUsers = presenceCubit?.state.onlineUsers ?? [];
     if (presenceUsers.isNotEmpty) {
       _videoService.spectatorCount = presenceUsers.length;
     }
 
+    // Rebuild combinedStream only when message IDs differ (memoized).
     final chatMessages = chatCubit?.state.messages ?? [];
     final updateMessages = updatesCubit?.state.messages ?? [];
-
-    List<Map<String, dynamic>> combinedStream = [];
-
     if (chatMessages.isNotEmpty || updateMessages.isNotEmpty) {
-      for (final msg in chatMessages) {
-        combinedStream.add({
-          'id': msg.id,
-          'type': msg.type == MessageType.announcement ? 'announcement' : 'chat',
-          'sender': msg.sender,
-          'role': msg.role == 'organizer' ? 'Organizer' : (msg.role ?? 'Spectator'),
-          'text': msg.message,
-          'createdAt': msg.createdAt,
-        });
-      }
-      for (final msg in updateMessages) {
-        combinedStream.add({
-          'id': msg.id,
-          'type': 'announcement',
-          'sender': msg.sender,
-          'role': 'Organizer',
-          'text': msg.message,
-          'createdAt': msg.createdAt,
-        });
-      }
-      combinedStream.sort((a, b) => (b['createdAt'] as DateTime).compareTo(a['createdAt'] as DateTime));
-      combinedStream = _processAndThrottleJoinMessages(combinedStream);
-    } else {
-      combinedStream = _unifiedStreamMessages;
+      _maybeRebuildCombinedStream(chatMessages, updateMessages);
     }
+    final activeCombinedStream =
+        (chatMessages.isNotEmpty || updateMessages.isNotEmpty) ? _combinedStream : _unifiedStreamMessages;
 
+    // --- Main stage area ---
     final mainStageArea = Expanded(
       child: Stack(
         children: [
@@ -368,16 +409,19 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
 
                         return Stack(
                           children: [
-                            // Actual Web Video Stream PlatformView for non-grid layout modes (Focus, Deck, Presentation)
+                            // Actual Web Video Stream PlatformView for non-grid layout modes
                             if (kIsWeb && !isGridMode && !isLowBandwidth)
                               const Positioned.fill(
                                 child: HtmlElementView(viewType: _viewType),
                               ),
 
                             if (isGridMode)
+                              // _audioLevelNotifier is passed directly; GridStageOverlay
+                              // reads .value for speaking detection and forwards the notifier
+                              // to each SoundwaveWidget via listener — no extra VLB wrapper needed.
                               GridStageOverlay(
                                 videoService: _videoService,
-                                currentAudioLevel: _currentAudioLevel,
+                                audioLevelNotifier: _audioLevelNotifier,
                                 isCameraOn: _isCameraOn,
                                 isMicMuted: _isMicMuted,
                                 viewType: _viewType,
@@ -403,15 +447,14 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
             ),
           ),
 
+          // SPEAKER TAG (Bottom Right) — scoped ValueListenableBuilder for audio level
           Positioned(
             bottom: 16,
             right: 16,
             child: ValueListenableBuilder<StageLayoutMode>(
               valueListenable: _videoService.stageLayoutNotifier,
               builder: (context, layoutMode, _) {
-                if (layoutMode == StageLayoutMode.grid) {
-                  return const SizedBox.shrink();
-                }
+                if (layoutMode == StageLayoutMode.grid) return const SizedBox.shrink();
                 return ValueListenableBuilder<List<StreamParticipant>>(
                   valueListenable: _videoService.activeParticipantsNotifier,
                   builder: (context, participants, _) {
@@ -424,9 +467,12 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
                         isSpeaking: !_isMicMuted,
                       ),
                     );
-                    return SpeakerTag(
-                      activeParticipant: activeParticipant,
-                      audioLevel: _currentAudioLevel,
+                    return ValueListenableBuilder<double>(
+                      valueListenable: _audioLevelNotifier,
+                      builder: (context, audioLevel, _) => SpeakerTag(
+                        activeParticipant: activeParticipant,
+                        audioLevel: audioLevel,
+                      ),
                     );
                   },
                 );
@@ -442,8 +488,7 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
           ),
 
           // UNIFIED LIVE CHAT STREAM OVERLAY
-          if (_showLiveChatOverlay)
-            StageChatOverlay(combinedStream: combinedStream),
+          StageChatOverlay(combinedStream: activeCombinedStream),
 
           // STREAM TELEMETRY OVERLAY
           if (_showTelemetryOverlay)
@@ -462,20 +507,25 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
                   child: ValueListenableBuilder<TelemetryData>(
                     valueListenable: _videoService.telemetryNotifier,
                     builder: (context, telemetry, _) {
-                      return Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.info_outline_rounded, color: Colors.white38, size: 12),
-                          const SizedBox(width: 6),
-                          Text(
-                            '${telemetry.summaryLabel} • Uptime ${_formatDuration(_sessionDurationSeconds)}',
-                            style: AppTypography.interTight(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.white70,
-                            ),
-                          ),
-                        ],
+                      return ValueListenableBuilder<int>(
+                        valueListenable: _sessionDurationNotifier,
+                        builder: (context, seconds, _) {
+                          return Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.info_outline_rounded, color: Colors.white38, size: 12),
+                              const SizedBox(width: 6),
+                              Text(
+                                '${telemetry.summaryLabel} • Uptime ${_formatDuration(seconds)}',
+                                style: AppTypography.interTight(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.white70,
+                                ),
+                              ),
+                            ],
+                          );
+                        },
                       );
                     },
                   ),
@@ -486,8 +536,7 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
           // TOP BAR OVERLAY
           StageTopBar(
             videoService: _videoService,
-            sessionDurationSeconds: _sessionDurationSeconds,
-            formatDuration: _formatDuration,
+            sessionDurationNotifier: _sessionDurationNotifier,
             showTelemetryOverlay: _showTelemetryOverlay,
             isHost: widget.isHost,
             isScreenSharing: _isScreenSharing,
@@ -495,9 +544,7 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
             isMicMuted: _isMicMuted,
             isCameraOn: _isCameraOn,
             onToggleTelemetry: () {
-              setState(() {
-                _showTelemetryOverlay = !_showTelemetryOverlay;
-              });
+              setState(() => _showTelemetryOverlay = !_showTelemetryOverlay);
             },
             onShowTelemetryModal: _showTelemetryDetailsModal,
             onMinimize: _triggerPictureInPicture,
@@ -519,19 +566,21 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
             isOrganizer: widget.isHost,
             onSendMessage: (text, replyTo) {
               if (text.trim().isEmpty) return;
-
-              setState(() {
-                _unifiedStreamMessages.insert(0, {
-                  'id': DateTime.now().millisecondsSinceEpoch.toString(),
-                  'type': widget.isHost ? 'announcement' : 'stream_chat',
-                  'sender': widget.isHost
-                      ? (widget.hostName.isNotEmpty ? widget.hostName : 'Host')
-                      : 'You',
-                  'role': widget.isHost ? 'Organizer' : 'Spectator',
-                  'text': text,
-                  'createdAt': DateTime.now(),
-                });
-              });
+              // O(1) append — list is sorted ascending so new messages go at the end.
+              _unifiedStreamMessages.add(StageChatEntry(
+                id: DateTime.now().millisecondsSinceEpoch.toString(),
+                type: widget.isHost ? 'announcement' : 'stream_chat',
+                sender: widget.isHost
+                    ? (widget.hostName.isNotEmpty ? widget.hostName : 'Host')
+                    : 'You',
+                role: widget.isHost ? 'Organizer' : 'Spectator',
+                text: text,
+                createdAt: DateTime.now(),
+              ));
+              // Only rebuild when using local fallback list (no cubit messages).
+              if (chatCubit?.state.messages.isEmpty ?? true) {
+                setState(() {});
+              }
             },
           ),
         ],
@@ -539,66 +588,5 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
     );
   }
 
-  List<Map<String, dynamic>> _processAndThrottleJoinMessages(
-      List<Map<String, dynamic>> rawList) {
-    if (rawList.isEmpty) return rawList;
-
-    final List<Map<String, dynamic>> result = [];
-    List<Map<String, dynamic>> pendingJoinBatch = [];
-
-    for (final msg in rawList) {
-      final text = (msg['text'] as String? ?? '');
-      final isJoinMessage = text.contains('joined the live stream') ||
-          text.contains('joined the live call') ||
-          text.contains('joined the quiz session');
-
-      if (isJoinMessage) {
-        pendingJoinBatch.add(msg);
-      } else {
-        if (pendingJoinBatch.isNotEmpty) {
-          result.add(_collapseJoinBatch(pendingJoinBatch));
-          pendingJoinBatch = [];
-        }
-        result.add(msg);
-      }
-    }
-
-    if (pendingJoinBatch.isNotEmpty) {
-      result.add(_collapseJoinBatch(pendingJoinBatch));
-    }
-
-    return result;
-  }
-
-  Map<String, dynamic> _collapseJoinBatch(List<Map<String, dynamic>> batch) {
-    if (batch.isEmpty) return {};
-    if (batch.length == 1) return batch.first;
-
-    final first = batch.first;
-    final firstSender = first['sender'] as String? ?? 'A member';
-    final countOthers = batch.length - 1;
-    final text = (first['text'] as String? ?? '');
-
-    String actionText = 'joined the live stream';
-    String emoji = '👋';
-    if (text.contains('live call')) {
-      actionText = 'joined the live call';
-      emoji = '🎙️';
-    } else if (text.contains('quiz')) {
-      actionText = 'joined the quiz session';
-      emoji = '🎯';
-    }
-
-    final collapsedText =
-        '$emoji $firstSender + $countOthers other${countOthers > 1 ? 's' : ''} $actionText';
-
-    return {
-      'id': 'batch_${first['id']}',
-      'type': 'presence_join',
-      'sender': 'System',
-      'role': 'Presence',
-      'text': collapsedText,
-      'createdAt': first['createdAt'],
-    };
-  }
 }
+

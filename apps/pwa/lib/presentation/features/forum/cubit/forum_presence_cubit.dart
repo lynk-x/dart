@@ -78,9 +78,7 @@ class ForumPresenceCubit extends Cubit<ForumPresenceState> {
 
   void _updatePresenceFromChannel() {
     final presenceStates = channel?.presenceState();
-    if (presenceStates == null) {
-      return;
-    }
+    if (presenceStates == null) return;
 
     final List<Map<String, dynamic>> users = [];
     final Set<String> uniqueUserIds = {};
@@ -114,6 +112,8 @@ class ForumPresenceCubit extends Cubit<ForumPresenceState> {
       uniqueUserIds.add(userId);
       users.add(me);
     }
+
+    if (users.length == state.onlineUsers.length) return;
 
     if (!isClosed) emit(state.copyWith(onlineUsers: users));
   }
