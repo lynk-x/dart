@@ -47,8 +47,8 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
   static bool _viewRegistered = false;
 
   web.HTMLVideoElement? _videoElement;
-  final bool _isMicMuted = false;
-  final bool _isCameraOn = true;
+  bool _isMicMuted = false;
+  bool _isCameraOn = true;
   bool _isFrontCamera = true;
   bool _showTelemetryOverlay = false;
   final bool _showLiveChatOverlay = true;
@@ -276,6 +276,24 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
     }
   }
 
+  void _toggleMic() {
+    setState(() {
+      _isMicMuted = !_isMicMuted;
+    });
+    _videoService.isMicMuted = _isMicMuted;
+    _videoService.toggleMic(!_isMicMuted);
+    _videoService.updateParticipantMediaState('host', isMicMuted: _isMicMuted);
+  }
+
+  void _toggleCamera() {
+    setState(() {
+      _isCameraOn = !_isCameraOn;
+    });
+    _videoService.isCameraOn = _isCameraOn;
+    _videoService.toggleCamera(_isCameraOn);
+    _videoService.updateParticipantMediaState('host', isCameraOn: _isCameraOn);
+  }
+
   Future<void> _flipCamera() async {
     final nextFront = !_isFrontCamera;
     setState(() {
@@ -387,6 +405,8 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
                           return GridStageOverlay(
                             videoService: _videoService,
                             currentAudioLevel: _currentAudioLevel,
+                            isCameraOn: _isCameraOn,
+                            isMicMuted: _isMicMuted,
                           );
                         }
                         if (layoutMode == StageLayoutMode.presentation) {
@@ -496,6 +516,8 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
             isHost: widget.isHost,
             isScreenSharing: _isScreenSharing,
             isFrontCamera: _isFrontCamera,
+            isMicMuted: _isMicMuted,
+            isCameraOn: _isCameraOn,
             onToggleTelemetry: () {
               setState(() {
                 _showTelemetryOverlay = !_showTelemetryOverlay;
@@ -505,6 +527,8 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
             onMinimize: _triggerPictureInPicture,
             onToggleScreenShare: _toggleScreenShare,
             onFlipCamera: _flipCamera,
+            onToggleMic: _toggleMic,
+            onToggleCamera: _toggleCamera,
           ),
         ],
       ),

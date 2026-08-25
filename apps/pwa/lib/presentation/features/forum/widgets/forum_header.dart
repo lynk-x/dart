@@ -35,8 +35,10 @@ class ForumHeader extends StatefulWidget {
   final List<String> activeSpeakerNames;
   final String? currentUserName;
   final bool isMicMuted;
+  final bool isCameraOn;
   final bool isBroadcastMuted;
   final VoidCallback? onToggleMic;
+  final VoidCallback? onToggleCamera;
   final VoidCallback? onToggleBroadcastMute;
   final VoidCallback? onEndBroadcast;
 
@@ -63,8 +65,10 @@ class ForumHeader extends StatefulWidget {
     this.activeSpeakerNames = const [],
     this.currentUserName,
     this.isMicMuted = true,
+    this.isCameraOn = true,
     this.isBroadcastMuted = false,
     this.onToggleMic,
+    this.onToggleCamera,
     this.onToggleBroadcastMute,
     this.onEndBroadcast,
     this.getAudioLevel,
@@ -117,19 +121,36 @@ class _ForumHeaderState extends State<ForumHeader> {
         children: [
           const SizedBox(width: 8),
 
-          // SLOT 1: Left Icon (Camcorder + Mini Waveform for video stream / Mic toggle for audio)
+          // SLOT 1: Left Icon (Dual Mic & Camera Toggle buttons during live stream)
           if (widget.isVideoStreamLive)
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Padding(
-                  padding: EdgeInsets.only(left: 4.0),
-                  child: Icon(Icons.videocam_rounded, color: Colors.black, size: 20),
-                ),
-                const SizedBox(width: 4),
-                AnimatedSoundwaveWidget(
-                  isSpeaking: true,
-                  getAudioLevel: widget.getAudioLevel,
+                // MIC TOGGLE BUTTON
+                widget.isMicMuted
+                    ? IconButton(
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                        icon: const Icon(Icons.mic_off_rounded, color: Colors.red, size: 20),
+                        onPressed: widget.onToggleMic,
+                        tooltip: 'Unmute Mic',
+                      )
+                    : _ActiveMicWaveButton(
+                        onToggleMic: widget.onToggleMic,
+                        getAudioLevel: widget.getAudioLevel,
+                      ),
+
+                // CAMERA TOGGLE BUTTON
+                IconButton(
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                  icon: Icon(
+                    widget.isCameraOn ? Icons.videocam_rounded : Icons.videocam_off_rounded,
+                    color: widget.isCameraOn ? Colors.black : Colors.red,
+                    size: 20,
+                  ),
+                  onPressed: widget.onToggleCamera,
+                  tooltip: widget.isCameraOn ? 'Turn Camera Off' : 'Turn Camera On',
                 ),
               ],
             )

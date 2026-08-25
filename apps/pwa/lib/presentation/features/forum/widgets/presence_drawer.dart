@@ -412,6 +412,7 @@ class _PresenceDrawerState extends State<PresenceDrawer> {
                             roleId: user['role_id'] as String?,
                             isOnline: user['is_online'] == true,
                             isOrganizer: user['is_organizer'] == true,
+                            isViewerOrganizer: widget.isOrganizer,
                             isPremium: user['is_premium'] == true,
                             showMicControl: isVideoLive || widget.isAudioLive,
                             showCameraControl: isVideoLive,

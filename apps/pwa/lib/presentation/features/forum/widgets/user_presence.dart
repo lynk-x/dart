@@ -13,6 +13,7 @@ class UserPresenceCard extends StatefulWidget {
   final bool isOnline;
   final bool isPrimary;
   final bool isOrganizer;
+  final bool isViewerOrganizer;
   final bool isPremium;
 
   final bool showMicControl;
@@ -30,6 +31,7 @@ class UserPresenceCard extends StatefulWidget {
     this.roleId,
     this.isPrimary = false,
     this.isOrganizer = false,
+    this.isViewerOrganizer = false,
     this.isPremium = false,
     this.showMicControl = false,
     this.showCameraControl = false,
@@ -105,6 +107,7 @@ class _UserPresenceCardState extends State<UserPresenceCard> {
   Widget build(BuildContext context) {
     final bool effectiveMicMuted = widget.isMicMuted ?? _localMicMuted;
     final bool effectiveCameraOn = widget.isCameraOn ?? _localCameraOn;
+    final bool canToggleMedia = widget.isPrimary || widget.isViewerOrganizer;
 
     return Opacity(
       opacity: widget.isOnline ? 1.0 : 0.45,
@@ -158,42 +161,70 @@ class _UserPresenceCardState extends State<UserPresenceCard> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         if (widget.showMicControl)
-                          Tooltip(
-                            message: effectiveMicMuted ? 'Unmute Mic' : 'Mute Mic',
-                            child: InkWell(
-                              onTap: _handleToggleMic,
-                              borderRadius: BorderRadius.circular(16),
-                              child: Padding(
-                                padding: const EdgeInsets.all(4.0),
-                                child: Icon(
-                                  effectiveMicMuted ? Icons.mic_off_rounded : Icons.mic_rounded,
-                                  color: effectiveMicMuted
-                                      ? (widget.isPrimary ? Colors.black45 : Colors.redAccent)
-                                      : (widget.isPrimary ? Colors.black87 : context.accentColor),
-                                  size: 20,
+                          canToggleMedia
+                              ? Tooltip(
+                                  message: effectiveMicMuted ? 'Unmute Mic' : 'Mute Mic',
+                                  child: InkWell(
+                                    onTap: _handleToggleMic,
+                                    borderRadius: BorderRadius.circular(16),
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(4.0),
+                                      child: Icon(
+                                        effectiveMicMuted ? Icons.mic_off_rounded : Icons.mic_rounded,
+                                        color: effectiveMicMuted
+                                            ? (widget.isPrimary ? Colors.black45 : Colors.redAccent)
+                                            : (widget.isPrimary ? Colors.black87 : context.accentColor),
+                                        size: 20,
+                                      ),
+                                    ),
+                                  ),
+                                )
+                              : Tooltip(
+                                  message: effectiveMicMuted ? 'Mic Muted' : 'Mic Active',
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(4.0),
+                                    child: Icon(
+                                      effectiveMicMuted ? Icons.mic_off_rounded : Icons.mic_rounded,
+                                      color: effectiveMicMuted
+                                          ? (widget.isPrimary ? Colors.black45 : Colors.redAccent)
+                                          : (widget.isPrimary ? Colors.black87 : context.accentColor),
+                                      size: 20,
+                                    ),
+                                  ),
                                 ),
-                              ),
-                            ),
-                          ),
                         if (widget.showCameraControl) ...[
                           if (widget.showMicControl) const SizedBox(width: 6),
-                          Tooltip(
-                            message: effectiveCameraOn ? 'Turn Camera Off' : 'Turn Camera On',
-                            child: InkWell(
-                              onTap: _handleToggleCamera,
-                              borderRadius: BorderRadius.circular(16),
-                              child: Padding(
-                                padding: const EdgeInsets.all(4.0),
-                                child: Icon(
-                                  effectiveCameraOn ? Icons.videocam_rounded : Icons.videocam_off_rounded,
-                                  color: effectiveCameraOn
-                                      ? (widget.isPrimary ? Colors.black87 : context.accentColor)
-                                      : (widget.isPrimary ? Colors.black45 : Colors.redAccent),
-                                  size: 20,
+                          canToggleMedia
+                              ? Tooltip(
+                                  message: effectiveCameraOn ? 'Turn Camera Off' : 'Turn Camera On',
+                                  child: InkWell(
+                                    onTap: _handleToggleCamera,
+                                    borderRadius: BorderRadius.circular(16),
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(4.0),
+                                      child: Icon(
+                                        effectiveCameraOn ? Icons.videocam_rounded : Icons.videocam_off_rounded,
+                                        color: effectiveCameraOn
+                                            ? (widget.isPrimary ? Colors.black87 : context.accentColor)
+                                            : (widget.isPrimary ? Colors.black45 : Colors.redAccent),
+                                        size: 20,
+                                      ),
+                                    ),
+                                  ),
+                                )
+                              : Tooltip(
+                                  message: effectiveCameraOn ? 'Camera Active' : 'Camera Off',
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(4.0),
+                                    child: Icon(
+                                      effectiveCameraOn ? Icons.videocam_rounded : Icons.videocam_off_rounded,
+                                      color: effectiveCameraOn
+                                          ? (widget.isPrimary ? Colors.black87 : context.accentColor)
+                                          : (widget.isPrimary ? Colors.black45 : Colors.redAccent),
+                                      size: 20,
+                                    ),
+                                  ),
                                 ),
-                              ),
-                            ),
-                          ),
                         ],
                       ],
                     ),

@@ -484,29 +484,48 @@ class _ForumViewState extends State<ForumView> {
                                               BlocBuilder<ForumAudioStreamCubit, ForumAudioStreamState>(
                                                 builder: (context, audioState) {
                                                   final audioCubit = context.read<ForumAudioStreamCubit>();
+                                                  final videoService = ForumVideoStreamService();
                                                   return ForumHeader(
                                                     isVideoStreamLive: isLive,
                                                     isAudioLive: audioState.isLive,
                                                     role: isLive && forumState.isOrganizer ? ForumHeaderRole.host : audioState.role,
                                                     activeSpeakerNames: audioState.activeSpeakerNames,
                                                     currentUserName: cubit.state.userName,
-                                                    isMicMuted: audioState.isMicMuted,
+                                                    isMicMuted: isLive ? videoService.isMicMuted : audioState.isMicMuted,
+                                                    isCameraOn: videoService.isCameraOn,
                                                     isBroadcastMuted: audioState.isBroadcastMuted,
-                                                    getAudioLevel: () => audioCubit.service.getAudioLevel(),
+                                                    getAudioLevel: () => isLive ? videoService.getAudioLevel() : audioCubit.service.getAudioLevel(),
                                                     onToggleMic: () {
-                                                      if (audioState.isMicMuted) {
-                                                        PermissionAcks.ensureAcknowledged(
-                                                          context,
-                                                          PermissionAckType.microphone,
-                                                          title: 'Microphone Permission',
-                                                          description:
-                                                              'To speak in live community streams, Lynk-X needs access to your microphone.',
-                                                          icon: Icons.mic_rounded,
-                                                          actionLabel: 'Allow Microphone',
-                                                          onReady: () => audioCubit.toggleMic(),
-                                                        );
+                                                      if (isLive) {
+                                                        final nextMicMuted = !videoService.isMicMuted;
+                                                        videoService.isMicMuted = nextMicMuted;
+                                                        videoService.toggleMic(!nextMicMuted);
+                                                        videoService.updateParticipantMediaState('host', isMicMuted: nextMicMuted);
+                                                        (context as Element).markNeedsBuild();
                                                       } else {
-                                                        audioCubit.toggleMic();
+                                                        if (audioState.isMicMuted) {
+                                                          PermissionAcks.ensureAcknowledged(
+                                                            context,
+                                                            PermissionAckType.microphone,
+                                                            title: 'Microphone Permission',
+                                                            description:
+                                                                'To speak in live community streams, Lynk-X needs access to your microphone.',
+                                                            icon: Icons.mic_rounded,
+                                                            actionLabel: 'Allow Microphone',
+                                                            onReady: () => audioCubit.toggleMic(),
+                                                          );
+                                                        } else {
+                                                          audioCubit.toggleMic();
+                                                        }
+                                                      }
+                                                    },
+                                                    onToggleCamera: () {
+                                                      if (isLive) {
+                                                        final nextCamOn = !videoService.isCameraOn;
+                                                        videoService.isCameraOn = nextCamOn;
+                                                        videoService.toggleCamera(nextCamOn);
+                                                        videoService.updateParticipantMediaState('host', isCameraOn: nextCamOn);
+                                                        (context as Element).markNeedsBuild();
                                                       }
                                                     },
                                                     onToggleBroadcastMute: () => audioCubit.toggleBroadcastMute(),
