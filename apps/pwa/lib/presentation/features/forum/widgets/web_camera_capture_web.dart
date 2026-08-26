@@ -115,6 +115,8 @@ class _WebCameraCaptureScreenState extends State<WebCameraCaptureScreen> {
   double? _zoomMax;
   double _currentZoom = 1.0;
   double _pinchStartZoom = 1.0;
+  bool _isPinching = false;
+  Timer? _zoomHideTimer;
 
   void _refreshZoomCapabilities() {
     final caps = _jsGetZoomCapabilities();
@@ -140,6 +142,11 @@ class _WebCameraCaptureScreenState extends State<WebCameraCaptureScreen> {
 
   void _onScaleStart(ScaleStartDetails details) {
     _pinchStartZoom = _currentZoom;
+    _zoomHideTimer?.cancel();
+    if (_zoomSupported && !_isPinching) {
+      _isPinching = true;
+      if (mounted) setState(() {});
+    }
   }
 
   void _onScaleUpdate(ScaleUpdateDetails details) {
@@ -156,6 +163,17 @@ class _WebCameraCaptureScreenState extends State<WebCameraCaptureScreen> {
       _jsSetZoom(next.toJS);
     }
     if (mounted) setState(() {});
+  }
+
+  void _onScaleEnd(ScaleEndDetails details) {
+    _zoomHideTimer?.cancel();
+    _zoomHideTimer = Timer(const Duration(milliseconds: 1200), () {
+      if (mounted && _isPinching) {
+        setState(() {
+          _isPinching = false;
+        });
+      }
+    });
   }
 
   // Preview-layer CSS transform on the <video> element — matches the "mirror"
@@ -478,6 +496,7 @@ class _WebCameraCaptureScreenState extends State<WebCameraCaptureScreen> {
 
   @override
   void dispose() {
+    _zoomHideTimer?.cancel();
     _recordTimer?.cancel();
     if (_pendingResult != null && _pendingResult!.objectUrl.isNotEmpty) {
       try {
@@ -516,6 +535,7 @@ class _WebCameraCaptureScreenState extends State<WebCameraCaptureScreen> {
             GestureDetector(
               onScaleStart: _onScaleStart,
               onScaleUpdate: _onScaleUpdate,
+              onScaleEnd: _onScaleEnd,
               child: const HtmlElementView(viewType: _viewType),
             ),
             if (!_isInitialized)
@@ -552,18 +572,22 @@ class _WebCameraCaptureScreenState extends State<WebCameraCaptureScreen> {
                         onTap: _isRecording ? null : () => Navigator.of(context).pop(),
                       ),
                       if (_zoomSupported && _isInitialized)
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                          decoration: BoxDecoration(
-                            color: Colors.black.withValues(alpha: 0.45),
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                          child: Text(
-                            '${_currentZoom.toStringAsFixed(1)}x',
-                            style: AppTypography.inter(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.white,
+                        AnimatedOpacity(
+                          duration: const Duration(milliseconds: 200),
+                          opacity: _isPinching ? 1.0 : 0.0,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.45),
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            child: Text(
+                              '${_currentZoom.toStringAsFixed(1)}x',
+                              style: AppTypography.inter(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.white,
+                              ),
                             ),
                           ),
                         )

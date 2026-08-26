@@ -141,6 +141,13 @@ class ChatMessage {
         lower.contains('ended the live call');
   }
 
+  bool get isJoinSystemMessage {
+    final lower = message.toLowerCase();
+    return lower.contains('joined the live stream') ||
+        lower.contains('joined the live call') ||
+        lower.contains('joined the quiz session');
+  }
+
   RegExpMatch? get urlMatch {
     final cached = _urlMatchExpando[this];
     if (cached == _kNoUrlSentinel) return null;
