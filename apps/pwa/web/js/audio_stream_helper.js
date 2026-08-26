@@ -449,8 +449,20 @@ window.lynkVideoStreamHelper = {
     }
   },
 
+  _deviceChangeListenerBound: false,
+  _ensureDeviceChangeListener() {
+    if (this._deviceChangeListenerBound) return;
+    if (navigator.mediaDevices && typeof navigator.mediaDevices.addEventListener === 'function') {
+      navigator.mediaDevices.addEventListener('devicechange', () => {
+        window.dispatchEvent(new CustomEvent('lynkMediaDevicesChanged'));
+      });
+      this._deviceChangeListenerBound = true;
+    }
+  },
+
   async getAvailableDevices() {
     try {
+      this._ensureDeviceChangeListener();
       if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) {
         return JSON.stringify([]);
       }
@@ -546,6 +558,9 @@ window.lynkVideoStreamHelper = {
       } else if (quality.includes('480')) {
         height = 480;
         frameRate = 24;
+      } else if (quality.includes('360')) {
+        height = 360;
+        frameRate = 15;
       }
       if (videoTrack.applyConstraints) {
         await videoTrack.applyConstraints({

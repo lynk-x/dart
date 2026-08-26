@@ -136,6 +136,8 @@ class _WebCameraCaptureScreenState extends State<WebCameraCaptureScreen> {
 
   bool get _zoomSupported => _zoomMin != null && _zoomMax != null && _zoomMax! > _zoomMin!;
 
+  int _lastZoomConstraintTimeMs = 0;
+
   void _onScaleStart(ScaleStartDetails details) {
     _pinchStartZoom = _currentZoom;
   }
@@ -145,11 +147,14 @@ class _WebCameraCaptureScreenState extends State<WebCameraCaptureScreen> {
     final min = _zoomMin!;
     final max = _zoomMax!;
     final next = (_pinchStartZoom * details.scale).clamp(min, max);
-    if ((next - _currentZoom).abs() < 0.01) return;
+    if ((next - _currentZoom).abs() < 0.02) return;
     _currentZoom = next;
-    // Fire-and-forget: constraint updates are cheap and frequent during a
-    // pinch gesture, no need to await/serialize them against setState.
-    _jsSetZoom(next.toJS);
+
+    final now = DateTime.now().millisecondsSinceEpoch;
+    if (now - _lastZoomConstraintTimeMs > 50) {
+      _lastZoomConstraintTimeMs = now;
+      _jsSetZoom(next.toJS);
+    }
     if (mounted) setState(() {});
   }
 

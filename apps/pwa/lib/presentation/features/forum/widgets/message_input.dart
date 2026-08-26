@@ -49,21 +49,29 @@ class _MessageInputState extends State<MessageInput> {
   List<Map<String, dynamic>> _filteredMembers = [];
   bool _showMentions = false;
 
+  late final ValueNotifier<bool> _isEmptyNotifier;
+
+  late final ValueNotifier<String?> _categoryNotifier;
 
   @override
   void initState() {
     super.initState();
+    _isEmptyNotifier = ValueNotifier(_controller.text.trim().isEmpty);
+    _categoryNotifier = ValueNotifier(null);
     _controller.addListener(_onControllerChanged);
   }
 
   void _onControllerChanged() {
-    setState(() {});
+    _isEmptyNotifier.value = _controller.text.trim().isEmpty;
+    _categoryNotifier.value = _getDetectedCategory();
   }
 
   @override
   void dispose() {
     _controller.removeListener(_onControllerChanged);
     _controller.dispose();
+    _isEmptyNotifier.dispose();
+    _categoryNotifier.dispose();
     super.dispose();
   }
 
@@ -190,7 +198,6 @@ class _MessageInputState extends State<MessageInput> {
 
   @override
   Widget build(BuildContext context) {
-    final detectedCategory = _getDetectedCategory();
     if (widget.isArchived && !widget.isOrganizer) {
       return const DisabledStateBar(state: DisabledForumState.archived);
     }
@@ -215,7 +222,13 @@ class _MessageInputState extends State<MessageInput> {
           if (widget.replyTo != null) _buildReplyPreview(),
           if (widget.editingMessage != null) _buildEditPreview(),
           if (widget.mentionedMedia != null) _buildMentionPreview(),
-          if (detectedCategory != null) _buildCategoryPreview(detectedCategory),
+          ValueListenableBuilder<String?>(
+            valueListenable: _categoryNotifier,
+            builder: (context, detectedCategory, _) {
+              if (detectedCategory == null) return const SizedBox.shrink();
+              return _buildCategoryPreview(detectedCategory);
+            },
+          ),
           Row(
             children: [
               if (widget.isOrganizer && widget.onCreatePollOrQuiz != null)
@@ -250,15 +263,20 @@ class _MessageInputState extends State<MessageInput> {
                 ),
               ),
               const SizedBox(width: 4),
-              IconButton(
-                tooltip: widget.editingMessage != null ? 'Save edit' : 'Send message',
-                icon: Icon(
-                    widget.editingMessage != null
-                        ? Icons.check_rounded
-                        : Icons.send_rounded,
-                    color: Colors.white,
-                    size: 26),
-                onPressed: _handleSend,
+              ValueListenableBuilder<bool>(
+                valueListenable: _isEmptyNotifier,
+                builder: (context, isEmpty, _) {
+                  return IconButton(
+                    tooltip: widget.editingMessage != null ? 'Save edit' : 'Send message',
+                    icon: Icon(
+                        widget.editingMessage != null
+                            ? Icons.check_rounded
+                            : Icons.send_rounded,
+                        color: Colors.white,
+                        size: 26),
+                    onPressed: isEmpty ? null : _handleSend,
+                  );
+                },
               ),
             ],
           ),

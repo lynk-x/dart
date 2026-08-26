@@ -8,8 +8,7 @@ enum JoinCardType { liveCall, liveStream, quiz }
 
 enum JoinCardState { lobby, connecting, live, active, ended }
 
-/// Polymorphic card component for inline chat announcements (Live Call, Live Stream, Quiz).
-class JoinCard extends StatelessWidget {
+class JoinCard extends StatefulWidget {
   final JoinCardType type;
   final JoinCardState state;
   final String title;
@@ -27,8 +26,28 @@ class JoinCard extends StatelessWidget {
     this.onAction,
   });
 
+  @override
+  State<JoinCard> createState() => _JoinCardState();
+}
+
+class _JoinCardState extends State<JoinCard> {
+  /// Guards against duplicate join announcements from rapid successive taps.
+  bool _hasJoined = false;
+
+  @override
+  void didUpdateWidget(JoinCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Clear the guard if the session resets to lobby/connecting so the
+    // user can broadcast a fresh join if they re-enter the session.
+    if (widget.state != oldWidget.state &&
+        (widget.state == JoinCardState.lobby ||
+            widget.state == JoinCardState.connecting)) {
+      _hasJoined = false;
+    }
+  }
+
   IconData get _icon {
-    switch (type) {
+    switch (widget.type) {
       case JoinCardType.liveCall:
         return Icons.graphic_eq_rounded;
       case JoinCardType.liveStream:
@@ -39,7 +58,7 @@ class JoinCard extends StatelessWidget {
   }
 
   String get _headerLabel {
-    switch (type) {
+    switch (widget.type) {
       case JoinCardType.liveCall:
         return 'Live Call';
       case JoinCardType.liveStream:
@@ -50,8 +69,8 @@ class JoinCard extends StatelessWidget {
   }
 
   String get _buttonText {
-    if (state == JoinCardState.ended) {
-      switch (type) {
+    if (widget.state == JoinCardState.ended) {
+      switch (widget.type) {
         case JoinCardType.liveCall:
           return 'Call Ended';
         case JoinCardType.liveStream:
@@ -61,12 +80,12 @@ class JoinCard extends StatelessWidget {
       }
     }
 
-    if (state == JoinCardState.connecting) {
+    if (widget.state == JoinCardState.connecting) {
       return 'Connecting...';
     }
 
-    if (state == JoinCardState.active) {
-      switch (type) {
+    if (widget.state == JoinCardState.active) {
+      switch (widget.type) {
         case JoinCardType.liveCall:
           return 'On Call — Live';
         case JoinCardType.liveStream:
@@ -76,7 +95,7 @@ class JoinCard extends StatelessWidget {
       }
     }
 
-    switch (type) {
+    switch (widget.type) {
       case JoinCardType.liveCall:
         return 'Join Live Call';
       case JoinCardType.liveStream:
@@ -87,6 +106,9 @@ class JoinCard extends StatelessWidget {
   }
 
   void _broadcastJoinPresence(BuildContext context) {
+    if (_hasJoined) return;
+    _hasJoined = true;
+
     try {
       final chatCubit = context.read<ForumChatCubit>();
       final forumCubit = context.read<ForumCubit>();
@@ -97,11 +119,11 @@ class JoinCard extends StatelessWidget {
       final isPremium = forumCubit.state.isPremium;
 
       String joinMessage = '';
-      if (type == JoinCardType.liveStream) {
+      if (widget.type == JoinCardType.liveStream) {
         joinMessage = '👋 $userName joined the live stream';
-      } else if (type == JoinCardType.liveCall) {
+      } else if (widget.type == JoinCardType.liveCall) {
         joinMessage = '🎙️ $userName joined the live call';
-      } else if (type == JoinCardType.quiz) {
+      } else if (widget.type == JoinCardType.quiz) {
         joinMessage = '🎯 $userName joined the quiz session';
       }
 
@@ -119,12 +141,12 @@ class JoinCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final onCardColor = PollQuizCardShell.onCardColor(isMe);
-    final isLive = state == JoinCardState.live || state == JoinCardState.active;
-    final isEnded = state == JoinCardState.ended;
+    final onCardColor = PollQuizCardShell.onCardColor(widget.isMe);
+    final isLive = widget.state == JoinCardState.live || widget.state == JoinCardState.active;
+    final isEnded = widget.state == JoinCardState.ended;
 
     return PollQuizCardShell(
-      isMe: isMe,
+      isMe: widget.isMe,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -156,15 +178,15 @@ class JoinCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 10),
-          if (title.isNotEmpty)
+          if (widget.title.isNotEmpty)
             Text(
-              title,
+              widget.title,
               style: TextStyle(color: onCardColor, fontSize: 15, fontWeight: FontWeight.w700),
             ),
-          if (subtitle != null && subtitle!.isNotEmpty) ...[
+          if (widget.subtitle != null && widget.subtitle!.isNotEmpty) ...[
             const SizedBox(height: 4),
             Text(
-              subtitle!,
+              widget.subtitle!,
               style: TextStyle(color: onCardColor.withValues(alpha: 0.7), fontSize: 12),
             ),
           ],
@@ -172,11 +194,11 @@ class JoinCard extends StatelessWidget {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
-              onPressed: isEnded || state == JoinCardState.connecting
+              onPressed: isEnded || widget.state == JoinCardState.connecting
                   ? null
                   : () {
                       _broadcastJoinPresence(context);
-                      onAction?.call();
+                      widget.onAction?.call();
                     },
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.white,

@@ -64,14 +64,7 @@ class ChatBubble extends StatefulWidget {
 }
 
 class _ChatBubbleState extends State<ChatBubble> {
-  bool get _isSystemMessage {
-    if (widget.message.type.isSystem) return true;
-    final msg = widget.message.message.toLowerCase();
-    return msg.contains('started the live stream') ||
-        msg.contains('started the live call') ||
-        msg.contains('ended the live stream') ||
-        msg.contains('ended the live call');
-  }
+  bool get _isSystemMessage => widget.message.isLiveSessionEvent;
 
   @override
   Widget build(BuildContext context) {
@@ -402,9 +395,10 @@ class _ChatBubbleState extends State<ChatBubble> {
 
     final textStyle = AppTypography.inter(
         color: textColor, fontSize: 14, fontWeight: FontWeight.w500);
-    final urlRegExp =
-        RegExp(r'(?:(?:https?|ftp)://)?[\w/\-?=%.]+\.[\w/\-?=%.]+');
-    final firstMatch = urlRegExp.firstMatch(displayMessage);
+
+    // Use the memoized urlMatch from ChatMessage — avoids re-running the regex
+    // on every build() call for every visible bubble in the list.
+    final firstMatch = widget.message.urlMatch;
 
     if (firstMatch != null) {
       final urlContent =

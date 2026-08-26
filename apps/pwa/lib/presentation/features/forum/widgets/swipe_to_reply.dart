@@ -9,11 +9,13 @@ import 'package:lynk_core/core.dart';
 class SwipeToReply extends StatefulWidget {
   final Widget child;
   final VoidCallback onReply;
+  final bool enabled;
 
   const SwipeToReply({
     super.key,
     required this.child,
     required this.onReply,
+    this.enabled = true,
   });
 
   @override
@@ -24,6 +26,7 @@ class _SwipeToReplyState extends State<SwipeToReply> with SingleTickerProviderSt
   late final AnimationController _controller;
   double _dragOffset = 0.0;
   bool _hasTriggeredHaptic = false;
+  VoidCallback? _activeSpringListener;
 
   @override
   void initState() {
@@ -36,6 +39,8 @@ class _SwipeToReplyState extends State<SwipeToReply> with SingleTickerProviderSt
 
   @override
   Widget build(BuildContext context) {
+    if (!widget.enabled) return widget.child;
+
     const maxDrag = 60.0;
     const threshold = 40.0;
     final progress = (_dragOffset.abs() / maxDrag).clamp(0.0, 1.0);
@@ -63,7 +68,11 @@ class _SwipeToReplyState extends State<SwipeToReply> with SingleTickerProviderSt
 
         _controller.forward(from: 0.0);
         final start = _dragOffset;
-        _controller.addListener(_onSpringAnimationUpdate(start));
+        if (_activeSpringListener != null) {
+          _controller.removeListener(_activeSpringListener!);
+        }
+        _activeSpringListener = _onSpringAnimationUpdate(start);
+        _controller.addListener(_activeSpringListener!);
         _hasTriggeredHaptic = false;
       },
       child: Stack(
@@ -118,6 +127,9 @@ class _SwipeToReplyState extends State<SwipeToReply> with SingleTickerProviderSt
 
   @override
   void dispose() {
+    if (_activeSpringListener != null) {
+      _controller.removeListener(_activeSpringListener!);
+    }
     _controller.dispose();
     super.dispose();
   }

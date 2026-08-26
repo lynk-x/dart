@@ -285,11 +285,13 @@ window.flutterCameraStream = {
 
       const drawFrame = () => {
         if (!this.recordCanvas || !this.videoElement) return;
-        ctx.save();
-        ctx.translate(width, 0);
-        ctx.scale(-1, 1);
-        ctx.drawImage(this.videoElement, 0, 0, width, height);
-        ctx.restore();
+        if (!document.hidden && !this.videoElement.paused) {
+          ctx.save();
+          ctx.translate(width, 0);
+          ctx.scale(-1, 1);
+          ctx.drawImage(this.videoElement, 0, 0, width, height);
+          ctx.restore();
+        }
         this.recordAnimFrameId = requestAnimationFrame(drawFrame);
       };
 

@@ -12,6 +12,7 @@ import 'package:lynk_x/presentation/features/forum/widgets/typing_indicator.dart
 import 'package:lynk_x/presentation/features/forum/widgets/chat_message_list.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/input_accessory_bar.dart';
 import 'package:lynk_x/presentation/shared/widgets/guest_profile_prompt_sheet.dart';
+import 'package:lynk_x/presentation/features/report/widgets/report_bottom_sheet.dart';
 
 import 'package:lynk_x/core/sync/sync_manager.dart';
 
@@ -149,7 +150,12 @@ class _LiveChatTabState extends State<LiveChatTab>
                         onPin: (msg) => mainCubit.pinMessage(msg),
                         onDelete: (msg) => chatCubit.deleteMessage(msg),
                         onEdit: (msg) => chatCubit.setEditingMessage(msg),
-                        onReport: (msg) => chatCubit.reportMessage(msg, 'Spam'),
+                        onReport: (msg) => showReportSheet(
+                          context,
+                          targetType: ReportTargetType.message,
+                          targetId: msg.id,
+                          messageCreatedAt: msg.createdAt,
+                        ),
                         onMute: (msg) => mainCubit.muteUser(msg.userId),
                         onBan: (msg) => mainCubit.banUser(msg.userId),
                         onReply: (msg) => chatCubit.setReplyTo(msg),

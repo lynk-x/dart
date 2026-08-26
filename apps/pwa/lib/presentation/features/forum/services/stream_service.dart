@@ -418,8 +418,14 @@ class ForumVideoStreamService {
         codec: (data['codec'] as String?) ?? 'H.264 / Opus',
       );
       telemetryNotifier.value = telemetry;
-      if (telemetry.isPoorConnection && !isLowBandwidthNotifier.value) {
-        isLowBandwidthNotifier.value = true;
+      if (telemetry.isPoorConnection) {
+        if (!isLowBandwidthNotifier.value) {
+          isLowBandwidthNotifier.value = true;
+          setStreamQuality('stage_video_element', '360p');
+        }
+      } else if (isLowBandwidthNotifier.value) {
+        isLowBandwidthNotifier.value = false;
+        setStreamQuality('stage_video_element', '720p');
       }
       return telemetry;
     } catch (e) {

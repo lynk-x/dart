@@ -56,19 +56,33 @@ class _PresenceDrawerState extends State<PresenceDrawer> {
   bool _showSettingsView = false;
   List<MediaDevice> _availableDevices = [];
   bool _isLoadingDevices = false;
+  bool _devicesLoaded = false;
 
   String _selectedCamera = 'Built-in Front Camera';
   String _selectedAudioInput = 'Default Microphone';
   String _selectedAudioOutput = 'Default Speaker';
   String _streamQuality = 'Auto (Adaptive HD)';
+  List<Map<String, dynamic>> _cachedRoster = const [];
 
   @override
   void initState() {
     super.initState();
-    _loadAvailableDevices();
+    // Compute initial roster immediately (no device enumeration yet).
+    _cachedRoster = _buildMergedRoster(widget.members, widget.onlineUsers);
+  }
+
+  @override
+  void didUpdateWidget(PresenceDrawer oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Only recompute when the underlying lists actually change.
+    if (!identical(oldWidget.members, widget.members) ||
+        !identical(oldWidget.onlineUsers, widget.onlineUsers)) {
+      _cachedRoster = _buildMergedRoster(widget.members, widget.onlineUsers);
+    }
   }
 
   Future<void> _loadAvailableDevices() async {
+    if (_devicesLoaded) return; 
     setState(() {
       _isLoadingDevices = true;
     });
@@ -77,14 +91,18 @@ class _PresenceDrawerState extends State<PresenceDrawer> {
       setState(() {
         _availableDevices = devices;
         _isLoadingDevices = false;
+        _devicesLoaded = true;
       });
     }
   }
 
   /// Merges the full member roster with live presence, keyed by user id.
-  List<Map<String, dynamic>> _mergedRoster() {
+  static List<Map<String, dynamic>> _buildMergedRoster(
+    List<Map<String, dynamic>> members,
+    List<Map<String, dynamic>> onlineUsers,
+  ) {
     final onlineById = <String, Map<String, dynamic>>{};
-    for (final u in widget.onlineUsers) {
+    for (final u in onlineUsers) {
       final id = (u['user_id'] ?? u['id'] ?? '').toString();
       if (id.isNotEmpty) onlineById[id] = u;
     }
@@ -92,7 +110,7 @@ class _PresenceDrawerState extends State<PresenceDrawer> {
     final seen = <String>{};
     final merged = <Map<String, dynamic>>[];
 
-    for (final m in widget.members) {
+    for (final m in members) {
       final id = (m['id'] ?? '').toString();
       if (id.isEmpty) continue;
       seen.add(id);
@@ -100,7 +118,7 @@ class _PresenceDrawerState extends State<PresenceDrawer> {
       merged.add({
         'id': id,
         'user_name':
-            online?['user_name'] ?? online?['full_name'] ?? m['user_name'],
+            online?['user_name'] ?? online?['full_name'] ?? m['user_name'] ?? '',
         'role_id': m['role_id'],
         'is_organizer': online?['is_organizer'] ?? m['is_organizer'] == true,
         'is_premium': m['is_premium'] == true,
@@ -108,7 +126,7 @@ class _PresenceDrawerState extends State<PresenceDrawer> {
       });
     }
 
-    for (final u in widget.onlineUsers) {
+    for (final u in onlineUsers) {
       final id = (u['user_id'] ?? u['id'] ?? '').toString();
       if (id.isEmpty || seen.contains(id)) continue;
       merged.add({
@@ -125,9 +143,9 @@ class _PresenceDrawerState extends State<PresenceDrawer> {
       if (a['is_online'] != b['is_online']) {
         return a['is_online'] == true ? -1 : 1;
       }
-      return (a['user_name'] as String)
+      return (a['user_name'] as String? ?? '')
           .toLowerCase()
-          .compareTo((b['user_name'] as String).toLowerCase());
+          .compareTo((b['user_name'] as String? ?? '').toLowerCase());
     });
 
     return merged;
@@ -358,6 +376,14 @@ class _PresenceDrawerState extends State<PresenceDrawer> {
 
   Widget _buildParticipantRoster(
       BuildContext context, List<Map<String, dynamic>> roster) {
+    ForumAudioStreamCubit? audioCubit;
+    if (widget.isAudioLive) {
+      try {
+        audioCubit = context.watch<ForumAudioStreamCubit>();
+      } catch (_) {}
+    }
+    final currentUserId = Supabase.instance.client.auth.currentUser?.id;
+
     return SkeletonFade(
       child: widget.isLoading
           ? const SkeletonPresenceList(key: ValueKey('skeleton'))
@@ -378,8 +404,6 @@ class _PresenceDrawerState extends State<PresenceDrawer> {
                           final String userId = user['id'].toString();
                           if (userId.isEmpty) return const SizedBox.shrink();
 
-                          final currentUserId =
-                              Supabase.instance.client.auth.currentUser?.id;
                           final bool isSelf = userId == currentUserId;
 
                           final match = participants.firstWhere(
@@ -394,19 +418,12 @@ class _PresenceDrawerState extends State<PresenceDrawer> {
                           final bool isStreamActive =
                               match.id.isNotEmpty || isVideoLive || widget.isAudioLive;
 
-                          ForumAudioStreamCubit? audioCubit;
-                          if (widget.isAudioLive && isSelf) {
-                            try {
-                              audioCubit = context.watch<ForumAudioStreamCubit>();
-                            } catch (_) {}
-                          }
-
                           final mediaState = StreamParticipantService().resolveParticipantState(
                             userId: userId,
                             userName: userName,
                             currentUserId: currentUserId ?? '',
                             videoParticipant: match.id.isNotEmpty ? match : null,
-                            audioCubit: audioCubit,
+                            audioCubit: isSelf ? audioCubit : null,
                             isStreamActive: isStreamActive,
                           );
 
@@ -455,7 +472,7 @@ class _PresenceDrawerState extends State<PresenceDrawer> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final roster = _mergedRoster();
+    final roster = _cachedRoster;
     return Drawer(
       width: (MediaQuery.of(context).size.width * 0.85).clamp(280, 320),
       backgroundColor: Colors.black,
@@ -500,6 +517,7 @@ class _PresenceDrawerState extends State<PresenceDrawer> {
                     ),
                     tooltip: 'Settings',
                     onPressed: () {
+                      if (!_showSettingsView) _loadAvailableDevices();
                       setState(() {
                         _showSettingsView = !_showSettingsView;
                       });

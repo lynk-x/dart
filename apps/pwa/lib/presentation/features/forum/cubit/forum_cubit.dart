@@ -396,6 +396,9 @@ class ForumCubit extends Cubit<ForumState> {
           emit(state.copyWith(eventProgress: 0.0));
         } else if (now.isAfter(lastSessionEnd)) {
           emit(state.copyWith(eventProgress: 1.0));
+          // Event is over — stop the ticker to avoid unnecessary rebuilds.
+          _progressTimer?.cancel();
+          _progressTimer = null;
         } else {
           final totalDuration =
               lastSessionEnd.difference(firstSessionStart).inSeconds;

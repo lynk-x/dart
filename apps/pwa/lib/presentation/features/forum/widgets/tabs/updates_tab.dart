@@ -12,8 +12,9 @@ import 'package:lynk_x/presentation/features/forum/widgets/chat_bubble.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/forum_skeletons.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/swipe_to_reply.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/polls/join_card.dart';
-import 'package:lynk_x/presentation/features/forum/models/forum_model.dart';
+import 'package:lynk_x/presentation/features/report/widgets/report_bottom_sheet.dart';
 import 'package:lynk_x/presentation/features/forum/services/pip_service.dart';
+import 'package:lynk_x/presentation/features/forum/services/stream_service.dart';
 import 'package:lynk_x/presentation/shared/widgets/empty_state.dart';
 
 /// The 'Updates' tab content for the Forum.
@@ -230,13 +231,11 @@ class _UpdatesScrollView extends StatelessWidget {
                   }
 
                   final message = updatesState.messages[index];
-                  final isStreamAnnouncement = message.type == MessageType.systemAnnouncement ||
-                      (message.type.isSystem && (message.message.toLowerCase().contains('started the live stream') ||
-                       message.message.toLowerCase().contains('started the live call')));
+                  final lowerMsg = message.message.toLowerCase();
 
-                  if (isStreamAnnouncement) {
-                    final isAudio = message.message.toLowerCase().contains('call');
-                    final isEnded = message.message.toLowerCase().contains('ended');
+                  if (message.isLiveSessionEvent) {
+                    final isAudio = lowerMsg.contains('call');
+                    final isEnded = lowerMsg.contains('ended');
                     return Padding(
                       padding: const EdgeInsets.symmetric(vertical: 8),
                       child: JoinCard(
@@ -251,6 +250,8 @@ class _UpdatesScrollView extends StatelessWidget {
                                 if (isAudio) {
                                   StreamPipService().activateLiveCall(hostName: 'Host');
                                 } else {
+                                  ForumVideoStreamService().setLive(true);
+                                  ForumVideoStreamService().setMinimized(false);
                                   StreamPipService().activateLiveStream(hostName: 'Host');
                                 }
                               },
@@ -264,7 +265,12 @@ class _UpdatesScrollView extends StatelessWidget {
                     onPin: (msg) => mainCubit.pinMessage(msg),
                     onDelete: (msg) => updatesCubit.deleteMessage(msg),
                     onEdit: (msg) => updatesCubit.setEditingMessage(msg),
-                    onReport: (msg) => updatesCubit.reportMessage(msg, 'Spam'),
+                    onReport: (msg) => showReportSheet(
+                          context,
+                          targetType: ReportTargetType.message,
+                          targetId: msg.id,
+                          messageCreatedAt: msg.createdAt,
+                        ),
                     onMute: (msg) => mainCubit.muteUser(msg.userId),
                     onBan: (msg) => mainCubit.banUser(msg.userId),
                     onReply: (msg) => updatesCubit.setReplyTo(msg),
@@ -278,6 +284,7 @@ class _UpdatesScrollView extends StatelessWidget {
                   );
 
                   return SwipeToReply(
+                    enabled: !message.type.isSystem,
                     onReply: () => updatesCubit.setReplyTo(message),
                     child: bubble,
                   );

@@ -318,6 +318,7 @@ abstract class BaseMessageCubit<T extends BaseMessageState> extends HydratedCubi
       } else {
         // No snapshot — fall back to a normal refresh.
         refresh();
+        _preSearchMessages = const [];
       }
       return;
     }
@@ -421,27 +422,6 @@ abstract class BaseMessageCubit<T extends BaseMessageState> extends HydratedCubi
     }
   }
 
-  /// Reports a forum message via the canonical `submit_report` RPC.
-  /// `forum_messages.forum_messages` is partitioned, so the report row's FK
-  /// to the message uses the composite (target_message_id, target_message_created_at).
-  /// Returns `true` on success, `false` if the caller is a guest or the RPC
-  /// failed — a silently-swallowed failure here would let a user believe
-  /// their report was submitted when it wasn't.
-  Future<bool> reportMessage(ChatMessage message, String reason) async {
-    if (userId == kGuestUserId) return false;
-    try {
-      await Supabase.instance.client.schema('api').rpc('submit_report', params: {
-        'p_target_message_id': message.id,
-        'p_target_message_created_at': message.createdAt.toIso8601String(),
-        'p_reason_id': 'general_abuse',
-        'p_description': reason,
-      });
-      return true;
-    } catch (e, stack) {
-      debugPrint('[BaseMessageCubit] reportMessage error: $e\n$stack');
-      return false;
-    }
-  }
 
   void updateMessageInPlace(String messageId, {
     String? content,

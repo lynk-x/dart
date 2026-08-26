@@ -24,6 +24,11 @@ enum MessageType {
   bool get isSystem =>
       this == systemChat || this == systemAnnouncement || this == streamEvent;
 
+  /// True if this value maps to a live-call or live-stream announcement
+  /// (used by JoinCard detection — avoids string scanning in widgets).
+  bool get isLiveAnnouncement =>
+      this == systemAnnouncement || this == streamEvent;
+
   /// True if this message IS a poll/quiz (see surveys.polls / quiz_sessions,
   /// keyed on this message's own id) rather than a plain chat/announcement.
   bool get isPollOrQuiz =>
@@ -88,6 +93,18 @@ enum MessageType {
   }
 }
 
+/// Compiled once per process — matches http/https/ftp URLs.
+final _kUrlRegExp =
+    RegExp(r'(?:(?:https?|ftp)://)([\w/\-?=%.]+\.[\w/\-?=%.]+)');
+
+/// Expando cache for [ChatMessage.urlMatch]. Lives outside the object so
+/// [ChatMessage] can keep its `const` constructor.
+final _urlMatchExpando = Expando<Object>('url_match');
+
+/// Sentinel value placed in [_urlMatchExpando] when the regex found no match,
+/// to distinguish "not yet computed" (null slot) from "computed, no URL found".
+final _kNoUrlSentinel = Object();
+
 class ChatMessage {
   final String id;
   final String sender;
@@ -114,6 +131,32 @@ class ChatMessage {
   final bool isPinned;
   final bool isPremium;
   final bool isEdited;
+
+  bool get isLiveSessionEvent {
+    if (type.isLiveAnnouncement) return true;
+    final lower = message.toLowerCase();
+    return lower.contains('started the live stream') ||
+        lower.contains('started the live call') ||
+        lower.contains('ended the live stream') ||
+        lower.contains('ended the live call');
+  }
+
+  RegExpMatch? get urlMatch {
+    final cached = _urlMatchExpando[this];
+    if (cached == _kNoUrlSentinel) return null;
+    if (cached != null) return cached as RegExpMatch;
+    final result = _kUrlRegExp.firstMatch(message);
+    _urlMatchExpando[this] = result ?? _kNoUrlSentinel;
+    return result;
+  }
+
+  /// Extracts the memoized URL matched in [message], prefixed with `https://` if needed.
+  String? get resolvedUrl {
+    final match = urlMatch;
+    if (match == null) return null;
+    final raw = message.substring(match.start, match.end);
+    return raw.startsWith('http') ? raw : 'https://$raw';
+  }
 
   const ChatMessage({
     required this.id,

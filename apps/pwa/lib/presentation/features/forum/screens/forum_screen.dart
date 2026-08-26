@@ -133,7 +133,10 @@ class _ForumViewState extends State<ForumView> {
 
     if (!showMedia) return false;
 
-    final mediaIndex = (showUpdates ? 1 : 0) + (showChat ? 1 : 0);
+    final mediaIndex = ForumConfig.mediaTabIndex(
+      showUpdates: showUpdates,
+      showChat: showChat,
+    );
     final currentTabIndex = context.read<ForumCubit>().state.currentTabIndex;
     return currentTabIndex == mediaIndex;
   }
@@ -294,15 +297,16 @@ class _ForumViewState extends State<ForumView> {
                             builder: (context, forumState) {
                               return BlocBuilder<ForumAdsCubit, ForumAdsState>(
                                 builder: (context, adsState) {
-                                  final showBannerAd = context
-                                      .read<FeatureFlagCubit>()
-                                      .isEnabled('enable_banner_ad');
-                                  final hasAds = !forumState.isPremium &&
-                                      showBannerAd &&
-                                      context
-                                          .read<FeatureFlagCubit>()
-                                          .isEnabled('enable_forum_ads') &&
-                                      adsState.ads.isNotEmpty;
+                                  final hasAds = ForumConfig.showBannerAd(
+                                    isPremium: forumState.isPremium,
+                                    bannerEnabled: context
+                                        .read<FeatureFlagCubit>()
+                                        .isEnabled('enable_banner_ad'),
+                                    forumAdsEnabled: context
+                                        .read<FeatureFlagCubit>()
+                                        .isEnabled('enable_forum_ads'),
+                                    hasAdsContent: adsState.ads.isNotEmpty,
+                                  );
 
                                   final adsHeight = hasAds ? 50.0 : 0.0;
 
@@ -604,15 +608,16 @@ class _ForumViewState extends State<ForumView> {
                           ? BlocBuilder<ForumAdsCubit, ForumAdsState>(
                               builder: (context, adsState) {
                                 final forumState = context.read<ForumCubit>().state;
-                                final showBannerAd = context
-                                    .read<FeatureFlagCubit>()
-                                    .isEnabled('enable_banner_ad');
-                                final hasAds = !forumState.isPremium &&
-                                    showBannerAd &&
-                                    context
-                                        .read<FeatureFlagCubit>()
-                                        .isEnabled('enable_forum_ads') &&
-                                    adsState.ads.isNotEmpty;
+                                final hasAds = ForumConfig.showBannerAd(
+                                  isPremium: forumState.isPremium,
+                                  bannerEnabled: context
+                                      .read<FeatureFlagCubit>()
+                                      .isEnabled('enable_banner_ad'),
+                                  forumAdsEnabled: context
+                                      .read<FeatureFlagCubit>()
+                                      .isEnabled('enable_forum_ads'),
+                                  hasAdsContent: adsState.ads.isNotEmpty,
+                                );
                                 final stageHeaderHeight = 56.0 + (hasAds ? 50.0 : 0.0);
 
                                 return Padding(
