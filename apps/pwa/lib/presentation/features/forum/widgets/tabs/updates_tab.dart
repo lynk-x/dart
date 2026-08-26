@@ -15,6 +15,7 @@ import 'package:lynk_x/presentation/features/forum/widgets/polls/join_card.dart'
 import 'package:lynk_x/presentation/features/report/widgets/report_bottom_sheet.dart';
 import 'package:lynk_x/presentation/features/forum/services/pip_service.dart';
 import 'package:lynk_x/presentation/features/forum/services/stream_service.dart';
+import 'package:lynk_x/presentation/features/forum/cubit/forum_audio_stream_cubit.dart';
 import 'package:lynk_x/presentation/shared/widgets/empty_state.dart';
 
 /// The 'Updates' tab content for the Forum.
@@ -236,6 +237,9 @@ class _UpdatesScrollView extends StatelessWidget {
                   if (message.isLiveSessionEvent) {
                     final isAudio = lowerMsg.contains('call');
                     final isEnded = lowerMsg.contains('ended');
+                    final hostName = message.sender.isNotEmpty
+                        ? message.sender
+                        : (message.message.contains(' ') ? message.message.split(' ').first : 'Host');
                     return Padding(
                       padding: const EdgeInsets.symmetric(vertical: 8),
                       child: JoinCard(
@@ -248,11 +252,11 @@ class _UpdatesScrollView extends StatelessWidget {
                             ? null
                             : () {
                                 if (isAudio) {
-                                  StreamPipService().activateLiveCall(hostName: 'Host');
+                                  context.read<ForumAudioStreamCubit>().joinAudioStream(hostName: hostName);
                                 } else {
                                   ForumVideoStreamService().setLive(true);
                                   ForumVideoStreamService().setMinimized(false);
-                                  StreamPipService().activateLiveStream(hostName: 'Host');
+                                  StreamPipService().activateLiveStream(hostName: hostName);
                                 }
                               },
                       ),

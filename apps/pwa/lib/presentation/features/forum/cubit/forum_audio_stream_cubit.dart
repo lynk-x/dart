@@ -127,6 +127,22 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
     }
   }
 
+  /// Joins an ongoing live audio call as a listener
+  void joinAudioStream({String? hostName}) {
+    final hName = hostName ?? 'Host';
+    service.configureMediaSession(
+      title: 'Lynk-X Live Audio Stream',
+      artist: hName,
+    );
+    StreamPipService().activateLiveCall(hostName: hName);
+    emit(state.copyWith(
+      isLive: true,
+      role: ForumHeaderRole.listener,
+      isMicMuted: true,
+      isBroadcastMuted: false,
+    ));
+  }
+
   /// Starts a new live Audio Stream (Invoked by organizer/user double tap)
   Future<void> startAudioStream() async {
     if (state.isLive) return;

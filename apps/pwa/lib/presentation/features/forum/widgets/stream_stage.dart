@@ -484,7 +484,11 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
           Positioned(
             bottom: 16,
             left: 16,
-            child: StageModeSelector(videoService: _videoService),
+            child: StageModeSelector(
+              videoService: _videoService,
+              onToggleMic: _toggleMic,
+              onToggleCamera: _toggleCamera,
+            ),
           ),
 
           // UNIFIED LIVE CHAT STREAM OVERLAY

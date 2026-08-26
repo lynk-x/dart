@@ -1,9 +1,12 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:lynk_core/core.dart';
+import 'package:lynk_x/presentation/features/forum/cubit/forum_audio_stream_cubit.dart';
 import 'package:lynk_x/presentation/features/forum/services/audio_telemetry_service.dart';
 import 'package:lynk_x/presentation/features/forum/services/pip_service.dart';
 import 'package:lynk_x/presentation/features/forum/services/stream_service.dart';
+import 'package:lynk_x/presentation/features/forum/widgets/forum_header.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/stage/soundwave_widget.dart';
 
 /// Floating In-App Picture-in-Picture (PiP) card displayed on the Forum page
@@ -69,7 +72,7 @@ class _PipOverlayState extends State<PipOverlay> {
             final isLiveCall = streamType == PipStreamType.liveCall;
 
             // Dimensions: Live Call uses a slim strip; Live Stream uses 16:9 widescreen canvas
-            final double currentWidth = isLiveCall ? 210.0 : 192.0;
+            final double currentWidth = isLiveCall ? 230.0 : 192.0;
             final double currentHeight = isLiveCall ? 48.0 : 108.0;
 
             return Positioned(
@@ -107,8 +110,15 @@ class _PipOverlayState extends State<PipOverlay> {
     );
   }
 
-  /// Compact Audio Strip for Live Calls (No video canvas, no mic indicator, tap does nothing)
+  /// Compact Audio Strip for Live Calls with Mic Toggle
   Widget _buildLiveCallStrip(BuildContext context) {
+    final audioCubit = context.read<ForumAudioStreamCubit?>();
+    final audioState = audioCubit?.state;
+    final isMicMuted = audioState?.isMicMuted ?? true;
+    final canSpeak = widget.isHost ||
+        audioState?.role == ForumHeaderRole.host ||
+        audioState?.role == ForumHeaderRole.speaker;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
       decoration: BoxDecoration(
@@ -135,12 +145,33 @@ class _PipOverlayState extends State<PipOverlay> {
             audioLevelNotifier: _telemetry.levelNotifier,
             barColor: context.accentColor,
           ),
+          if (canSpeak) ...[
+            const SizedBox(width: 8),
+            InkWell(
+              onTap: () => audioCubit?.toggleMic(),
+              borderRadius: BorderRadius.circular(14),
+              child: Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: isMicMuted
+                      ? Colors.red.withValues(alpha: 0.25)
+                      : context.accentColor.withValues(alpha: 0.2),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  isMicMuted ? Icons.mic_off_rounded : Icons.mic_rounded,
+                  size: 15,
+                  color: isMicMuted ? Colors.redAccent : context.accentColor,
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
   }
 
-  /// 16:9 Video Broadcast Container for Live Streams (Tap reverts/expands stream stage)
+  /// 16:9 Video Broadcast Container for Live Streams with bottom-right mic & camera controls
   Widget _buildLiveStreamContainer(BuildContext context) {
     void expandStream() {
       _pipService.setMinimized(false);
@@ -177,7 +208,7 @@ class _PipOverlayState extends State<PipOverlay> {
               ),
             ),
 
-            // 2. Host Name & Soundwave
+            // 2. Host Name & Soundwave (Bottom Left)
             Positioned(
               left: 6,
               bottom: 6,
@@ -209,7 +240,60 @@ class _PipOverlayState extends State<PipOverlay> {
               ),
             ),
 
-            // 3. Top-Right Expand Icon (Explicit Revert Action)
+            // 3. Bottom-Right Video & Mic Toggle Icons
+            Positioned(
+              right: 6,
+              bottom: 6,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.75),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    InkWell(
+                      onTap: () {
+                        final nextMic = !_videoService.isMicMuted;
+                        _videoService.isMicMuted = nextMic;
+                        _videoService.toggleMic(!nextMic);
+                        setState(() {});
+                      },
+                      borderRadius: BorderRadius.circular(10),
+                      child: Padding(
+                        padding: const EdgeInsets.all(3),
+                        child: Icon(
+                          _videoService.isMicMuted ? Icons.mic_off_rounded : Icons.mic_rounded,
+                          size: 14,
+                          color: _videoService.isMicMuted ? Colors.redAccent : context.accentColor,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 2),
+                    InkWell(
+                      onTap: () {
+                        final nextCam = !_videoService.isCameraOn;
+                        _videoService.isCameraOn = nextCam;
+                        _videoService.toggleCamera(nextCam);
+                        setState(() {});
+                      },
+                      borderRadius: BorderRadius.circular(10),
+                      child: Padding(
+                        padding: const EdgeInsets.all(3),
+                        child: Icon(
+                          _videoService.isCameraOn ? Icons.videocam_rounded : Icons.videocam_off_rounded,
+                          size: 14,
+                          color: _videoService.isCameraOn ? context.accentColor : Colors.redAccent,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            // 4. Top-Right Expand Icon
             Positioned(
               top: 6,
               right: 6,

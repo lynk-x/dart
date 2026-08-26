@@ -87,7 +87,9 @@ class _ForumHeaderState extends State<ForumHeader> {
     if (!widget.isAudioLive) return widget.forumName;
 
     final speakers = widget.activeSpeakerNames;
-    if (speakers.isEmpty) return widget.forumName;
+    if (speakers.isEmpty) {
+      return widget.role == ForumHeaderRole.host ? 'Live Call (Hosting)' : 'Live Call happening';
+    }
 
     final isSelfSpeaking = widget.currentUserName != null && speakers.contains(widget.currentUserName);
     final otherSpeakers = widget.currentUserName != null
@@ -118,54 +120,16 @@ class _ForumHeaderState extends State<ForumHeader> {
         children: [
           const SizedBox(width: 8),
 
-          // SLOT 1: Left Icon (Dual Mic & Camera Toggle buttons during live stream)
+          // SLOT 1: Left Icon / Live Session Status Indicator
           if (widget.isVideoStreamLive)
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // MIC TOGGLE BUTTON
-                IconButton(
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                  icon: Icon(
-                    widget.isMicMuted ? Icons.mic_off_rounded : Icons.mic_rounded,
-                    color: widget.isMicMuted ? Colors.red : Colors.black,
-                    size: 20,
-                  ),
-                  onPressed: widget.onToggleMic,
-                  tooltip: widget.isMicMuted ? 'Unmute Mic' : 'Mute Mic',
-                ),
-
-                // CAMERA TOGGLE BUTTON
-                IconButton(
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                  icon: Icon(
-                    widget.isCameraOn ? Icons.videocam_rounded : Icons.videocam_off_rounded,
-                    color: widget.isCameraOn ? Colors.black : Colors.red,
-                    size: 20,
-                  ),
-                  onPressed: widget.onToggleCamera,
-                  tooltip: widget.isCameraOn ? 'Turn Camera Off' : 'Turn Camera On',
-                ),
-              ],
-            )
-          else if (widget.isAudioLive && (widget.role == ForumHeaderRole.host || widget.role == ForumHeaderRole.speaker))
-            IconButton(
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-              icon: Icon(
-                widget.isMicMuted ? Icons.mic_off_rounded : Icons.mic_rounded,
-                color: widget.isMicMuted ? Colors.red : Colors.black,
-                size: 20,
-              ),
-              onPressed: widget.onToggleMic,
-              tooltip: widget.isMicMuted ? 'Unmute Mic' : 'Mute Mic',
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 6.0),
+              child: Icon(Icons.videocam_rounded, color: Colors.black, size: 20),
             )
           else if (widget.isAudioLive)
             const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 8.0),
-              child: Icon(Icons.volume_up_rounded, color: Colors.black, size: 20),
+              padding: EdgeInsets.symmetric(horizontal: 6.0),
+              child: Icon(Icons.graphic_eq_rounded, color: Colors.black, size: 20),
             )
           else
             GestureDetector(
