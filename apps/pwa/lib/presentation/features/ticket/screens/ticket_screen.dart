@@ -162,13 +162,13 @@ class _TicketViewState extends State<TicketView> {
               child: Column(
                 children: [
                   const SizedBox(height: 24), // Top spacer to push everything down
-                  // Constrain card width on tablets/desktops (max 780px for widescreen boarding pass)
+                  // Constrain card width on tablets/desktops (max 920px for widescreen boarding pass)
                   Breakpoints.constrain(
                     _buildTicketCard(state.ticket!)
                         .animate()
                         .slideY(begin: 0.1, end: 0, curve: Curves.easeOutQuad)
                         .fadeIn(),
-                    maxWidth: Breakpoints.isTablet(context) ? 780 : Breakpoints.maxCardWidth,
+                    maxWidth: Breakpoints.isTablet(context) ? 920 : Breakpoints.maxCardWidth,
                   ),
                   if (state.pendingListing != null) ...[
                     const SizedBox(height: 16),
@@ -738,26 +738,26 @@ class _TicketViewState extends State<TicketView> {
       width: double.infinity,
       decoration: BoxDecoration(
         color: context.accentColor,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: context.accentColor.withValues(alpha: 0.3),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
+            color: context.accentColor.withValues(alpha: 0.35),
+            blurRadius: 24,
+            offset: const Offset(0, 12),
           ),
         ],
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(24),
         child: IntrinsicHeight(
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Left Main Section (65% width)
+              // Left Main Section (64% width)
               Expanded(
-                flex: 65,
+                flex: 64,
                 child: Padding(
-                  padding: const EdgeInsets.all(24.0),
+                  padding: const EdgeInsets.all(32.0),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -773,52 +773,52 @@ class _TicketViewState extends State<TicketView> {
                                 Text(
                                   ticket.eventTitle,
                                   style: AppTypography.interTight(
-                                    fontSize: 22,
+                                    fontSize: 26,
                                     fontWeight: FontWeight.bold,
                                     color: AppColors.secondaryText,
-                                    height: 1.1,
+                                    height: 1.15,
                                   ),
                                 ),
-                                const SizedBox(height: 10),
+                                const SizedBox(height: 14),
                                 Row(
                                   children: [
                                     Icon(
                                       Icons.location_on,
-                                      size: 15,
+                                      size: 18,
                                       color: AppColors.secondaryText
-                                          .withValues(alpha: 0.7),
+                                          .withValues(alpha: 0.75),
                                     ),
-                                    const SizedBox(width: 4),
+                                    const SizedBox(width: 6),
                                     Expanded(
                                       child: Text(
                                         ticket.locationName,
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
                                         style: AppTypography.inter(
-                                          fontSize: 13,
+                                          fontSize: 15,
                                           color: AppColors.secondaryText
-                                              .withValues(alpha: 0.7),
+                                              .withValues(alpha: 0.75),
                                         ),
                                       ),
                                     ),
                                   ],
                                 ),
-                                const SizedBox(height: 4),
+                                const SizedBox(height: 6),
                                 Row(
                                   children: [
                                     Icon(
                                       Icons.calendar_month,
-                                      size: 15,
+                                      size: 18,
                                       color: AppColors.secondaryText
-                                          .withValues(alpha: 0.7),
+                                          .withValues(alpha: 0.75),
                                     ),
-                                    const SizedBox(width: 4),
+                                    const SizedBox(width: 6),
                                     Text(
                                       '${dateFormat.format(ticket.startsAt)} • ${timeFormat.format(ticket.startsAt)}${tzAbbr != null ? " $tzAbbr" : ""}',
                                       style: AppTypography.inter(
-                                        fontSize: 13,
+                                        fontSize: 15,
                                         color: AppColors.secondaryText
-                                            .withValues(alpha: 0.7),
+                                            .withValues(alpha: 0.75),
                                         fontWeight: FontWeight.w500,
                                       ),
                                     ),
@@ -827,29 +827,29 @@ class _TicketViewState extends State<TicketView> {
                               ],
                             ),
                           ),
-                          const SizedBox(width: 16),
+                          const SizedBox(width: 20),
                           ClipRRect(
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(16),
                             child: CachedNetworkImage(
                               imageUrl: ImageOptimizer.getOptimizedUrl(
                                 ticket.thumbnailUrl ?? '',
-                                width: 150,
-                                height: 150,
+                                width: 200,
+                                height: 200,
                               ),
                               cacheManager: LynkCacheManager.instance,
-                              width: 68,
-                              height: 68,
+                              width: 92,
+                              height: 92,
                               fit: BoxFit.cover,
                               errorWidget: (context, url, error) => Container(
                                 color: AppColors.secondaryBackground,
                                 child: const Icon(Icons.music_note,
-                                    size: 30, color: AppColors.secondaryText),
+                                    size: 36, color: AppColors.secondaryText),
                               ),
                             ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 24),
                       // Details Section: Holder, Tier, Status
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -860,17 +860,18 @@ class _TicketViewState extends State<TicketView> {
                               Text(
                                 'HOLDER',
                                 style: AppTypography.inter(
-                                  fontSize: 9,
+                                  fontSize: 10,
                                   fontWeight: FontWeight.bold,
                                   color: AppColors.secondaryText
                                       .withValues(alpha: 0.5),
+                                  letterSpacing: 0.5,
                                 ),
                               ),
-                              const SizedBox(height: 2),
+                              const SizedBox(height: 3),
                               Text(
                                 ticket.holderName,
                                 style: AppTypography.interTight(
-                                  fontSize: 15,
+                                  fontSize: 18,
                                   fontWeight: FontWeight.bold,
                                   color: AppColors.secondaryText,
                                 ),
@@ -883,17 +884,18 @@ class _TicketViewState extends State<TicketView> {
                               Text(
                                 'TIER',
                                 style: AppTypography.inter(
-                                  fontSize: 9,
+                                  fontSize: 10,
                                   fontWeight: FontWeight.bold,
                                   color: AppColors.secondaryText
                                       .withValues(alpha: 0.5),
+                                  letterSpacing: 0.5,
                                 ),
                               ),
-                              const SizedBox(height: 2),
+                              const SizedBox(height: 3),
                               Text(
                                 ticket.tierName.toUpperCase(),
                                 style: AppTypography.interTight(
-                                  fontSize: 15,
+                                  fontSize: 18,
                                   fontWeight: FontWeight.bold,
                                   color: AppColors.secondaryText,
                                 ),
@@ -906,25 +908,26 @@ class _TicketViewState extends State<TicketView> {
                               Text(
                                 'STATUS',
                                 style: AppTypography.inter(
-                                  fontSize: 9,
+                                  fontSize: 10,
                                   fontWeight: FontWeight.bold,
                                   color: AppColors.secondaryText
                                       .withValues(alpha: 0.5),
+                                  letterSpacing: 0.5,
                                 ),
                               ),
-                              const SizedBox(height: 2),
+                              const SizedBox(height: 3),
                               Container(
                                 padding: const EdgeInsets.symmetric(
-                                    horizontal: 10, vertical: 3),
+                                    horizontal: 14, vertical: 5),
                                 decoration: BoxDecoration(
                                   color: AppColors.primaryBackground,
                                   borderRadius: BorderRadius.circular(20),
-                                  border: Border.all(color: statusColor),
+                                  border: Border.all(color: statusColor, width: 1.5),
                                 ),
                                 child: Text(
                                   statusLabel,
                                   style: AppTypography.inter(
-                                    fontSize: 10,
+                                    fontSize: 11,
                                     fontWeight: FontWeight.bold,
                                     color: statusColor,
                                   ),
@@ -943,15 +946,17 @@ class _TicketViewState extends State<TicketView> {
               CustomPaint(
                 size: const Size(1, double.infinity),
                 painter: VerticalDashedLinePainter(
-                  color: AppColors.secondaryText.withValues(alpha: 0.3),
+                  color: AppColors.secondaryText.withValues(alpha: 0.35),
+                  dashHeight: 8.0,
+                  dashSpace: 5.0,
                 ),
               ),
 
-              // Right Stub: Barcode & Code (35% width, NO button)
+              // Right Stub: Barcode & Code (36% width, NO button)
               Expanded(
-                flex: 35,
+                flex: 36,
                 child: Container(
-                  padding: const EdgeInsets.all(20),
+                  padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 32),
                   color: Colors.white,
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -962,18 +967,18 @@ class _TicketViewState extends State<TicketView> {
                           data: ticket.ticketCode,
                           drawText: false,
                           color: Colors.black,
-                          height: 70,
+                          height: 95,
                           width: double.infinity,
                         ),
                       ),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 12),
                       Text(
                         '#${ticket.ticketCode}',
                         style: AppTypography.inter(
-                          fontSize: 13,
-                          color: Colors.black45,
+                          fontSize: 15,
+                          color: Colors.black54,
                           fontWeight: FontWeight.bold,
-                          letterSpacing: 1.8,
+                          letterSpacing: 2.2,
                         ),
                       ),
                     ],

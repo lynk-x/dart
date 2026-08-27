@@ -208,9 +208,8 @@ class _TicketGridItem extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // Top 56% Poster Area
+                // Top Poster Area
                 Expanded(
-                  flex: 56,
                   child: CachedNetworkImage(
                     imageUrl: ImageOptimizer.getOptimizedUrl(
                       ticket.thumbnailUrl ?? '',
@@ -228,102 +227,99 @@ class _TicketGridItem extends StatelessWidget {
                   ),
                 ),
 
-                // Bottom 44% Solid Info Dock with Barcode View Pass Button
-                Expanded(
-                  flex: 44,
-                  child: Container(
-                    color: AppColors.surface,
-                    padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          ticket.eventTitle,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: isPassed ? Colors.white54 : Colors.white,
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                            height: 1.2,
-                          ),
+                // Natural Content-Height Solid Info Dock with Barcode View Pass Button
+                Container(
+                  color: AppColors.surface,
+                  padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        ticket.eventTitle,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: isPassed ? Colors.white54 : Colors.white,
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          height: 1.2,
                         ),
-                        const SizedBox(height: 4),
-                        // Row 3: Tier Name + Ticket Status Chip
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                ticket.tierName.toUpperCase(),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  color: context.accentColor
-                                      .withValues(alpha: 0.85),
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                  letterSpacing: 0.5,
-                                ),
+                      ),
+                      const SizedBox(height: 6),
+                      // Row 3: Tier Name + Ticket Status Chip
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              ticket.tierName.toUpperCase(),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: context.accentColor
+                                    .withValues(alpha: 0.85),
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                letterSpacing: 0.5,
                               ),
                             ),
-                            const SizedBox(width: 8),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 6, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: statusBgColor,
-                                borderRadius: BorderRadius.circular(6),
+                          ),
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: statusBgColor,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              statusLabel,
+                              style: TextStyle(
+                                fontSize: 9,
+                                fontWeight: FontWeight.bold,
+                                color: statusTextColor,
+                                letterSpacing: 0.5,
                               ),
-                              child: Text(
-                                statusLabel,
-                                style: TextStyle(
-                                  fontSize: 9,
-                                  fontWeight: FontWeight.bold,
-                                  color: statusTextColor,
-                                  letterSpacing: 0.5,
-                                ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      // Barcode "View Pass" Action Button (Solid BG with Black Text)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 7),
+                        decoration: BoxDecoration(
+                          color: isPassed
+                              ? Colors.white24
+                              : context.accentColor,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            _CustomBarcodeIcon(
+                              height: 13,
+                              color: isPassed
+                                  ? Colors.white54
+                                  : Colors.black,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              'VIEW PASS',
+                              style: TextStyle(
+                                color: isPassed
+                                    ? Colors.white54
+                                    : Colors.black,
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 0.8,
                               ),
                             ),
                           ],
                         ),
-                        const SizedBox(height: 6),
-                        // Barcode "View Pass" Action Button (Solid BG with Black Text)
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 7),
-                          decoration: BoxDecoration(
-                            color: isPassed
-                                ? Colors.white24
-                                : context.accentColor,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              _CustomBarcodeIcon(
-                                height: 13,
-                                color: isPassed
-                                    ? Colors.white54
-                                    : Colors.black,
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                'VIEW PASS',
-                                style: TextStyle(
-                                  color: isPassed
-                                      ? Colors.white54
-                                      : Colors.black,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                  letterSpacing: 0.8,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ),
               ],

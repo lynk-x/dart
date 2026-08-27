@@ -78,66 +78,62 @@ class ForumWidget extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // Top 60% Poster Image Area
+                    // Top Poster Image Area
                     Expanded(
-                      flex: 6,
                       child: _buildImage(context),
                     ),
 
-                    // Bottom 40% Solid Editorial Info Dock
-                    Expanded(
-                      flex: 4,
-                      child: Container(
-                        color: AppColors.surface,
-                        padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              event.title,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: AppTypography.interTight(
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                                color: event.isPassed
-                                    ? Colors.white54
-                                    : Colors.white,
-                                height: 1.2,
-                              ),
+                    // Natural Content-Height Solid Editorial Info Dock
+                    Container(
+                      color: AppColors.surface,
+                      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            event.title,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppTypography.interTight(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: event.isPassed
+                                  ? Colors.white54
+                                  : Colors.white,
+                              height: 1.2,
                             ),
-                            const SizedBox(height: 4),
-                            Row(
-                              children: [
-                                Icon(
-                                  Icons.schedule_rounded,
-                                  size: 13,
-                                  color: Colors.white.withValues(alpha: 0.5),
-                                ),
-                                const SizedBox(width: 4),
-                                Expanded(
-                                  child: Text(
-                                    formattedDate,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: AppTypography.inter(
-                                      fontSize: 11,
-                                      color:
-                                          Colors.white.withValues(alpha: 0.65),
-                                    ),
+                          ),
+                          const SizedBox(height: 6),
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.schedule_rounded,
+                                size: 13,
+                                color: Colors.white.withValues(alpha: 0.5),
+                              ),
+                              const SizedBox(width: 4),
+                              Expanded(
+                                child: Text(
+                                  formattedDate,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: AppTypography.inter(
+                                    fontSize: 11,
+                                    color:
+                                        Colors.white.withValues(alpha: 0.65),
                                   ),
                                 ),
-                                const SizedBox(width: 4),
-                                Icon(
-                                  Icons.arrow_forward_ios_rounded,
-                                  size: 11,
-                                  color: context.accentColor,
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
+                              ),
+                              const SizedBox(width: 4),
+                              Icon(
+                                Icons.arrow_forward_ios_rounded,
+                                size: 11,
+                                color: context.accentColor,
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
                     ),
                   ],
