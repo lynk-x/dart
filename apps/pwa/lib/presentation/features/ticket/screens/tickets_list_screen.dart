@@ -30,20 +30,23 @@ class TicketsListView extends StatelessWidget {
       backgroundColor: AppColors.primaryBackground,
       appBar: AppBar(
         backgroundColor: AppColors.primaryBackground,
-        surfaceTintColor: Colors.transparent,
         elevation: 0,
-        scrolledUnderElevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, size: 32, color: Colors.white),
+          onPressed: () => context.go('/'),
+        ),
         title: const Text(
           'My Tickets',
           style: TextStyle(
             color: Colors.white,
-            fontSize: 20,
             fontWeight: FontWeight.bold,
           ),
         ),
+        centerTitle: true,
         actions: [
           IconButton(
-            icon: const Icon(Icons.help_outline, color: Colors.white70),
+            icon:
+                const Icon(Icons.support_agent_rounded, color: Colors.white70),
             onPressed: () {
               context.push('/support?context=events');
             },

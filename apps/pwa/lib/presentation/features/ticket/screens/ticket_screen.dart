@@ -930,7 +930,7 @@ class _TicketViewState extends State<TicketView> {
                             ],
                           ),
                           Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                            crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
                               Text(
                                 'STATUS',
