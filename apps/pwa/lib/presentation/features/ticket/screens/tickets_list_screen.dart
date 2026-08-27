@@ -30,23 +30,20 @@ class TicketsListView extends StatelessWidget {
       backgroundColor: AppColors.primaryBackground,
       appBar: AppBar(
         backgroundColor: AppColors.primaryBackground,
+        surfaceTintColor: Colors.transparent,
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, size: 32, color: Colors.white),
-          onPressed: () => context.go('/'),
-        ),
+        scrolledUnderElevation: 0,
         title: const Text(
           'My Tickets',
           style: TextStyle(
             color: Colors.white,
+            fontSize: 20,
             fontWeight: FontWeight.bold,
           ),
         ),
-        centerTitle: true,
         actions: [
           IconButton(
-            icon:
-                const Icon(Icons.support_agent_rounded, color: Colors.white70),
+            icon: const Icon(Icons.help_outline, color: Colors.white70),
             onPressed: () {
               context.push('/support?context=events');
             },
@@ -111,7 +108,7 @@ class TicketsListView extends StatelessWidget {
                       maxCrossAxisExtent: 380,
                       mainAxisSpacing: 16,
                       crossAxisSpacing: 16,
-                      childAspectRatio: 0.76,
+                      childAspectRatio: 1.25,
                     ),
                     itemCount: state.tickets.length,
                     itemBuilder: (context, index) {
@@ -208,9 +205,8 @@ class _TicketGridItem extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // Top Fixed Height Poster Area
-                SizedBox(
-                  height: 180,
+                // Top Poster Area filling remaining card space
+                Expanded(
                   child: CachedNetworkImage(
                     imageUrl: ImageOptimizer.getOptimizedUrl(
                       ticket.thumbnailUrl ?? '',
@@ -381,6 +377,8 @@ class _TicketListItem extends StatelessWidget {
                   width: 120,
                   height: 120,
                 ),
+                memCacheWidth: 150,
+                memCacheHeight: 150,
                 width: 56,
                 height: 56,
                 fit: BoxFit.cover,

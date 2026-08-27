@@ -16,6 +16,7 @@ class TicketModel {
   final String holderName;
   final double? purchasedPrice;
   final String? purchasedCurrency;
+  final String? secretKey;
 
   TicketModel({
     required this.id,
@@ -35,6 +36,7 @@ class TicketModel {
     required this.holderName,
     this.purchasedPrice,
     this.purchasedCurrency,
+    this.secretKey,
   });
 
   static String _parseLocation(dynamic locationRaw, [dynamic venueNameRaw]) {
@@ -86,6 +88,7 @@ class TicketModel {
       holderName: holderName,
       purchasedPrice: (map['purchased_price'] as num?)?.toDouble(),
       purchasedCurrency: map['purchased_currency'] as String?,
+      secretKey: map['secret_key'] as String?,
     );
   }
 
@@ -112,6 +115,7 @@ class TicketModel {
       holderName: map['holder_name'] as String? ?? 'Guest Attendee',
       purchasedPrice: (map['purchased_price'] as num?)?.toDouble(),
       purchasedCurrency: map['purchased_currency'] as String?,
+      secretKey: map['secret_key'] as String?,
     );
   }
 
@@ -133,6 +137,7 @@ class TicketModel {
       'holder_name': holderName,
       'purchased_price': purchasedPrice,
       'purchased_currency': purchasedCurrency,
+      'secret_key': secretKey,
     };
   }
 }

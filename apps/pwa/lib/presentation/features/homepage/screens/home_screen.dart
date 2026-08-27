@@ -252,7 +252,7 @@ class _HomeViewState extends State<HomeView>
                               maxCrossAxisExtent: 400,
                               mainAxisSpacing: 16,
                               crossAxisSpacing: 16,
-                              childAspectRatio: 0.88,
+                              childAspectRatio: 1.38,
                             ),
                             itemCount: state.events.length +
                                 (state.isLoadingMore ? 1 : 0),

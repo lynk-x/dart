@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:convert';
+import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -46,13 +48,36 @@ class TicketView extends StatefulWidget {
 class _TicketViewState extends State<TicketView> {
   bool _isCancellingResale = false;
   Timer? _countdownTimer;
+  Timer? _totpRefreshTimer;
   Duration? _remaining;
   DateTime? _trackedExpiry;
 
   @override
+  void initState() {
+    super.initState();
+    _totpRefreshTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
   void dispose() {
+    _totpRefreshTimer?.cancel();
     _countdownTimer?.cancel();
     super.dispose();
+  }
+
+  /// Generates a dynamic HMAC-SHA256 TOTP payload signature valid for 30s.
+  /// Anti-screenshot security feature
+  String _generateTotpBarcodeData(TicketModel ticket) {
+    final now = DateTime.now().toUtc();
+    final epoch30s = now.millisecondsSinceEpoch ~/ 30000;
+    final secretKey = ticket.secretKey ?? ticket.ticketCode;
+    final keyBytes = utf8.encode(secretKey);
+    final messageBytes = utf8.encode('${ticket.id}:$epoch30s');
+    final hmac = Hmac(sha256, keyBytes);
+    final digest = hmac.convert(messageBytes);
+    return '${ticket.ticketCode}|$epoch30s|$digest';
   }
 
   void _startCountdown(DateTime expiresAt) {
@@ -117,9 +142,7 @@ class _TicketViewState extends State<TicketView> {
         child: BlocBuilder<TicketCubit, TicketState>(
         builder: (context, state) {
           if (state.isLoading) {
-            return Center(
-              child: CircularProgressIndicator(color: context.accentColor),
-            );
+            return _buildTicketSkeleton(context);
           }
 
           if (state.error != null) {
@@ -558,6 +581,8 @@ class _TicketViewState extends State<TicketView> {
                       width: 150,
                       height: 150,
                     ),
+                    memCacheWidth: 200,
+                    memCacheHeight: 200,
                     cacheManager: LynkCacheManager.instance,
                     width: 70,
                     height: 70,
@@ -619,7 +644,7 @@ class _TicketViewState extends State<TicketView> {
                   ),
                 ),
                 Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       'STATUS',
@@ -703,7 +728,7 @@ class _TicketViewState extends State<TicketView> {
                 RepaintBoundary(
                   child: BarcodeWidget(
                     barcode: Barcode.code128(),
-                    data: ticket.ticketCode,
+                    data: _generateTotpBarcodeData(ticket),
                     drawText: false,
                     color: Colors.black,
                     height: 60,
@@ -836,6 +861,8 @@ class _TicketViewState extends State<TicketView> {
                                 width: 200,
                                 height: 200,
                               ),
+                              memCacheWidth: 250,
+                              memCacheHeight: 250,
                               cacheManager: LynkCacheManager.instance,
                               width: 92,
                               height: 92,
@@ -903,7 +930,7 @@ class _TicketViewState extends State<TicketView> {
                             ],
                           ),
                           Column(
-                            crossAxisAlignment: CrossAxisAlignment.end,
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
                                 'STATUS',
@@ -964,7 +991,7 @@ class _TicketViewState extends State<TicketView> {
                       RepaintBoundary(
                         child: BarcodeWidget(
                           barcode: Barcode.code128(),
-                          data: ticket.ticketCode,
+                          data: _generateTotpBarcodeData(ticket),
                           drawText: false,
                           color: Colors.black,
                           height: 95,
@@ -1055,6 +1082,100 @@ class DashedLinePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+Widget _buildTicketSkeleton(BuildContext context) {
+  final isWide = MediaQuery.of(context).size.width >= 600;
+  return SingleChildScrollView(
+    padding: const EdgeInsets.all(16.0),
+    child: Column(
+      children: [
+        const SizedBox(height: 24),
+        Breakpoints.constrain(
+          Container(
+            height: isWide ? 220 : 420,
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.white10),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  flex: isWide ? 64 : 100,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        width: 200,
+                        height: 22,
+                        decoration: BoxDecoration(
+                          color: Colors.white12,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Container(
+                        width: 140,
+                        height: 14,
+                        decoration: BoxDecoration(
+                          color: Colors.white12,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                      ),
+                      const Spacer(),
+                      Row(
+                        children: [
+                          Container(
+                            width: 80,
+                            height: 14,
+                            decoration: BoxDecoration(
+                              color: Colors.white12,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Container(
+                            width: 80,
+                            height: 14,
+                            decoration: BoxDecoration(
+                              color: Colors.white12,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                if (isWide) ...[
+                  const SizedBox(width: 20),
+                  Container(
+                    width: 1,
+                    color: Colors.white12,
+                  ),
+                  const SizedBox(width: 20),
+                  Expanded(
+                    flex: 36,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white12,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          )
+              .animate(onPlay: (controller) => controller.repeat(reverse: true))
+              .fade(begin: 0.3, end: 0.8, duration: 800.ms),
+          maxWidth: isWide ? 920 : Breakpoints.maxCardWidth,
+        ),
+      ],
+    ),
+  );
 }
 
 class TicketCutoutSeparator extends StatelessWidget {
