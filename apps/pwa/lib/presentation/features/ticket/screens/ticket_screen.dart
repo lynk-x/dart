@@ -162,13 +162,13 @@ class _TicketViewState extends State<TicketView> {
               child: Column(
                 children: [
                   const SizedBox(height: 24), // Top spacer to push everything down
-                  // Constrain card width on tablets/desktops (max 500px)
+                  // Constrain card width on tablets/desktops (max 780px for widescreen boarding pass)
                   Breakpoints.constrain(
                     _buildTicketCard(state.ticket!)
                         .animate()
                         .slideY(begin: 0.1, end: 0, curve: Curves.easeOutQuad)
                         .fadeIn(),
-                    maxWidth: Breakpoints.maxCardWidth,
+                    maxWidth: Breakpoints.isTablet(context) ? 780 : Breakpoints.maxCardWidth,
                   ),
                   if (state.pendingListing != null) ...[
                     const SizedBox(height: 16),
@@ -436,6 +436,10 @@ class _TicketViewState extends State<TicketView> {
   }
 
   Widget _buildTicketCard(TicketModel ticket) {
+    if (Breakpoints.isTablet(context)) {
+      return _buildWidescreenBoardingPass(ticket);
+    }
+
     final dateFormat = DateFormat('dd MMM yyyy');
     final timeFormat = DateFormat('h:mm a');
     final tzAbbr = TimezoneAbbreviation.forIana(ticket.timezone);
@@ -723,6 +727,297 @@ class _TicketViewState extends State<TicketView> {
       ),
     );
   }
+
+  Widget _buildWidescreenBoardingPass(TicketModel ticket) {
+    final dateFormat = DateFormat('dd MMM yyyy');
+    final timeFormat = DateFormat('h:mm a');
+    final tzAbbr = TimezoneAbbreviation.forIana(ticket.timezone);
+    final (statusColor, statusLabel) = _statusDisplay(ticket, context);
+
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: context.accentColor,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: context.accentColor.withValues(alpha: 0.3),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(20),
+        child: IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Left Main Section (65% width)
+              Expanded(
+                flex: 65,
+                child: Padding(
+                  padding: const EdgeInsets.all(24.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      // Header Section: Title, Location, Date/Time & Poster Thumbnail
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  ticket.eventTitle,
+                                  style: AppTypography.interTight(
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppColors.secondaryText,
+                                    height: 1.1,
+                                  ),
+                                ),
+                                const SizedBox(height: 10),
+                                Row(
+                                  children: [
+                                    Icon(
+                                      Icons.location_on,
+                                      size: 15,
+                                      color: AppColors.secondaryText
+                                          .withValues(alpha: 0.7),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Expanded(
+                                      child: Text(
+                                        ticket.locationName,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: AppTypography.inter(
+                                          fontSize: 13,
+                                          color: AppColors.secondaryText
+                                              .withValues(alpha: 0.7),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 4),
+                                Row(
+                                  children: [
+                                    Icon(
+                                      Icons.calendar_month,
+                                      size: 15,
+                                      color: AppColors.secondaryText
+                                          .withValues(alpha: 0.7),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      '${dateFormat.format(ticket.startsAt)} • ${timeFormat.format(ticket.startsAt)}${tzAbbr != null ? " $tzAbbr" : ""}',
+                                      style: AppTypography.inter(
+                                        fontSize: 13,
+                                        color: AppColors.secondaryText
+                                            .withValues(alpha: 0.7),
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: CachedNetworkImage(
+                              imageUrl: ImageOptimizer.getOptimizedUrl(
+                                ticket.thumbnailUrl ?? '',
+                                width: 150,
+                                height: 150,
+                              ),
+                              cacheManager: LynkCacheManager.instance,
+                              width: 68,
+                              height: 68,
+                              fit: BoxFit.cover,
+                              errorWidget: (context, url, error) => Container(
+                                color: AppColors.secondaryBackground,
+                                child: const Icon(Icons.music_note,
+                                    size: 30, color: AppColors.secondaryText),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      // Details Section: Holder, Tier, Status
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'HOLDER',
+                                style: AppTypography.inter(
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.secondaryText
+                                      .withValues(alpha: 0.5),
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                ticket.holderName,
+                                style: AppTypography.interTight(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.secondaryText,
+                                ),
+                              ),
+                            ],
+                          ),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'TIER',
+                                style: AppTypography.inter(
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.secondaryText
+                                      .withValues(alpha: 0.5),
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                ticket.tierName.toUpperCase(),
+                                style: AppTypography.interTight(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.secondaryText,
+                                ),
+                              ),
+                            ],
+                          ),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Text(
+                                'STATUS',
+                                style: AppTypography.inter(
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.secondaryText
+                                      .withValues(alpha: 0.5),
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 10, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: AppColors.primaryBackground,
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(color: statusColor),
+                                ),
+                                child: Text(
+                                  statusLabel,
+                                  style: AppTypography.inter(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                    color: statusColor,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+              // Vertical Dashed Tear Line Divider
+              CustomPaint(
+                size: const Size(1, double.infinity),
+                painter: VerticalDashedLinePainter(
+                  color: AppColors.secondaryText.withValues(alpha: 0.3),
+                ),
+              ),
+
+              // Right Stub: Barcode & Code (35% width, NO button)
+              Expanded(
+                flex: 35,
+                child: Container(
+                  padding: const EdgeInsets.all(20),
+                  color: Colors.white,
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      RepaintBoundary(
+                        child: BarcodeWidget(
+                          barcode: Barcode.code128(),
+                          data: ticket.ticketCode,
+                          drawText: false,
+                          color: Colors.black,
+                          height: 70,
+                          width: double.infinity,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        '#${ticket.ticketCode}',
+                        style: AppTypography.inter(
+                          fontSize: 13,
+                          color: Colors.black45,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1.8,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class VerticalDashedLinePainter extends CustomPainter {
+  final Color color;
+  final double dashHeight;
+  final double dashSpace;
+
+  VerticalDashedLinePainter({
+    required this.color,
+    this.dashHeight = 6.0,
+    this.dashSpace = 4.0,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    double startY = 0;
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 1.5;
+
+    while (startY < size.height) {
+      canvas.drawLine(
+        Offset(0, startY),
+        Offset(0, startY + dashHeight),
+        paint,
+      );
+      startY += dashHeight + dashSpace;
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 class DashedLinePainter extends CustomPainter {

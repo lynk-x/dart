@@ -236,18 +236,17 @@ class _TicketGridItem extends StatelessWidget {
                     padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Expanded(
-                          child: Text(
-                            ticket.eventTitle,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: isPassed ? Colors.white54 : Colors.white,
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                              height: 1.2,
-                            ),
+                        Text(
+                          ticket.eventTitle,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: isPassed ? Colors.white54 : Colors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            height: 1.2,
                           ),
                         ),
                         const SizedBox(height: 4),

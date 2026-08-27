@@ -47,17 +47,6 @@ class ForumWidget extends StatelessWidget {
     final formattedDate = _formatEventDate(event.startDatetime);
 
     if (isGrid) {
-      final isToday = formattedDate.startsWith('Today');
-      final statusLabel = event.isPassed
-          ? 'CONCLUDED'
-          : (isToday ? 'TODAY' : 'UPCOMING');
-      final statusBgColor = event.isPassed
-          ? Colors.white12
-          : (isToday ? context.accentColor : AppColors.tertiary);
-      final statusTextColor = event.isPassed
-          ? Colors.white54
-          : (isToday ? Colors.black : Colors.white);
-
       return FlameBadge(
         showBadge: event.hasUnread,
         content: event.chatCount.toString(),
@@ -103,38 +92,19 @@ class ForumWidget extends StatelessWidget {
                         padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            // Status Chip (Moved to bottom section)
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 8, vertical: 3),
-                              decoration: BoxDecoration(
-                                color: statusBgColor,
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: Text(
-                                statusLabel,
-                                style: AppTypography.inter(
-                                  fontSize: 9,
-                                  fontWeight: FontWeight.bold,
-                                  color: statusTextColor,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                            Expanded(
-                              child: Text(
-                                event.title,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                style: AppTypography.interTight(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.bold,
-                                  color: event.isPassed
-                                      ? Colors.white54
-                                      : Colors.white,
-                                  height: 1.2,
-                                ),
+                            Text(
+                              event.title,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: AppTypography.interTight(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color: event.isPassed
+                                    ? Colors.white54
+                                    : Colors.white,
+                                height: 1.2,
                               ),
                             ),
                             const SizedBox(height: 4),
