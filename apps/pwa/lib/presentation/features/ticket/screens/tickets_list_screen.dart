@@ -2,14 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:intl/intl.dart';
 import 'package:lynk_core/core.dart';
 import 'package:lynk_x/presentation/shared/widgets/empty_state.dart';
 import 'package:lynk_x/presentation/features/ticket/cubit/tickets_list_cubit.dart';
 import 'package:lynk_x/presentation/features/ticket/models/ticket_model.dart';
 import 'package:lynk_x/data/repositories/repository_providers.dart';
 import 'package:lynk_x/core/utils/image_optimizer.dart';
-import 'package:lynk_x/core/utils/timezone_abbreviation.dart';
 
 class TicketsListScreen extends StatelessWidget {
   const TicketsListScreen({super.key});
@@ -161,10 +159,27 @@ class _TicketGridItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final dateFormat = DateFormat('dd MMM yyyy');
-    final timeFormat = DateFormat('h:mm a');
-    final tzAbbr = TimezoneAbbreviation.forIana(ticket.timezone);
-    final isPassed = ticket.startsAt.isBefore(DateTime.now());
+    final isPassed = ticket.endsAt.isBefore(DateTime.now());
+    final statusLabel = ticket.isRedeemed
+        ? 'REDEEMED'
+        : (isPassed
+            ? 'EXPIRED'
+            : (ticket.status.toLowerCase() == 'active' ||
+                    ticket.status.toLowerCase() == 'valid'
+                ? 'VALID'
+                : ticket.status.toUpperCase()));
+    final statusBgColor = ticket.isRedeemed || isPassed
+        ? Colors.white12
+        : (ticket.status.toLowerCase() == 'active' ||
+                ticket.status.toLowerCase() == 'valid'
+            ? context.accentColor
+            : AppColors.tertiary);
+    final statusTextColor = ticket.isRedeemed || isPassed
+        ? Colors.white54
+        : (ticket.status.toLowerCase() == 'active' ||
+                ticket.status.toLowerCase() == 'valid'
+            ? Colors.black
+            : Colors.white);
 
     return Container(
       decoration: BoxDecoration(
@@ -193,52 +208,23 @@ class _TicketGridItem extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // Top 56% Poster Area with Tier Tag
+                // Top 56% Poster Area
                 Expanded(
                   flex: 56,
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      CachedNetworkImage(
-                        imageUrl: ImageOptimizer.getOptimizedUrl(
-                          ticket.thumbnailUrl ?? '',
-                          width: 350,
-                          height: 350,
-                        ),
-                        memCacheWidth: 350,
-                        memCacheHeight: 350,
-                        fit: BoxFit.cover,
-                        errorWidget: (context, url, error) => Container(
-                          color: AppColors.tertiary,
-                          child: const Icon(Icons.event,
-                              color: Colors.white24, size: 40),
-                        ),
-                      ),
-                      // Top Left Tier Badge
-                      Positioned(
-                        top: 10,
-                        left: 10,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: isPassed
-                                ? Colors.white12
-                                : context.accentColor,
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            ticket.tierName.toUpperCase(),
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                              color: isPassed ? Colors.white54 : Colors.black,
-                              letterSpacing: 0.5,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
+                  child: CachedNetworkImage(
+                    imageUrl: ImageOptimizer.getOptimizedUrl(
+                      ticket.thumbnailUrl ?? '',
+                      width: 350,
+                      height: 350,
+                    ),
+                    memCacheWidth: 350,
+                    memCacheHeight: 350,
+                    fit: BoxFit.cover,
+                    errorWidget: (context, url, error) => Container(
+                      color: AppColors.tertiary,
+                      child: const Icon(Icons.event,
+                          color: Colors.white24, size: 40),
+                    ),
                   ),
                 ),
 
@@ -249,85 +235,69 @@ class _TicketGridItem extends StatelessWidget {
                     color: AppColors.surface,
                     padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
                     child: Column(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          ticket.eventTitle,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: isPassed ? Colors.white54 : Colors.white,
-                            fontSize: 15,
-                            fontWeight: FontWeight.bold,
-                            height: 1.2,
+                        Expanded(
+                          child: Text(
+                            ticket.eventTitle,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: isPassed ? Colors.white54 : Colors.white,
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              height: 1.2,
+                            ),
                           ),
                         ),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
+                        const SizedBox(height: 4),
+                        // Row 3: Tier Name + Ticket Status Chip
+                        Row(
                           children: [
-                            Row(
-                              children: [
-                                Icon(
-                                  Icons.schedule_rounded,
-                                  size: 13,
+                            Expanded(
+                              child: Text(
+                                ticket.tierName.toUpperCase(),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
                                   color: context.accentColor
-                                      .withValues(alpha: 0.9),
+                                      .withValues(alpha: 0.85),
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  letterSpacing: 0.5,
                                 ),
-                                const SizedBox(width: 4),
-                                Expanded(
-                                  child: Text(
-                                    '${dateFormat.format(ticket.startsAt)} • ${timeFormat.format(ticket.startsAt)}'
-                                    '${tzAbbr != null ? ' $tzAbbr' : ''}',
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      color: context.accentColor
-                                          .withValues(alpha: 0.9),
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ),
-                              ],
+                              ),
                             ),
-                            const SizedBox(height: 4),
-                            Row(
-                              children: [
-                                const Icon(Icons.location_on,
-                                    size: 13, color: Colors.white38),
-                                const SizedBox(width: 4),
-                                Expanded(
-                                  child: Text(
-                                    ticket.locationName,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      color: Colors.white38,
-                                      fontSize: 11,
-                                    ),
-                                  ),
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: statusBgColor,
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                statusLabel,
+                                style: TextStyle(
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.bold,
+                                  color: statusTextColor,
+                                  letterSpacing: 0.5,
                                 ),
-                              ],
+                              ),
                             ),
                           ],
                         ),
-                        // Barcode "View Pass" Action Button
+                        const SizedBox(height: 6),
+                        // Barcode "View Pass" Action Button (Solid BG with Black Text)
                         Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 6),
+                              horizontal: 10, vertical: 7),
                           decoration: BoxDecoration(
                             color: isPassed
-                                ? Colors.white.withValues(alpha: 0.08)
-                                : context.accentColor.withValues(alpha: 0.15),
+                                ? Colors.white24
+                                : context.accentColor,
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                              color: isPassed
-                                  ? Colors.white12
-                                  : context.accentColor.withValues(alpha: 0.4),
-                              width: 1,
-                            ),
                           ),
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.center,
@@ -336,17 +306,18 @@ class _TicketGridItem extends StatelessWidget {
                                 height: 13,
                                 color: isPassed
                                     ? Colors.white54
-                                    : context.accentColor,
+                                    : Colors.black,
                               ),
                               const SizedBox(width: 8),
                               Text(
-                                'View Pass',
+                                'VIEW PASS',
                                 style: TextStyle(
                                   color: isPassed
                                       ? Colors.white54
-                                      : context.accentColor,
-                                  fontSize: 12,
+                                      : Colors.black,
+                                  fontSize: 11,
                                   fontWeight: FontWeight.bold,
+                                  letterSpacing: 0.8,
                                 ),
                               ),
                             ],
@@ -372,44 +343,63 @@ class _TicketListItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final dateFormat = DateFormat('dd MMM yyyy');
-    final timeFormat = DateFormat('h:mm a');
-    final tzAbbr = TimezoneAbbreviation.forIana(ticket.timezone);
+    final isPassed = ticket.endsAt.isBefore(DateTime.now());
+    final statusLabel = ticket.isRedeemed
+        ? 'REDEEMED'
+        : (isPassed
+            ? 'EXPIRED'
+            : (ticket.status.toLowerCase() == 'active' ||
+                    ticket.status.toLowerCase() == 'valid'
+                ? 'VALID'
+                : ticket.status.toUpperCase()));
+    final statusBgColor = ticket.isRedeemed || isPassed
+        ? Colors.white12
+        : (ticket.status.toLowerCase() == 'active' ||
+                ticket.status.toLowerCase() == 'valid'
+            ? context.accentColor
+            : AppColors.tertiary);
+    final statusTextColor = ticket.isRedeemed || isPassed
+        ? Colors.white54
+        : (ticket.status.toLowerCase() == 'active' ||
+                ticket.status.toLowerCase() == 'valid'
+            ? Colors.black
+            : Colors.white);
 
     return GestureDetector(
       onTap: () => context.push('/ticket/${ticket.reference}'),
       child: Container(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
           color: AppColors.surface,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(14),
           border: Border.all(color: Colors.white10),
         ),
         child: Row(
           children: [
-            // Event Thumbnail
+            // Compact Event Thumbnail
             ClipRRect(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(10),
               child: CachedNetworkImage(
                 imageUrl: ImageOptimizer.getOptimizedUrl(
                   ticket.thumbnailUrl ?? '',
-                  width: 160,
-                  height: 160,
+                  width: 120,
+                  height: 120,
                 ),
-                width: 80,
-                height: 80,
+                width: 56,
+                height: 56,
                 fit: BoxFit.cover,
                 errorWidget: (context, url, error) => Container(
                   color: AppColors.tertiary,
-                  child: const Icon(Icons.event, color: Colors.white24),
+                  child: const Icon(Icons.event, color: Colors.white24, size: 24),
                 ),
               ),
             ),
-            const SizedBox(width: 16),
+            const SizedBox(width: 12),
             // Info
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
                     ticket.eventTitle,
@@ -417,50 +407,40 @@ class _TicketListItem extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       color: Colors.white,
-                      fontSize: 16,
+                      fontSize: 15,
                       fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '${dateFormat.format(ticket.startsAt)} • ${timeFormat.format(ticket.startsAt)}'
-                    '${tzAbbr != null ? ' $tzAbbr' : ''}',
-                    style: TextStyle(
-                      color: context.accentColor.withValues(alpha: 0.8),
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
                     ),
                   ),
                   const SizedBox(height: 4),
                   Row(
                     children: [
-                      const Icon(Icons.location_on,
-                          size: 12, color: Colors.white38),
-                      const SizedBox(width: 4),
                       Expanded(
                         child: Text(
-                          ticket.locationName,
+                          ticket.tierName.toUpperCase(),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: Colors.white38,
-                            fontSize: 12,
+                          style: TextStyle(
+                            color: context.accentColor.withValues(alpha: 0.85),
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 0.5,
                           ),
                         ),
                       ),
                       const SizedBox(width: 8),
+                      // Ticket Status Chip
                       Container(
                         padding: const EdgeInsets.symmetric(
                             horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
-                          color: Colors.white10,
+                          color: statusBgColor,
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
-                          ticket.tierName.toUpperCase(),
-                          style: const TextStyle(
-                            color: Colors.white70,
-                            fontSize: 10,
+                          statusLabel,
+                          style: TextStyle(
+                            color: statusTextColor,
+                            fontSize: 9,
                             fontWeight: FontWeight.bold,
                             letterSpacing: 0.5,
                           ),
@@ -472,7 +452,7 @@ class _TicketListItem extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 8),
-            const Icon(Icons.chevron_right, color: Colors.white24),
+            const Icon(Icons.chevron_right, color: Colors.white24, size: 20),
           ],
         ),
       ),

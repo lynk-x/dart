@@ -92,33 +92,7 @@ class ForumWidget extends StatelessWidget {
                     // Top 60% Poster Image Area
                     Expanded(
                       flex: 6,
-                      child: Stack(
-                        fit: StackFit.expand,
-                        children: [
-                          _buildImage(context),
-                          // Top Status Chip
-                          Positioned(
-                            top: 10,
-                            left: 10,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 8, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: statusBgColor,
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: Text(
-                                statusLabel,
-                                style: AppTypography.inter(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.bold,
-                                  color: statusTextColor,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
+                      child: _buildImage(context),
                     ),
 
                     // Bottom 40% Solid Editorial Info Dock
@@ -128,22 +102,42 @@ class ForumWidget extends StatelessWidget {
                         color: AppColors.surface,
                         padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
                         child: Column(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              event.title,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: AppTypography.interTight(
-                                fontSize: 15,
-                                fontWeight: FontWeight.bold,
-                                color: event.isPassed
-                                    ? Colors.white54
-                                    : Colors.white,
-                                height: 1.2,
+                            // Status Chip (Moved to bottom section)
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: statusBgColor,
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                statusLabel,
+                                style: AppTypography.inter(
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.bold,
+                                  color: statusTextColor,
+                                ),
                               ),
                             ),
+                            const SizedBox(height: 6),
+                            Expanded(
+                              child: Text(
+                                event.title,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: AppTypography.interTight(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                  color: event.isPassed
+                                      ? Colors.white54
+                                      : Colors.white,
+                                  height: 1.2,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 4),
                             Row(
                               children: [
                                 Icon(

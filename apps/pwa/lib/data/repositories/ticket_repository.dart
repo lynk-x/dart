@@ -13,10 +13,13 @@ class TicketRepository {
     String? beforeCreatedAt,
     String? beforeTicketId,
   }) async {
+    const selectColumns =
+        'ticket_id, reference, event_id, event_title, starts_at, ends_at, timezone, thumbnail_url, tier_name, ticket_code, status, holder_name, created_at';
+
     var query = _client
         .schema('api')
         .from('v1_user_tickets')
-        .select()
+        .select(selectColumns)
         .eq('user_id', userId);
 
     if (beforeCreatedAt != null && beforeTicketId != null) {
@@ -35,10 +38,13 @@ class TicketRepository {
   }
 
   Future<Map<String, dynamic>?> getTicketByReference(String reference) async {
+    const selectColumns =
+        'ticket_id, reference, event_id, event_title, starts_at, ends_at, timezone, thumbnail_url, tier_name, ticket_code, status, holder_name, created_at';
+
     return await _client
         .schema('api')
         .from('v1_user_tickets')
-        .select()
+        .select(selectColumns)
         .eq('reference', reference)
         .maybeSingle();
   }
