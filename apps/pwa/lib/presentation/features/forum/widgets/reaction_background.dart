@@ -143,20 +143,22 @@ class _ReactionBackgroundState extends State<ReactionBackground>
               children: _animations.map((data) {
                 return AnimatedBuilder(
                   animation: data.controller,
+                  child: RepaintBoundary(
+                    child: Text(
+                      data.emoji,
+                      style: const TextStyle(
+                        fontSize: 40,
+                        decoration: TextDecoration.none,
+                      ),
+                    ),
+                  ),
                   builder: (context, child) {
                     return Positioned(
                       left: data.xPosition,
                       bottom: data.yPosition.value,
-                      child: Material(
-                        type: MaterialType.transparency,
-                        child: Opacity(
-                          opacity: data.opacity.value,
-                          child: Text(
-                            data.emoji,
-                            style: const TextStyle(
-                                fontSize: 40, decoration: TextDecoration.none),
-                          ),
-                        ),
+                      child: FadeTransition(
+                        opacity: data.opacity,
+                        child: child,
                       ),
                     );
                   },

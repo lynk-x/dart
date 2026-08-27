@@ -98,39 +98,7 @@ class _LiveChatTabState extends State<LiveChatTab>
       builder: (context, mainState) {
         return Column(
           children: [
-            ValueListenableBuilder<int>(
-              valueListenable: SyncManager.instance.pendingCountNotifier,
-              builder: (context, pendingCount, _) {
-                if (pendingCount <= 0) return const SizedBox.shrink();
-                return Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
-                  color: Colors.amber.withValues(alpha: 0.15),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const SizedBox(
-                        width: 10,
-                        height: 10,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 1.5,
-                          valueColor: AlwaysStoppedAnimation<Color>(Colors.amber),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Offline Mode • Syncing $pendingCount queued message${pendingCount > 1 ? 's' : ''}...',
-                        style: AppTypography.interTight(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.amber,
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              },
-            ),
+            const _OfflineSyncBanner(),
             Expanded(
               child: RepaintBoundary(
                 child: RefreshIndicator(
@@ -240,6 +208,47 @@ class _LiveChatTabState extends State<LiveChatTab>
               },
             ),
           ],
+        );
+      },
+    );
+  }
+}
+
+class _OfflineSyncBanner extends StatelessWidget {
+  const _OfflineSyncBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<int>(
+      valueListenable: SyncManager.instance.pendingCountNotifier,
+      builder: (context, pendingCount, _) {
+        if (pendingCount <= 0) return const SizedBox.shrink();
+        return Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
+          color: Colors.amber.withValues(alpha: 0.15),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const SizedBox(
+                width: 10,
+                height: 10,
+                child: CircularProgressIndicator(
+                  strokeWidth: 1.5,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.amber),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Offline Mode • Syncing $pendingCount queued message${pendingCount > 1 ? 's' : ''}...',
+                style: AppTypography.interTight(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.amber,
+                ),
+              ),
+            ],
+          ),
         );
       },
     );

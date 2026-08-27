@@ -164,6 +164,7 @@ class _MediaTabState extends State<MediaTab>
                                                 item.thumbnailUrl ?? item.url;
 
                                             return RepaintBoundary(
+                                              key: ValueKey(item.id),
                                               child: GestureDetector(
                                                 onTap: () =>
                                                     widget.onMediaTap(item),

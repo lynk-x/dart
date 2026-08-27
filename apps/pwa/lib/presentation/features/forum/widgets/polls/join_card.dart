@@ -57,9 +57,9 @@ class _JoinCardState extends State<JoinCard> {
   String get _headerLabel {
     switch (widget.type) {
       case JoinCardType.liveCall:
-        return 'Live Call';
+        return 'Audio Room';
       case JoinCardType.liveStream:
-        return 'Live Stream';
+        return 'Video Broadcast';
       case JoinCardType.quiz:
         return 'Quiz';
     }
@@ -84,19 +84,19 @@ class _JoinCardState extends State<JoinCard> {
     if (widget.state == JoinCardState.active) {
       switch (widget.type) {
         case JoinCardType.liveCall:
-          return 'On Call — Live';
+          return 'In Call';
         case JoinCardType.liveStream:
-          return 'Watching — Live';
+          return 'Watching';
         case JoinCardType.quiz:
-          return 'Rejoin — Live';
+          return 'In Quiz';
       }
     }
 
     switch (widget.type) {
       case JoinCardType.liveCall:
-        return 'Join Live Call';
+        return 'Join Call';
       case JoinCardType.liveStream:
-        return 'Watch Live Stream';
+        return 'Watch Stream';
       case JoinCardType.quiz:
         return 'Join Quiz';
     }

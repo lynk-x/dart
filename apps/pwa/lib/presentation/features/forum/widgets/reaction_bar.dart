@@ -19,15 +19,36 @@ class ReactionBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: emojis.map((emoji) => _buildReactionEmoji(emoji)).toList(),
+    return RepaintBoundary(
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: emojis
+            .map((emoji) => _EmojiButton(
+                  key: ValueKey(emoji),
+                  emoji: emoji,
+                  onTap: onEmojiTap,
+                ))
+            .toList(),
+      ),
     );
   }
+}
 
-  Widget _buildReactionEmoji(String emoji) {
+class _EmojiButton extends StatelessWidget {
+  final String emoji;
+  final Function(String) onTap;
+
+  const _EmojiButton({
+    super.key,
+    required this.emoji,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: () => onEmojiTap(emoji),
+      behavior: HitTestBehavior.opaque,
+      onTap: () => onTap(emoji),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 6),
         child: Text(

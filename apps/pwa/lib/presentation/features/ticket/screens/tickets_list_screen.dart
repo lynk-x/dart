@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:intl/intl.dart';
 import 'package:lynk_core/core.dart';
-import 'package:lynk_x/core/utils/breakpoints.dart';
 import 'package:lynk_x/presentation/shared/widgets/empty_state.dart';
 import 'package:lynk_x/presentation/features/ticket/cubit/tickets_list_cubit.dart';
 import 'package:lynk_x/presentation/features/ticket/models/ticket_model.dart';
@@ -102,17 +101,51 @@ class TicketsListView extends StatelessWidget {
           return RefreshIndicator(
             onRefresh: () => context.read<TicketsListCubit>().refresh(),
             color: context.accentColor,
-            child: Breakpoints.constrain(
-              ListView.separated(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
-                itemCount: state.tickets.length,
-                separatorBuilder: (context, index) =>
-                    const SizedBox(height: 16),
-                itemBuilder: (context, index) {
-                  final ticket = state.tickets[index];
-                  return _TicketListItem(ticket: ticket);
-                },
-              ),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final isWide = constraints.maxWidth > 600;
+
+                if (isWide) {
+                  return GridView.builder(
+                    padding: const EdgeInsets.all(16),
+                    gridDelegate:
+                        const SliverGridDelegateWithMaxCrossAxisExtent(
+                      maxCrossAxisExtent: 380,
+                      mainAxisSpacing: 16,
+                      crossAxisSpacing: 16,
+                      childAspectRatio: 0.76,
+                    ),
+                    itemCount: state.tickets.length,
+                    itemBuilder: (context, index) {
+                      final ticket = state.tickets[index];
+                      return RepaintBoundary(
+                        key: ValueKey('ticket_grid_${ticket.reference}'),
+                        child: _TicketGridItem(
+                          key: ValueKey(ticket.reference),
+                          ticket: ticket,
+                        ),
+                      );
+                    },
+                  );
+                }
+
+                return ListView.separated(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+                  itemCount: state.tickets.length,
+                  separatorBuilder: (context, index) =>
+                      const SizedBox(height: 16),
+                  itemBuilder: (context, index) {
+                    final ticket = state.tickets[index];
+                    return RepaintBoundary(
+                      key: ValueKey('ticket_list_${ticket.reference}'),
+                      child: _TicketListItem(
+                        key: ValueKey(ticket.reference),
+                        ticket: ticket,
+                      ),
+                    );
+                  },
+                );
+              },
             ),
           );
         },
@@ -121,10 +154,221 @@ class TicketsListView extends StatelessWidget {
   }
 }
 
+class _TicketGridItem extends StatelessWidget {
+  final TicketModel ticket;
+
+  const _TicketGridItem({required this.ticket, super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final dateFormat = DateFormat('dd MMM yyyy');
+    final timeFormat = DateFormat('h:mm a');
+    final tzAbbr = TimezoneAbbreviation.forIana(ticket.timezone);
+    final isPassed = ticket.startsAt.isBefore(DateTime.now());
+
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isPassed
+              ? Colors.white10
+              : context.accentColor.withValues(alpha: 0.35),
+          width: 1.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.25),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(14.5),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: () => context.push('/ticket/${ticket.reference}'),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Top 56% Poster Area with Tier Tag
+                Expanded(
+                  flex: 56,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      CachedNetworkImage(
+                        imageUrl: ImageOptimizer.getOptimizedUrl(
+                          ticket.thumbnailUrl ?? '',
+                          width: 350,
+                          height: 350,
+                        ),
+                        memCacheWidth: 350,
+                        memCacheHeight: 350,
+                        fit: BoxFit.cover,
+                        errorWidget: (context, url, error) => Container(
+                          color: AppColors.tertiary,
+                          child: const Icon(Icons.event,
+                              color: Colors.white24, size: 40),
+                        ),
+                      ),
+                      // Top Left Tier Badge
+                      Positioned(
+                        top: 10,
+                        left: 10,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: isPassed
+                                ? Colors.white12
+                                : context.accentColor,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            ticket.tierName.toUpperCase(),
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              color: isPassed ? Colors.white54 : Colors.black,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Bottom 44% Solid Info Dock with Barcode View Pass Button
+                Expanded(
+                  flex: 44,
+                  child: Container(
+                    color: AppColors.surface,
+                    padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          ticket.eventTitle,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: isPassed ? Colors.white54 : Colors.white,
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                            height: 1.2,
+                          ),
+                        ),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.schedule_rounded,
+                                  size: 13,
+                                  color: context.accentColor
+                                      .withValues(alpha: 0.9),
+                                ),
+                                const SizedBox(width: 4),
+                                Expanded(
+                                  child: Text(
+                                    '${dateFormat.format(ticket.startsAt)} • ${timeFormat.format(ticket.startsAt)}'
+                                    '${tzAbbr != null ? ' $tzAbbr' : ''}',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      color: context.accentColor
+                                          .withValues(alpha: 0.9),
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            Row(
+                              children: [
+                                const Icon(Icons.location_on,
+                                    size: 13, color: Colors.white38),
+                                const SizedBox(width: 4),
+                                Expanded(
+                                  child: Text(
+                                    ticket.locationName,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      color: Colors.white38,
+                                      fontSize: 11,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                        // Barcode "View Pass" Action Button
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: isPassed
+                                ? Colors.white.withValues(alpha: 0.08)
+                                : context.accentColor.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: isPassed
+                                  ? Colors.white12
+                                  : context.accentColor.withValues(alpha: 0.4),
+                              width: 1,
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              _CustomBarcodeIcon(
+                                height: 13,
+                                color: isPassed
+                                    ? Colors.white54
+                                    : context.accentColor,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                'View Pass',
+                                style: TextStyle(
+                                  color: isPassed
+                                      ? Colors.white54
+                                      : context.accentColor,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _TicketListItem extends StatelessWidget {
   final TicketModel ticket;
 
-  const _TicketListItem({required this.ticket});
+  const _TicketListItem({required this.ticket, super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -204,25 +448,25 @@ class _TicketListItem extends StatelessWidget {
                           ),
                         ),
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: Colors.white10,
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Text(
-                      ticket.tierName.toUpperCase(),
-                      style: const TextStyle(
-                        color: Colors.white70,
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 0.5,
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.white10,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          ticket.tierName.toUpperCase(),
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
                       ),
-                    ),
+                    ],
                   ),
                 ],
               ),
@@ -231,6 +475,42 @@ class _TicketListItem extends StatelessWidget {
             const Icon(Icons.chevron_right, color: Colors.white24),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Custom vector barcode icon with authentic alternating bar widths.
+class _CustomBarcodeIcon extends StatelessWidget {
+  final double height;
+  final Color color;
+
+  const _CustomBarcodeIcon({
+    this.height = 13,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    const barWidths = [1.8, 1.0, 2.5, 1.2, 2.8, 1.0, 2.2, 1.4];
+
+    return SizedBox(
+      height: height,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: barWidths.map((w) {
+          return Padding(
+            padding: const EdgeInsets.only(right: 1.5),
+            child: Container(
+              width: w,
+              decoration: BoxDecoration(
+                color: color,
+                borderRadius: BorderRadius.circular(0.5),
+              ),
+            ),
+          );
+        }).toList(),
       ),
     );
   }

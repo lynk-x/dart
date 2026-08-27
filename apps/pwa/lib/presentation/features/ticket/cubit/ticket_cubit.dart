@@ -5,11 +5,14 @@ import 'package:lynk_core/core.dart';
 import 'package:lynk_x/data/repositories/repositories.dart';
 import 'package:lynk_x/presentation/features/ticket/models/ticket_model.dart';
 
+import 'package:lynk_x/presentation/features/ticket/utils/ticket_cache.dart';
+
 part 'ticket_state.dart';
 
 class TicketCubit extends Cubit<TicketState> {
   final TicketRepository _repo;
-  TicketCubit(this._repo) : super(const TicketState());
+  final TicketCache _cache;
+  TicketCubit(this._repo, [this._cache = const TicketCache()]) : super(const TicketState());
 
   RealtimeChannel? _ticketChannel;
   RealtimeChannel? _listingChannel;
@@ -29,14 +32,23 @@ class TicketCubit extends Cubit<TicketState> {
   /// routing/URLs). Internally, once the ticket is loaded, realtime
   /// subscriptions and RPC calls key on the real ticket id instead.
   Future<void> loadTicket(String reference, {bool isSilent = false}) async {
-    if (!isSilent) emit(state.copyWith(isLoading: true, error: null));
+    // Attempt instant load from offline cache
+    final cached = await _cache.loadTicketByReference(reference);
+    if (cached != null) {
+      emit(state.copyWith(isLoading: false, ticket: cached));
+    } else if (!isSilent) {
+      emit(state.copyWith(isLoading: true, error: null));
+    }
 
     try {
 
       // 1. Fetch ticket data from the secure API proxy view via repository
       final response = await _repo.getTicketByReference(reference);
       if (response == null) {
-        throw Exception('Ticket not found');
+        if (state.ticket == null) {
+          throw Exception('Ticket not found');
+        }
+        return;
       }
 
       final ticket = TicketModel.fromView(response);
@@ -63,7 +75,11 @@ class TicketCubit extends Cubit<TicketState> {
         _subscribeToUpdates(ticket.id, reference);
       }
     } catch (e) {
-      if (!isSilent) emit(state.copyWith(isLoading: false, error: e.toFriendlyMessage()));
+      if (state.ticket == null && !isSilent) {
+        emit(state.copyWith(isLoading: false, error: e.toFriendlyMessage()));
+      } else {
+        emit(state.copyWith(isLoading: false));
+      }
     }
   }
 

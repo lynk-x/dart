@@ -16,6 +16,7 @@ import 'package:lynk_x/presentation/features/report/widgets/report_bottom_sheet.
 import 'package:lynk_x/presentation/features/forum/services/pip_service.dart';
 import 'package:lynk_x/presentation/features/forum/services/stream_service.dart';
 import 'package:lynk_x/presentation/features/forum/cubit/forum_audio_stream_cubit.dart';
+import 'package:lynk_x/presentation/features/forum/cubit/forum_audio_stream_state.dart';
 import 'package:lynk_x/presentation/shared/widgets/empty_state.dart';
 
 /// The 'Updates' tab content for the Forum.
@@ -240,51 +241,103 @@ class _UpdatesScrollView extends StatelessWidget {
                     final hostName = message.sender.isNotEmpty
                         ? message.sender
                         : (message.message.contains(' ') ? message.message.split(' ').first : 'Host');
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      child: JoinCard(
-                        type: isAudio ? JoinCardType.liveCall : JoinCardType.liveStream,
-                        state: isEnded ? JoinCardState.ended : JoinCardState.live,
-                        title: message.message,
-                        subtitle: isEnded ? 'Session finished' : 'Tap to join live session',
-                        isMe: message.isMe,
-                        onAction: isEnded
-                            ? null
-                            : () {
-                                if (isAudio) {
-                                  context.read<ForumAudioStreamCubit>().joinAudioStream(hostName: hostName);
-                                } else {
-                                  ForumVideoStreamService().setLive(true);
-                                  ForumVideoStreamService().setMinimized(false);
-                                  StreamPipService().activateLiveStream(hostName: hostName);
-                                }
-                              },
-                      ),
+
+                    if (isAudio) {
+                      return BlocBuilder<ForumAudioStreamCubit, ForumAudioStreamState>(
+                        builder: (context, audioState) {
+                          JoinCardState cardState = JoinCardState.live;
+                          if (isEnded) {
+                            cardState = JoinCardState.ended;
+                          } else if (audioState.isLive) {
+                            cardState = JoinCardState.active;
+                          }
+
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            child: JoinCard(
+                              type: JoinCardType.liveCall,
+                              state: cardState,
+                              title: message.message,
+                              subtitle: isEnded
+                                  ? 'Session finished'
+                                  : (cardState == JoinCardState.active
+                                      ? 'In call — Tap controls'
+                                      : 'Tap to enter'),
+                              isMe: message.isMe,
+                              onAction: isEnded
+                                  ? null
+                                  : () {
+                                      context
+                                          .read<ForumAudioStreamCubit>()
+                                          .joinAudioStream(hostName: hostName);
+                                    },
+                            ),
+                          );
+                        },
+                      );
+                    }
+
+                    return ValueListenableBuilder<bool>(
+                      valueListenable: ForumVideoStreamService().isLiveNotifier,
+                      builder: (context, isLive, _) {
+                        JoinCardState cardState = JoinCardState.live;
+                        if (isEnded) {
+                          cardState = JoinCardState.ended;
+                        } else if (isLive) {
+                          cardState = JoinCardState.active;
+                        }
+
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          child: JoinCard(
+                            type: JoinCardType.liveStream,
+                            state: cardState,
+                            title: message.message,
+                            subtitle: isEnded
+                                ? 'Session finished'
+                                : (cardState == JoinCardState.active
+                                    ? 'Watching stream — Tap to expand'
+                                    : 'Tap to enter'),
+                            isMe: message.isMe,
+                            onAction: isEnded
+                                ? null
+                                : () {
+                                    ForumVideoStreamService().setLive(true);
+                                    ForumVideoStreamService().setMinimized(false);
+                                    StreamPipService().activateLiveStream(hostName: hostName);
+                                  },
+                          ),
+                        );
+                      },
                     );
                   }
 
-                  final bubble = ChatBubble(
-                    message: message,
-                    isOrganizer: mainState.isOrganizer,
-                    onPin: (msg) => mainCubit.pinMessage(msg),
-                    onDelete: (msg) => updatesCubit.deleteMessage(msg),
-                    onEdit: (msg) => updatesCubit.setEditingMessage(msg),
-                    onReport: (msg) => showReportSheet(
-                          context,
-                          targetType: ReportTargetType.message,
-                          targetId: msg.id,
-                          messageCreatedAt: msg.createdAt,
-                        ),
-                    onMute: (msg) => mainCubit.muteUser(msg.userId),
-                    onBan: (msg) => mainCubit.banUser(msg.userId),
-                    onReply: (msg) => updatesCubit.setReplyTo(msg),
-                    onMediaTap: onMediaTap,
-                    showActions: selectedMessageId == message.id,
-                    onLongPressBubble: () {
-                      onSelectMessage(
-                          selectedMessageId == message.id ? null : message.id);
-                    },
-                    onTapBubble: () => onSelectMessage(null),
+                  final bubble = RepaintBoundary(
+                    key: ValueKey(message.id),
+                    child: ChatBubble(
+                      key: ValueKey('bubble_${message.id}'),
+                      message: message,
+                      isOrganizer: mainState.isOrganizer,
+                      onPin: (msg) => mainCubit.pinMessage(msg),
+                      onDelete: (msg) => updatesCubit.deleteMessage(msg),
+                      onEdit: (msg) => updatesCubit.setEditingMessage(msg),
+                      onReport: (msg) => showReportSheet(
+                            context,
+                            targetType: ReportTargetType.message,
+                            targetId: msg.id,
+                            messageCreatedAt: msg.createdAt,
+                          ),
+                      onMute: (msg) => mainCubit.muteUser(msg.userId),
+                      onBan: (msg) => mainCubit.banUser(msg.userId),
+                      onReply: (msg) => updatesCubit.setReplyTo(msg),
+                      onMediaTap: onMediaTap,
+                      showActions: selectedMessageId == message.id,
+                      onLongPressBubble: () {
+                        onSelectMessage(
+                            selectedMessageId == message.id ? null : message.id);
+                      },
+                      onTapBubble: () => onSelectMessage(null),
+                    ),
                   );
 
                   return SwipeToReply(

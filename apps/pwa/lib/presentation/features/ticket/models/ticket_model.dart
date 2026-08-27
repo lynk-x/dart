@@ -37,12 +37,31 @@ class TicketModel {
     this.purchasedCurrency,
   });
 
+  static String _parseLocation(dynamic locationRaw, [dynamic venueNameRaw]) {
+    if (venueNameRaw is String && venueNameRaw.trim().isNotEmpty) {
+      return venueNameRaw.trim();
+    }
+    if (locationRaw is String && locationRaw.trim().isNotEmpty) {
+      return locationRaw.trim();
+    }
+    if (locationRaw is Map) {
+      final venue = locationRaw['venue'] as String? ??
+          locationRaw['name'] as String? ??
+          locationRaw['title'] as String? ??
+          locationRaw['city'] as String? ??
+          locationRaw['address'] as String?;
+      if (venue != null && venue.trim().isNotEmpty) {
+        return venue.trim();
+      }
+    }
+    return 'TBD';
+  }
+
   factory TicketModel.fromMap(Map<String, dynamic> map,
       {required String holderName}) {
     final event = map['events'] as Map<String, dynamic>;
     final tier = map['ticket_tiers'] as Map<String, dynamic>;
     // location and media are jsonb columns on public.events
-    final location = event['location'] as Map<String, dynamic>?;
     final media = event['media'] as Map<String, dynamic>?;
     // status enum: active | used | cancelled | expired | transferred
     final ticketStatus = map['status'] as String? ?? 'active';
@@ -52,9 +71,7 @@ class TicketModel {
       reference: map['reference'] as String,
       eventId: map['event_id'] as String,
       eventTitle: event['title'] as String,
-      locationName: location?['venue'] as String?
-          ?? location?['name'] as String?
-          ?? 'Online',
+      locationName: _parseLocation(event['location'], event['venue_name'] ?? event['venue']),
       startsAt: DateTime.parse(event['starts_at'] as String),
       endsAt: DateTime.parse(event['ends_at'] as String),
       timezone: event['timezone'] as String?,
@@ -79,7 +96,10 @@ class TicketModel {
       reference: map['reference'] as String,
       eventId: map['event_id'] as String,
       eventTitle: map['event_title'] as String,
-      locationName: map['venue_name'] as String? ?? 'Online',
+      locationName: _parseLocation(
+        map['location'] ?? map['location_name'] ?? map['venue'],
+        map['venue_name'] ?? map['event_venue'],
+      ),
       startsAt: DateTime.parse(map['starts_at'] as String),
       endsAt: DateTime.parse(map['ends_at'] as String),
       timezone: map['timezone'] as String?,
@@ -93,5 +113,26 @@ class TicketModel {
       purchasedPrice: (map['purchased_price'] as num?)?.toDouble(),
       purchasedCurrency: map['purchased_currency'] as String?,
     );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'ticket_id': id,
+      'reference': reference,
+      'event_id': eventId,
+      'event_title': eventTitle,
+      'venue_name': locationName,
+      'starts_at': startsAt.toIso8601String(),
+      'ends_at': endsAt.toIso8601String(),
+      'timezone': timezone,
+      'thumbnail_url': thumbnailUrl,
+      'tier_name': tierName,
+      'ticket_code': ticketCode,
+      'status': status,
+      'redeemed_at': redeemedAt?.toIso8601String(),
+      'holder_name': holderName,
+      'purchased_price': purchasedPrice,
+      'purchased_currency': purchasedCurrency,
+    };
   }
 }

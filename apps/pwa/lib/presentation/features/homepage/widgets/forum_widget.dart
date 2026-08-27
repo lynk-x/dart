@@ -47,83 +47,138 @@ class ForumWidget extends StatelessWidget {
     final formattedDate = _formatEventDate(event.startDatetime);
 
     if (isGrid) {
+      final isToday = formattedDate.startsWith('Today');
+      final statusLabel = event.isPassed
+          ? 'CONCLUDED'
+          : (isToday ? 'TODAY' : 'UPCOMING');
+      final statusBgColor = event.isPassed
+          ? Colors.white12
+          : (isToday ? context.accentColor : AppColors.tertiary);
+      final statusTextColor = event.isPassed
+          ? Colors.white54
+          : (isToday ? Colors.black : Colors.white);
+
       return FlameBadge(
         showBadge: event.hasUnread,
         content: event.chatCount.toString(),
         child: Container(
           decoration: BoxDecoration(
-            color: context.accentColor,
+            color: AppColors.surface,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppColors.primaryBackground, width: 2),
+            border: Border.all(
+              color: event.isPassed
+                  ? Colors.white10
+                  : context.accentColor.withValues(alpha: 0.35),
+              width: 1.5,
+            ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.3),
+                color: Colors.black.withValues(alpha: 0.25),
                 blurRadius: 10,
                 offset: const Offset(0, 4),
               ),
             ],
           ),
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(14),
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                // Background Image
-                _buildImage(context),
-                
-                // Gradient Scrim for text readability
-                Positioned.fill(
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.bottomCenter,
-                        end: Alignment.topCenter,
-                        colors: [
-                          Colors.black.withValues(alpha: 0.8),
-                          Colors.black.withValues(alpha: 0.2),
-                          Colors.transparent,
-                        ],
-                        stops: const [0.0, 0.5, 1.0],
-                      ),
-                    ),
-                  ),
-                ),
-
-                // Content Overlay
-                Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    onTap: () => context.push('/forum/${event.forumReference ?? event.reference ?? event.id}'),
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        crossAxisAlignment: CrossAxisAlignment.start,
+            borderRadius: BorderRadius.circular(14.5),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: () => context.push(
+                    '/forum/${event.forumReference ?? event.reference ?? event.id}'),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Top 60% Poster Image Area
+                    Expanded(
+                      flex: 6,
+                      child: Stack(
+                        fit: StackFit.expand,
                         children: [
-                          Text(
-                            event.title,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: AppTypography.interTight(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            formattedDate,
-                            style: AppTypography.inter(
-                              fontSize: 12,
-                              color: Colors.white.withValues(alpha: 0.7),
+                          _buildImage(context),
+                          // Top Status Chip
+                          Positioned(
+                            top: 10,
+                            left: 10,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: statusBgColor,
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                statusLabel,
+                                style: AppTypography.inter(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  color: statusTextColor,
+                                ),
+                              ),
                             ),
                           ),
                         ],
                       ),
                     ),
-                  ),
+
+                    // Bottom 40% Solid Editorial Info Dock
+                    Expanded(
+                      flex: 4,
+                      child: Container(
+                        color: AppColors.surface,
+                        padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              event.title,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: AppTypography.interTight(
+                                fontSize: 15,
+                                fontWeight: FontWeight.bold,
+                                color: event.isPassed
+                                    ? Colors.white54
+                                    : Colors.white,
+                                height: 1.2,
+                              ),
+                            ),
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.schedule_rounded,
+                                  size: 13,
+                                  color: Colors.white.withValues(alpha: 0.5),
+                                ),
+                                const SizedBox(width: 4),
+                                Expanded(
+                                  child: Text(
+                                    formattedDate,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: AppTypography.inter(
+                                      fontSize: 11,
+                                      color:
+                                          Colors.white.withValues(alpha: 0.65),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                Icon(
+                                  Icons.arrow_forward_ios_rounded,
+                                  size: 11,
+                                  color: context.accentColor,
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
           ),
         ),
@@ -226,6 +281,8 @@ class ForumWidget extends StatelessWidget {
           height: isGrid ? 350 : 120,
         ),
         cacheManager: LynkCacheManager.instance,
+        memCacheWidth: isGrid ? 350 : 120,
+        memCacheHeight: isGrid ? 350 : 120,
         fit: BoxFit.cover,
         placeholder: (_, __) => _buildPlaceholder(),
         errorWidget: (_, __, ___) => _buildPlaceholder(isError: true),

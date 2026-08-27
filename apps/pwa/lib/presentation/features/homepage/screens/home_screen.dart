@@ -252,7 +252,7 @@ class _HomeViewState extends State<HomeView>
                               maxCrossAxisExtent: 400,
                               mainAxisSpacing: 16,
                               crossAxisSpacing: 16,
-                              childAspectRatio: 1.0, // Square shape
+                              childAspectRatio: 0.88,
                             ),
                             itemCount: state.events.length +
                                 (state.isLoadingMore ? 1 : 0),
@@ -263,8 +263,15 @@ class _HomeViewState extends State<HomeView>
                                       color: context.accentColor),
                                 );
                               }
-                              return ForumWidget(
-                                  event: state.events[index], isGrid: true);
+                              final event = state.events[index];
+                              return RepaintBoundary(
+                                key: ValueKey('grid_${event.id}'),
+                                child: ForumWidget(
+                                  key: ValueKey(event.id),
+                                  event: event,
+                                  isGrid: true,
+                                ),
+                              );
                             },
                           );
                         }
@@ -286,7 +293,14 @@ class _HomeViewState extends State<HomeView>
                                 ),
                               );
                             }
-                            return ForumWidget(event: state.events[index]);
+                            final event = state.events[index];
+                            return RepaintBoundary(
+                              key: ValueKey('list_${event.id}'),
+                              child: ForumWidget(
+                                key: ValueKey(event.id),
+                                event: event,
+                              ),
+                            );
                           },
                         );
                       },

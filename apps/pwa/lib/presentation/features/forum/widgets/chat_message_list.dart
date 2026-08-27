@@ -129,27 +129,31 @@ class ChatMessageList extends StatelessWidget {
                   }
                 }
 
-                final bubble = ChatBubble(
-                  message: message,
-                  showSenderInfo: showSenderInfo,
-                  isGrouped: isGrouped,
-                  onPin: onPin,
-                  onDelete: onDelete,
-                  onEdit: onEdit,
-                  onReport: onReport,
-                  onMute: onMute,
-                  onBan: onBan,
-                  isOrganizer: isOrganizer,
-                  onReply: onReply,
-                  onTapBubble: onTapBubble,
-                  onLongPressBubble: onLongPressBubble ??
-                      () => onMessageLongPress?.call(message),
-                  showActions: selectedMessageId == message.id,
-                  linkPreviewData: message.resolvedUrl != null
-                      ? chatState.linkPreviews[message.resolvedUrl!]
-                      : null,
-                  onLinkPreviewDataFetched: onLinkPreviewDataFetched,
-                  onMediaTap: onMediaTap,
+                final bubble = RepaintBoundary(
+                  key: ValueKey(message.id),
+                  child: ChatBubble(
+                    key: ValueKey('bubble_${message.id}'),
+                    message: message,
+                    showSenderInfo: showSenderInfo,
+                    isGrouped: isGrouped,
+                    onPin: onPin,
+                    onDelete: onDelete,
+                    onEdit: onEdit,
+                    onReport: onReport,
+                    onMute: onMute,
+                    onBan: onBan,
+                    isOrganizer: isOrganizer,
+                    onReply: onReply,
+                    onTapBubble: onTapBubble,
+                    onLongPressBubble: onLongPressBubble ??
+                        () => onMessageLongPress?.call(message),
+                    showActions: selectedMessageId == message.id,
+                    linkPreviewData: message.resolvedUrl != null
+                        ? chatState.linkPreviews[message.resolvedUrl!]
+                        : null,
+                    onLinkPreviewDataFetched: onLinkPreviewDataFetched,
+                    onMediaTap: onMediaTap,
+                  ),
                 );
 
                 final isSystem = message.isLiveSessionEvent;

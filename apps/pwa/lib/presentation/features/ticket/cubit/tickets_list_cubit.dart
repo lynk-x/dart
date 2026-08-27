@@ -2,6 +2,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:lynk_x/data/repositories/repositories.dart';
 import 'package:lynk_x/presentation/features/ticket/models/ticket_model.dart';
+import 'package:lynk_x/presentation/features/ticket/utils/ticket_cache.dart';
 
 class TicketsListState {
   final bool isLoading;
@@ -48,17 +49,29 @@ class TicketsListState {
 
 class TicketsListCubit extends Cubit<TicketsListState> {
   final TicketRepository _repo;
-  TicketsListCubit(this._repo) : super(const TicketsListState());
+  final TicketCache _cache;
+
+  TicketsListCubit(this._repo, [this._cache = const TicketCache()])
+      : super(const TicketsListState());
 
   /// Page size mirrors home_cubit and other paginated lists in the app.
   static const int _pageSize = 20;
 
   Future<void> loadTickets() async {
-    emit(TicketsListState(isLoading: true));
+    // 1. Instant offline cache load
+    final cached = await _cache.loadTickets();
+    if (cached != null && cached.isNotEmpty) {
+      emit(state.copyWith(isLoading: false, tickets: cached));
+    } else {
+      emit(TicketsListState(isLoading: true));
+    }
+
     try {
       final user = Supabase.instance.client.auth.currentUser;
       if (user == null) {
-        emit(state.copyWith(isLoading: false, error: 'User not logged in'));
+        if (state.tickets.isEmpty) {
+          emit(state.copyWith(isLoading: false, error: 'User not logged in'));
+        }
         return;
       }
 
@@ -72,15 +85,24 @@ class TicketsListCubit extends Cubit<TicketsListState> {
           .toList();
       final last = rawTickets.isNotEmpty ? rawTickets.last : null;
 
+      // 2. Persist fresh tickets to offline cache
+      await _cache.saveTickets(tickets);
+
       emit(state.copyWith(
         isLoading: false,
         tickets: tickets,
+        error: null,
         hasMore: tickets.length == _pageSize,
         cursorCreatedAt: last?['created_at'] as String?,
         cursorTicketId: last?['ticket_id'] as String?,
       ));
     } catch (e) {
-      emit(state.copyWith(isLoading: false, error: e.toString()));
+      // 3. If cached tickets exist, preserve offline view gracefully
+      if (state.tickets.isEmpty) {
+        emit(state.copyWith(isLoading: false, error: e.toString()));
+      } else {
+        emit(state.copyWith(isLoading: false));
+      }
     }
   }
 

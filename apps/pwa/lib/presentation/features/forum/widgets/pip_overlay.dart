@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:lynk_core/core.dart';
 import 'package:lynk_x/presentation/features/forum/cubit/forum_audio_stream_cubit.dart';
+import 'package:lynk_x/presentation/features/forum/cubit/forum_audio_stream_state.dart';
 import 'package:lynk_x/presentation/features/forum/services/audio_telemetry_service.dart';
 import 'package:lynk_x/presentation/features/forum/services/pip_service.dart';
 import 'package:lynk_x/presentation/features/forum/services/stream_service.dart';
@@ -113,12 +114,43 @@ class _PipOverlayState extends State<PipOverlay> {
   /// Compact Audio Strip for Live Calls with Mic Toggle
   Widget _buildLiveCallStrip(BuildContext context) {
     final audioCubit = context.read<ForumAudioStreamCubit?>();
-    final audioState = audioCubit?.state;
-    final isMicMuted = audioState?.isMicMuted ?? true;
-    final canSpeak = widget.isHost ||
-        audioState?.role == ForumHeaderRole.host ||
-        audioState?.role == ForumHeaderRole.speaker;
+    final cubit = audioCubit;
 
+    if (cubit == null) {
+      return _buildRawCallStrip(
+        context,
+        isMicMuted: true,
+        canSpeak: widget.isHost,
+        onToggleMic: null,
+      );
+    }
+
+    return BlocBuilder<ForumAudioStreamCubit, ForumAudioStreamState>(
+      bloc: cubit,
+      builder: (context, audioState) {
+        final canSpeak = widget.isHost ||
+            audioState.role == ForumHeaderRole.host ||
+            audioState.role == ForumHeaderRole.speaker ||
+            audioState.isLive;
+
+        return _buildRawCallStrip(
+          context,
+          isMicMuted: audioState.isMicMuted,
+          canSpeak: canSpeak,
+          onToggleMic: () async {
+            await cubit.toggleMic();
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildRawCallStrip(
+    BuildContext context, {
+    required bool isMicMuted,
+    required bool canSpeak,
+    required VoidCallback? onToggleMic,
+  }) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
       decoration: BoxDecoration(
@@ -141,26 +173,26 @@ class _PipOverlayState extends State<PipOverlay> {
           ),
           const SizedBox(width: 6),
           SoundwaveWidget(
-            isSpeaking: true,
+            isSpeaking: !isMicMuted,
             audioLevelNotifier: _telemetry.levelNotifier,
             barColor: context.accentColor,
           ),
           if (canSpeak) ...[
             const SizedBox(width: 8),
-            InkWell(
-              onTap: () => audioCubit?.toggleMic(),
-              borderRadius: BorderRadius.circular(14),
+            GestureDetector(
+              onTap: onToggleMic,
+              behavior: HitTestBehavior.opaque,
               child: Container(
-                padding: const EdgeInsets.all(4),
+                padding: const EdgeInsets.all(5),
                 decoration: BoxDecoration(
                   color: isMicMuted
                       ? Colors.red.withValues(alpha: 0.25)
-                      : context.accentColor.withValues(alpha: 0.2),
+                      : context.accentColor.withValues(alpha: 0.25),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
                   isMicMuted ? Icons.mic_off_rounded : Icons.mic_rounded,
-                  size: 15,
+                  size: 16,
                   color: isMicMuted ? Colors.redAccent : context.accentColor,
                 ),
               ),

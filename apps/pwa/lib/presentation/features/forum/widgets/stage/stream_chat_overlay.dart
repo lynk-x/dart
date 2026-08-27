@@ -52,7 +52,7 @@ class StageChatOverlay extends StatelessWidget {
           },
           blendMode: BlendMode.dstIn,
           child: CustomScrollView(
-            reverse: false,
+            reverse: true,
             shrinkWrap: true,
             physics: const BouncingScrollPhysics(),
             slivers: [

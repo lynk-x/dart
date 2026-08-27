@@ -88,6 +88,11 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
     super.initState();
     WidgetsBinding.instance.addObserver(this);
 
+    // Host starting stream defaults to Mic ON (_isMicMuted = false) & Camera ON (_isCameraOn = true).
+    // Attendee joining stream defaults to Mic Muted (_isMicMuted = true) & Camera OFF (_isCameraOn = false).
+    _isMicMuted = !widget.isHost;
+    _isCameraOn = widget.isHost;
+
     if (kIsWeb) {
       _onScreenShareEndedListener = (web.Event event) {
         if (mounted && _isScreenSharing) {
@@ -227,11 +232,13 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
 
     // Filter out join messages (no longer displayed in stage overlay).
     // Sort ascending so newest messages appear at the bottom.
+    // Filter out join messages (no longer displayed in stage overlay).
+    // Sort descending so newest messages appear at index 0 for reverse CustomScrollView (latest messages first).
     entries.removeWhere((e) =>
         e.text.contains('joined the live stream') ||
         e.text.contains('joined the live call') ||
         e.text.contains('joined the quiz session'));
-    entries.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+    entries.sort((a, b) => b.createdAt.compareTo(a.createdAt));
     _combinedStream = entries;
   }
 
@@ -254,6 +261,8 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
     _videoService.forumName = widget.forumName;
     _videoService.hostName = widget.hostName;
     _videoService.isHost = widget.isHost;
+    _videoService.isMicMuted = _isMicMuted;
+    _videoService.isCameraOn = _isCameraOn;
 
     if (widget.hostName.isNotEmpty) {
       _videoService.updateHostSpeakerName(
@@ -268,9 +277,13 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
     }
 
     if (!_videoService.isMinimizedNotifier.value) {
-      final success = await _videoService.startVideoStream(_elementId, isFrontCamera: _isFrontCamera);
-      if (mounted && !success) {
-        AppSnackBars.showInfo(context, 'Camera permission requested or offline preview active');
+      if (_isCameraOn) {
+        final success = await _videoService.startVideoStream(_elementId, isFrontCamera: _isFrontCamera);
+        if (mounted && !success) {
+          AppSnackBars.showInfo(context, 'Camera permission requested or offline preview active');
+        }
+      } else {
+        _videoService.toggleCamera(false);
       }
     } else {
       _videoService.setMinimized(false);
@@ -570,8 +583,8 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
             isOrganizer: widget.isHost,
             onSendMessage: (text, replyTo) {
               if (text.trim().isEmpty) return;
-              // O(1) append — list is sorted ascending so new messages go at the end.
-              _unifiedStreamMessages.add(StageChatEntry(
+              // O(1) prepend — list is sorted descending so new messages go at index 0.
+              _unifiedStreamMessages.insert(0, StageChatEntry(
                 id: DateTime.now().millisecondsSinceEpoch.toString(),
                 type: widget.isHost ? 'announcement' : 'stream_chat',
                 sender: widget.isHost
