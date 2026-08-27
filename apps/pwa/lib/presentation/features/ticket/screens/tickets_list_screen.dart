@@ -208,8 +208,9 @@ class _TicketGridItem extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // Top Poster Area
-                Expanded(
+                // Top Fixed Height Poster Area
+                SizedBox(
+                  height: 180,
                   child: CachedNetworkImage(
                     imageUrl: ImageOptimizer.getOptimizedUrl(
                       ticket.thumbnailUrl ?? '',
@@ -396,29 +397,18 @@ class _TicketListItem extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
-                    ticket.eventTitle,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 15,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
+                  // Title Row with Ticket Status Chip
                   Row(
                     children: [
                       Expanded(
                         child: Text(
-                          ticket.tierName.toUpperCase(),
+                          ticket.eventTitle,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: context.accentColor.withValues(alpha: 0.85),
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            letterSpacing: 0.5,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
                       ),
@@ -442,6 +432,19 @@ class _TicketListItem extends StatelessWidget {
                         ),
                       ),
                     ],
+                  ),
+                  const SizedBox(height: 4),
+                  // Tier Name Subtitle Row
+                  Text(
+                    ticket.tierName.toUpperCase(),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: context.accentColor.withValues(alpha: 0.85),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.5,
+                    ),
                   ),
                 ],
               ),

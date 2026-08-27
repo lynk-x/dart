@@ -78,8 +78,9 @@ class ForumWidget extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // Top Poster Image Area
-                    Expanded(
+                    // Top Fixed Height Poster Image Area
+                    SizedBox(
+                      height: 180,
                       child: _buildImage(context),
                     ),
 
