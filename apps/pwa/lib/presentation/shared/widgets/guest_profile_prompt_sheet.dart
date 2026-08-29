@@ -2,13 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lynk_core/core.dart';
 
-/// Shown when an anonymous (claimed-ticket) guest attempts a write action
-/// the forum RLS policies reserve for registered users (posting, editing,
-/// voting) — see `NOT identity.is_anonymous()` in social.forum_messages'
-/// insert/update/delete policies. Routes into the existing profile-setup
-/// flow rather than /auth, since /auth would start a fresh sign-in and
-/// fork away from the anonymous session already holding this guest's
-/// claimed tickets and forum membership.
+/// Shown when an unauthenticated guest attempts an interactive action
+/// (posting, editing, voting) reserving for registered users.
+/// Routes into the account authentication flow.
 class GuestProfilePromptSheet extends StatelessWidget {
   final String returnTo;
 

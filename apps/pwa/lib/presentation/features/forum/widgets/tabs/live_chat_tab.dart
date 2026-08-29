@@ -170,9 +170,7 @@ class _LiveChatTabState extends State<LiveChatTab>
               builder: (context, chatState) {
                 return MessageInput(
                   onSendMessage: (text, replyTo) {
-                    if (Supabase
-                            .instance.client.auth.currentUser?.isAnonymous ??
-                        false) {
+                    if (Supabase.instance.client.auth.currentUser == null) {
                       GuestProfilePromptSheet.show(
                         context,
                         returnTo: '/forum/${mainCubit.forumReference}',

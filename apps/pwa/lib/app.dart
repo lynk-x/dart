@@ -149,7 +149,7 @@ class _LynkXAppState extends State<LynkXApp> with WidgetsBindingObserver {
           PushNotificationService.instance.init();
 
           final user = Supabase.instance.client.auth.currentUser;
-          if (user != null && !user.isAnonymous) {
+          if (user != null) {
             context.read<SystemConfigCubit>().fetchConfigs();
           }
         } else if (data.event == AuthChangeEvent.tokenRefreshed) {
