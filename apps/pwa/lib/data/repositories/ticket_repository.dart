@@ -43,6 +43,18 @@ class TicketRepository {
         .maybeSingle();
   }
 
+  Future<Map<String, dynamic>?> getTicketByEventId(String eventId) async {
+    final userId = _client.auth.currentUser?.id;
+    if (userId == null) return null;
+    return await _client
+        .schema('api')
+        .from('v1_user_tickets')
+        .select()
+        .eq('user_id', userId)
+        .eq('event_id', eventId)
+        .maybeSingle();
+  }
+
   Future<void> transferTicket(String ticketId, String recipientUsername) async {
     await _client.schema('api').rpc('transfer_ticket', params: {
       'p_ticket_id': ticketId,

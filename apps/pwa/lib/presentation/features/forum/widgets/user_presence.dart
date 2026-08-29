@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:lynk_x/presentation/features/forum/cubit/forum_cubit.dart';
 import 'action_bar.dart';
 import 'package:lynk_x/presentation/shared/utils/app_snackbars.dart';
+import 'package:lynk_x/data/repositories/repository_providers.dart';
 
 class UserPresenceCard extends StatefulWidget {
   final String userId;
@@ -269,9 +270,22 @@ class _UserPresenceCardState extends State<UserPresenceCard> {
           if (!canScan)
             ActionBarItem(
               label: 'View Ticket',
-              onTap: () {
+              onTap: () async {
                 _toggleActions();
-                context.push('/tickets');
+                final eventId = forumState.eventId;
+                if (eventId != null) {
+                  final ticketData =
+                      await ticketRepository.getTicketByEventId(eventId);
+                  if (!mounted) return;
+                  final reference = ticketData?['reference'] as String?;
+                  if (reference != null && reference.isNotEmpty) {
+                    context.push('/ticket/$reference');
+                    return;
+                  }
+                }
+                if (mounted) {
+                  context.push('/tickets');
+                }
               },
               color: context.accentColor,
             ),
