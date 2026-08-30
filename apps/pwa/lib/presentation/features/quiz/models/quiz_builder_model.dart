@@ -119,7 +119,7 @@ class DraftQuestion {
   const DraftQuestion({
     this.id,
     this.text = '',
-    this.options = const ['', ''],
+    this.options = const ['', '', '', ''],
     this.correctIndices = const [],
   });
 

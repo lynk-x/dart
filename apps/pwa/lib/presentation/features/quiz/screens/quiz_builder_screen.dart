@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lynk_core/core.dart';
 import 'package:lynk_x/data/repositories/repository_providers.dart';
@@ -102,38 +101,18 @@ class _QuizBuilderViewState extends State<QuizBuilderView> {
         return Scaffold(
           backgroundColor: AppColors.primaryBackground,
           appBar: AppBar(
-            backgroundColor: AppColors.surface,
             elevation: 0,
             leading: IconButton(
               icon: const Icon(Icons.close, color: Colors.white),
               onPressed: () => _handleExit(context),
             ),
-            title: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                SvgPicture.asset(
-                  'assets/images/official_lynk-x_combined-logo.svg',
-                  width: 110,
-                  fit: BoxFit.contain,
-                ),
-                const SizedBox(width: 12),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: context.accentColor.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: context.accentColor.withValues(alpha: 0.3)),
-                  ),
-                  child: Text(
-                    isQuiz ? 'LiveQuiz Canvas' : 'Poll Canvas',
-                    style: AppTypography.inter(
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      color: context.accentColor,
-                    ),
-                  ),
-                ),
-              ],
+            title: Text(
+              isQuiz ? 'LiveQuiz' : 'Poll',
+              style: AppTypography.inter(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: Colors.white,
+              ),
             ),
             centerTitle: false,
             actions: [
@@ -147,24 +126,10 @@ class _QuizBuilderViewState extends State<QuizBuilderView> {
                   ),
                 )
               else
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  child: ElevatedButton(
-                    onPressed: () => cubit.publish(widget.messageType),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: context.accentColor,
-                      foregroundColor: Colors.black,
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                    ),
-                    child: const Text(
-                      'Publish',
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                  ),
+                IconButton(
+                  icon: Icon(Icons.check_rounded, color: context.accentColor),
+                  tooltip: 'Publish',
+                  onPressed: () => cubit.publish(widget.messageType),
                 ),
             ],
           ),
@@ -176,7 +141,7 @@ class _QuizBuilderViewState extends State<QuizBuilderView> {
     );
   }
 
-  /// Desktop 3-Column Canvas: Left Slide Dock + Center Stage Editor + Right Settings Inspector
+  /// Desktop 2-Column Canvas: Left Slide Dock + Center Stage Editor
   Widget _buildDesktopCanvas(
     BuildContext context,
     QuizBuilderState state,
@@ -223,6 +188,7 @@ class _QuizBuilderViewState extends State<QuizBuilderView> {
                 }
               });
             },
+            onOpenSettings: () => _showSettingsBottomSheet(context, cubit, draft),
           ),
         ),
         const VerticalDivider(width: 1, color: Colors.white10),
@@ -249,30 +215,6 @@ class _QuizBuilderViewState extends State<QuizBuilderView> {
                   ),
           ),
         ),
-        const VerticalDivider(width: 1, color: Colors.white10),
-
-        // Right Column: Settings & Game Inspector
-        SizedBox(
-          width: 320,
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _HeaderInputSection(
-                  titleController: _titleController,
-                  infoController: _infoController,
-                  draft: draft,
-                  cubit: cubit,
-                ),
-                if (isQuiz) ...[
-                  const SizedBox(height: 20),
-                  _GameSettingsSection(draft: draft, cubit: cubit),
-                ],
-              ],
-            ),
-          ),
-        ),
       ],
     );
   }
@@ -291,31 +233,20 @@ class _QuizBuilderViewState extends State<QuizBuilderView> {
 
     return Column(
       children: [
-        // Top Collapsible Title/Info Strip
+        // Top Collapsible Title Strip
         Container(
           color: AppColors.surface,
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          child: Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _titleController,
-                  style: AppTypography.inter(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
-                  onChanged: (val) => cubit.updateSettings(val, _infoController.text, draft.type),
-                  decoration: const InputDecoration(
-                    hintText: 'Quiz Title...',
-                    hintStyle: TextStyle(color: Colors.white38),
-                    border: InputBorder.none,
-                    isDense: true,
-                  ),
-                ),
-              ),
-              IconButton(
-                icon: const Icon(Icons.tune, color: Colors.white70, size: 20),
-                tooltip: 'Quiz Settings',
-                onPressed: () => _showSettingsBottomSheet(context, cubit, draft),
-              ),
-            ],
+          child: TextField(
+            controller: _titleController,
+            style: AppTypography.inter(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
+            onChanged: (val) => cubit.updateSettings(val, _infoController.text, draft.type),
+            decoration: const InputDecoration(
+              hintText: 'Quiz Title...',
+              hintStyle: TextStyle(color: Colors.white38),
+              border: InputBorder.none,
+              isDense: true,
+            ),
           ),
         ),
         const Divider(height: 1, color: Colors.white10),
@@ -361,6 +292,7 @@ class _QuizBuilderViewState extends State<QuizBuilderView> {
               setState(() => _activeQuestionIndex--);
             }
           },
+          onOpenSettings: () => _showSettingsBottomSheet(context, cubit, draft),
         ),
       ],
     );
@@ -468,6 +400,7 @@ class _SlideDeckLeftPanel extends StatelessWidget {
   final VoidCallback onAddQuestion;
   final ValueChanged<int> onRemoveQuestion;
   final ReorderCallback onReorder;
+  final VoidCallback onOpenSettings;
 
   const _SlideDeckLeftPanel({
     required this.draft,
@@ -476,6 +409,7 @@ class _SlideDeckLeftPanel extends StatelessWidget {
     required this.onAddQuestion,
     required this.onRemoveQuestion,
     required this.onReorder,
+    required this.onOpenSettings,
   });
 
   @override
@@ -498,11 +432,19 @@ class _SlideDeckLeftPanel extends StatelessWidget {
                     color: Colors.white,
                   ),
                 ),
-                IconButton(
-                  icon: Icon(Icons.add_circle, color: context.accentColor),
-                  tooltip: 'Add Question',
-                  onPressed: onAddQuestion,
-                ),
+                Row(
+                  children: [
+                    IconButton(
+                      icon: Icon(Icons.add_circle, color: context.accentColor),
+                      tooltip: 'Add Question',
+                      onPressed: onAddQuestion,
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.tune, color: Colors.white70),
+                      tooltip: 'Settings',
+                      onPressed: onOpenSettings,
+                    ),
+                  ],                ),
               ],
             ),
           ),
@@ -718,6 +660,7 @@ class _MobileBottomSlideDock extends StatelessWidget {
   final ValueChanged<int> onSelectQuestion;
   final VoidCallback onAddQuestion;
   final ValueChanged<int> onRemoveQuestion;
+  final VoidCallback onOpenSettings;
 
   const _MobileBottomSlideDock({
     required this.draft,
@@ -725,6 +668,7 @@ class _MobileBottomSlideDock extends StatelessWidget {
     required this.onSelectQuestion,
     required this.onAddQuestion,
     required this.onRemoveQuestion,
+    required this.onOpenSettings,
   });
 
   @override
@@ -768,8 +712,14 @@ class _MobileBottomSlideDock extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             IconButton(
-              icon: Icon(Icons.add_circle, color: context.accentColor, size: 32),
+              icon: Icon(Icons.add_circle, color: context.accentColor, size: 28),
+              tooltip: 'Add Question',
               onPressed: onAddQuestion,
+            ),
+            IconButton(
+              icon: const Icon(Icons.tune, color: Colors.white70, size: 24),
+              tooltip: 'Settings',
+              onPressed: onOpenSettings,
             ),
           ],
         ),
