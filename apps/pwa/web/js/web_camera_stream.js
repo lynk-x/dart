@@ -112,6 +112,7 @@ window.flutterCameraStream = {
         this.videoElement.removeAttribute("src");
         this.videoElement.load();
       } catch (e) {}
+      this.videoElement = null;
     }
     this.activeDeviceId = null;
   },

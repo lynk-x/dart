@@ -55,9 +55,12 @@ class TicketValidationCubit extends HydratedCubit<TicketValidationState> {
     String? scannerUserId,
   }) async {
     final tickets = List<Map<String, dynamic>>.from(state.tickets);
-    final ticketIndex = tickets.indexWhere(
-      (t) => t['ticket_code']?.toString().trim() == ticketCode.trim(),
-    );
+    final sanitizedCode = ticketCode.trim().replaceAll(RegExp(r'^#|^"|"$|[\r\n]'), '').toLowerCase();
+
+    final ticketIndex = tickets.indexWhere((t) {
+      final code = t['ticket_code']?.toString().trim().replaceAll(RegExp(r'^#|^"|"$|[\r\n]'), '').toLowerCase();
+      return code == sanitizedCode;
+    });
 
     if (ticketIndex == -1) {
       return {

@@ -30,3 +30,5 @@ Future<bool> toggleWebTorch(bool enabled) async {
 
 void setWebScanInterval(int ms) {}
 
+void resumeWebScanner() {}
+

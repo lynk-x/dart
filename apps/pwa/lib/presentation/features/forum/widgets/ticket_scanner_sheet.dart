@@ -64,11 +64,19 @@ class _TicketScannerSheetState extends State<TicketScannerSheet> {
         formats: const [
           BarcodeFormat.qrCode,
           BarcodeFormat.code128,
+          BarcodeFormat.code39,
+          BarcodeFormat.code93,
+          BarcodeFormat.codabar,
+          BarcodeFormat.ean13,
+          BarcodeFormat.ean8,
+          BarcodeFormat.itf14,
+          BarcodeFormat.upcA,
+          BarcodeFormat.upcE,
         ],
       );
     } else {
       _controller = null;
-      setWebScanInterval(500);
+      setWebScanInterval(200);
     }
 
     // Auto-fetch tickets immediately and sync periodically every 30 seconds
@@ -308,7 +316,9 @@ class _TicketScannerSheetState extends State<TicketScannerSheet> {
         _errorMessage = null;
         _textController.clear();
       });
-      if (!kIsWeb && _permissionAcknowledged) {
+      if (kIsWeb) {
+        resumeWebScanner();
+      } else if (_permissionAcknowledged) {
         _controller?.start();
       }
     }
@@ -332,6 +342,12 @@ class _TicketScannerSheetState extends State<TicketScannerSheet> {
 
   Future<void> _processTicketCode(String code) async {
     if (_status != ScanStatus.scanning) return;
+
+    _resumeTimer?.cancel();
+
+    if (!kIsWeb) {
+      _controller?.stop();
+    }
 
     setState(() {
       _status = ScanStatus.processing;

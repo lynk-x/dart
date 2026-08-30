@@ -19,11 +19,22 @@ external JSPromise<JSBoolean> _jsSwitchCamera();
 @JS('window.flutterQrScanner.setScanInterval')
 external void _jsSetScanInterval(JSNumber ms);
 
+@JS('window.flutterQrScanner.resume')
+external void _jsResume();
+
 void setWebScanInterval(int ms) {
   try {
     _jsSetScanInterval(ms.toJS);
   } catch (e) {
     debugPrint('Failed to set web scan interval: $e');
+  }
+}
+
+void resumeWebScanner() {
+  try {
+    _jsResume();
+  } catch (e) {
+    debugPrint('Failed to resume web scanner: $e');
   }
 }
 

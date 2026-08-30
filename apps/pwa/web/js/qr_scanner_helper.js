@@ -8,6 +8,7 @@ window.flutterQrScanner = {
   scanning: false,
   callback: null,
   scanInterval: 150,
+  zxingReader: null,
 
   setScanInterval(ms) {
     this.scanInterval = ms;
@@ -31,8 +32,18 @@ window.flutterQrScanner = {
     return true;
   },
 
+  resume() {
+    if (!this.scanning) {
+      this.scanning = true;
+      requestAnimationFrame(() => this.tick());
+    }
+  },
+
   stop() {
     this.scanning = false;
+    this.canvasElement = null;
+    this.canvasContext = null;
+    this.zxingReader = null;
     window.flutterCameraStream.stop();
   },
 
@@ -67,18 +78,43 @@ window.flutterQrScanner = {
           if (window.ZXing) {
             if (!this.zxingReader) {
               const hints = new Map();
-              hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [
-                ZXing.BarcodeFormat.QR_CODE,
-                ZXing.BarcodeFormat.CODE_128
-              ]);
+              const formats = [];
+              if (ZXing.BarcodeFormat) {
+                if (ZXing.BarcodeFormat.QR_CODE !== undefined) formats.push(ZXing.BarcodeFormat.QR_CODE);
+                if (ZXing.BarcodeFormat.CODE_128 !== undefined) formats.push(ZXing.BarcodeFormat.CODE_128);
+                if (ZXing.BarcodeFormat.CODE_39 !== undefined) formats.push(ZXing.BarcodeFormat.CODE_39);
+                if (ZXing.BarcodeFormat.CODE_93 !== undefined) formats.push(ZXing.BarcodeFormat.CODE_93);
+                if (ZXing.BarcodeFormat.EAN_13 !== undefined) formats.push(ZXing.BarcodeFormat.EAN_13);
+                if (ZXing.BarcodeFormat.EAN_8 !== undefined) formats.push(ZXing.BarcodeFormat.EAN_8);
+                if (ZXing.BarcodeFormat.UPC_A !== undefined) formats.push(ZXing.BarcodeFormat.UPC_A);
+                if (ZXing.BarcodeFormat.UPC_E !== undefined) formats.push(ZXing.BarcodeFormat.UPC_E);
+                if (ZXing.BarcodeFormat.ITF !== undefined) formats.push(ZXing.BarcodeFormat.ITF);
+                if (ZXing.BarcodeFormat.CODABAR !== undefined) formats.push(ZXing.BarcodeFormat.CODABAR);
+              }
+              if (formats.length > 0) {
+                hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, formats);
+              }
               hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
-              this.zxingReader = new ZXing.BrowserMultiFormatReader(hints);
+              
+              if (ZXing.MultiFormatReader) {
+                this.zxingReader = new ZXing.MultiFormatReader();
+                this.zxingReader.setHints(hints);
+              } else if (ZXing.BrowserMultiFormatReader) {
+                this.zxingReader = new ZXing.BrowserMultiFormatReader(hints);
+              }
             }
             try {
               const luminanceSource = new ZXing.HTMLCanvasElementLuminanceSource(this.canvasElement);
               const binarizer = new ZXing.HybridBinarizer(luminanceSource);
               const bitmap = new ZXing.BinaryBitmap(binarizer);
-              const result = this.zxingReader.decodeBitmap(bitmap);
+              
+              let result = null;
+              if (this.zxingReader.decode) {
+                result = this.zxingReader.decode(bitmap);
+              } else if (this.zxingReader.decodeBitmap) {
+                result = this.zxingReader.decodeBitmap(bitmap);
+              }
+
               if (result) {
                 decodedText = result.getText ? result.getText() : result.text;
               }
@@ -102,6 +138,7 @@ window.flutterQrScanner = {
           }
 
           if (decodedText) {
+            this.scanning = false; // Pause scan loop while processing detected code
             if (this.callback) {
               try {
                 this.callback(decodedText);
