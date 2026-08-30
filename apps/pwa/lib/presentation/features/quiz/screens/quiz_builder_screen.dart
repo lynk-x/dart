@@ -101,6 +101,7 @@ class _QuizBuilderViewState extends State<QuizBuilderView> {
         return Scaffold(
           backgroundColor: AppColors.primaryBackground,
           appBar: AppBar(
+            backgroundColor: Colors.black,
             elevation: 0,
             leading: IconButton(
               icon: const Icon(Icons.close, color: Colors.white),
@@ -114,7 +115,7 @@ class _QuizBuilderViewState extends State<QuizBuilderView> {
                 color: Colors.white,
               ),
             ),
-            centerTitle: false,
+            centerTitle: true,
             actions: [
               if (state.isSaving)
                 const Padding(
@@ -127,7 +128,7 @@ class _QuizBuilderViewState extends State<QuizBuilderView> {
                 )
               else
                 IconButton(
-                  icon: Icon(Icons.check_rounded, color: context.accentColor),
+                  icon: const Icon(Icons.check_rounded, color: Colors.white),
                   tooltip: 'Publish',
                   onPressed: () => cubit.publish(widget.messageType),
                 ),
@@ -197,22 +198,35 @@ class _QuizBuilderViewState extends State<QuizBuilderView> {
         Expanded(
           child: Container(
             color: AppColors.primaryBackground,
-            padding: const EdgeInsets.all(24),
-            child: activeQuestion == null
-                ? const Center(child: Text('No questions added.', style: TextStyle(color: Colors.white54)))
-                : AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 200),
-                    child: KeyedSubtree(
-                      key: ValueKey('stage_q_$_activeQuestionIndex'),
-                      child: _QuestionStageEditor(
-                        index: _activeQuestionIndex,
-                        totalQuestions: draft.questions.length,
-                        question: activeQuestion,
-                        isQuiz: isQuiz,
-                        cubit: cubit,
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                children: [
+                  _QuizHeaderSection(
+                    titleController: _titleController,
+                    infoController: _infoController,
+                    draft: draft,
+                    cubit: cubit,
+                  ),
+                  if (activeQuestion == null)
+                    const Center(child: Text('No questions added.', style: TextStyle(color: Colors.white54)))
+                  else
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 200),
+                      child: KeyedSubtree(
+                        key: ValueKey('stage_q_$_activeQuestionIndex'),
+                        child: _QuestionStageEditor(
+                          index: _activeQuestionIndex,
+                          totalQuestions: draft.questions.length,
+                          question: activeQuestion,
+                          isQuiz: isQuiz,
+                          cubit: cubit,
+                        ),
                       ),
                     ),
-                  ),
+                ],
+              ),
+            ),
           ),
         ),
       ],
@@ -233,31 +247,22 @@ class _QuizBuilderViewState extends State<QuizBuilderView> {
 
     return Column(
       children: [
-        // Top Collapsible Title Strip
-        Container(
-          color: AppColors.surface,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          child: TextField(
-            controller: _titleController,
-            style: AppTypography.inter(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
-            onChanged: (val) => cubit.updateSettings(val, _infoController.text, draft.type),
-            decoration: const InputDecoration(
-              hintText: 'Quiz Title...',
-              hintStyle: TextStyle(color: Colors.white38),
-              border: InputBorder.none,
-              isDense: true,
-            ),
-          ),
-        ),
-        const Divider(height: 1, color: Colors.white10),
-
         // Center Stage Editor
         Expanded(
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(16),
-            child: activeQuestion == null
-                ? const Center(child: Text('No questions added.', style: TextStyle(color: Colors.white54)))
-                : AnimatedSwitcher(
+            child: Column(
+              children: [
+                _QuizHeaderSection(
+                  titleController: _titleController,
+                  infoController: _infoController,
+                  draft: draft,
+                  cubit: cubit,
+                ),
+                if (activeQuestion == null)
+                  const Center(child: Text('No questions added.', style: TextStyle(color: Colors.white54)))
+                else
+                  AnimatedSwitcher(
                     duration: const Duration(milliseconds: 200),
                     child: KeyedSubtree(
                       key: ValueKey('mobile_q_$_activeQuestionIndex'),
@@ -270,6 +275,8 @@ class _QuizBuilderViewState extends State<QuizBuilderView> {
                       ),
                     ),
                   ),
+              ],
+            ),
           ),
         ),
 
@@ -333,16 +340,8 @@ class _QuizBuilderViewState extends State<QuizBuilderView> {
                 ],
               ),
               const SizedBox(height: 12),
-              _HeaderInputSection(
-                titleController: _titleController,
-                infoController: _infoController,
-                draft: draft,
-                cubit: cubit,
-              ),
-              if (isQuiz) ...[
-                const SizedBox(height: 16),
+              if (isQuiz)
                 _GameSettingsSection(draft: draft, cubit: cubit),
-              ],
             ],
           ),
         ),
@@ -556,6 +555,73 @@ class _SlideDeckLeftPanel extends StatelessWidget {
   }
 }
 
+/// Center Stage Header for Quiz/Poll Title & Description
+class _QuizHeaderSection extends StatelessWidget {
+  final TextEditingController titleController;
+  final TextEditingController infoController;
+  final DraftQuiz draft;
+  final QuizBuilderCubit cubit;
+
+  const _QuizHeaderSection({
+    required this.titleController,
+    required this.infoController,
+    required this.draft,
+    required this.cubit,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isQuiz = draft.type == 'quiz';
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white10),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          TextField(
+            controller: titleController,
+            style: AppTypography.inter(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+            onChanged: (val) => cubit.updateSettings(val, infoController.text, draft.type),
+            decoration: InputDecoration(
+              hintText: isQuiz ? 'Enter Quiz Title...' : 'Enter Poll Title...',
+              hintStyle: const TextStyle(color: Colors.white38, fontSize: 18, fontWeight: FontWeight.bold),
+              border: InputBorder.none,
+              isDense: true,
+              contentPadding: EdgeInsets.zero,
+            ),
+          ),
+          const SizedBox(height: 10),
+          const Divider(height: 1, color: Colors.white10),
+          const SizedBox(height: 10),
+          TextField(
+            controller: infoController,
+            style: AppTypography.inter(fontSize: 13, color: Colors.white70),
+            maxLines: 2,
+            minLines: 1,
+            onChanged: (val) => cubit.updateSettings(titleController.text, val, draft.type),
+            decoration: const InputDecoration(
+              hintText: 'Add description or rules (optional)...',
+              hintStyle: TextStyle(color: Colors.white38, fontSize: 13),
+              border: InputBorder.none,
+              isDense: true,
+              contentPadding: EdgeInsets.zero,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 /// Center Stage Active Question Editor
 class _QuestionStageEditor extends StatelessWidget {
   final int index;
@@ -728,66 +794,7 @@ class _MobileBottomSlideDock extends StatelessWidget {
   }
 }
 
-/// Header title & description inputs for desktop right column
-class _HeaderInputSection extends StatelessWidget {
-  final TextEditingController titleController;
-  final TextEditingController infoController;
-  final DraftQuiz draft;
-  final QuizBuilderCubit cubit;
 
-  const _HeaderInputSection({
-    required this.titleController,
-    required this.infoController,
-    required this.draft,
-    required this.cubit,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Quiz Information',
-          style: AppTypography.inter(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white70),
-        ),
-        const SizedBox(height: 12),
-        TextField(
-          controller: titleController,
-          style: const TextStyle(color: Colors.white),
-          onChanged: (val) => cubit.updateSettings(val, infoController.text, draft.type),
-          decoration: InputDecoration(
-            labelText: 'Title',
-            labelStyle: const TextStyle(color: Colors.white54),
-            filled: true,
-            fillColor: Colors.white.withValues(alpha: 0.05),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide.none,
-            ),
-          ),
-        ),
-        const SizedBox(height: 12),
-        TextField(
-          controller: infoController,
-          style: const TextStyle(color: Colors.white),
-          maxLines: 2,
-          onChanged: (val) => cubit.updateSettings(titleController.text, val, draft.type),
-          decoration: InputDecoration(
-            labelText: 'Description (optional)',
-            labelStyle: const TextStyle(color: Colors.white54),
-            filled: true,
-            fillColor: Colors.white.withValues(alpha: 0.05),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide.none,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
 
 /// Game settings section
 class _GameSettingsSection extends StatelessWidget {
