@@ -356,7 +356,9 @@ class _TicketScannerSheetState extends State<TicketScannerSheet> {
     }
   }
 
-  Future<void> _processTicketCode(String code) async {
+  Future<void> _processTicketCode(String rawCode) async {
+    final code = rawCode.trim().split("|").first.trim();
+    if (code.isEmpty) return;
     if (_status != ScanStatus.scanning) return;
 
     _resumeTimer?.cancel();
@@ -463,10 +465,11 @@ class _TicketScannerSheetState extends State<TicketScannerSheet> {
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
       builder: (bottomSheetContext) {
-        final String holderName = ticket?['holder_name']?.toString() ?? 'Attendee';
+        final bool isNotFound = ticket == null;
+        final String holderName = isNotFound ? '' : (ticket['holder_name']?.toString() ?? 'Attendee');
         final String refCode = TicketModel.formatCleanReference(ticket?['reference']?.toString() ?? ticket?['ticket_code']?.toString() ?? code);
-        final String tierName = ticket?['tier_name']?.toString() ?? 'General Admission';
-        final String rawStatus = ticket?['status']?.toString() ?? (ticket == null ? 'NotFound' : 'valid');
+        final String tierName = isNotFound ? '' : (ticket['tier_name']?.toString() ?? 'General Admission');
+        final String rawStatus = ticket?['status']?.toString() ?? (isNotFound ? 'NotFound' : 'valid');
         final bool isAlreadyUsed = rawStatus.toLowerCase() == 'used';
 
         return Container(
@@ -603,39 +606,53 @@ class _TicketScannerSheetState extends State<TicketScannerSheet> {
                 ),
               ),
               const SizedBox(height: 24),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        side: const BorderSide(color: Colors.white24),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      ),
-                      onPressed: () => Navigator.pop(bottomSheetContext),
-                      child: const Text('Cancel', style: TextStyle(color: Colors.white70)),
+              if (isNotFound)
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton(
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      side: const BorderSide(color: Colors.white24),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
+                    onPressed: () => Navigator.pop(bottomSheetContext),
+                    child: const Text('Dismiss', style: TextStyle(color: Colors.white70, fontWeight: FontWeight.bold)),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: context.accentColor,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      ),
-                      onPressed: () {
-                        Navigator.pop(bottomSheetContext);
-                        _processTicketCode(code);
-                      },
-                      child: const Text(
-                        'Confirm Entry',
-                        style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
+                )
+              else
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          side: const BorderSide(color: Colors.white24),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        onPressed: () => Navigator.pop(bottomSheetContext),
+                        child: const Text('Cancel', style: TextStyle(color: Colors.white70)),
                       ),
                     ),
-                  ),
-                ],
-              ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: context.accentColor,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        onPressed: () {
+                          Navigator.pop(bottomSheetContext);
+                          _processTicketCode(code);
+                        },
+                        child: const Text(
+                          'Confirm Entry',
+                          style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
             ],
           ),
         );

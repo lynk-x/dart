@@ -50,22 +50,38 @@ class TicketValidationCubit extends HydratedCubit<TicketValidationState> {
   }
 
   /// Checks whether input match a ticket record by code, reference, or formatted reference.
-  bool _matchesTicket(Map<String, dynamic> t, String sanitizedInput) {
+  bool _matchesTicket(Map<String, dynamic> t, String rawSanitizedInput) {
+    final sanitizedInput = rawSanitizedInput.split('|').first.trim();
     final code = t['ticket_code']?.toString().trim().replaceAll(RegExp(r'^#|^"|"$|[\r\n]'), '').toLowerCase() ?? '';
     final ref = t['reference']?.toString().trim().replaceAll(RegExp(r'^#|^"|"$|[\r\n]'), '').toLowerCase() ?? '';
     final cleanRef = TicketModel.formatCleanReference(t['reference']?.toString() ?? t['ticket_code']?.toString()).toLowerCase();
 
+    final codeNoHyphen = code.replaceAll('-', '');
+    final refNoHyphen = ref.replaceAll('-', '');
+    final cleanRefNoHyphen = cleanRef.replaceAll('-', '');
+    final inputNoHyphen = sanitizedInput.replaceAll('-', '');
+
+    if (inputNoHyphen.isEmpty) return false;
+
     return code == sanitizedInput ||
         ref == sanitizedInput ||
         cleanRef == sanitizedInput ||
-        (code.isNotEmpty && code.replaceAll('-', '').startsWith(sanitizedInput.replaceAll('-', ''))) ||
-        (ref.isNotEmpty && ref.replaceAll('-', '').startsWith(sanitizedInput.replaceAll('-', '')));
+        codeNoHyphen == inputNoHyphen ||
+        refNoHyphen == inputNoHyphen ||
+        cleanRefNoHyphen == inputNoHyphen ||
+        (codeNoHyphen.isNotEmpty && codeNoHyphen.startsWith(inputNoHyphen)) ||
+        (refNoHyphen.isNotEmpty && refNoHyphen.startsWith(inputNoHyphen)) ||
+        (cleanRefNoHyphen.isNotEmpty && cleanRefNoHyphen.startsWith(inputNoHyphen)) ||
+        (inputNoHyphen.isNotEmpty && inputNoHyphen.startsWith(codeNoHyphen)) ||
+        (inputNoHyphen.isNotEmpty && inputNoHyphen.startsWith(refNoHyphen)) ||
+        (inputNoHyphen.isNotEmpty && inputNoHyphen.startsWith(cleanRefNoHyphen));
   }
 
   /// Performs a read-only dry-run lookup of a ticket by reference or code without modifying its status.
   Map<String, dynamic>? lookupTicketOffline(String inputCode) {
     final tickets = List<Map<String, dynamic>>.from(state.tickets);
-    final sanitizedCode = inputCode.trim().replaceAll(RegExp(r'^#|^"|"$|[\r\n]'), '').toLowerCase();
+    final primaryInput = inputCode.trim().split('|').first.trim();
+    final sanitizedCode = primaryInput.replaceAll(RegExp(r'^#|^"|"$|[\r\n]'), '').toLowerCase();
 
     final ticketIndex = tickets.indexWhere((t) => _matchesTicket(t, sanitizedCode));
 
@@ -80,7 +96,8 @@ class TicketValidationCubit extends HydratedCubit<TicketValidationState> {
     String? scannerUserId,
   }) async {
     final tickets = List<Map<String, dynamic>>.from(state.tickets);
-    final sanitizedCode = ticketCode.trim().replaceAll(RegExp(r'^#|^"|"$|[\r\n]'), '').toLowerCase();
+    final primaryCode = ticketCode.trim().split('|').first.trim();
+    final sanitizedCode = primaryCode.replaceAll(RegExp(r'^#|^"|"$|[\r\n]'), '').toLowerCase();
 
     final ticketIndex = tickets.indexWhere((t) => _matchesTicket(t, sanitizedCode));
 
@@ -132,7 +149,7 @@ class TicketValidationCubit extends HydratedCubit<TicketValidationState> {
       payload: {
         'p_event_id': eventId,
         'p_event_created_at': eventCreatedAt.toIso8601String(),
-        'p_ticket_code': ticketCode,
+        'p_ticket_code': primaryCode,
         if (actualScannerId != null) 'p_scanner_user_id': actualScannerId,
       },
     );
@@ -143,7 +160,7 @@ class TicketValidationCubit extends HydratedCubit<TicketValidationState> {
       'success': true,
       'attendee_name': ticket['holder_name'],
       'username': ticket['holder_email']?.toString().split('@').first, // Fallback since v1_tickets lacks username
-      'tier_name': ticket['tier_name'] ?? 'General Admission',
+      'tier_name': ticket['tier_name'] ?? '',
     };
   }
 
