@@ -22,6 +22,20 @@ external void _jsSetScanInterval(JSNumber ms);
 @JS('window.flutterQrScanner.resume')
 external void _jsResume();
 
+@JS('window.lynkAudioStreamHelper.playFeedbackTone')
+external void _jsPlayFeedbackTone(JSBoolean isSuccess);
+
+@JS('window.lynkAudioStreamHelper.preloadScanAudioFiles')
+external void _jsPreloadScanAudioFiles();
+
+void preloadWebScanAudio() {
+  try {
+    _jsPreloadScanAudioFiles();
+  } catch (e) {
+    debugPrint('Failed to preload web scan audio: $e');
+  }
+}
+
 void setWebScanInterval(int ms) {
   try {
     _jsSetScanInterval(ms.toJS);
@@ -35,6 +49,14 @@ void resumeWebScanner() {
     _jsResume();
   } catch (e) {
     debugPrint('Failed to resume web scanner: $e');
+  }
+}
+
+void playWebFeedbackTone(bool isSuccess) {
+  try {
+    _jsPlayFeedbackTone(isSuccess.toJS);
+  } catch (e) {
+    debugPrint('Failed to play web feedback tone: $e');
   }
 }
 

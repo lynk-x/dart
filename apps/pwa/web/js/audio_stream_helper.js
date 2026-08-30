@@ -221,6 +221,89 @@ window.lynkAudioStreamHelper = {
         }
       }
     });
+  },
+
+  successAudioBuffer: null,
+  errorAudioBuffer: null,
+  isAudioPreloaded: false,
+
+  async preloadScanAudioFiles() {
+    if (this.isAudioPreloaded) return;
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) return;
+      if (!this.sharedAudioContext) {
+        this.sharedAudioContext = new AudioCtx();
+      }
+      const ctx = this.sharedAudioContext;
+
+      const loadSound = async (pathCandidates) => {
+        for (const url of pathCandidates) {
+          try {
+            const resp = await fetch(url);
+            if (resp.ok) {
+              const arrayBuf = await resp.arrayBuffer();
+              return await ctx.decodeAudioData(arrayBuf);
+            }
+          } catch (_) {}
+        }
+        return null;
+      };
+
+      const [successBuf, errorBuf] = await Promise.all([
+        loadSound([
+          'assets/assets/audio/success.mp3',
+          'assets/audio/success.mp3',
+          '/assets/assets/audio/success.mp3'
+        ]),
+        loadSound([
+          'assets/assets/audio/error.mp3',
+          'assets/audio/error.mp3',
+          '/assets/assets/audio/error.mp3'
+        ])
+      ]);
+
+      if (successBuf) this.successAudioBuffer = successBuf;
+      if (errorBuf) this.errorAudioBuffer = errorBuf;
+      this.isAudioPreloaded = true;
+    } catch (e) {
+      console.warn('[AudioStreamHelper] preloadScanAudioFiles failed:', e);
+    }
+  },
+
+  playFeedbackTone(isSuccess) {
+    try {
+      if (!this.isAudioPreloaded) {
+        this.preloadScanAudioFiles();
+      }
+
+      const buffer = isSuccess ? this.successAudioBuffer : this.errorAudioBuffer;
+      if (!buffer) {
+        // Fallback: create dynamic audio element if buffers aren't loaded yet
+        const soundPath = isSuccess ? 'assets/assets/audio/success.mp3' : 'assets/assets/audio/error.mp3';
+        const audio = new Audio(soundPath);
+        audio.play().catch(() => {});
+        return;
+      }
+
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) return;
+      
+      if (!this.sharedAudioContext || this.sharedAudioContext.state === 'closed') {
+        this.sharedAudioContext = new AudioCtx();
+      }
+      const ctx = this.sharedAudioContext;
+      if (ctx.state === 'suspended') {
+        ctx.resume();
+      }
+
+      const source = ctx.createBufferSource();
+      source.buffer = buffer;
+      source.connect(ctx.destination);
+      source.start(0);
+    } catch (e) {
+      console.warn('[AudioStreamHelper] playFeedbackTone failed:', e);
+    }
   }
 };
 

@@ -39,6 +39,28 @@ class TicketModel {
     this.secretKey,
   });
 
+  /// Formats any raw code/reference or UUID into a clean human-readable ticket code.
+  static String formatCleanReference(String? raw) {
+    if (raw == null || raw.trim().isEmpty) return 'TKT-000000';
+    final trimmed = raw.trim().replaceAll(RegExp(r'^#'), '');
+    final cleanNoHyphen = trimmed.replaceAll('-', '');
+    final isUuid = cleanNoHyphen.length == 32 &&
+        RegExp(r'^[0-9a-fA-F]{32}$').hasMatch(cleanNoHyphen);
+
+    if (isUuid) {
+      return 'TKT-${cleanNoHyphen.substring(0, 8).toUpperCase()}';
+    }
+    return trimmed;
+  }
+
+  /// Returns a clean human-readable ticket reference code (never a raw 36-char UUID).
+  String get displayCode {
+    if (reference.trim().isNotEmpty) {
+      return formatCleanReference(reference);
+    }
+    return formatCleanReference(ticketCode);
+  }
+
   static String _parseLocation(dynamic locationRaw, [dynamic venueNameRaw]) {
     if (venueNameRaw is String && venueNameRaw.trim().isNotEmpty) {
       return venueNameRaw.trim();
@@ -70,7 +92,7 @@ class TicketModel {
 
     return TicketModel(
       id: map['id'] as String,
-      reference: map['reference'] as String,
+      reference: formatCleanReference(map['reference']?.toString() ?? map['ticket_code']?.toString()),
       eventId: map['event_id'] as String,
       eventTitle: event['title'] as String,
       locationName: _parseLocation(event['location'], event['venue_name'] ?? event['venue']),
@@ -81,7 +103,7 @@ class TicketModel {
           ?? media?['poster'] as String?
           ?? media?['hero'] as String?,
       tierName: tier['display_name'] as String,
-      ticketCode: map['ticket_code'] as String,
+      ticketCode: formatCleanReference(map['ticket_code']?.toString() ?? map['reference']?.toString()),
       status: ticketStatus,
       isRedeemed: ticketStatus == 'used',
       redeemedAt: map['redeemed_at'] != null ? DateTime.parse(map['redeemed_at'] as String) : null,
@@ -96,7 +118,7 @@ class TicketModel {
     final ticketStatus = map['status'] as String? ?? 'active';
     return TicketModel(
       id: map['ticket_id'] as String,
-      reference: map['reference'] as String,
+      reference: formatCleanReference(map['reference']?.toString() ?? map['ticket_code']?.toString()),
       eventId: map['event_id'] as String,
       eventTitle: map['event_title'] as String,
       locationName: _parseLocation(
@@ -108,7 +130,7 @@ class TicketModel {
       timezone: map['timezone'] as String?,
       thumbnailUrl: map['thumbnail_url'] as String?,
       tierName: map['tier_name'] as String,
-      ticketCode: map['ticket_code'] as String,
+      ticketCode: formatCleanReference(map['ticket_code']?.toString() ?? map['reference']?.toString()),
       status: ticketStatus,
       isRedeemed: ticketStatus == 'used',
       redeemedAt: map['redeemed_at'] != null ? DateTime.parse(map['redeemed_at'] as String) : null,

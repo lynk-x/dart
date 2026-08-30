@@ -1,3 +1,4 @@
+import 'package:lynk_x/presentation/features/ticket/models/ticket_model.dart';
 import 'package:flutter/foundation.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -48,6 +49,30 @@ class TicketValidationCubit extends HydratedCubit<TicketValidationState> {
     }
   }
 
+  /// Checks whether input match a ticket record by code, reference, or formatted reference.
+  bool _matchesTicket(Map<String, dynamic> t, String sanitizedInput) {
+    final code = t['ticket_code']?.toString().trim().replaceAll(RegExp(r'^#|^"|"$|[\r\n]'), '').toLowerCase() ?? '';
+    final ref = t['reference']?.toString().trim().replaceAll(RegExp(r'^#|^"|"$|[\r\n]'), '').toLowerCase() ?? '';
+    final cleanRef = TicketModel.formatCleanReference(t['reference']?.toString() ?? t['ticket_code']?.toString()).toLowerCase();
+
+    return code == sanitizedInput ||
+        ref == sanitizedInput ||
+        cleanRef == sanitizedInput ||
+        (code.isNotEmpty && code.replaceAll('-', '').startsWith(sanitizedInput.replaceAll('-', ''))) ||
+        (ref.isNotEmpty && ref.replaceAll('-', '').startsWith(sanitizedInput.replaceAll('-', '')));
+  }
+
+  /// Performs a read-only dry-run lookup of a ticket by reference or code without modifying its status.
+  Map<String, dynamic>? lookupTicketOffline(String inputCode) {
+    final tickets = List<Map<String, dynamic>>.from(state.tickets);
+    final sanitizedCode = inputCode.trim().replaceAll(RegExp(r'^#|^"|"$|[\r\n]'), '').toLowerCase();
+
+    final ticketIndex = tickets.indexWhere((t) => _matchesTicket(t, sanitizedCode));
+
+    if (ticketIndex == -1) return null;
+    return tickets[ticketIndex];
+  }
+
   /// Performs local offline-first ticket validation.
   /// Marks the ticket as used locally and queues a background sync job.
   Future<Map<String, dynamic>> scanTicketOffline(
@@ -57,10 +82,7 @@ class TicketValidationCubit extends HydratedCubit<TicketValidationState> {
     final tickets = List<Map<String, dynamic>>.from(state.tickets);
     final sanitizedCode = ticketCode.trim().replaceAll(RegExp(r'^#|^"|"$|[\r\n]'), '').toLowerCase();
 
-    final ticketIndex = tickets.indexWhere((t) {
-      final code = t['ticket_code']?.toString().trim().replaceAll(RegExp(r'^#|^"|"$|[\r\n]'), '').toLowerCase();
-      return code == sanitizedCode;
-    });
+    final ticketIndex = tickets.indexWhere((t) => _matchesTicket(t, sanitizedCode));
 
     if (ticketIndex == -1) {
       return {

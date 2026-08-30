@@ -32,3 +32,7 @@ void setWebScanInterval(int ms) {}
 
 void resumeWebScanner() {}
 
+void playWebFeedbackTone(bool isSuccess) {}
+
+void preloadWebScanAudio() {}
+

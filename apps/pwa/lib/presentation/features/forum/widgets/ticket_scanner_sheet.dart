@@ -1,3 +1,4 @@
+import 'package:lynk_x/presentation/features/ticket/models/ticket_model.dart';
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -59,7 +60,15 @@ class _TicketScannerSheetState extends State<TicketScannerSheet> {
     super.initState();
     _loadFeedbackMode();
     _checkPermission();
-    if (!kIsWeb) {
+    
+    // Set AudioPlayer low latency mode on native to eliminate audio decoding delays
+    _audioPlayer.setPlayerMode(PlayerMode.lowLatency);
+
+    if (kIsWeb) {
+      _controller = null;
+      setWebScanInterval(200);
+      preloadWebScanAudio();
+    } else {
       _controller = MobileScannerController(
         formats: const [
           BarcodeFormat.qrCode,
@@ -74,9 +83,6 @@ class _TicketScannerSheetState extends State<TicketScannerSheet> {
           BarcodeFormat.upcE,
         ],
       );
-    } else {
-      _controller = null;
-      setWebScanInterval(200);
     }
 
     // Auto-fetch tickets immediately and sync periodically every 30 seconds
@@ -329,12 +335,22 @@ class _TicketScannerSheetState extends State<TicketScannerSheet> {
 
     if (isSuccess) {
       if (_feedbackMode == FeedbackMode.sound) {
-        _audioPlayer.play(AssetSource('audio/success.mp3'));
+        if (kIsWeb) {
+          playWebFeedbackTone(true);
+        } else {
+          _audioPlayer.stop();
+          _audioPlayer.play(AssetSource('audio/success.mp3'));
+        }
       }
       HapticFeedback.lightImpact();
     } else {
       if (_feedbackMode == FeedbackMode.sound) {
-        _audioPlayer.play(AssetSource('audio/error.mp3'));
+        if (kIsWeb) {
+          playWebFeedbackTone(false);
+        } else {
+          _audioPlayer.stop();
+          _audioPlayer.play(AssetSource('audio/error.mp3'));
+        }
       }
       HapticFeedback.heavyImpact();
     }
@@ -372,8 +388,10 @@ class _TicketScannerSheetState extends State<TicketScannerSheet> {
               ? ScanStatus.alreadyScanned
               : ScanStatus.error);
 
+      final String cleanCode = TicketModel.formatCleanReference(code);
+
       final item = ScanHistoryItem(
-        code: code,
+        code: cleanCode,
         attendeeName: result['attendee_name']?.toString(),
         username: result['username']?.toString(),
         status: status,
@@ -411,8 +429,10 @@ class _TicketScannerSheetState extends State<TicketScannerSheet> {
       }
     } catch (e) {
       _triggerFeedback(isSuccess: false);
+      final String cleanCode = TicketModel.formatCleanReference(code);
+
       final item = ScanHistoryItem(
-        code: code,
+        code: cleanCode,
         status: ScanStatus.error,
         errorMessage: e.toString(),
         timestamp: DateTime.now(),
@@ -430,6 +450,197 @@ class _TicketScannerSheetState extends State<TicketScannerSheet> {
     _resumeTimer = Timer(const Duration(milliseconds: 3000), () {
       _resetScanner();
     });
+  }
+
+  void _showManualEntryConfirmationSheet(String inputCode) {
+    final code = inputCode.trim();
+    if (code.isEmpty) return;
+
+    final ticket = context.read<TicketValidationCubit>().lookupTicketOffline(code);
+
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (bottomSheetContext) {
+        final String holderName = ticket?['holder_name']?.toString() ?? 'Attendee';
+        final String refCode = TicketModel.formatCleanReference(ticket?['reference']?.toString() ?? ticket?['ticket_code']?.toString() ?? code);
+        final String tierName = ticket?['tier_name']?.toString() ?? 'General Admission';
+        final String rawStatus = ticket?['status']?.toString() ?? (ticket == null ? 'NotFound' : 'valid');
+        final bool isAlreadyUsed = rawStatus.toLowerCase() == 'used';
+
+        return Container(
+          padding: EdgeInsets.fromLTRB(
+            20,
+            20,
+            20,
+            32 + MediaQuery.of(bottomSheetContext).viewInsets.bottom,
+          ),
+          decoration: const BoxDecoration(
+            color: Color(0xFF1E1E24),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 20),
+                  decoration: BoxDecoration(
+                    color: Colors.white24,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              Row(
+                children: [
+                  const Icon(Icons.pin_outlined, color: Colors.white70, size: 22),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Confirm Manual Entry',
+                    style: AppTypography.interTight(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.4),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: isAlreadyUsed
+                        ? Colors.orange.withValues(alpha: 0.5)
+                        : (ticket == null
+                            ? Colors.red.withValues(alpha: 0.5)
+                            : context.accentColor.withValues(alpha: 0.4)),
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          '#$refCode',
+                          style: AppTypography.inter(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                            letterSpacing: 1.2,
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: isAlreadyUsed
+                                ? Colors.orange.withValues(alpha: 0.2)
+                                : (ticket == null
+                                    ? Colors.red.withValues(alpha: 0.2)
+                                    : context.accentColor.withValues(alpha: 0.2)),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            isAlreadyUsed
+                                ? 'ALREADY USED'
+                                : (ticket == null ? 'NOT FOUND' : rawStatus.toUpperCase()),
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: isAlreadyUsed
+                                  ? Colors.orange
+                                  : (ticket == null ? Colors.redAccent : context.accentColor),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const Divider(color: Colors.white12, height: 24),
+                    Text(
+                      'HOLDER NAME',
+                      style: AppTypography.inter(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white38,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      holderName,
+                      style: AppTypography.inter(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'TICKETING TIER',
+                      style: AppTypography.inter(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white38,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      tierName,
+                      style: AppTypography.inter(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.white70,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        side: const BorderSide(color: Colors.white24),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      onPressed: () => Navigator.pop(bottomSheetContext),
+                      child: const Text('Cancel', style: TextStyle(color: Colors.white70)),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: context.accentColor,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      onPressed: () {
+                        Navigator.pop(bottomSheetContext);
+                        _processTicketCode(code);
+                      },
+                      child: const Text(
+                        'Confirm Entry',
+                        style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   String _formatTime(DateTime? dt) {
@@ -843,7 +1054,7 @@ class _TicketScannerSheetState extends State<TicketScannerSheet> {
                                       ),
                                       onSubmitted: (val) {
                                         if (val.trim().isNotEmpty) {
-                                          _processTicketCode(val.trim());
+                                          _showManualEntryConfirmationSheet(val.trim());
                                         }
                                       },
                                     ),
@@ -853,7 +1064,7 @@ class _TicketScannerSheetState extends State<TicketScannerSheet> {
                                     onTap: () {
                                       final val = _textController.text.trim();
                                       if (val.isNotEmpty) {
-                                        _processTicketCode(val);
+                                        _showManualEntryConfirmationSheet(val);
                                       }
                                     },
                                     borderRadius: BorderRadius.circular(12),

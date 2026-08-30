@@ -72,12 +72,12 @@ class _TicketViewState extends State<TicketView> {
   String _generateTotpBarcodeData(TicketModel ticket) {
     final now = DateTime.now().toUtc();
     final epoch30s = now.millisecondsSinceEpoch ~/ 30000;
-    final secretKey = ticket.secretKey ?? ticket.ticketCode;
+    final secretKey = ticket.secretKey ?? ticket.displayCode;
     final keyBytes = utf8.encode(secretKey);
     final messageBytes = utf8.encode('${ticket.id}:$epoch30s');
     final hmac = Hmac(sha256, keyBytes);
     final digest = hmac.convert(messageBytes);
-    return '${ticket.ticketCode}|$epoch30s|$digest';
+    return '${ticket.displayCode}|$epoch30s|$digest';
   }
 
   void _startCountdown(DateTime expiresAt) {
@@ -326,7 +326,7 @@ class _TicketViewState extends State<TicketView> {
               leading: const Icon(Icons.flag_outlined, color: Colors.red),
               title: const Text('Report an Issue', style: TextStyle(color: Colors.redAccent)),
               subtitle: Text(
-                'Ref: #${ticket.ticketCode}',
+                'Ref: #${ticket.displayCode}',
                 style: const TextStyle(color: Colors.white38, fontSize: 12),
               ),
               onTap: () {
@@ -737,7 +737,7 @@ class _TicketViewState extends State<TicketView> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  '#${ticket.ticketCode}',
+                  '#${ticket.displayCode}',
                   style: AppTypography.inter(
                     fontSize: 14,
                     color: Colors.black45,
@@ -1000,7 +1000,7 @@ class _TicketViewState extends State<TicketView> {
                       ),
                       const SizedBox(height: 12),
                       Text(
-                        '#${ticket.ticketCode}',
+                        '#${ticket.displayCode}',
                         style: AppTypography.inter(
                           fontSize: 15,
                           color: Colors.black54,
