@@ -42,7 +42,14 @@ window.flutterCameraStream = {
   },
 
   async _initStreamWithFacing(facingMode) {
+    const el = this.videoElement;
     this.stop();
+    this.videoElement = el;
+
+    if (!this.videoElement) {
+      console.error("flutterCameraStream._initStreamWithFacing: videoElement is null");
+      return false;
+    }
 
     const constraints = {
       video: {

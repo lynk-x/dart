@@ -96,11 +96,13 @@ window.flutterQrScanner = {
               }
               hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
               
-              if (ZXing.MultiFormatReader) {
-                this.zxingReader = new ZXing.MultiFormatReader();
-                this.zxingReader.setHints(hints);
-              } else if (ZXing.BrowserMultiFormatReader) {
+              if (ZXing.BrowserMultiFormatReader) {
                 this.zxingReader = new ZXing.BrowserMultiFormatReader(hints);
+              } else if (ZXing.MultiFormatReader) {
+                this.zxingReader = new ZXing.MultiFormatReader();
+                if (typeof this.zxingReader.setHints === 'function') {
+                  this.zxingReader.setHints(hints);
+                }
               }
             }
             try {
@@ -109,10 +111,10 @@ window.flutterQrScanner = {
               const bitmap = new ZXing.BinaryBitmap(binarizer);
               
               let result = null;
-              if (this.zxingReader.decode) {
-                result = this.zxingReader.decode(bitmap);
-              } else if (this.zxingReader.decodeBitmap) {
+              if (this.zxingReader && typeof this.zxingReader.decodeBitmap === 'function') {
                 result = this.zxingReader.decodeBitmap(bitmap);
+              } else if (this.zxingReader && typeof this.zxingReader.decode === 'function') {
+                result = this.zxingReader.decode(bitmap, hints);
               }
 
               if (result) {

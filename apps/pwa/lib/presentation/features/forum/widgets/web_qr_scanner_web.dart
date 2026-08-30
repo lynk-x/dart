@@ -78,6 +78,7 @@ class _WebQrScannerState extends State<WebQrScanner> {
   static const String _viewType = 'qr-video-view';
   static const String _elementId = 'qr-video-element';
   static web.HTMLVideoElement? _cachedVideo;
+  static bool _factoryRegistered = false;
   bool _isInitialized = false;
 
   @override
@@ -96,11 +97,13 @@ class _WebQrScannerState extends State<WebQrScanner> {
       _cachedVideo!.setAttribute('muted', 'true');
     }
 
-    // Register the platform view factory to return our single cached video element
-    ui_web.platformViewRegistry.registerViewFactory(
-      _viewType,
-      (int viewId) => _cachedVideo!,
-    );
+    if (!_factoryRegistered) {
+      ui_web.platformViewRegistry.registerViewFactory(
+        _viewType,
+        (int viewId) => _cachedVideo!,
+      );
+      _factoryRegistered = true;
+    }
 
     // Start the camera after the platform view has been inserted into the DOM
     WidgetsBinding.instance.addPostFrameCallback((_) {
