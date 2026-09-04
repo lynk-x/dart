@@ -32,45 +32,27 @@ class NotificationCard extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Icon section with unread indicator
-            Stack(
-              children: [
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: isRead 
-                        ? Colors.white.withValues(alpha: 0.03) 
-                        : Colors.white.withValues(alpha: 0.07),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: isRead 
-                          ? Colors.white.withValues(alpha: 0.06) 
-                          : Colors.white.withValues(alpha: 0.12),
-                      width: 1,
-                    ),
-                  ),
-                  child: Icon(
-                    model.icon,
-                    color: isRead ? Colors.white24 : Colors.white70,
-                    size: 22,
-                  ),
+            // Clean Icon section
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: isRead 
+                    ? Colors.white.withValues(alpha: 0.03) 
+                    : Colors.white.withValues(alpha: 0.07),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: isRead 
+                      ? Colors.white.withValues(alpha: 0.06) 
+                      : Colors.white.withValues(alpha: 0.12),
+                  width: 1,
                 ),
-                if (!isRead)
-                  Positioned(
-                    top: 0,
-                    right: 0,
-                    child: Container(
-                      width: 12,
-                      height: 12,
-                      decoration: BoxDecoration(
-                        color: context.accentColor,
-                        shape: BoxShape.circle,
-                        border: Border.all(color: AppColors.surface, width: 2),
-                      ),
-                    ),
-                  ),
-              ],
+              ),
+              child: Icon(
+                model.icon,
+                color: isRead ? Colors.white38 : Colors.white70,
+                size: 22,
+              ),
             ),
             const SizedBox(width: 16),
             // Text Content
@@ -94,12 +76,30 @@ class NotificationCard extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      Text(
-                        timeago.format(model.createdAt, locale: 'en_short'),
-                        style: AppTypography.inter(
-                          fontSize: 12,
-                          color: Colors.white38,
-                        ),
+                      const SizedBox(width: 8),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            timeago.format(model.createdAt, locale: 'en_short'),
+                            style: AppTypography.inter(
+                              fontSize: 12,
+                              color: isRead ? Colors.white38 : Colors.white60,
+                              fontWeight: isRead ? FontWeight.normal : FontWeight.w500,
+                            ),
+                          ),
+                          if (!isRead) ...[
+                            const SizedBox(width: 6),
+                            Container(
+                              width: 8,
+                              height: 8,
+                              decoration: BoxDecoration(
+                                color: context.accentColor,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
                     ],
                   ),
@@ -115,6 +115,35 @@ class NotificationCard extends StatelessWidget {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
+                  if (model.actionLabel != null) ...[
+                    const SizedBox(height: 10),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: SizedBox(
+                        height: 34,
+                        child: ElevatedButton.icon(
+                          onPressed: onTap,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: context.accentColor,
+                            foregroundColor: Colors.black,
+                            elevation: 0,
+                            padding: const EdgeInsets.symmetric(horizontal: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          icon: const Icon(Icons.arrow_forward_rounded, size: 14),
+                          label: Text(
+                            model.actionLabel!,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
