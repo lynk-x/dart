@@ -149,24 +149,4 @@ class NotificationModel {
         return Colors.orange;
     }
   }
-
-  String? get actionLabel {
-    switch (type) {
-      case NotificationType.ticketResaleOffer:
-        return 'Review Offer';
-      case NotificationType.eventUpdate:
-        return 'View Ticket';
-      case NotificationType.moneyIn:
-      case NotificationType.moneyOut:
-        return 'View Wallet';
-      case NotificationType.mention:
-      case NotificationType.livechats:
-      case NotificationType.announcements:
-        return 'Open Forum';
-      case NotificationType.marketing:
-      case NotificationType.media:
-      case NotificationType.system:
-        return actionUrl != null ? 'View Details' : null;
-    }
-  }
 }
