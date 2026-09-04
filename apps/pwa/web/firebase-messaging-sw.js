@@ -42,16 +42,23 @@ try {
     const messaging = firebase.messaging();
 
     // Handle background messages (tab is not focused or closed)
+    // Note: FCM SDK automatically displays a native browser notification if payload.notification is present.
+    // Calling self.registration.showNotification when payload.notification exists results in duplicate popups.
     messaging.onBackgroundMessage((payload) => {
-      const notificationTitle = payload.notification?.title || 'Lynk-X';
+      if (payload.notification) {
+        // FCM automatically handles native notification display for payload.notification
+        return;
+      }
+
+      const notificationTitle = payload.data?.title || 'Lynk-X';
       const notificationOptions = {
-        body: payload.notification?.body || '',
+        body: payload.data?.body || '',
         icon: '/icons/Icon-192.png',
         badge: '/icons/Icon-192.png',
         data: payload.data,
         // Use the action_url from the payload so tapping the notification
         // navigates to the correct route (e.g. /forum/abc, /tickets).
-        tag: payload.data?.action_url || 'default',
+        tag: payload.data?.action_url || payload.data?.click_action || 'default',
       };
 
       return self.registration.showNotification(notificationTitle, notificationOptions);

@@ -36,20 +36,24 @@ class NotificationCard extends StatelessWidget {
             Stack(
               children: [
                 Container(
-                  width: 48,
-                  height: 48,
+                  width: 44,
+                  height: 44,
                   decoration: BoxDecoration(
-                    color: model.color.withValues(alpha: 0.1),
+                    color: isRead 
+                        ? Colors.white.withValues(alpha: 0.03) 
+                        : Colors.white.withValues(alpha: 0.07),
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                      color: model.color.withValues(alpha: 0.2),
+                      color: isRead 
+                          ? Colors.white.withValues(alpha: 0.06) 
+                          : Colors.white.withValues(alpha: 0.12),
                       width: 1,
                     ),
                   ),
                   child: Icon(
                     model.icon,
-                    color: isRead ? Colors.white60 : model.color,
-                    size: 24,
+                    color: isRead ? Colors.white24 : Colors.white70,
+                    size: 22,
                   ),
                 ),
                 if (!isRead)

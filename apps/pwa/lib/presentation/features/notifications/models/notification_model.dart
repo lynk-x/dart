@@ -103,25 +103,25 @@ class NotificationModel {
   IconData get icon {
     switch (type) {
       case NotificationType.system:
-        return Icons.system_update;
+        return Icons.auto_awesome_rounded;
       case NotificationType.marketing:
-        return Icons.campaign;
+        return Icons.campaign_rounded;
       case NotificationType.mention:
-        return Icons.alternate_email;
+        return Icons.alternate_email_rounded;
       case NotificationType.announcements:
-        return Icons.announcement;
+        return Icons.notifications_active_rounded;
       case NotificationType.livechats:
-        return Icons.chat;
+        return Icons.forum_rounded;
       case NotificationType.media:
-        return Icons.perm_media;
+        return Icons.photo_library_rounded;
       case NotificationType.eventUpdate:
-        return Icons.event;
+        return Icons.confirmation_number_rounded;
       case NotificationType.moneyIn:
-        return Icons.account_balance_wallet;
+        return Icons.payments_rounded;
       case NotificationType.moneyOut:
-        return Icons.payment;
+        return Icons.account_balance_wallet_rounded;
       case NotificationType.ticketResaleOffer:
-        return Icons.sell;
+        return Icons.local_offer_rounded;
     }
   }
 
