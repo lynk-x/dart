@@ -69,6 +69,17 @@ class _MiniOverlayState extends State<MiniOverlay> {
 
         final isLiveCall = overlayState.streamType == MiniOverlayType.liveCall;
 
+        // Check if audio cubit is inactive when displaying a live call
+        if (isLiveCall) {
+          final audioCubit = context.read<ForumAudioStreamCubit?>();
+          if (audioCubit == null || !audioCubit.state.isLive) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              _pipService.endPipSession();
+            });
+            return const SizedBox.shrink();
+          }
+        }
+
         // Dimensions: Live Call uses a slim strip; Live Stream uses 16:9 widescreen canvas
         final double currentWidth = isLiveCall ? 230.0 : 192.0;
         final double currentHeight = isLiveCall ? 48.0 : 108.0;
@@ -112,18 +123,28 @@ class _MiniOverlayState extends State<MiniOverlay> {
     final cubit = audioCubit;
 
     if (cubit == null) {
-      return _buildRawCallStrip(
-        context,
-        hostName: hostName,
-        isMicMuted: true,
-        canSpeak: widget.isHost,
-        onToggleMic: null,
-      );
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _pipService.endPipSession();
+      });
+      return const SizedBox.shrink();
     }
 
-    return BlocBuilder<ForumAudioStreamCubit, ForumAudioStreamState>(
+    return BlocConsumer<ForumAudioStreamCubit, ForumAudioStreamState>(
       bloc: cubit,
+      listenWhen: (previous, current) => previous.isLive != current.isLive,
+      listener: (context, audioState) {
+        if (!audioState.isLive) {
+          _pipService.endPipSession();
+        }
+      },
       builder: (context, audioState) {
+        if (!audioState.isLive) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _pipService.endPipSession();
+          });
+          return const SizedBox.shrink();
+        }
+
         final canSpeak = widget.isHost ||
             audioState.role == ForumHeaderRole.host ||
             audioState.role == ForumHeaderRole.speaker ||

@@ -270,7 +270,7 @@ abstract class BaseMessageCubit<T extends BaseMessageState> extends HydratedCubi
     } else if (content.contains('ended the live stream')) {
       ForumVideoStreamService().setLive(false);
       MiniOverlayService().endPipSession();
-    } else if (content.contains('ended the live call')) {
+    } else if (content.contains('ended the live call') || content.contains('ended the audio stream')) {
       MiniOverlayService().endPipSession();
     }
   }

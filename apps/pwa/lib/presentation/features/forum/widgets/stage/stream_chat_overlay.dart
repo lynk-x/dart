@@ -23,13 +23,52 @@ class StageChatEntry {
 }
 
 /// Translucent live stream chat overlay displayed on the stage bottom-left.
-class StageChatOverlay extends StatelessWidget {
+class StageChatOverlay extends StatefulWidget {
   final List<StageChatEntry> combinedStream;
 
   const StageChatOverlay({
     super.key,
     required this.combinedStream,
   });
+
+  @override
+  State<StageChatOverlay> createState() => _StageChatOverlayState();
+}
+
+class _StageChatOverlayState extends State<StageChatOverlay> {
+  final ScrollController _scrollController = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollToBottom();
+  }
+
+  @override
+  void didUpdateWidget(covariant StageChatOverlay oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.combinedStream.length != oldWidget.combinedStream.length) {
+      _scrollToBottom();
+    }
+  }
+
+  void _scrollToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -41,110 +80,114 @@ class StageChatOverlay extends StatelessWidget {
           maxWidth: (MediaQuery.sizeOf(context).width * 0.7).clamp(200, 320),
           maxHeight: 160,
         ),
-        child: ShaderMask(
-          shaderCallback: (Rect bounds) {
-            return const LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [Colors.transparent, Colors.black, Colors.black],
-              stops: [0.0, 0.2, 1.0],
-            ).createShader(bounds);
-          },
-          blendMode: BlendMode.dstIn,
-          child: CustomScrollView(
-            reverse: true,
-            shrinkWrap: true,
-            physics: const BouncingScrollPhysics(),
-            slivers: [
-              SliverList(
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) {
-                    final entry = combinedStream[index];
-                    final isAnnouncement = entry.type == 'announcement';
+        child: Align(
+          alignment: Alignment.bottomLeft,
+          child: ShaderMask(
+            shaderCallback: (Rect bounds) {
+              return const LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Colors.transparent, Colors.black, Colors.black],
+                stops: [0.0, 0.2, 1.0],
+              ).createShader(bounds);
+            },
+            blendMode: BlendMode.dstIn,
+            child: CustomScrollView(
+              controller: _scrollController,
+              reverse: false,
+              shrinkWrap: true,
+              physics: const BouncingScrollPhysics(),
+              slivers: [
+                SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) {
+                      final entry = widget.combinedStream[index];
+                      final isAnnouncement = entry.type == 'announcement';
 
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 6.0),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: isAnnouncement
-                              ? context.accentColor.withValues(alpha: 0.25)
-                              : Colors.black.withValues(alpha: 0.65),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 6.0),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          decoration: BoxDecoration(
                             color: isAnnouncement
-                                ? context.accentColor.withValues(alpha: 0.6)
-                                : Colors.white12,
-                            width: isAnnouncement ? 1.5 : 1.0,
+                                ? context.accentColor.withValues(alpha: 0.25)
+                                : Colors.black.withValues(alpha: 0.65),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: isAnnouncement
+                                  ? context.accentColor.withValues(alpha: 0.6)
+                                  : Colors.white12,
+                              width: isAnnouncement ? 1.5 : 1.0,
+                            ),
                           ),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                if (isAnnouncement) ...[
-                                  Icon(Icons.campaign_rounded, size: 12, color: context.accentColor),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    'ANNOUNCEMENT',
-                                    style: AppTypography.interTight(
-                                      fontSize: 9,
-                                      fontWeight: FontWeight.w800,
-                                      color: context.accentColor,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 6),
-                                ],
-                                Text(
-                                  entry.sender,
-                                  style: AppTypography.interTight(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                                if (entry.role.isNotEmpty) ...[
-                                  const SizedBox(width: 4),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                                    decoration: BoxDecoration(
-                                      color: isAnnouncement
-                                          ? context.accentColor
-                                          : Colors.white24,
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
-                                    child: Text(
-                                      entry.role.toUpperCase(),
-                                      style: AppTypography.inter(
-                                        fontSize: 8,
-                                        fontWeight: FontWeight.bold,
-                                        color: isAnnouncement ? Colors.black : Colors.white,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  if (isAnnouncement) ...[
+                                    Icon(Icons.campaign_rounded, size: 12, color: context.accentColor),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      'ANNOUNCEMENT',
+                                      style: AppTypography.interTight(
+                                        fontSize: 9,
+                                        fontWeight: FontWeight.w800,
+                                        color: context.accentColor,
                                       ),
                                     ),
+                                    const SizedBox(width: 6),
+                                  ],
+                                  Text(
+                                    entry.sender,
+                                    style: AppTypography.interTight(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                    ),
                                   ),
+                                  if (entry.role.isNotEmpty) ...[
+                                    const SizedBox(width: 4),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                                      decoration: BoxDecoration(
+                                        color: isAnnouncement
+                                            ? context.accentColor
+                                            : Colors.white24,
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: Text(
+                                        entry.role.toUpperCase(),
+                                        style: AppTypography.inter(
+                                          fontSize: 8,
+                                          fontWeight: FontWeight.bold,
+                                          color: isAnnouncement ? Colors.black : Colors.white,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ],
-                              ],
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              entry.text,
-                              style: AppTypography.interTight(
-                                fontSize: 12,
-                                color: Colors.white.withValues(alpha: 0.9),
                               ),
-                            ),
-                          ],
+                              const SizedBox(height: 2),
+                              Text(
+                                entry.text,
+                                style: AppTypography.interTight(
+                                  fontSize: 12,
+                                  color: Colors.white.withValues(alpha: 0.9),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                    );
-                  },
-                  childCount: combinedStream.length,
+                      );
+                    },
+                    childCount: widget.combinedStream.length,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

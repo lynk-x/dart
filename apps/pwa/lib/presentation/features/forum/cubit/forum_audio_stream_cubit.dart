@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/forum_audio_stream_service.dart';
 import '../services/mini_overlay_service.dart';
 import '../widgets/header.dart';
@@ -31,6 +33,19 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
     service.subscribeToAudioBroadcast(
       forumId: forumId,
       onEvent: _handleAudioEvent,
+      onStatusChange: (status) {
+        if (status == RealtimeSubscribeStatus.channelError ||
+            status == RealtimeSubscribeStatus.timedOut) {
+          if (state.isLive && state.role != ForumHeaderRole.host) {
+            service.clearMediaSession();
+            MiniOverlayService().endPipSession();
+            emit(state.copyWith(
+              isLive: false,
+              errorMessage: 'Audio stream disconnected.',
+            ));
+          }
+        }
+      },
     );
 
     // Initial state check for active live stream when user opens the forum
@@ -61,8 +76,8 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
             isBroadcastMuted: false,
           ));
         }
-      } else if (state.isLive && state.role != ForumHeaderRole.host) {
-        // If stream explicitly ended according to config and we are not the active local host
+      } else {
+        // Stream explicitly not live according to config
         service.clearMediaSession();
         MiniOverlayService().endPipSession();
 
@@ -74,6 +89,10 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
           isBroadcastMuted: false,
         ));
       }
+    } else if (state.isLive && state.role != ForumHeaderRole.host) {
+      service.clearMediaSession();
+      MiniOverlayService().endPipSession();
+      emit(state.copyWith(isLive: false));
     }
   }
 
@@ -150,7 +169,9 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
     try {
       final micGranted = await service.startLocalMicrophone();
       if (!micGranted) {
+        MiniOverlayService().endPipSession();
         emit(state.copyWith(
+          isLive: false,
           errorMessage: 'Microphone access is required to host a live audio stream.',
         ));
         return;
@@ -193,7 +214,12 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
       );
     } catch (e) {
       service.stopLocalMicrophone();
-      emit(state.copyWith(errorMessage: 'Failed to start audio stream: $e'));
+      service.clearMediaSession();
+      MiniOverlayService().endPipSession();
+      emit(state.copyWith(
+        isLive: false,
+        errorMessage: 'Failed to start audio stream: $e',
+      ));
     }
   }
 
@@ -201,23 +227,24 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
   Future<void> endAudioStream() async {
     if (!state.isLive) return;
 
+    // Immediately stop local audio hardware and tear down PIP session locally
+    service.stopLocalMicrophone();
+    service.clearMediaSession();
+    MiniOverlayService().endPipSession();
+
+    emit(const ForumAudioStreamState(
+      isLive: false,
+      role: ForumHeaderRole.listener,
+      activeSpeakerNames: [],
+      isMicMuted: true,
+      isBroadcastMuted: false,
+    ));
+
     try {
-      service.stopLocalMicrophone();
-      service.clearMediaSession();
       await service.updateForumStreamingConfig(
         forumId: forumId,
         isLive: false,
       );
-
-      MiniOverlayService().endPipSession();
-
-      emit(const ForumAudioStreamState(
-        isLive: false,
-        role: ForumHeaderRole.listener,
-        activeSpeakerNames: [],
-        isMicMuted: true,
-        isBroadcastMuted: false,
-      ));
 
       // Broadcast end_stream to all connected attendees via WebSocket
       await service.broadcastAudioEvent(
@@ -225,7 +252,8 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
         hostId: userId,
       );
     } catch (e) {
-      emit(state.copyWith(errorMessage: 'Failed to end audio stream: $e'));
+      // Stream is already ended locally; log online update failure
+      debugPrint('[ForumAudioStreamCubit] endAudioStream network sync error: $e');
     }
   }
 
@@ -278,6 +306,7 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
     _reconnectTimer?.cancel();
     service.stopLocalMicrophone();
     service.clearMediaSession();
+    MiniOverlayService().endPipSession();
     await service.unsubscribe();
     return super.close();
   }

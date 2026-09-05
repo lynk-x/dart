@@ -157,6 +157,7 @@ class ForumAudioStreamService {
   RealtimeChannel subscribeToAudioBroadcast({
     required String forumId,
     required void Function(Map<String, dynamic> payload) onEvent,
+    void Function(RealtimeSubscribeStatus status)? onStatusChange,
   }) {
     _channel?.unsubscribe();
     _channel = supabase.channel('forum_audio:$forumId');
@@ -166,7 +167,11 @@ class ForumAudioStreamService {
       callback: (payload) {
         onEvent(payload);
       },
-    ).subscribe();
+    ).subscribe((status, [error]) {
+      if (onStatusChange != null) {
+        onStatusChange(status);
+      }
+    });
 
     return _channel!;
   }

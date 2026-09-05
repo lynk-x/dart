@@ -571,6 +571,9 @@ class _ForumViewState extends State<ForumView> {
                                                     onAdViewed: (adId) => context
                                                         .read<ForumAdsCubit>()
                                                         .logAdImpression(adId),
+                                                    onAdViewEnded: (adId) => context
+                                                        .read<ForumAdsCubit>()
+                                                        .cancelAdImpression(adId),
                                                     onAdClicked: (ad) async {
                                                       context
                                                           .read<ForumAdsCubit>()

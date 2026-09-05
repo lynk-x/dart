@@ -231,14 +231,12 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
     ];
 
     // Filter out join messages (no longer displayed in stage overlay).
-    // Sort ascending so newest messages appear at the bottom.
-    // Filter out join messages (no longer displayed in stage overlay).
-    // Sort descending so newest messages appear at index 0 for reverse CustomScrollView (latest messages first).
+    // Sort ascending so oldest messages appear first and newest messages appear at the bottom.
     entries.removeWhere((e) =>
         e.text.contains('joined the live stream') ||
         e.text.contains('joined the live call') ||
         e.text.contains('joined the quiz session'));
-    entries.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    entries.sort((a, b) => a.createdAt.compareTo(b.createdAt));
     _combinedStream = entries;
   }
 
@@ -583,8 +581,8 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
             isOrganizer: widget.isHost,
             onSendMessage: (text, replyTo) {
               if (text.trim().isEmpty) return;
-              // O(1) prepend — list is sorted descending so new messages go at index 0.
-              _unifiedStreamMessages.insert(0, StageChatEntry(
+              // Append to end of list so new messages appear at the bottom.
+              _unifiedStreamMessages.add(StageChatEntry(
                 id: DateTime.now().millisecondsSinceEpoch.toString(),
                 type: widget.isHost ? 'announcement' : 'stream_chat',
                 sender: widget.isHost
