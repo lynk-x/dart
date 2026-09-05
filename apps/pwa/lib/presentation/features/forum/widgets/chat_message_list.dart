@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:lynk_core/core.dart';
 import 'package:lynk_x/presentation/features/forum/models/forum_model.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/chat_bubble.dart';
-import 'package:lynk_x/presentation/features/forum/widgets/forum_skeletons.dart';
+import 'package:lynk_x/presentation/features/forum/widgets/skeletons.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/swipe_to_reply.dart';
 import 'package:lynk_x/presentation/shared/widgets/empty_state.dart';
 import 'package:lynk_x/presentation/features/forum/cubit/base_message_state.dart';

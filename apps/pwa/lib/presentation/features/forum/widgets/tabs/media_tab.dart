@@ -8,7 +8,7 @@ import 'package:lynk_x/presentation/features/forum/cubit/forum_cubit.dart';
 import 'package:lynk_x/presentation/features/forum/cubit/forum_state.dart';
 import 'package:lynk_x/presentation/features/forum/cubit/forum_media_cubit.dart';
 import 'package:lynk_x/presentation/features/forum/cubit/forum_media_state.dart';
-import 'package:lynk_x/presentation/features/forum/widgets/forum_skeletons.dart';
+import 'package:lynk_x/presentation/features/forum/widgets/skeletons.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/web_camera_capture.dart';
 import 'package:lynk_x/presentation/shared/widgets/empty_state.dart';
 import 'package:lynk_x/presentation/shared/utils/app_snackbars.dart';

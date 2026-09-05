@@ -8,7 +8,7 @@ import 'package:lynk_x/presentation/features/forum/models/forum_model.dart';
 import 'package:lynk_x/core/utils/storage_utils.dart';
 import 'package:lynk_x/core/sync/sync_manager.dart';
 import 'package:lynk_x/presentation/features/forum/services/stream_service.dart';
-import 'package:lynk_x/presentation/features/forum/services/pip_service.dart';
+import 'package:lynk_x/presentation/features/forum/services/mini_overlay_service.dart';
 import 'package:lynk_x/presentation/features/forum/services/forum_cdc_service.dart';
 import 'base_message_state.dart';
 
@@ -269,9 +269,9 @@ abstract class BaseMessageCubit<T extends BaseMessageState> extends HydratedCubi
       ForumVideoStreamService().setLive(true);
     } else if (content.contains('ended the live stream')) {
       ForumVideoStreamService().setLive(false);
-      StreamPipService().endPipSession();
+      MiniOverlayService().endPipSession();
     } else if (content.contains('ended the live call')) {
-      StreamPipService().endPipSession();
+      MiniOverlayService().endPipSession();
     }
   }
 

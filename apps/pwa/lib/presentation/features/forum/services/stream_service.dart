@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'dart:js_interop';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
-import 'pip_service.dart';
+import 'mini_overlay_service.dart';
 import 'media_device_manager.dart';
 export 'media_device_manager.dart';
 
@@ -370,14 +370,14 @@ class ForumVideoStreamService {
 
   void setMinimized(bool minimized) {
     isMinimizedNotifier.value = minimized;
-    StreamPipService().setMinimized(minimized);
+    MiniOverlayService().setMinimized(minimized);
   }
 
   void setLive(bool live) {
     isLiveNotifier.value = live;
     if (!live) {
       isMinimizedNotifier.value = false;
-      StreamPipService().endPipSession();
+      MiniOverlayService().endPipSession();
     }
   }
 

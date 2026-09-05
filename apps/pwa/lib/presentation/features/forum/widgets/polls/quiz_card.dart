@@ -4,7 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../cubit/forum_cubit.dart';
-import '../forum_skeletons.dart';
+import '../skeletons.dart';
 import 'poll_quiz_card_shell.dart';
 
 /// Quiz body: loads and renders a quiz's join-launcher card attached to a

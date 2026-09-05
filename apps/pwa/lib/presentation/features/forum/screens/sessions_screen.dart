@@ -6,7 +6,7 @@ import 'package:lynk_core/core.dart';
 import 'package:go_router/go_router.dart';
 import '../cubit/forum_sessions_cubit.dart';
 import '../cubit/forum_sessions_state.dart';
-import '../widgets/forum_skeletons.dart';
+import '../widgets/skeletons.dart';
 import 'package:lynk_x/presentation/shared/utils/app_snackbars.dart';
 
 class SessionsScreen extends StatelessWidget {

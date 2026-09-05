@@ -5,19 +5,19 @@ import 'package:lynk_core/core.dart';
 import 'package:lynk_x/presentation/features/forum/cubit/forum_audio_stream_cubit.dart';
 import 'package:lynk_x/presentation/features/forum/cubit/forum_audio_stream_state.dart';
 import 'package:lynk_x/presentation/features/forum/services/audio_telemetry_service.dart';
-import 'package:lynk_x/presentation/features/forum/services/pip_service.dart';
+import 'package:lynk_x/presentation/features/forum/services/mini_overlay_service.dart';
 import 'package:lynk_x/presentation/features/forum/services/stream_service.dart';
-import 'package:lynk_x/presentation/features/forum/widgets/forum_header.dart';
+import 'package:lynk_x/presentation/features/forum/widgets/header.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/stage/soundwave_widget.dart';
 
-/// Floating In-App Picture-in-Picture (PiP) card displayed on the Forum page
+/// Floating In-App Mini Overlay card displayed on the Forum page
 /// when a live video stream or audio call is minimized. Supports Live Call / Live Chat context switching.
-class PipOverlay extends StatefulWidget {
+class MiniOverlay extends StatefulWidget {
   final String forumName;
   final String hostName;
   final bool isHost;
 
-  const PipOverlay({
+  const MiniOverlay({
     super.key,
     required this.forumName,
     required this.hostName,
@@ -25,11 +25,11 @@ class PipOverlay extends StatefulWidget {
   });
 
   @override
-  State<PipOverlay> createState() => _PipOverlayState();
+  State<MiniOverlay> createState() => _MiniOverlayState();
 }
 
-class _PipOverlayState extends State<PipOverlay> {
-  final StreamPipService _pipService = StreamPipService();
+class _MiniOverlayState extends State<MiniOverlay> {
+  final MiniOverlayService _pipService = MiniOverlayService();
   final ForumVideoStreamService _videoService = ForumVideoStreamService();
   final AudioTelemetryService _telemetry = AudioTelemetryService();
 
@@ -60,65 +60,61 @@ class _PipOverlayState extends State<PipOverlay> {
     _left ??= _margin;
     _top ??= topPadding + 220.0;
 
-    return ValueListenableBuilder<bool>(
-      valueListenable: _pipService.isMinimizedNotifier,
-      builder: (context, isMinimized, child) {
-        if (!isMinimized || !_pipService.isLiveNotifier.value) {
+    return ValueListenableBuilder<MiniOverlayState>(
+      valueListenable: _pipService.stateNotifier,
+      builder: (context, overlayState, child) {
+        if (!overlayState.isMinimized || !overlayState.isLive) {
           return const SizedBox.shrink();
         }
 
-        return ValueListenableBuilder<PipStreamType>(
-          valueListenable: _pipService.streamTypeNotifier,
-          builder: (context, streamType, _) {
-            final isLiveCall = streamType == PipStreamType.liveCall;
+        final isLiveCall = overlayState.streamType == MiniOverlayType.liveCall;
 
-            // Dimensions: Live Call uses a slim strip; Live Stream uses 16:9 widescreen canvas
-            final double currentWidth = isLiveCall ? 230.0 : 192.0;
-            final double currentHeight = isLiveCall ? 48.0 : 108.0;
+        // Dimensions: Live Call uses a slim strip; Live Stream uses 16:9 widescreen canvas
+        final double currentWidth = isLiveCall ? 230.0 : 192.0;
+        final double currentHeight = isLiveCall ? 48.0 : 108.0;
 
-            return Positioned(
-              left: _left,
-              top: _top,
-              width: currentWidth,
-              height: currentHeight,
-              child: GestureDetector(
-                onPanUpdate: (details) {
-                  setState(() {
-                    _left = (_left! + details.delta.dx).clamp(
-                      _margin,
-                      screenSize.width - currentWidth - _margin,
-                    );
-                    _top = (_top! + details.delta.dy).clamp(
-                      topPadding + 210.0,
-                      screenSize.height - currentHeight - _bottomAllowance,
-                    );
-                  });
-                },
-                child: Material(
-                  elevation: 14,
-                  borderRadius: BorderRadius.circular(isLiveCall ? 24 : 10),
-                  clipBehavior: Clip.antiAlias,
-                  color: const Color(0xFF161920),
-                  child: isLiveCall
-                      ? _buildLiveCallStrip(context)
-                      : _buildLiveStreamContainer(context),
-                ),
-              ),
-            );
-          },
+        return Positioned(
+          left: _left,
+          top: _top,
+          width: currentWidth,
+          height: currentHeight,
+          child: GestureDetector(
+            onPanUpdate: (details) {
+              setState(() {
+                _left = (_left! + details.delta.dx).clamp(
+                  _margin,
+                  screenSize.width - currentWidth - _margin,
+                );
+                _top = (_top! + details.delta.dy).clamp(
+                  topPadding + 210.0,
+                  screenSize.height - currentHeight - _bottomAllowance,
+                );
+              });
+            },
+            child: Material(
+              elevation: 14,
+              borderRadius: BorderRadius.circular(isLiveCall ? 24 : 10),
+              clipBehavior: Clip.antiAlias,
+              color: const Color(0xFF161920),
+              child: isLiveCall
+                  ? _buildLiveCallStrip(context, hostName: overlayState.hostName)
+                  : _buildLiveStreamContainer(context, hostName: overlayState.hostName),
+            ),
+          ),
         );
       },
     );
   }
 
   /// Compact Audio Strip for Live Calls with Mic Toggle
-  Widget _buildLiveCallStrip(BuildContext context) {
+  Widget _buildLiveCallStrip(BuildContext context, {String hostName = ''}) {
     final audioCubit = context.read<ForumAudioStreamCubit?>();
     final cubit = audioCubit;
 
     if (cubit == null) {
       return _buildRawCallStrip(
         context,
+        hostName: hostName,
         isMicMuted: true,
         canSpeak: widget.isHost,
         onToggleMic: null,
@@ -135,6 +131,7 @@ class _PipOverlayState extends State<PipOverlay> {
 
         return _buildRawCallStrip(
           context,
+          hostName: hostName,
           isMicMuted: audioState.isMicMuted,
           canSpeak: canSpeak,
           onToggleMic: () async {
@@ -147,10 +144,15 @@ class _PipOverlayState extends State<PipOverlay> {
 
   Widget _buildRawCallStrip(
     BuildContext context, {
+    required String hostName,
     required bool isMicMuted,
     required bool canSpeak,
     required VoidCallback? onToggleMic,
   }) {
+    final displayHost = hostName.isNotEmpty
+        ? hostName
+        : (widget.hostName.isNotEmpty ? widget.hostName : 'Host');
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
       decoration: BoxDecoration(
@@ -162,7 +164,7 @@ class _PipOverlayState extends State<PipOverlay> {
         children: [
           Expanded(
             child: Text(
-              widget.hostName.isNotEmpty ? widget.hostName : 'Host',
+              displayHost,
               style: AppTypography.interTight(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
@@ -204,7 +206,11 @@ class _PipOverlayState extends State<PipOverlay> {
   }
 
   /// 16:9 Video Broadcast Container for Live Streams with bottom-right mic & camera controls
-  Widget _buildLiveStreamContainer(BuildContext context) {
+  Widget _buildLiveStreamContainer(BuildContext context, {String hostName = ''}) {
+    final displayHost = hostName.isNotEmpty
+        ? hostName
+        : (widget.hostName.isNotEmpty ? widget.hostName : 'Host');
+
     void expandStream() {
       _pipService.setMinimized(false);
       _videoService.setMinimized(false);
@@ -254,7 +260,7 @@ class _PipOverlayState extends State<PipOverlay> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      widget.hostName.isNotEmpty ? widget.hostName : 'Host',
+                      displayHost,
                       style: AppTypography.interTight(
                         fontSize: 10,
                         fontWeight: FontWeight.w600,

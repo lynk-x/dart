@@ -1,5 +1,5 @@
 import 'package:equatable/equatable.dart';
-import '../widgets/forum_header.dart';
+import '../widgets/header.dart';
 
 class ForumAudioStreamState extends Equatable {
   final bool isLive;

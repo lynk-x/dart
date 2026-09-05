@@ -6,13 +6,14 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../cubit/forum_audio_stream_cubit.dart';
 import '../services/stream_service.dart';
 import '../services/participant_service.dart';
-import 'forum_skeletons.dart';
+import 'skeletons.dart';
 import 'user_presence.dart';
 
 /// The end-drawer component for the Forum screen.
 ///
-/// Displays the list of online members (using [UserPresenceCard]) or toggles inline
-/// to the Hardware & Stream Settings panel (Option B), retaining full video canvas visibility.
+/// Refactored to delegate layout into modular child components:
+/// - [ParticipantList]: Manages member roster presence cards and media controls.
+/// - [EventProgressTimeline]: Displays event progress bar and session progress indicator.
 class PresenceDrawer extends StatefulWidget {
   /// The current progress of the forum's active event (0.0 to 1.0).
   final double eventProgress;
@@ -67,14 +68,12 @@ class _PresenceDrawerState extends State<PresenceDrawer> {
   @override
   void initState() {
     super.initState();
-    // Compute initial roster immediately (no device enumeration yet).
     _cachedRoster = _buildMergedRoster(widget.members, widget.onlineUsers);
   }
 
   @override
   void didUpdateWidget(PresenceDrawer oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // Only recompute when the underlying lists actually change.
     if (!identical(oldWidget.members, widget.members) ||
         !identical(oldWidget.onlineUsers, widget.onlineUsers)) {
       _cachedRoster = _buildMergedRoster(widget.members, widget.onlineUsers);
@@ -82,7 +81,7 @@ class _PresenceDrawerState extends State<PresenceDrawer> {
   }
 
   Future<void> _loadAvailableDevices() async {
-    if (_devicesLoaded) return; 
+    if (_devicesLoaded) return;
     setState(() {
       _isLoadingDevices = true;
     });
@@ -374,104 +373,8 @@ class _PresenceDrawerState extends State<PresenceDrawer> {
     );
   }
 
-  Widget _buildParticipantRoster(
-      BuildContext context, List<Map<String, dynamic>> roster) {
-    ForumAudioStreamCubit? audioCubit;
-    if (widget.isAudioLive) {
-      try {
-        audioCubit = context.watch<ForumAudioStreamCubit>();
-      } catch (_) {}
-    }
-    final currentUserId = Supabase.instance.client.auth.currentUser?.id;
-
-    return SkeletonFade(
-      child: widget.isLoading
-          ? const SkeletonPresenceList(key: ValueKey('skeleton'))
-          : ValueListenableBuilder<bool>(
-              valueListenable: ForumVideoStreamService().isLiveNotifier,
-              builder: (context, isVideoLive, _) {
-                return ValueListenableBuilder<List<StreamParticipant>>(
-                  valueListenable:
-                      ForumVideoStreamService().activeParticipantsNotifier,
-                  builder: (context, participants, _) {
-                    return ListView.builder(
-                      key: const ValueKey('content'),
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      itemCount: roster.length,
-                      itemBuilder: (context, index) {
-                        try {
-                          final user = roster[index];
-                          final String userId = user['id'].toString();
-                          if (userId.isEmpty) return const SizedBox.shrink();
-
-                          final bool isSelf = userId == currentUserId;
-
-                          final match = participants.firstWhere(
-                            (p) =>
-                                p.id == userId ||
-                                (p.isHost && isSelf),
-                            orElse: () => const StreamParticipant(
-                                id: '', name: '', role: ''),
-                          );
-
-                          final userName = (user['user_name'] ?? 'Unknown').toString();
-                          final bool isStreamActive =
-                              match.id.isNotEmpty || isVideoLive || widget.isAudioLive;
-
-                          final mediaState = StreamParticipantService().resolveParticipantState(
-                            userId: userId,
-                            userName: userName,
-                            currentUserId: currentUserId ?? '',
-                            videoParticipant: match.id.isNotEmpty ? match : null,
-                            audioCubit: isSelf ? audioCubit : null,
-                            isStreamActive: isStreamActive,
-                          );
-
-                          return UserPresenceCard(
-                            key: ValueKey('presence_$userId'),
-                            userId: userId,
-                            username: userName,
-                            roleId: user['role_id'] as String?,
-                            isOnline: user['is_online'] == true,
-                            isOrganizer: user['is_organizer'] == true,
-                            isViewerOrganizer: widget.isOrganizer,
-                            isPremium: user['is_premium'] == true,
-                            showMicControl: isVideoLive || widget.isAudioLive,
-                            showCameraControl: isVideoLive,
-                            isPrimary: isSelf,
-                            isMicMuted: mediaState.isMicMuted,
-                            isCameraOn: isStreamActive ? mediaState.isCameraOn : null,
-                            onToggleMic: (id) {
-                              StreamParticipantService().toggleMic(
-                                userId: id,
-                                currentUserId: currentUserId ?? '',
-                                audioCubit: audioCubit,
-                              );
-                            },
-                            onToggleCamera: (id) {
-                              StreamParticipantService().toggleCamera(
-                                userId: id,
-                                currentUserId: currentUserId ?? '',
-                              );
-                            },
-                          );
-                        } catch (e) {
-                          debugPrint(
-                              '[PresenceDrawer] Error building user card: $e');
-                          return const SizedBox.shrink();
-                        }
-                      },
-                    );
-                  },
-                );
-              },
-            ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
     final roster = _cachedRoster;
     return Drawer(
       width: (MediaQuery.of(context).size.width * 0.85).clamp(280, 320),
@@ -532,64 +435,204 @@ class _PresenceDrawerState extends State<PresenceDrawer> {
                 duration: const Duration(milliseconds: 250),
                 child: _showSettingsView
                     ? _buildInlineSettingsPanel(context)
-                    : _buildParticipantRoster(context, roster),
+                    : ParticipantList(
+                        isLoading: widget.isLoading,
+                        roster: roster,
+                        isAudioLive: widget.isAudioLive,
+                        isOrganizer: widget.isOrganizer,
+                      ),
               ),
             ),
             // Persistent Bottom Section
-            Container(
-              decoration: const BoxDecoration(
-                border: Border(top: BorderSide(color: Colors.white10)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  InkWell(
-                    onTap: () {
-                      if (widget.eventId == null || widget.eventId!.isEmpty) return;
-                      Navigator.of(context).pop();
-                      widget.onEventProgressTap?.call();
-                    },
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 20, vertical: 20),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                  (l10n?.eventProgress ?? 'Event Progress')
-                                      .toUpperCase(),
-                                  style: AppTypography.inter(
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.white54)),
-                              const Icon(Icons.chevron_right,
-                                  color: Colors.white24, size: 16),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(4),
-                            child: LinearProgressIndicator(
-                              value: widget.eventProgress,
-                              backgroundColor: Colors.white10,
-                              valueColor: AlwaysStoppedAnimation<Color>(
-                                  context.accentColor),
-                              minHeight: 8,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                ],
-              ),
+            EventProgressTimeline(
+              eventId: widget.eventId,
+              eventProgress: widget.eventProgress,
+              onEventProgressTap: widget.onEventProgressTap,
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Renders member roster presence cards and audio/video participant controls.
+class ParticipantList extends StatelessWidget {
+  final bool isLoading;
+  final List<Map<String, dynamic>> roster;
+  final bool isAudioLive;
+  final bool isOrganizer;
+
+  const ParticipantList({
+    super.key,
+    required this.isLoading,
+    required this.roster,
+    required this.isAudioLive,
+    required this.isOrganizer,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    ForumAudioStreamCubit? audioCubit;
+    if (isAudioLive) {
+      try {
+        audioCubit = context.watch<ForumAudioStreamCubit>();
+      } catch (_) {}
+    }
+    final currentUserId = Supabase.instance.client.auth.currentUser?.id;
+
+    return SkeletonFade(
+      child: isLoading
+          ? const SkeletonPresenceList(key: ValueKey('skeleton'))
+          : ValueListenableBuilder<bool>(
+              valueListenable: ForumVideoStreamService().isLiveNotifier,
+              builder: (context, isVideoLive, _) {
+                return ValueListenableBuilder<List<StreamParticipant>>(
+                  valueListenable:
+                      ForumVideoStreamService().activeParticipantsNotifier,
+                  builder: (context, participants, _) {
+                    return ListView.builder(
+                      key: const ValueKey('content'),
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      itemCount: roster.length,
+                      itemBuilder: (context, index) {
+                        try {
+                          final user = roster[index];
+                          final String userId = user['id'].toString();
+                          if (userId.isEmpty) return const SizedBox.shrink();
+
+                          final bool isSelf = userId == currentUserId;
+
+                          final match = participants.firstWhere(
+                            (p) =>
+                                p.id == userId ||
+                                (p.isHost && isSelf),
+                            orElse: () => const StreamParticipant(
+                                id: '', name: '', role: ''),
+                          );
+
+                          final userName = (user['user_name'] ?? 'Unknown').toString();
+                          final bool isStreamActive =
+                              match.id.isNotEmpty || isVideoLive || isAudioLive;
+
+                          final mediaState = StreamParticipantService().resolveParticipantState(
+                            userId: userId,
+                            userName: userName,
+                            currentUserId: currentUserId ?? '',
+                            videoParticipant: match.id.isNotEmpty ? match : null,
+                            audioCubit: isSelf ? audioCubit : null,
+                            isStreamActive: isStreamActive,
+                          );
+
+                          return UserPresenceCard(
+                            key: ValueKey('presence_$userId'),
+                            userId: userId,
+                            username: userName,
+                            roleId: user['role_id'] as String?,
+                            isOnline: user['is_online'] == true,
+                            isOrganizer: user['is_organizer'] == true,
+                            isViewerOrganizer: isOrganizer,
+                            isPremium: user['is_premium'] == true,
+                            showMicControl: isVideoLive || isAudioLive,
+                            showCameraControl: isVideoLive,
+                            isPrimary: isSelf,
+                            isMicMuted: mediaState.isMicMuted,
+                            isCameraOn: isStreamActive ? mediaState.isCameraOn : null,
+                            onToggleMic: (id) {
+                              StreamParticipantService().toggleMic(
+                                userId: id,
+                                currentUserId: currentUserId ?? '',
+                                audioCubit: audioCubit,
+                              );
+                            },
+                            onToggleCamera: (id) {
+                              StreamParticipantService().toggleCamera(
+                                userId: id,
+                                currentUserId: currentUserId ?? '',
+                              );
+                            },
+                          );
+                        } catch (e) {
+                          debugPrint(
+                              '[PresenceDrawer] Error building user card: $e');
+                          return const SizedBox.shrink();
+                        }
+                      },
+                    );
+                  },
+                );
+              },
+            ),
+    );
+  }
+}
+
+/// Displays event progress bar and session progress indicator at drawer footer.
+class EventProgressTimeline extends StatelessWidget {
+  final String? eventId;
+  final double eventProgress;
+  final VoidCallback? onEventProgressTap;
+
+  const EventProgressTimeline({
+    super.key,
+    required this.eventId,
+    required this.eventProgress,
+    this.onEventProgressTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return Container(
+      decoration: const BoxDecoration(
+        border: Border(top: BorderSide(color: Colors.white10)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          InkWell(
+            onTap: () {
+              if (eventId == null || eventId!.isEmpty) return;
+              Navigator.of(context).pop();
+              onEventProgressTap?.call();
+            },
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                  horizontal: 20, vertical: 20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                          (l10n?.eventProgress ?? 'Event Progress')
+                              .toUpperCase(),
+                          style: AppTypography.inter(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white54)),
+                      const Icon(Icons.chevron_right,
+                          color: Colors.white24, size: 16),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child: LinearProgressIndicator(
+                      value: eventProgress,
+                      backgroundColor: Colors.white10,
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                          context.accentColor),
+                      minHeight: 8,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+        ],
       ),
     );
   }

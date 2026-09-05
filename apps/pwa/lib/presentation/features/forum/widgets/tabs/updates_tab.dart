@@ -9,11 +9,11 @@ import 'package:lynk_x/presentation/features/forum/widgets/message_input.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/input_accessory_bar.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/disabled_state_bar.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/chat_bubble.dart';
-import 'package:lynk_x/presentation/features/forum/widgets/forum_skeletons.dart';
+import 'package:lynk_x/presentation/features/forum/widgets/skeletons.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/swipe_to_reply.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/polls/join_card.dart';
 import 'package:lynk_x/presentation/features/report/widgets/report_bottom_sheet.dart';
-import 'package:lynk_x/presentation/features/forum/services/pip_service.dart';
+import 'package:lynk_x/presentation/features/forum/services/mini_overlay_service.dart';
 import 'package:lynk_x/presentation/features/forum/services/stream_service.dart';
 import 'package:lynk_x/presentation/features/forum/cubit/forum_audio_stream_cubit.dart';
 import 'package:lynk_x/presentation/features/forum/cubit/forum_audio_stream_state.dart';
@@ -304,7 +304,7 @@ class _UpdatesScrollView extends StatelessWidget {
                                 : () {
                                     ForumVideoStreamService().setLive(true);
                                     ForumVideoStreamService().setMinimized(false);
-                                    StreamPipService().activateLiveStream(hostName: hostName);
+                                    MiniOverlayService().activateLiveStream(hostName: hostName);
                                   },
                           ),
                         );

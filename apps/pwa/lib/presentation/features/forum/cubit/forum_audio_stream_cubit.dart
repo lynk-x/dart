@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../services/forum_audio_stream_service.dart';
-import '../services/pip_service.dart';
-import '../widgets/forum_header.dart';
+import '../services/mini_overlay_service.dart';
+import '../widgets/header.dart';
 import 'forum_audio_stream_state.dart';
 
 class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
@@ -51,7 +51,7 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
           );
           if (isHost) service.requestWakeLock();
 
-          StreamPipService().activateLiveCall(hostName: isHost ? userName : 'Host');
+          MiniOverlayService().activateLiveCall(hostName: isHost ? userName : 'Host');
 
           emit(state.copyWith(
             isLive: true,
@@ -64,7 +64,7 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
       } else if (state.isLive && state.role != ForumHeaderRole.host) {
         // If stream explicitly ended according to config and we are not the active local host
         service.clearMediaSession();
-        StreamPipService().endPipSession();
+        MiniOverlayService().endPipSession();
 
         emit(const ForumAudioStreamState(
           isLive: false,
@@ -93,7 +93,7 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
           artist: isHost ? userName : 'Community Stream',
         );
 
-        StreamPipService().activateLiveCall(hostName: isHost ? userName : 'Host');
+        MiniOverlayService().activateLiveCall(hostName: isHost ? userName : 'Host');
 
         emit(state.copyWith(
           isLive: true,
@@ -107,7 +107,7 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
 
       case 'end_stream':
         service.clearMediaSession();
-        StreamPipService().endPipSession();
+        MiniOverlayService().endPipSession();
 
         emit(const ForumAudioStreamState(
           isLive: false,
@@ -134,7 +134,7 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
       title: 'Lynk-X Live Audio Stream',
       artist: hName,
     );
-    StreamPipService().activateLiveCall(hostName: hName);
+    MiniOverlayService().activateLiveCall(hostName: hName);
     emit(state.copyWith(
       isLive: true,
       role: ForumHeaderRole.listener,
@@ -173,7 +173,7 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
       );
       service.requestWakeLock();
 
-      StreamPipService().activateLiveCall(hostName: userName);
+      MiniOverlayService().activateLiveCall(hostName: userName);
 
       emit(state.copyWith(
         isLive: true,
@@ -209,7 +209,7 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
         isLive: false,
       );
 
-      StreamPipService().endPipSession();
+      MiniOverlayService().endPipSession();
 
       emit(const ForumAudioStreamState(
         isLive: false,

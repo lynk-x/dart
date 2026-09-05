@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../forum_skeletons.dart';
+import '../skeletons.dart';
 import 'poll_card.dart';
 import 'poll_quiz_card_shell.dart';
 

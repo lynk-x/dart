@@ -10,13 +10,16 @@ import 'package:lynk_x/core/utils/image_optimizer.dart';
 import 'action_bar.dart';
 import 'polls/poll_body.dart';
 import 'polls/quiz_card.dart';
-
-/// A stylized chat bubble used for both Live Chat and Updates.
 import 'link_preview.dart';
 import 'parsed_message_text.dart';
 import 'package:lynk_x/presentation/shared/utils/app_snackbars.dart';
 
 /// A stylized chat bubble used for both Live Chat and Updates.
+///
+/// Refactored to delegate specialized sub-views:
+/// - [SystemMessageView]: Renders centered live call/stream system notification alerts.
+/// - [MediaAttachmentModule]: Handles network image caching and media previews.
+/// - [MessageActionBar]: Renders action items (Pin, Edit, Copy, Delete, Report).
 class ChatBubble extends StatefulWidget {
   final ChatMessage message;
   final Function(ChatMessage)? onReply;
@@ -69,26 +72,7 @@ class _ChatBubbleState extends State<ChatBubble> {
   @override
   Widget build(BuildContext context) {
     if (_isSystemMessage) {
-      final cleanText = widget.message.message
-          .replaceAll(RegExp(r'^[^\w\s]+'), '')
-          .trim()
-          .toUpperCase();
-
-      return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-        child: Center(
-          child: Text(
-            cleanText,
-            textAlign: TextAlign.center,
-            style: AppTypography.interTight(
-              fontSize: 10.5,
-              fontWeight: FontWeight.w700,
-              color: Colors.white38,
-              letterSpacing: 1.4,
-            ),
-          ),
-        ),
-      );
+      return SystemMessageView(rawMessageText: widget.message.message);
     }
 
     return Align(
@@ -100,32 +84,39 @@ class _ChatBubbleState extends State<ChatBubble> {
           bottom: widget.showSenderInfo ? 8 : 2,
         ),
         child: Column(
-        crossAxisAlignment: widget.message.isMe
-            ? CrossAxisAlignment.end
-            : CrossAxisAlignment.start,
-        children: [
-          if (!widget.message.isMe && widget.showSenderInfo) _buildSenderInfo(),
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            mainAxisAlignment: widget.message.isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              if (widget.message.isMe) ...[
-                _buildStatusIndicator(),
-                _buildReplyIcon(),
-                _buildMoreIcon(),
+          crossAxisAlignment: widget.message.isMe
+              ? CrossAxisAlignment.end
+              : CrossAxisAlignment.start,
+          children: [
+            if (!widget.message.isMe && widget.showSenderInfo) _buildSenderInfo(),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: widget.message.isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                if (widget.message.isMe) ...[
+                  _buildStatusIndicator(),
+                  _buildReplyIcon(),
+                  _buildMoreIcon(),
+                ],
+                _buildBubble(),
+                if (!widget.message.isMe) ...[
+                  _buildReplyIcon(),
+                  _buildMoreIcon(),
+                ],
               ],
-              _buildBubble(),
-              if (!widget.message.isMe) ...[
-                _buildReplyIcon(),
-                _buildMoreIcon(),
-              ],
-            ],
-          ),
-          if (widget.showActions) _buildActions(context),
-        ],
+            ),
+            if (widget.showActions)
+              MessageActionBar(
+                message: widget.message,
+                onPin: widget.onPin,
+                onEdit: widget.onEdit,
+                onDelete: widget.onDelete,
+                onReport: widget.onReport,
+              ),
+          ],
+        ),
       ),
-    ),
     );
   }
 
@@ -179,99 +170,6 @@ class _ChatBubbleState extends State<ChatBubble> {
       );
     }
     return const SizedBox.shrink();
-  }
-
-  Widget _buildActions(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 4, left: 4, right: 4),
-      child: ActionBar(
-        mainAxisAlignment: widget.message.isMe
-            ? MainAxisAlignment.end
-            : MainAxisAlignment.start,
-        items: [
-          if (widget.onPin != null)
-            ActionBarItem(
-              label: widget.message.isPinned ? 'Unpin' : 'Pin',
-              onTap: () async {
-                final isPinned = widget.message.isPinned;
-                final result = widget.onPin?.call(widget.message);
-                // onPin may be a fire-and-forget void callback (older
-                // wiring) or return Future<bool> (ForumCubit.pinMessage) —
-                // only show success/failure feedback when it's the latter,
-                // so a moderator actually finds out if the RPC's
-                // can_manage_forum check rejected the pin.
-                if (result is Future<bool>) {
-                  final success = await result;
-                  if (!context.mounted) return;
-                  if (success) {
-                    AppSnackBars.showInfo(context, isPinned ? 'Message unpinned' : 'Message pinned');
-                  } else {
-                    AppSnackBars.showError(context, 'Could not update pin.');
-                  }
-                } else {
-                  AppSnackBars.showInfo(context, isPinned ? 'Message unpinned' : 'Message pinned');
-                }
-              },
-              color: Colors.white70,
-            ),
-
-          if (widget.message.isMe && widget.onEdit != null)
-            ActionBarItem(
-              label: 'Edit',
-              color: Colors.white70,
-              onTap: () => widget.onEdit?.call(widget.message),
-            ),
-
-          if (widget.message.message.isNotEmpty)
-            ActionBarItem(
-              label: 'Copy',
-              onTap: () {
-                Clipboard.setData(ClipboardData(text: widget.message.message));
-                AppSnackBars.showSuccess(context, 'Message copied to clipboard');
-              },
-              color: Colors.white70,
-            ),
-
-          if (widget.message.isMe && widget.onDelete != null)
-            ActionBarItem(
-              label: 'Delete',
-              color: Colors.redAccent,
-              onTap: () async {
-                final confirmed = await showDialog<bool>(
-                  context: context,
-                  builder: (ctx) => AlertDialog(
-                    backgroundColor: const Color(0xFF1A1A1A),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                    title: const Text('Delete message?', style: TextStyle(color: Colors.white)),
-                    content: const Text(
-                      'This message will be removed for everyone.',
-                      style: TextStyle(color: Colors.white54),
-                    ),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(ctx, false),
-                        child: const Text('Cancel', style: TextStyle(color: Colors.white38)),
-                      ),
-                      TextButton(
-                        onPressed: () => Navigator.pop(ctx, true),
-                        child: const Text('Delete', style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
-                      ),
-                    ],
-                  ),
-                );
-                if (confirmed == true) widget.onDelete?.call(widget.message);
-              },
-            ),
-          if (!widget.message.isMe) ...[
-            ActionBarItem(
-              label: 'Report',
-              color: Colors.red,
-              onTap: () => widget.onReport?.call(widget.message),
-            ),
-          ],
-        ],
-      ),
-    );
   }
 
   Widget _buildSenderInfo() {
@@ -334,7 +232,7 @@ class _ChatBubbleState extends State<ChatBubble> {
             if (widget.message.replyTo != null)
               _ReplyPreview(replyTo: widget.message.replyTo!),
             if (widget.message.imageUrl != null)
-              _ImageContent(
+              MediaAttachmentModule(
                 message: widget.message,
                 onMediaTap: widget.onMediaTap,
               ),
@@ -396,8 +294,6 @@ class _ChatBubbleState extends State<ChatBubble> {
     final textStyle = AppTypography.inter(
         color: textColor, fontSize: 14, fontWeight: FontWeight.w500);
 
-    // Use the memoized urlMatch from ChatMessage — avoids re-running the regex
-    // on every build() call for every visible bubble in the list.
     final firstMatch = widget.message.urlMatch;
 
     if (firstMatch != null) {
@@ -426,6 +322,184 @@ class _ChatBubbleState extends State<ChatBubble> {
       onMentionTap: _handleMentionTap,
       onUrlTap: (url) => widget.onMediaTap?.call(url),
       isEdited: widget.message.isEdited,
+    );
+  }
+}
+
+/// System event message view displayed centered in chat timeline.
+class SystemMessageView extends StatelessWidget {
+  final String rawMessageText;
+
+  const SystemMessageView({super.key, required this.rawMessageText});
+
+  @override
+  Widget build(BuildContext context) {
+    final cleanText = rawMessageText
+        .replaceAll(RegExp(r'^[^\w\s]+'), '')
+        .trim()
+        .toUpperCase();
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+      child: Center(
+        child: Text(
+          cleanText,
+          textAlign: TextAlign.center,
+          style: AppTypography.interTight(
+            fontSize: 10.5,
+            fontWeight: FontWeight.w700,
+            color: Colors.white38,
+            letterSpacing: 1.4,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Media attachment module rendering cached image content and tap actions.
+class MediaAttachmentModule extends StatelessWidget {
+  final ChatMessage message;
+  final Function(String?)? onMediaTap;
+
+  const MediaAttachmentModule({super.key, required this.message, this.onMediaTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final imageUrl = ImageOptimizer.getOptimizedUrl(
+      message.thumbnailUrl ?? message.imageUrl!,
+      width: 500,
+    );
+    return GestureDetector(
+      onTap: () => onMediaTap?.call(message.imageUrl),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 6),
+        clipBehavior: Clip.antiAlias,
+        decoration: BoxDecoration(borderRadius: BorderRadius.circular(12)),
+        child: CachedNetworkImage(
+          imageUrl: imageUrl,
+          cacheManager: LynkCacheManager.instance,
+          fit: BoxFit.cover,
+          memCacheWidth: 400,
+          placeholder: (context, url) => Container(
+            height: 120,
+            color: Colors.grey[900],
+            child: Center(
+              child: CircularProgressIndicator(strokeWidth: 1.5, color: context.accentColor),
+            ),
+          ),
+          errorWidget: (context, url, err) => Container(
+            height: 120,
+            color: Colors.grey[900],
+            child: const Center(
+              child: Icon(Icons.broken_image, color: Colors.white24),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Contextual actions bar for message moderation and utility controls.
+class MessageActionBar extends StatelessWidget {
+  final ChatMessage message;
+  final Function(ChatMessage)? onPin;
+  final Function(ChatMessage)? onEdit;
+  final Function(ChatMessage)? onDelete;
+  final Function(ChatMessage)? onReport;
+
+  const MessageActionBar({
+    super.key,
+    required this.message,
+    this.onPin,
+    this.onEdit,
+    this.onDelete,
+    this.onReport,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 4, left: 4, right: 4),
+      child: ActionBar(
+        mainAxisAlignment: message.isMe
+            ? MainAxisAlignment.end
+            : MainAxisAlignment.start,
+        items: [
+          if (onPin != null)
+            ActionBarItem(
+              label: message.isPinned ? 'Unpin' : 'Pin',
+              onTap: () async {
+                final isPinned = message.isPinned;
+                final result = onPin?.call(message);
+                if (result is Future<bool>) {
+                  final success = await result;
+                  if (!context.mounted) return;
+                  if (success) {
+                    AppSnackBars.showInfo(context, isPinned ? 'Message unpinned' : 'Message pinned');
+                  } else {
+                    AppSnackBars.showError(context, 'Could not update pin.');
+                  }
+                } else {
+                  AppSnackBars.showInfo(context, isPinned ? 'Message unpinned' : 'Message pinned');
+                }
+              },
+              color: Colors.white70,
+            ),
+          if (message.isMe && onEdit != null)
+            ActionBarItem(
+              label: 'Edit',
+              color: Colors.white70,
+              onTap: () => onEdit?.call(message),
+            ),
+          if (message.message.isNotEmpty)
+            ActionBarItem(
+              label: 'Copy',
+              onTap: () {
+                Clipboard.setData(ClipboardData(text: message.message));
+                AppSnackBars.showSuccess(context, 'Message copied to clipboard');
+              },
+              color: Colors.white70,
+            ),
+          if (message.isMe && onDelete != null)
+            ActionBarItem(
+              label: 'Delete',
+              color: Colors.redAccent,
+              onTap: () async {
+                final confirmed = await showDialog<bool>(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                    backgroundColor: const Color(0xFF1A1A1A),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    title: const Text('Delete message?', style: TextStyle(color: Colors.white)),
+                    content: const Text(
+                      'This message will be removed for everyone.',
+                      style: TextStyle(color: Colors.white54),
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(ctx, false),
+                        child: const Text('Cancel', style: TextStyle(color: Colors.white38)),
+                      ),
+                      TextButton(
+                        onPressed: () => Navigator.pop(ctx, true),
+                        child: const Text('Delete', style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
+                      ),
+                    ],
+                  ),
+                );
+                if (confirmed == true) onDelete?.call(message);
+              },
+            ),
+          if (!message.isMe)
+            ActionBarItem(
+              label: 'Report',
+              color: Colors.red,
+              onTap: () => onReport?.call(message),
+            ),
+        ],
+      ),
     );
   }
 }
@@ -466,49 +540,6 @@ class _ReplyPreview extends StatelessWidget {
   }
 }
 
-class _ImageContent extends StatelessWidget {
-  final ChatMessage message;
-  final Function(String?)? onMediaTap;
-
-  const _ImageContent({required this.message, this.onMediaTap});
-
-  @override
-  Widget build(BuildContext context) {
-    final imageUrl = ImageOptimizer.getOptimizedUrl(
-      message.thumbnailUrl ?? message.imageUrl!,
-      width: 500,
-    );
-    return GestureDetector(
-      onTap: () => onMediaTap?.call(message.imageUrl),
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 6),
-        clipBehavior: Clip.antiAlias,
-        decoration: BoxDecoration(borderRadius: BorderRadius.circular(12)),
-        child: CachedNetworkImage(
-          imageUrl: imageUrl,
-          cacheManager: LynkCacheManager.instance,
-          fit: BoxFit.cover,
-          memCacheWidth: 400,
-          placeholder: (context, url) => Container(
-            height: 120,
-            color: Colors.grey[900],
-            child: Center(
-              child: CircularProgressIndicator(strokeWidth: 1.5, color: context.accentColor),
-            ),
-          ),
-          errorWidget: (context, url, err) => Container(
-            height: 120,
-            color: Colors.grey[900],
-            child: const Center(
-              child: Icon(Icons.broken_image, color: Colors.white24),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _CategoryBadge extends StatelessWidget {
   final String category;
 
@@ -541,6 +572,3 @@ class _CategoryBadge extends StatelessWidget {
     );
   }
 }
-
-
-

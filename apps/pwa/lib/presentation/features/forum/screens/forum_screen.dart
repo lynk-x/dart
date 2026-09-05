@@ -7,7 +7,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/info_banner.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/category_filter_bar.dart';
-import 'package:lynk_x/presentation/features/forum/widgets/forum_skeletons.dart';
+import 'package:lynk_x/presentation/features/forum/widgets/skeletons.dart';
 import 'package:lynk_core/core.dart';
 
 import 'package:lynk_x/presentation/features/forum/cubit/forum_cubit.dart';
@@ -21,11 +21,11 @@ import 'package:lynk_x/presentation/features/forum/cubit/forum_media_cubit.dart'
 import 'package:lynk_x/presentation/features/forum/cubit/forum_media_state.dart';
 import 'package:lynk_x/presentation/features/forum/models/forum_model.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/ad_carousel.dart';
-import 'package:lynk_x/presentation/features/forum/widgets/forum_header.dart';
+import 'package:lynk_x/presentation/features/forum/widgets/header.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/stream_stage.dart';
-import 'package:lynk_x/presentation/features/forum/widgets/pip_overlay.dart';
+import 'package:lynk_x/presentation/features/forum/widgets/mini_overlay.dart';
 import 'package:lynk_x/presentation/features/forum/services/stream_service.dart';
-import 'package:lynk_x/presentation/features/forum/services/pip_service.dart';
+import 'package:lynk_x/presentation/features/forum/services/mini_overlay_service.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/presence_drawer.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/media_viewer.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/tabs/updates_tab.dart';
@@ -34,6 +34,8 @@ import 'package:lynk_x/presentation/features/forum/widgets/tabs/media_tab.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/reaction_background.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/reaction_bar.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/polls/poll_card_editor.dart';
+import 'package:lynk_x/presentation/features/forum/widgets/tab_bar.dart';
+import 'package:lynk_x/presentation/features/forum/widgets/action_sheets.dart';
 
 import 'package:lynk_x/presentation/shared/utils/permission_acks.dart';
 
@@ -42,7 +44,7 @@ import 'package:lynk_x/presentation/features/forum/cubit/forum_audio_stream_stat
 import 'package:lynk_x/presentation/features/forum/widgets/welcome_banner.dart';
 import 'package:lynk_x/data/repositories/repository_providers.dart';
 import 'package:lynk_x/presentation/shared/utils/app_snackbars.dart';
-import 'package:lynk_x/presentation/features/forum/widgets/forum_bloc_providers.dart';
+import 'package:lynk_x/presentation/features/forum/widgets/bloc_providers.dart';
 import 'package:lynk_x/presentation/features/forum/core/forum_config.dart';
 
 class ForumPage extends StatelessWidget {
@@ -459,10 +461,10 @@ class _ForumViewState extends State<ForumView> {
                                                         ForumVideoStreamService().setMinimized(false);
                                                         ForumVideoStreamService().stopVideoStream();
                                                         ForumVideoStreamService().setLive(false);
-                                                        StreamPipService().endPipSession();
+                                                        MiniOverlayService().endPipSession();
                                                       } else {
                                                         audioCubit.endAudioStream();
-                                                        StreamPipService().endPipSession();
+                                                        MiniOverlayService().endPipSession();
                                                       }
                                                     },
                                                     onStartLiveStream: () {
@@ -478,7 +480,7 @@ class _ForumViewState extends State<ForumView> {
                                                           final name = forumState.userName.isNotEmpty ? forumState.userName : 'Host';
                                                           ForumVideoStreamService().setLive(true);
                                                           ForumVideoStreamService().setMinimized(false);
-                                                          StreamPipService().activateLiveStream(hostName: name);
+                                                          MiniOverlayService().activateLiveStream(hostName: name);
                                                           context.read<ForumChatCubit>().sendMessage(
                                                             '$name started the live stream',
                                                             isOrganizer: forumState.isOrganizer,
@@ -505,7 +507,7 @@ class _ForumViewState extends State<ForumView> {
                                                         actionLabel: 'Allow Microphone',
                                                         onReady: () {
                                                           final name = forumState.userName.isNotEmpty ? forumState.userName : 'Host';
-                                                          StreamPipService().activateLiveCall(hostName: name);
+                                                          MiniOverlayService().activateLiveCall(hostName: name);
                                                           audioCubit.startAudioStream();
                                                           context.read<ForumChatCubit>().sendMessage(
                                                             '$name started the live call',
@@ -588,7 +590,9 @@ class _ForumViewState extends State<ForumView> {
                                                   ),
                                                 ),
                                               if (!isStageActive) ...[
-                                                _buildTabs(),
+                                                ForumTabBar(
+                                                  onTabSelected: _navigateToTab,
+                                                ),
                                                 if (extraHeaderWidgets != null)
                                                   extraHeaderWidgets,
                                               ],
@@ -651,7 +655,7 @@ class _ForumViewState extends State<ForumView> {
             ),
             BlocBuilder<ForumCubit, ForumState>(
               builder: (context, state) {
-                return PipOverlay(
+                return MiniOverlay(
                   forumName: state.forumName,
                   hostName: state.userName,
                   isHost: state.isOrganizer,
@@ -694,116 +698,46 @@ class _ForumViewState extends State<ForumView> {
     );
   }
 
-  Widget _buildTabs() {
-    return BlocBuilder<FeatureFlagCubit, FeatureFlagState>(
-      builder: (context, _) {
-        final featureFlags = context.read<FeatureFlagCubit>();
-        final showUpdates =
-            featureFlags.isEnabled('enable_forum_announcements');
-        final showChat = featureFlags.isEnabled('enable_forum_live_chat');
-        final showMedia = featureFlags.isEnabled('enable_forum_media');
+  void _showCreatePollOrQuizSheet({required bool isLiveChat}) {
+    final forumId = context.read<ForumCubit>().state.forumId;
+    final forumReference = context.read<ForumCubit>().forumReference;
+    final isOrganizer = context.read<ForumCubit>().state.isOrganizer;
+    if (forumId == null || !isOrganizer) return;
 
-        return BlocBuilder<ForumCubit, ForumState>(
-          buildWhen: (previous, current) =>
-              previous.currentTabIndex != current.currentTabIndex,
-          builder: (context, state) {
-            final updatesSearchQuery =
-                context.select((ForumUpdatesCubit c) => c.state.searchQuery);
-            final updatesCount = context
-                .select((ForumUpdatesCubit c) => c.state.messages.length);
-            final chatSearchQuery =
-                context.select((ForumChatCubit c) => c.state.searchQuery);
-            final chatCount =
-                context.select((ForumChatCubit c) => c.state.messages.length);
+    final channelId = isLiveChat
+        ? context.read<ForumChatCubit>().channelId
+        : context.read<ForumUpdatesCubit>().channelId;
+    final channelCreatedAt = (isLiveChat
+            ? context.read<ForumChatCubit>().channelCreatedAt
+            : context.read<ForumUpdatesCubit>().channelCreatedAt)
+        ?.toIso8601String();
 
-            final updatesDisplayCount =
-                updatesSearchQuery.isNotEmpty ? updatesCount : null;
-            final chatDisplayCount =
-                chatSearchQuery.isNotEmpty ? chatCount : null;
-
-            int displayedIndex = 0;
-            return Container(
-              height: 48,
-              decoration: const BoxDecoration(
-                border: Border(
-                  bottom: BorderSide(
-                    color: Colors.white,
-                    width: 0.5,
-                  ),
-                ),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  if (showUpdates)
-                    _buildTab(
-                        'Updates', displayedIndex++, state.currentTabIndex,
-                        count: updatesDisplayCount),
-                  if (showChat)
-                    _buildTab(
-                        'Live chat', displayedIndex++, state.currentTabIndex,
-                        hasIndicator: true, count: chatDisplayCount),
-                  if (showMedia)
-                    _buildTab('Media', displayedIndex++, state.currentTabIndex),
-                ],
-              ),
-            );
+    ForumAddOptionSheet.show(
+      context: context,
+      onCreatePoll: () => _showPollEditorSheet(
+        forumId: forumId,
+        channelId: channelId,
+        channelCreatedAt: channelCreatedAt,
+        messageType: isLiveChat ? 'livechat_poll' : 'update_poll',
+      ),
+      onCreateQuiz: () async {
+        final result = await context.push<Map<String, dynamic>>(
+          '/forum/$forumReference/quiz/create',
+          extra: {
+            'forumId': forumId,
+            'isOrganizer': true,
+            'isLiveChat': isLiveChat,
+            'channelId': channelId,
+            'channelCreatedAt': channelCreatedAt,
           },
         );
+        if (result == null || !context.mounted) return;
+        _pushCreatedQuizMessage(
+          isLiveChat: isLiveChat,
+          messageType: isLiveChat ? 'livechat_quiz' : 'update_quiz',
+          result: result,
+        );
       },
-    );
-  }
-
-  Widget _buildTab(String label, int index, int currentIndex,
-      {bool hasIndicator = false, int? count}) {
-    bool isActive = currentIndex == index;
-    // Only show indicator if the tab is not currently active
-    bool showIndicator = hasIndicator && !isActive;
-    final displayLabel = count != null ? '$label ($count)' : label;
-
-    return GestureDetector(
-      onTap: () => _navigateToTab(index),
-      child: Container(
-        color: Colors.transparent,
-        padding: const EdgeInsets.only(top: 12),
-        child: Column(
-          children: [
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (showIndicator)
-                  Container(
-                    width: 8,
-                    height: 8,
-                    margin: const EdgeInsets.only(right: 4),
-                    decoration: const BoxDecoration(
-                      color: Colors.red,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                Text(
-                  displayLabel,
-                  style: AppTypography.inter(
-                    fontSize: 16,
-                    color: isActive ? Colors.white : Colors.white38,
-                    fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Container(
-              height: 3,
-              width: 40,
-              decoration: BoxDecoration(
-                color: isActive ? context.accentColor : Colors.transparent,
-                borderRadius:
-                    const BorderRadius.vertical(top: Radius.circular(3)),
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 
@@ -821,11 +755,10 @@ class _ForumViewState extends State<ForumView> {
               p.selectedEmoji != c.selectedEmoji ||
               p.emojiTrigger != c.emojiTrigger,
           builder: (context, state) {
-            final mainCubit = context.read<ForumCubit>();
             return PageView(
               controller: _pageController,
               physics: const NeverScrollableScrollPhysics(),
-              onPageChanged: (index) => mainCubit.setTabIndex(index),
+              onPageChanged: (index) => context.read<ForumCubit>().setTabIndex(index),
               children: [
                 showUpdates
                     ? UpdatesTab(
@@ -869,134 +802,6 @@ class _ForumViewState extends State<ForumView> {
     );
   }
 
-  void _showCreatePollOrQuizSheet({required bool isLiveChat}) {
-    final forumId = context.read<ForumCubit>().state.forumId;
-    final forumReference = context.read<ForumCubit>().forumReference;
-    final isOrganizer = context.read<ForumCubit>().state.isOrganizer;
-    if (forumId == null || !isOrganizer) return;
-
-    final channelId = isLiveChat
-        ? context.read<ForumChatCubit>().channelId
-        : context.read<ForumUpdatesCubit>().channelId;
-    final channelCreatedAt = (isLiveChat
-            ? context.read<ForumChatCubit>().channelCreatedAt
-            : context.read<ForumUpdatesCubit>().channelCreatedAt)
-        ?.toIso8601String();
-
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (sheetContext) => SafeArea(
-        child: Container(
-          margin: const EdgeInsets.all(16),
-          padding: const EdgeInsets.fromLTRB(20, 14, 20, 20),
-          decoration: BoxDecoration(
-            color: const Color(0xFF121418),
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.6),
-                blurRadius: 24,
-                offset: const Offset(0, 8),
-              ),
-            ],
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  width: 36,
-                  height: 4,
-                  margin: const EdgeInsets.only(bottom: 12),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      'Add to Forum',
-                      style: AppTypography.interTight(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close, color: Colors.white54),
-                    onPressed: () => Navigator.pop(sheetContext),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              _CreateOptionCard(
-                icon: Icons.poll_outlined,
-                accentColor: const Color(
-                    0xFF3B82F6), // blue — distinct from the poll card's own green
-                title: 'Create Poll',
-                description:
-                    'Ask a quick question and watch results come in live.',
-                onTap: () {
-                  Navigator.pop(sheetContext);
-                  _showPollEditorSheet(
-                    forumId: forumId,
-                    channelId: channelId,
-                    channelCreatedAt: channelCreatedAt,
-                    messageType: isLiveChat ? 'livechat_poll' : 'update_poll',
-                  );
-                },
-              ),
-              const SizedBox(height: 12),
-              _CreateOptionCard(
-                icon: Icons.quiz_outlined,
-                accentColor: const Color(
-                    0xFFFF8A3D), // amber — distinct from subscription gold
-                title: 'Create Quiz',
-                description:
-                    'Run a timed, scored quiz with a live leaderboard.',
-                onTap: () async {
-                  Navigator.pop(sheetContext);
-                  final result = await context.push<Map<String, dynamic>>(
-                    '/forum/$forumReference/quiz/create',
-                    extra: {
-                      'forumId': forumId,
-                      'isOrganizer': true,
-                      'isLiveChat': isLiveChat,
-                      'channelId': channelId,
-                      'channelCreatedAt': channelCreatedAt,
-                    },
-                  );
-                  if (result == null || !context.mounted) return;
-                  _pushCreatedQuizMessage(
-                    isLiveChat: isLiveChat,
-                    messageType: isLiveChat ? 'livechat_quiz' : 'update_quiz',
-                    result: result,
-                  );
-                },
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  /// create_quiz doesn't broadcast a realtime event the way sendMessage()
-  /// does, so without this the quiz creator's own view would only pick up
-  /// the new message once the slower postgres_changes CDC listener catches
-  /// up. QuizBuilderPage lives outside this screen's provider tree (it's a
-  /// separate top-level route), so it can't push into ForumChatCubit /
-  /// ForumUpdatesCubit directly the way PollCardEditor's bottom sheet can —
-  /// the created message's data is relayed back through context.pop's
-  /// result instead (see quiz_builder_screen.dart's success listener).
   void _pushCreatedQuizMessage({
     required bool isLiveChat,
     required String messageType,
@@ -1083,108 +888,6 @@ class _ForumViewState extends State<ForumView> {
       onReject: (isAuthorized || isUploader)
           ? () => mediaCubit.deleteMedia(item)
           : null,
-    );
-  }
-}
-
-/// A large tappable card for the "Add to Forum" sheet — used for both
-/// Create Poll and Create Quiz, differentiated by [accentColor] so each
-/// previews the visual identity of what it creates without reusing the
-/// poll card's own green or the subscription screen's gold.
-class _CreateOptionCard extends StatelessWidget {
-  final IconData icon;
-  final Color accentColor;
-  final String title;
-  final String description;
-  final VoidCallback onTap;
-
-  const _CreateOptionCard({
-    required this.icon,
-    required this.accentColor,
-    required this.title,
-    required this.description,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: AppColors.surface,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: accentColor.withValues(alpha: 0.3)),
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: accentColor.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                alignment: Alignment.center,
-                child: Icon(icon, color: accentColor, size: 26),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Text(
-                          title,
-                          style: AppTypography.interTight(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.white,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: accentColor,
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            'NEW',
-                            style: AppTypography.inter(
-                              fontSize: 9,
-                              fontWeight: FontWeight.w800,
-                              color: Colors.black,
-                              letterSpacing: 0.4,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      description,
-                      style: AppTypography.inter(
-                        fontSize: 12,
-                        color: Colors.white.withValues(alpha: 0.6),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Icon(Icons.chevron_right_rounded,
-                  color: Colors.white.withValues(alpha: 0.3)),
-            ],
-          ),
-        ),
-      ),
     );
   }
 }
