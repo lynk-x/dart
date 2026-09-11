@@ -69,17 +69,19 @@ GoRouter createRouter(
           // ProfileCubit not found in context
         }
 
-        // '/auth/bridge' is deliberately NOT public: checkout now signs the
-        // buyer into a real account via phone+OTP, so opening this link
-        // while signed out should hit the normal '/auth' gate below (not
-        // bootstrap an anonymous session, which the bridge screen no longer
-        // does at all).
+        // '/auth/bridge' IS public: checkout never establishes a session
+        // (resolve_or_create_checkout_user runs as anon), so this route is
+        // always reached signed-out. ClaimBridgeScreen itself exchanges the
+        // link's token_hash for a real session via verifyOtp before
+        // forwarding to the forum — it must be reachable pre-auth for that
+        // exchange to ever run.
         const publicRoutes = {
           '/auth',
           '/maintenance',
           '/error'
         };
-        final isPublic = publicRoutes.any((r) => path.startsWith(r));
+        final isBridgeRoute = pathNoQuery == '/auth/bridge';
+        final isPublic = isBridgeRoute || publicRoutes.any((r) => path.startsWith(r));
 
         // ── Feature-flag kill-switches (evaluated once flags have loaded) ──
         try {
@@ -135,10 +137,11 @@ GoRouter createRouter(
         path: '/auth/bridge',
         builder: (_, state) {
           final forumReference = state.uri.queryParameters['forum_reference'];
+          final tokenHash = state.uri.queryParameters['token_hash'];
           return Title(
             title: 'Opening Forum',
             color: Colors.black,
-            child: ClaimBridgeScreen(forumReference: forumReference),
+            child: ClaimBridgeScreen(forumReference: forumReference, tokenHash: tokenHash),
           );
         },
       ),
