@@ -122,7 +122,7 @@ class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
           .eq('forum_id', forumId);
 
       if (!isModeratorOrOrganizer) {
-        query = query.eq('is_approved', true);
+        query = query.or('is_approved.eq.true,uploader_id.eq.$userId');
       }
 
       final data = await query.order('created_at', ascending: false).limit(20);
@@ -163,7 +163,7 @@ class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
           .eq('forum_id', forumId);
 
       if (!isModeratorOrOrganizer) {
-        query = query.eq('is_approved', true);
+        query = query.or('is_approved.eq.true,uploader_id.eq.$userId');
       }
 
       final data = await query
