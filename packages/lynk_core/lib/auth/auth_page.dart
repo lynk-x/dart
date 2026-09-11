@@ -193,6 +193,10 @@ class _PhoneFormState extends State<_PhoneForm> {
       await Supabase.instance.client.auth.signInWithOtp(
         phone: phone,
         channel: OtpChannel.sms,
+        // Tags a first-time signup so internal.handle_new_user() knows to
+        // auto-provision an attendee profile+account atomically. Ignored by
+        // GoTrue for an existing user (login, not signup) — safe to always send.
+        data: const {'account_type': 'attendee'},
       );
       if (mounted) widget.onCodeSent(phone);
     } catch (e) {
