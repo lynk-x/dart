@@ -39,13 +39,16 @@ class ProfileRepository {
     String? accountStatus;
 
     try {
-      final attendeeAccountData = await _client
+      final attendeeAccountRows = await _client
           .schema('api')
           .from('v1_account_memberships')
-          .select('account_id, reference')
+          .select('account_id, reference, is_primary, joined_at')
           .eq('type', 'attendee')
-          .maybeSingle();
-      if (attendeeAccountData != null) {
+          .order('is_primary', ascending: false)
+          .order('joined_at', ascending: true)
+          .limit(1);
+      if (attendeeAccountRows.isNotEmpty) {
+        final attendeeAccountData = attendeeAccountRows.first;
         targetAccountId = attendeeAccountData['account_id'] as String?;
         // reference lives on this row already — no need to wait on the
         // v1_accounts fetch below (which only adds is_active/status) to

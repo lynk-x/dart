@@ -5,7 +5,9 @@ import 'package:go_router/go_router.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:lynk_core/core.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:country_flags/country_flags.dart';
 import 'package:lynk_x/services/push_notification_service.dart';
+import '../models/country.dart';
 import '../widgets/delete_account_dialog.dart';
 import 'package:lynk_x/presentation/shared/utils/app_snackbars.dart';
 
@@ -19,14 +21,32 @@ class AccountPage extends StatefulWidget {
 class _AccountPageState extends State<AccountPage> {
   AuthorizationStatus? _notificationStatus;
 
+  /// True once a phone/email change code has been sent but the sheet was
+  /// dismissed (swipe, back gesture, or tapping outside) before the code was
+  /// confirmed — surfaced as a note on the relevant tile so the user isn't
+  /// left wondering why nothing changed after starting the flow.
+  bool _phonePendingConfirmation = false;
+  bool _emailPendingConfirmation = false;
+
   @override
   void initState() {
     super.initState();
     _refreshNotificationStatus();
+    // Defensive: this screen relies on ProfileCubit already being loaded by
+    // whichever screen navigated here. Only fetch if that assumption doesn't
+    // hold (e.g. a future deep link straight to /account) — loadProfile()
+    // always emits ProfileLoading first, so calling it unconditionally would
+    // flash the loading spinner on every normal visit.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && context.read<ProfileCubit>().state is! ProfileLoaded) {
+        context.read<ProfileCubit>().loadProfile();
+      }
+    });
   }
 
   Future<void> _refreshNotificationStatus() async {
-    final status = await PushNotificationService.instance.checkPermissionStatus();
+    final status =
+        await PushNotificationService.instance.checkPermissionStatus();
     if (mounted) setState(() => _notificationStatus = status);
   }
 
@@ -48,59 +68,149 @@ class _AccountPageState extends State<AccountPage> {
     await _refreshNotificationStatus();
   }
 
-  void _showUpdatePhoneDialog(BuildContext context, String currentPhone) {
-    final phoneController = TextEditingController(text: currentPhone == 'No phone number linked' ? '' : currentPhone);
+  Future<void> _showUpdatePhoneDialog(
+      BuildContext context, String currentPhone) {
+    return _showUpdateContactDialog(
+      context: context,
+      currentValue: currentPhone,
+      emptyPlaceholder: 'No phone number linked',
+      fieldLabel: 'New Phone Number',
+      addTitle: 'Add Phone Number',
+      changeTitle: 'Change Phone Number',
+      promptSubtitle: 'This number becomes your new sign-in identifier.',
+      codeSentSubtitle: (value) => 'We texted a 6-digit code to $value.',
+      keyboardType: TextInputType.phone,
+      validator: (val) {
+        if (val == null || val.trim().isEmpty) {
+          return 'Phone number cannot be empty';
+        }
+        if (val.trim().length < 7) return 'Please enter a valid phone number';
+        return null;
+      },
+      sendCode: (value) => Supabase.instance.client.auth
+          .updateUser(UserAttributes(phone: value)),
+      verifyCode: (value, code) => Supabase.instance.client.auth.verifyOTP(
+        phone: value,
+        token: code,
+        type: OtpType.phoneChange,
+      ),
+      successMessage: 'Phone number updated successfully',
+      onPendingChanged: (pending) =>
+          setState(() => _phonePendingConfirmation = pending),
+    );
+  }
+
+  Future<void> _showUpdateEmailDialog(
+      BuildContext context, String currentEmail) {
+    return _showUpdateContactDialog(
+      context: context,
+      currentValue: currentEmail,
+      emptyPlaceholder: 'No email linked',
+      fieldLabel: 'Email Address',
+      addTitle: 'Add Email Address',
+      changeTitle: 'Change Email Address',
+      promptSubtitle: 'Link an email address as a backup way to reach you.',
+      codeSentSubtitle: (value) => 'We emailed a 6-digit code to $value.',
+      keyboardType: TextInputType.emailAddress,
+      validator: (val) {
+        if (val == null || val.trim().isEmpty) {
+          return 'Email address cannot be empty';
+        }
+        if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(val.trim())) {
+          return 'Please enter a valid email address';
+        }
+        return null;
+      },
+      sendCode: (value) => Supabase.instance.client.auth
+          .updateUser(UserAttributes(email: value)),
+      verifyCode: (value, code) => Supabase.instance.client.auth.verifyOTP(
+        email: value,
+        token: code,
+        type: OtpType.emailChange,
+      ),
+      successMessage: 'Email address updated successfully',
+      onPendingChanged: (pending) =>
+          setState(() => _emailPendingConfirmation = pending),
+    );
+  }
+
+  /// Shared two-step (send code / confirm code) OTP-verified contact-info
+  /// update sheet — phone and email only differ in copy, validation, and
+  /// which Supabase Auth call to make, so both dialogs delegate here instead
+  /// of maintaining two near-identical ~200-line copies.
+  Future<void> _showUpdateContactDialog({
+    required BuildContext context,
+    required String currentValue,
+    required String emptyPlaceholder,
+    required String fieldLabel,
+    required String addTitle,
+    required String changeTitle,
+    required String promptSubtitle,
+    required String Function(String value) codeSentSubtitle,
+    required TextInputType keyboardType,
+    required String? Function(String?) validator,
+    required Future<void> Function(String value) sendCode,
+    required Future<void> Function(String value, String code) verifyCode,
+    required String successMessage,
+    required void Function(bool pending) onPendingChanged,
+  }) async {
+    final valueController = TextEditingController(
+        text: currentValue == emptyPlaceholder ? '' : currentValue);
     final codeController = TextEditingController();
     final formKey = GlobalKey<FormState>();
     bool isUpdating = false;
     bool codeSent = false;
+    bool confirmed = false;
 
-    showModalBottomSheet(
+    await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (sheetContext) {
         return StatefulBuilder(
           builder: (context, setDialogState) {
-            Future<void> sendCode() async {
+            Future<void> handleSendCode() async {
               if (!(formKey.currentState?.validate() ?? false)) return;
               setDialogState(() => isUpdating = true);
               try {
-                await Supabase.instance.client.auth.updateUser(
-                  UserAttributes(phone: phoneController.text.trim()),
-                );
+                await sendCode(valueController.text.trim());
                 setDialogState(() {
                   isUpdating = false;
                   codeSent = true;
                 });
               } catch (e) {
                 if (sheetContext.mounted) {
-                  AppSnackBars.showError(sheetContext, 'Error: ${e.toFriendlyMessage()}');
+                  AppSnackBars.showError(
+                      sheetContext, 'Error: ${e.toFriendlyMessage()}');
                 }
                 setDialogState(() => isUpdating = false);
               }
             }
 
-            Future<void> confirmCode() async {
+            Future<void> handleConfirmCode() async {
               final code = codeController.text.trim();
               if (code.isEmpty) return;
               setDialogState(() => isUpdating = true);
               try {
-                await Supabase.instance.client.auth.verifyOTP(
-                  phone: phoneController.text.trim(),
-                  token: code,
-                  type: OtpType.phoneChange,
-                );
+                await verifyCode(valueController.text.trim(), code);
+                confirmed = true;
+                if (mounted) onPendingChanged(false);
                 if (context.mounted) {
                   context.read<ProfileCubit>().loadProfile();
                 }
                 if (sheetContext.mounted) {
                   Navigator.pop(sheetContext);
-                  AppSnackBars.showSuccess(context, 'Phone number updated successfully');
+                }
+                // Shown via the outer screen's own context, not the sheet's —
+                // the sheet is being torn down by the pop above, so a snackbar
+                // anchored to it could be silently dropped mid-unmount.
+                if (mounted) {
+                  AppSnackBars.showSuccess(this.context, successMessage);
                 }
               } catch (e) {
                 if (sheetContext.mounted) {
-                  AppSnackBars.showError(sheetContext, 'Error: ${e.toFriendlyMessage()}');
+                  AppSnackBars.showError(
+                      sheetContext, 'Error: ${e.toFriendlyMessage()}');
                 }
               } finally {
                 setDialogState(() => isUpdating = false);
@@ -109,12 +219,15 @@ class _AccountPageState extends State<AccountPage> {
 
             return Container(
               padding: EdgeInsets.fromLTRB(
-                24, 20, 24,
+                24,
+                20,
+                24,
                 MediaQuery.of(context).viewInsets.bottom + 32,
               ),
               decoration: BoxDecoration(
                 color: AppColors.surface,
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+                borderRadius:
+                    const BorderRadius.vertical(top: Radius.circular(28)),
                 border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
               ),
               child: Form(
@@ -137,9 +250,10 @@ class _AccountPageState extends State<AccountPage> {
                     Text(
                       codeSent
                           ? 'Enter the code we sent you'
-                          : (currentPhone.isEmpty || currentPhone == 'No phone number linked'
-                              ? 'Add Phone Number'
-                              : 'Change Phone Number'),
+                          : (currentValue.isEmpty ||
+                                  currentValue == emptyPlaceholder
+                              ? addTitle
+                              : changeTitle),
                       style: AppTypography.interTight(
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
@@ -149,8 +263,8 @@ class _AccountPageState extends State<AccountPage> {
                     const SizedBox(height: 8),
                     Text(
                       codeSent
-                          ? 'We texted a 6-digit code to ${phoneController.text.trim()}.'
-                          : 'This number becomes your new sign-in identifier.',
+                          ? codeSentSubtitle(valueController.text.trim())
+                          : promptSubtitle,
                       style: AppTypography.inter(
                         fontSize: 13,
                         color: Colors.white54,
@@ -159,28 +273,21 @@ class _AccountPageState extends State<AccountPage> {
                     const SizedBox(height: 24),
                     if (!codeSent)
                       TextFormField(
-                        controller: phoneController,
-                        keyboardType: TextInputType.phone,
+                        controller: valueController,
+                        keyboardType: keyboardType,
                         style: const TextStyle(color: Colors.white),
                         decoration: InputDecoration(
-                          labelText: 'New Phone Number',
+                          labelText: fieldLabel,
                           labelStyle: const TextStyle(color: Colors.white60),
                           enabledBorder: UnderlineInputBorder(
-                            borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.3)),
+                            borderSide: BorderSide(
+                                color: Colors.white.withValues(alpha: 0.3)),
                           ),
                           focusedBorder: UnderlineInputBorder(
                             borderSide: BorderSide(color: context.accentColor),
                           ),
                         ),
-                        validator: (val) {
-                          if (val == null || val.trim().isEmpty) {
-                            return 'Phone number cannot be empty';
-                          }
-                          if (val.trim().length < 7) {
-                            return 'Please enter a valid phone number';
-                          }
-                          return null;
-                        },
+                        validator: validator,
                       )
                     else
                       TextFormField(
@@ -191,7 +298,8 @@ class _AccountPageState extends State<AccountPage> {
                           labelText: '6-digit code',
                           labelStyle: const TextStyle(color: Colors.white60),
                           enabledBorder: UnderlineInputBorder(
-                            borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.3)),
+                            borderSide: BorderSide(
+                                color: Colors.white.withValues(alpha: 0.3)),
                           ),
                           focusedBorder: UnderlineInputBorder(
                             borderSide: BorderSide(color: context.accentColor),
@@ -208,7 +316,9 @@ class _AccountPageState extends State<AccountPage> {
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
-                      onPressed: isUpdating ? null : (codeSent ? confirmCode : sendCode),
+                      onPressed: isUpdating
+                          ? null
+                          : (codeSent ? handleConfirmCode : handleSendCode),
                       child: isUpdating
                           ? const SizedBox(
                               width: 20,
@@ -234,221 +344,8 @@ class _AccountPageState extends State<AccountPage> {
         );
       },
     );
-  }
 
-  void _showUpdateEmailDialog(BuildContext context, String currentEmail) {
-    final emailController = TextEditingController(text: currentEmail == 'No email linked' ? '' : currentEmail);
-    final codeController = TextEditingController();
-    final formKey = GlobalKey<FormState>();
-    bool isUpdating = false;
-    bool codeSent = false;
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (sheetContext) {
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            Future<void> sendCode() async {
-              if (!(formKey.currentState?.validate() ?? false)) return;
-              setDialogState(() => isUpdating = true);
-              try {
-                await Supabase.instance.client.auth.updateUser(
-                  UserAttributes(email: emailController.text.trim()),
-                );
-                setDialogState(() {
-                  isUpdating = false;
-                  codeSent = true;
-                });
-              } catch (e) {
-                if (sheetContext.mounted) {
-                  AppSnackBars.showError(sheetContext, 'Error: ${e.toFriendlyMessage()}');
-                }
-                setDialogState(() => isUpdating = false);
-              }
-            }
-
-            Future<void> confirmCode() async {
-              final code = codeController.text.trim();
-              if (code.isEmpty) return;
-              setDialogState(() => isUpdating = true);
-              try {
-                await Supabase.instance.client.auth.verifyOTP(
-                  email: emailController.text.trim(),
-                  token: code,
-                  type: OtpType.emailChange,
-                );
-                if (context.mounted) {
-                  context.read<ProfileCubit>().loadProfile();
-                }
-                if (sheetContext.mounted) {
-                  Navigator.pop(sheetContext);
-                  AppSnackBars.showSuccess(context, 'Email address updated successfully');
-                }
-              } catch (e) {
-                if (sheetContext.mounted) {
-                  AppSnackBars.showError(sheetContext, 'Error: ${e.toFriendlyMessage()}');
-                }
-              } finally {
-                setDialogState(() => isUpdating = false);
-              }
-            }
-
-            return Container(
-              padding: EdgeInsets.fromLTRB(
-                24, 20, 24,
-                MediaQuery.of(context).viewInsets.bottom + 32,
-              ),
-              decoration: BoxDecoration(
-                color: AppColors.surface,
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-                border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
-              ),
-              child: Form(
-                key: formKey,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Center(
-                      child: Container(
-                        width: 40,
-                        height: 4,
-                        decoration: BoxDecoration(
-                          color: Colors.white24,
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    Text(
-                      codeSent
-                          ? 'Enter the code we sent you'
-                          : (currentEmail.isEmpty || currentEmail == 'No email linked'
-                              ? 'Add Email Address'
-                              : 'Change Email Address'),
-                      style: AppTypography.interTight(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      codeSent
-                          ? 'We emailed a 6-digit code to ${emailController.text.trim()}.'
-                          : 'Link an email address as a backup way to reach you.',
-                      style: AppTypography.inter(
-                        fontSize: 13,
-                        color: Colors.white54,
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    if (!codeSent)
-                      TextFormField(
-                        controller: emailController,
-                        keyboardType: TextInputType.emailAddress,
-                        style: const TextStyle(color: Colors.white),
-                        decoration: InputDecoration(
-                          labelText: 'Email Address',
-                          labelStyle: const TextStyle(color: Colors.white60),
-                          enabledBorder: UnderlineInputBorder(
-                            borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.3)),
-                          ),
-                          focusedBorder: UnderlineInputBorder(
-                            borderSide: BorderSide(color: context.accentColor),
-                          ),
-                        ),
-                        validator: (val) {
-                          if (val == null || val.trim().isEmpty) {
-                            return 'Email address cannot be empty';
-                          }
-                          if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(val.trim())) {
-                            return 'Please enter a valid email address';
-                          }
-                          return null;
-                        },
-                      )
-                    else
-                      TextFormField(
-                        controller: codeController,
-                        keyboardType: TextInputType.number,
-                        style: const TextStyle(color: Colors.white),
-                        decoration: InputDecoration(
-                          labelText: '6-digit code',
-                          labelStyle: const TextStyle(color: Colors.white60),
-                          enabledBorder: UnderlineInputBorder(
-                            borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.3)),
-                          ),
-                          focusedBorder: UnderlineInputBorder(
-                            borderSide: BorderSide(color: context.accentColor),
-                          ),
-                        ),
-                      ),
-                    const SizedBox(height: 32),
-                    ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: context.accentColor,
-                        foregroundColor: Colors.black,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      onPressed: isUpdating ? null : (codeSent ? confirmCode : sendCode),
-                      child: isUpdating
-                          ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.black,
-                              ),
-                            )
-                          : Text(
-                              codeSent ? 'Confirm Code' : 'Send Code',
-                              style: AppTypography.inter(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 15,
-                              ),
-                            ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
-
-  /// `lastSignInAt` is an ISO-8601 string from GoTrue, refreshed on every new
-  /// session (including token refresh), not a full login-history log.
-  String _formatLastLogin(String? lastSignInAt) {
-    if (lastSignInAt == null) return 'Unknown';
-    final dt = DateTime.tryParse(lastSignInAt)?.toLocal();
-    if (dt == null) return 'Unknown';
-
-    final now = DateTime.now();
-    final isToday = dt.year == now.year && dt.month == now.month && dt.day == now.day;
-    final yesterday = now.subtract(const Duration(days: 1));
-    final isYesterday = dt.year == yesterday.year && dt.month == yesterday.month && dt.day == yesterday.day;
-
-    final hour = dt.hour % 12 == 0 ? 12 : dt.hour % 12;
-    final minute = dt.minute.toString().padLeft(2, '0');
-    final period = dt.hour < 12 ? 'AM' : 'PM';
-    final time = '$hour:$minute $period';
-
-    if (isToday) return 'Today at $time';
-    if (isYesterday) return 'Yesterday at $time';
-
-    const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
-    ];
-    return '${months[dt.month - 1]} ${dt.day}, ${dt.year} at $time';
+    if (codeSent && !confirmed && mounted) onPendingChanged(true);
   }
 
   void _showDeleteConfirmation(BuildContext context) {
@@ -456,6 +353,93 @@ class _AccountPageState extends State<AccountPage> {
       context: context,
       builder: (dialogContext) => DeleteAccountDialog(
         onDelete: () => context.read<ProfileCubit>().deleteAccount(),
+      ),
+    );
+  }
+
+  String _getCountryName(String? code) {
+    if (code == null) return 'Not set';
+    for (final country in kSupportedCountries) {
+      if (country.code.toUpperCase() == code.toUpperCase()) {
+        return country.name;
+      }
+    }
+    return 'Not set';
+  }
+
+  Widget _buildFlag(String? code, {double size = 22}) {
+    if (code == null || code == 'GL') {
+      return Text('🌐', style: TextStyle(fontSize: size));
+    }
+    return SizedBox(
+      width: size * 1.4,
+      height: size,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(4),
+        child: CountryFlag.fromCountryCode(code),
+      ),
+    );
+  }
+
+  void _showCountryPicker(BuildContext context, String? currentCode) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.tertiary,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetContext) => Container(
+        padding: const EdgeInsets.symmetric(vertical: 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Select Country',
+              style: AppTypography.interTight(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white),
+            ),
+            const SizedBox(height: 16),
+            Flexible(
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: kSupportedCountries.length,
+                itemBuilder: (context, index) {
+                  final country = kSupportedCountries[index];
+                  final isSelected =
+                      currentCode?.toUpperCase() == country.code.toUpperCase();
+                  return ListTile(
+                    leading: _buildFlag(country.code, size: 20),
+                    title: Text(country.name,
+                        style: const TextStyle(color: Colors.white)),
+                    trailing: isSelected
+                        ? Icon(Icons.check_circle, color: context.accentColor)
+                        : null,
+                    onTap: () async {
+                      Navigator.pop(sheetContext);
+                      if (!isSelected) {
+                        // updateProfile reports failure via cubit state
+                        // (state.error), not a thrown exception — check the
+                        // resulting state rather than assuming success.
+                        final cubit = this.context.read<ProfileCubit>();
+                        await cubit.updateProfile(countryCode: country.code);
+                        if (!mounted) return;
+                        final result = cubit.state;
+                        if (result is ProfileLoaded && result.error != null) {
+                          AppSnackBars.showError(this.context, result.error!);
+                        } else {
+                          AppSnackBars.showSuccess(this.context,
+                              'Country updated to ${country.name}');
+                        }
+                      }
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -483,7 +467,8 @@ class _AccountPageState extends State<AccountPage> {
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.support_agent_rounded, color: Colors.white70),
+            icon: const Icon(Icons.chat_bubble_outline_rounded,
+                color: Colors.white70),
             tooltip: 'Support',
             onPressed: () => context.push('/support?context=general'),
           ),
@@ -511,7 +496,6 @@ class _AccountPageState extends State<AccountPage> {
           final status = profile.accountStatus ?? 'active';
           final phone = profile.phoneNumber ?? 'No phone number linked';
           final email = profile.email ?? 'No email linked';
-          final lastSignInAt = Supabase.instance.client.auth.currentUser?.lastSignInAt;
 
           final isStatusActive = status.toLowerCase() == 'active';
 
@@ -527,12 +511,15 @@ class _AccountPageState extends State<AccountPage> {
                   icon: Icons.badge_outlined,
                   onTap: () {
                     if (profile.accountReference != null) {
-                      Clipboard.setData(ClipboardData(text: profile.accountReference!));
-                      AppSnackBars.showSuccess(context, 'Account reference copied to clipboard');
+                      Clipboard.setData(
+                          ClipboardData(text: profile.accountReference!));
+                      AppSnackBars.showSuccess(
+                          context, 'Account reference copied to clipboard');
                     }
                   },
                   trailing: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
                       color: isStatusActive
                           ? Colors.green.withValues(alpha: 0.1)
@@ -544,33 +531,47 @@ class _AccountPageState extends State<AccountPage> {
                       style: AppTypography.inter(
                         fontSize: 10,
                         fontWeight: FontWeight.bold,
-                        color: isStatusActive ? Colors.greenAccent : Colors.redAccent,
+                        color: isStatusActive
+                            ? Colors.greenAccent
+                            : Colors.redAccent,
                       ),
                     ),
                   ),
                 ),
                 _buildSettingTile(
-                  title: 'Last Login',
-                  subtitle: _formatLastLogin(lastSignInAt),
-                  icon: Icons.schedule_rounded,
-                  onTap: () {},
-                  trailing: const SizedBox.shrink(),
+                  title: 'Country',
+                  subtitle: _getCountryName(profile.countryCode),
+                  icon: Icons.public_rounded,
+                  leadingWidget: profile.countryCode != null
+                      ? _buildFlag(profile.countryCode)
+                      : null,
+                  onTap: () => _showCountryPicker(context, profile.countryCode),
+                  trailing: const Icon(Icons.chevron_right_rounded,
+                      color: Colors.white24),
                 ),
                 const SizedBox(height: 32),
                 _buildSectionHeader('Contact Info'),
                 _buildSettingTile(
                   title: 'Email Address',
-                  subtitle: email,
+                  subtitle: _emailPendingConfirmation
+                      ? '$email · Code sent, not confirmed'
+                      : email,
                   icon: Icons.alternate_email_rounded,
-                  onTap: () => _showUpdateEmailDialog(context, profile.email ?? ''),
-                  trailing: const Icon(Icons.chevron_right_rounded, color: Colors.white24),
+                  onTap: () =>
+                      _showUpdateEmailDialog(context, profile.email ?? ''),
+                  trailing: const Icon(Icons.chevron_right_rounded,
+                      color: Colors.white24),
                 ),
                 _buildSettingTile(
                   title: 'Phone Number',
-                  subtitle: phone,
+                  subtitle: _phonePendingConfirmation
+                      ? '$phone · Code sent, not confirmed'
+                      : phone,
                   icon: Icons.phone_iphone_rounded,
-                  onTap: () => _showUpdatePhoneDialog(context, profile.phoneNumber ?? ''),
-                  trailing: const Icon(Icons.chevron_right_rounded, color: Colors.white24),
+                  onTap: () => _showUpdatePhoneDialog(
+                      context, profile.phoneNumber ?? ''),
+                  trailing: const Icon(Icons.chevron_right_rounded,
+                      color: Colors.white24),
                 ),
                 const SizedBox(height: 32),
                 _buildSectionHeader('Notifications'),
@@ -585,17 +586,21 @@ class _AccountPageState extends State<AccountPage> {
                   },
                   icon: Icons.notifications_outlined,
                   onTap: _onNotificationTileTap,
-                  trailing: _notificationStatus == AuthorizationStatus.authorized ||
+                  trailing: _notificationStatus ==
+                              AuthorizationStatus.authorized ||
                           _notificationStatus == AuthorizationStatus.provisional
-                      ? Icon(Icons.check_circle, color: context.accentColor, size: 20)
-                      : const Icon(Icons.chevron_right_rounded, color: Colors.white24),
+                      ? Icon(Icons.check_circle,
+                          color: context.accentColor, size: 20)
+                      : const Icon(Icons.chevron_right_rounded,
+                          color: Colors.white24),
                 ),
                 _buildSettingTile(
                   title: 'Notification Preferences',
                   subtitle: 'Choose what you get notified about',
                   icon: Icons.tune_rounded,
                   onTap: () => context.push('/account/notifications'),
-                  trailing: const Icon(Icons.chevron_right_rounded, color: Colors.white24),
+                  trailing: const Icon(Icons.chevron_right_rounded,
+                      color: Colors.white24),
                 ),
                 const SizedBox(height: 48),
                 _buildSectionHeader('Danger Zone'),
@@ -604,18 +609,21 @@ class _AccountPageState extends State<AccountPage> {
                   decoration: BoxDecoration(
                     color: AppColors.surface,
                     borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: Colors.redAccent.withValues(alpha: 0.2)),
+                    border: Border.all(
+                        color: Colors.redAccent.withValues(alpha: 0.2)),
                   ),
                   child: ListTile(
                     onTap: () => _showDeleteConfirmation(context),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                    contentPadding:
+                        const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
                     leading: Container(
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
                         color: Colors.redAccent.withValues(alpha: 0.1),
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(Icons.delete_forever_rounded, color: Colors.redAccent, size: 22),
+                      child: const Icon(Icons.delete_forever_rounded,
+                          color: Colors.redAccent, size: 22),
                     ),
                     title: Text(
                       'Delete Account',
@@ -627,9 +635,11 @@ class _AccountPageState extends State<AccountPage> {
                     ),
                     subtitle: Text(
                       'Permanently remove all your data',
-                      style: AppTypography.inter(fontSize: 13, color: Colors.white54),
+                      style: AppTypography.inter(
+                          fontSize: 13, color: Colors.white54),
                     ),
-                    trailing: const Icon(Icons.chevron_right_rounded, color: Colors.redAccent),
+                    trailing: const Icon(Icons.chevron_right_rounded,
+                        color: Colors.redAccent),
                   ),
                 ),
                 const SizedBox(height: 24),
@@ -662,6 +672,10 @@ class _AccountPageState extends State<AccountPage> {
     required IconData icon,
     required VoidCallback onTap,
     required Widget trailing,
+
+    /// Overrides the default icon with a custom widget (e.g. a country flag)
+    /// while keeping the same circular container styling.
+    Widget? leadingWidget,
   }) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -679,7 +693,7 @@ class _AccountPageState extends State<AccountPage> {
             color: Colors.white.withValues(alpha: 0.05),
             shape: BoxShape.circle,
           ),
-          child: Icon(icon, color: Colors.white, size: 22),
+          child: leadingWidget ?? Icon(icon, color: Colors.white, size: 22),
         ),
         title: Text(
           title,

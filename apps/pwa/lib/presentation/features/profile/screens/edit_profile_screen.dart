@@ -8,8 +8,6 @@ import 'package:image_picker/image_picker.dart';
 import 'package:lynk_core/core.dart';
 import 'package:lynk_x/presentation/shared/widgets/text_field.dart';
 import 'package:lynk_x/presentation/shared/utils/permission_acks.dart';
-import 'package:country_flags/country_flags.dart';
-import '../models/country.dart';
 import '../widgets/profile_avatar.dart';
 import 'package:lynk_x/presentation/shared/utils/app_snackbars.dart';
 
@@ -25,7 +23,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
   final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _genderController = TextEditingController();
   final TextEditingController _dobController = TextEditingController();
-  final TextEditingController _countryController = TextEditingController();
 
   String? _selectedGender;
   DateTime? _selectedDateOfBirth;
@@ -36,7 +33,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
   Timer? _debounceTimer;
   bool _isOpeningGallery = false;
   bool _uploadingAvatar = false;
-  String? _selectedCountryCode;
 
   @override
   void initState() {
@@ -44,7 +40,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
     _usernameController.addListener(_onUsernameChanged);
     _usernameController.addListener(_onFieldChanged);
     _nameController.addListener(_onFieldChanged);
-    
+
     // Load profile data on entry
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) context.read<ProfileCubit>().loadProfile();
@@ -65,13 +61,13 @@ class _EditProfilePageState extends State<EditProfilePage> {
     _usernameController.dispose();
     _genderController.dispose();
     _dobController.dispose();
-    _countryController.dispose();
     super.dispose();
   }
 
   void _onUsernameChanged() {
     final name = _usernameController.text.trim();
-    if (name.toLowerCase() == _initialUsername.toLowerCase() || name.length < 3) {
+    if (name.toLowerCase() == _initialUsername.toLowerCase() ||
+        name.length < 3) {
       return;
     }
     if (_debounceTimer?.isActive ?? false) _debounceTimer?.cancel();
@@ -81,51 +77,56 @@ class _EditProfilePageState extends State<EditProfilePage> {
     });
   }
 
-   void _onAvatarTap(BuildContext context, ProfileModel profile) {
-     if (profile.avatarUrl == null) {
-       _pickImage(context);
-       return;
-     }
+  void _onAvatarTap(BuildContext context, ProfileModel profile) {
+    if (profile.avatarUrl == null) {
+      _pickImage(context);
+      return;
+    }
 
-     showModalBottomSheet(
-       context: context,
-       backgroundColor: AppColors.tertiary,
-       shape: const RoundedRectangleBorder(
-         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-       ),
-       builder: (context) => Container(
-         padding: const EdgeInsets.symmetric(vertical: 24),
-         child: Column(
-           mainAxisSize: MainAxisSize.min,
-           children: [
-             ListTile(
-               leading: const Icon(Icons.photo_library_outlined, color: Colors.white),
-               title: const Text('Choose from Gallery', style: TextStyle(color: Colors.white)),
-               onTap: () {
-                 Navigator.pop(context);
-                 _pickImage(context);
-               },
-             ),
-             ListTile(
-               leading: const Icon(Icons.delete_outline, color: Colors.redAccent),
-               title: const Text('Remove Photo', style: TextStyle(color: Colors.redAccent)),
-               onTap: () {
-                 Navigator.pop(context);
-                 context.read<ProfileCubit>().removeAvatar();
-               },
-             ),
-           ],
-         ),
-       ),
-     );
-   }
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.tertiary,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) => Container(
+        padding: const EdgeInsets.symmetric(vertical: 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading:
+                  const Icon(Icons.photo_library_outlined, color: Colors.white),
+              title: const Text('Choose from Gallery',
+                  style: TextStyle(color: Colors.white)),
+              onTap: () {
+                Navigator.pop(context);
+                _pickImage(context);
+              },
+            ),
+            ListTile(
+              leading:
+                  const Icon(Icons.delete_outline, color: Colors.redAccent),
+              title: const Text('Remove Photo',
+                  style: TextStyle(color: Colors.redAccent)),
+              onTap: () {
+                Navigator.pop(context);
+                context.read<ProfileCubit>().removeAvatar();
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   Future<void> _pickImage(BuildContext context) async {
     await PermissionAcks.ensureAcknowledged(
       context,
       PermissionAckType.media,
       title: 'Access your Media',
-      description: 'To update your profile photo, we need access to your device library.',
+      description:
+          'To update your profile photo, we need access to your device library.',
       icon: Icons.perm_media_rounded,
       actionLabel: 'Allow Access',
       onReady: () => _actuallyPickImage(context),
@@ -148,7 +149,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
       }
     } catch (e) {
       if (context.mounted) {
-        AppSnackBars.showError(context, 'Could not access gallery: ${e.toFriendlyMessage()}');
+        AppSnackBars.showError(
+            context, 'Could not access gallery: ${e.toFriendlyMessage()}');
       }
     } finally {
       if (mounted) setState(() => _isOpeningGallery = false);
@@ -158,79 +160,25 @@ class _EditProfilePageState extends State<EditProfilePage> {
   bool _hasChanges(ProfileModel profile) {
     final nameChanged = _nameController.text.trim() != (profile.fullName ?? '');
     final usernameChanged = _usernameController.text.trim() != profile.userName;
-    final countryChanged = _selectedCountryCode != profile.countryCode;
     final genderChanged = _selectedGender != profile.gender;
     final dobChanged = _selectedDateOfBirth != profile.dateOfBirth;
 
-    return nameChanged || usernameChanged || countryChanged || genderChanged || dobChanged;
+    return nameChanged || usernameChanged || genderChanged || dobChanged;
+  }
+
+  bool _usernameNeedsConfirmation(ProfileLoaded state) {
+    final name = _usernameController.text.trim();
+    if (name.toLowerCase() == _initialUsername.toLowerCase()) return false;
+    return state.isCheckingUsername || state.isUsernameAvailable != true;
   }
 
   void _saveChanges(BuildContext context) {
     context.read<ProfileCubit>().updateProfile(
           fullName: _nameController.text.trim(),
           userName: _usernameController.text.trim(),
-          countryCode: _selectedCountryCode,
           gender: _selectedGender,
           dateOfBirth: _selectedDateOfBirth,
         );
-  }
-
-  Widget _buildFlag(String? code, {double size = 24}) {
-    if (code == null || code == 'GL') {
-      return Text('🌐', style: TextStyle(fontSize: size));
-    }
-    return SizedBox(
-      width: size * 1.4,
-      height: size,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(4),
-        child: CountryFlag.fromCountryCode(code),
-      ),
-    );
-  }
-
-  void _showCountryPicker(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: AppColors.tertiary,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (context) => Container(
-        padding: const EdgeInsets.symmetric(vertical: 20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text('Select Country', 
-              style: AppTypography.interTight(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
-            const SizedBox(height: 16),
-            Flexible(
-              child: ListView.builder(
-                shrinkWrap: true,
-                itemCount: kSupportedCountries.length,
-                itemBuilder: (context, index) {
-                  final country = kSupportedCountries[index];
-                  final isSelected = _selectedCountryCode == country.code;
-                  return ListTile(
-                    leading: _buildFlag(country.code, size: 20),
-                    title: Text(country.name, style: const TextStyle(color: Colors.white)),
-                    trailing: isSelected ? Icon(Icons.check_circle, color: context.accentColor) : null,
-                    onTap: () {
-                      setState(() {
-                        _selectedCountryCode = country.code;
-                        _countryController.text = country.name;
-                      });
-                      Navigator.pop(context);
-                      _onFieldChanged();
-                    },
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 
   String? _getGenderLabel(String? value) {
@@ -239,16 +187,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
     if (value == 'other') return 'Other';
     if (value == 'prefer_not_to_say') return 'Prefer not to say';
     return null;
-  }
-
-  String _getCountryName(String? code) {
-    if (code == null) return '';
-    for (final country in kSupportedCountries) {
-      if (country.code.toUpperCase() == code.toUpperCase()) {
-        return country.name;
-      }
-    }
-    return '';
   }
 
   void _showGenderPicker(BuildContext context) {
@@ -264,11 +202,16 @@ class _EditProfilePageState extends State<EditProfilePage> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text('Select Gender',
-                style: AppTypography.interTight(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
+                style: AppTypography.interTight(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white)),
             const SizedBox(height: 16),
             ListTile(
               title: const Text('Male', style: TextStyle(color: Colors.white)),
-              trailing: _selectedGender == 'male' ? Icon(Icons.check_circle, color: context.accentColor) : null,
+              trailing: _selectedGender == 'male'
+                  ? Icon(Icons.check_circle, color: context.accentColor)
+                  : null,
               onTap: () {
                 setState(() {
                   _selectedGender = 'male';
@@ -279,8 +222,11 @@ class _EditProfilePageState extends State<EditProfilePage> {
               },
             ),
             ListTile(
-              title: const Text('Female', style: TextStyle(color: Colors.white)),
-              trailing: _selectedGender == 'female' ? Icon(Icons.check_circle, color: context.accentColor) : null,
+              title:
+                  const Text('Female', style: TextStyle(color: Colors.white)),
+              trailing: _selectedGender == 'female'
+                  ? Icon(Icons.check_circle, color: context.accentColor)
+                  : null,
               onTap: () {
                 setState(() {
                   _selectedGender = 'female';
@@ -292,7 +238,9 @@ class _EditProfilePageState extends State<EditProfilePage> {
             ),
             ListTile(
               title: const Text('Other', style: TextStyle(color: Colors.white)),
-              trailing: _selectedGender == 'other' ? Icon(Icons.check_circle, color: context.accentColor) : null,
+              trailing: _selectedGender == 'other'
+                  ? Icon(Icons.check_circle, color: context.accentColor)
+                  : null,
               onTap: () {
                 setState(() {
                   _selectedGender = 'other';
@@ -303,8 +251,11 @@ class _EditProfilePageState extends State<EditProfilePage> {
               },
             ),
             ListTile(
-              title: const Text('Prefer not to say', style: TextStyle(color: Colors.white)),
-              trailing: _selectedGender == 'prefer_not_to_say' ? Icon(Icons.check_circle, color: context.accentColor) : null,
+              title: const Text('Prefer not to say',
+                  style: TextStyle(color: Colors.white)),
+              trailing: _selectedGender == 'prefer_not_to_say'
+                  ? Icon(Icons.check_circle, color: context.accentColor)
+                  : null,
               onTap: () {
                 setState(() {
                   _selectedGender = 'prefer_not_to_say';
@@ -345,7 +296,9 @@ class _EditProfilePageState extends State<EditProfilePage> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     CupertinoButton(
-                      child: const Text('Cancel', style: TextStyle(color: Colors.white54, fontSize: 15)),
+                      child: const Text('Cancel',
+                          style:
+                              TextStyle(color: Colors.white54, fontSize: 15)),
                       onPressed: () => Navigator.pop(modalContext),
                     ),
                     const Text(
@@ -369,7 +322,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
                       onPressed: () {
                         setState(() {
                           _selectedDateOfBirth = tempDateTime;
-                          _dobController.text = DateFormat('yyyy-MM-dd').format(tempDateTime);
+                          _dobController.text =
+                              DateFormat('yyyy-MM-dd').format(tempDateTime);
                         });
                         _onFieldChanged();
                         Navigator.pop(modalContext);
@@ -399,17 +353,16 @@ class _EditProfilePageState extends State<EditProfilePage> {
     return BlocConsumer<ProfileCubit, ProfileState>(
       listener: (context, state) {
         if (state is ProfileLoaded) {
-          if (!_initialized) {
+          if (!_initialized || !_hasChanges(state.profile)) {
             _initialUsername = state.profile.userName;
             _usernameController.text = state.profile.userName;
             _nameController.text = state.profile.fullName ?? '';
-            _selectedCountryCode = state.profile.countryCode;
-            _countryController.text = _getCountryName(_selectedCountryCode);
             _selectedGender = state.profile.gender;
             _genderController.text = _getGenderLabel(_selectedGender) ?? '';
             _selectedDateOfBirth = state.profile.dateOfBirth;
             if (_selectedDateOfBirth != null) {
-              _dobController.text = DateFormat('yyyy-MM-dd').format(_selectedDateOfBirth!);
+              _dobController.text =
+                  DateFormat('yyyy-MM-dd').format(_selectedDateOfBirth!);
             } else {
               _dobController.text = '';
             }
@@ -418,11 +371,12 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
           if (state.error != null) {
             AppSnackBars.showError(context, state.error!);
-          } else {
-            if (_uploadingAvatar && !state.isUpdating) {
+            if (_uploadingAvatar) {
               setState(() => _uploadingAvatar = false);
-              AppSnackBars.showSuccess(context, 'Profile photo updated');
             }
+          } else if (_uploadingAvatar && !state.isUpdating) {
+            setState(() => _uploadingAvatar = false);
+            AppSnackBars.showSuccess(context, 'Profile photo updated');
           }
         }
       },
@@ -454,21 +408,26 @@ class _EditProfilePageState extends State<EditProfilePage> {
           canPop: !_hasChanges(profile),
           onPopInvokedWithResult: (didPop, result) async {
             if (didPop) return;
-            
+
             final shouldPop = await showDialog<bool>(
               context: context,
               builder: (context) => AlertDialog(
                 backgroundColor: AppColors.surface,
-                title: const Text('Discard changes?', style: TextStyle(color: Colors.white)),
-                content: const Text('You have unsaved changes. Are you sure you want to leave?', style: TextStyle(color: Colors.white70)),
+                title: const Text('Discard changes?',
+                    style: TextStyle(color: Colors.white)),
+                content: const Text(
+                    'You have unsaved changes. Are you sure you want to leave?',
+                    style: TextStyle(color: Colors.white70)),
                 actions: [
                   TextButton(
                     onPressed: () => Navigator.pop(context, false),
-                    child: const Text('Stay', style: TextStyle(color: Colors.white54)),
+                    child: const Text('Stay',
+                        style: TextStyle(color: Colors.white54)),
                   ),
                   TextButton(
                     onPressed: () => Navigator.pop(context, true),
-                    child: const Text('Discard', style: TextStyle(color: Colors.redAccent)),
+                    child: const Text('Discard',
+                        style: TextStyle(color: Colors.redAccent)),
                   ),
                 ],
               ),
@@ -488,12 +447,12 @@ class _EditProfilePageState extends State<EditProfilePage> {
               leading: IconButton(
                 icon: const Icon(Icons.close, color: Colors.white),
                 onPressed: () {
-                   if (_hasChanges(profile)) {
-                     // Trigger PopScope logic via Navigator pop
-                     Navigator.maybePop(context);
-                   } else {
-                     context.pop();
-                   }
+                  if (_hasChanges(profile)) {
+                    // Trigger PopScope logic via Navigator pop
+                    Navigator.maybePop(context);
+                  } else {
+                    context.pop();
+                  }
                 },
               ),
               title: Text(
@@ -508,9 +467,11 @@ class _EditProfilePageState extends State<EditProfilePage> {
                 Padding(
                   padding: const EdgeInsets.only(right: 8.0),
                   child: IconButton(
-                    icon: const Icon(Icons.settings_outlined, color: Colors.white),
+                    icon: const Icon(Icons.settings_outlined,
+                        color: Colors.white),
                     tooltip: 'Manage Account',
-                    onPressed: isUpdating ? null : () => context.push('/account'),
+                    onPressed:
+                        isUpdating ? null : () => context.push('/account'),
                   ),
                 ),
               ],
@@ -561,8 +522,10 @@ class _EditProfilePageState extends State<EditProfilePage> {
                         enabled: !isUpdating,
                       ),
                       const SizedBox(height: 32),
-                                            GestureDetector(
-                        onTap: isUpdating ? null : () => _showGenderPicker(context),
+                      GestureDetector(
+                        onTap: isUpdating
+                            ? null
+                            : () => _showGenderPicker(context),
                         behavior: HitTestBehavior.opaque,
                         child: IgnorePointer(
                           child: TextField(
@@ -571,13 +534,15 @@ class _EditProfilePageState extends State<EditProfilePage> {
                             controller: _genderController,
                             readOnly: true,
                             enabled: !isUpdating,
-                            suffixIcon: const Icon(Icons.arrow_drop_down, color: Colors.white54),
+                            suffixIcon: const Icon(Icons.arrow_drop_down,
+                                color: Colors.white54),
                           ),
                         ),
                       ),
                       const SizedBox(height: 24),
                       GestureDetector(
-                        onTap: isUpdating ? null : () => _showDobPicker(context),
+                        onTap:
+                            isUpdating ? null : () => _showDobPicker(context),
                         behavior: HitTestBehavior.opaque,
                         child: IgnorePointer(
                           child: TextField(
@@ -586,32 +551,10 @@ class _EditProfilePageState extends State<EditProfilePage> {
                             controller: _dobController,
                             readOnly: true,
                             enabled: !isUpdating,
-                            suffixIcon: const Icon(Icons.calendar_today_outlined, color: Colors.white54, size: 18),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      GestureDetector(
-                        onTap: isUpdating ? null : () => _showCountryPicker(context),
-                        behavior: HitTestBehavior.opaque,
-                        child: IgnorePointer(
-                          child: TextField(
-                            label: 'COUNTRY',
-                            hintText: 'Select Country',
-                            controller: _countryController,
-                            readOnly: true,
-                            enabled: !isUpdating,
-                            prefixIcon: _selectedCountryCode != null
-                                ? Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      const SizedBox(width: 16),
-                                      _buildFlag(_selectedCountryCode, size: 18),
-                                      const SizedBox(width: 12),
-                                    ],
-                                  )
-                                : null,
-                            suffixIcon: const Icon(Icons.arrow_drop_down, color: Colors.white54),
+                            suffixIcon: const Icon(
+                                Icons.calendar_today_outlined,
+                                color: Colors.white54,
+                                size: 18),
                           ),
                         ),
                       ),
@@ -626,7 +569,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
                   child: AnimatedSlide(
                     duration: const Duration(milliseconds: 300),
                     curve: Curves.easeOutCubic,
-                    offset: _hasChanges(profile) ? Offset.zero : const Offset(0, 1),
+                    offset:
+                        _hasChanges(profile) ? Offset.zero : const Offset(0, 1),
                     child: AnimatedOpacity(
                       duration: const Duration(milliseconds: 200),
                       opacity: _hasChanges(profile) ? 1.0 : 0.0,
@@ -637,7 +581,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
                             begin: Alignment.topCenter,
                             end: Alignment.bottomCenter,
                             colors: [
-                              AppColors.primaryBackground.withValues(alpha: 0.0),
+                              AppColors.primaryBackground
+                                  .withValues(alpha: 0.0),
                               AppColors.primaryBackground,
                             ],
                           ),
@@ -645,11 +590,10 @@ class _EditProfilePageState extends State<EditProfilePage> {
                         child: PrimaryButton(
                           icon: isUpdating ? null : Icons.check,
                           text: isUpdating ? 'Saving...' : 'Save Changes',
-                          onPressed: (isUpdating ||
-                                  state.isCheckingUsername ||
-                                  state.isUsernameAvailable == false)
-                              ? null
-                              : () => _saveChanges(context),
+                          onPressed:
+                              (isUpdating || _usernameNeedsConfirmation(state))
+                                  ? null
+                                  : () => _saveChanges(context),
                         ),
                       ),
                     ),
