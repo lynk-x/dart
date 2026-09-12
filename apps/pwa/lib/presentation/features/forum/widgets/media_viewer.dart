@@ -421,18 +421,25 @@ class _MediaViewerState extends State<MediaViewer> {
                         const SizedBox(width: 8),
                         _MediaMemberAction(
                           isUploader: isUploader,
-                          onDelete: () {
+                          onDelete: () async {
                             if (!hasCubit) return;
-                            try {
-                              context.read<ForumMediaCubit>().deleteMedia(currentMedia);
-                            } catch (_) {}
+                            final success = await context.read<ForumMediaCubit>().deleteMedia(currentMedia);
+                            if (!success && context.mounted) {
+                              AppSnackBars.showError(context, 'Failed to delete media. Please try again.');
+                            }
                           },
-                          onReport: (reason) {
+                          onReport: (reasonId) async {
                             if (!hasCubit) return;
                             try {
-                              context.read<ForumMediaCubit>().reportMedia(currentMedia, reason);
-                              AppSnackBars.showSuccess(context, 'Media reported.');
-                            } catch (_) {}
+                              await context.read<ForumMediaCubit>().reportMedia(currentMedia, reasonId);
+                              if (context.mounted) {
+                                AppSnackBars.showSuccess(context, 'Media reported.');
+                              }
+                            } catch (_) {
+                              if (context.mounted) {
+                                AppSnackBars.showError(context, 'Failed to submit report. Please try again.');
+                              }
+                            }
                           },
                         ),
                       ],
@@ -477,15 +484,19 @@ class _MediaViewerState extends State<MediaViewer> {
                                 ),
                               ),
                               onPressed: () {
-                                void performReject() {
+                                Future<void> performReject() async {
                                   if (hasCubit) {
-                                    try {
-                                      context.read<ForumMediaCubit>().deleteMedia(currentMedia);
-                                    } catch (_) {}
+                                    final success = await context.read<ForumMediaCubit>().deleteMedia(currentMedia);
+                                    if (!context.mounted) return;
+                                    if (success) {
+                                      Navigator.pop(context);
+                                    } else {
+                                      AppSnackBars.showError(context, 'Failed to remove media. Please try again.');
+                                    }
                                   } else {
                                     widget.onReject?.call();
+                                    Navigator.pop(context);
                                   }
-                                  Navigator.pop(context);
                                 }
 
                                 // Rejecting a still-pending item is instant —
@@ -513,15 +524,19 @@ class _MediaViewerState extends State<MediaViewer> {
                             text: 'Approve',
                             backgroundColor: context.accentColor,
                             textColor: Colors.black,
-                            onPressed: () {
+                            onPressed: () async {
                               if (hasCubit) {
-                                try {
-                                  context.read<ForumMediaCubit>().approveMedia(currentMedia);
-                                } catch (_) {}
+                                final success = await context.read<ForumMediaCubit>().approveMedia(currentMedia);
+                                if (!context.mounted) return;
+                                if (success) {
+                                  Navigator.pop(context);
+                                } else {
+                                  AppSnackBars.showError(context, 'Failed to approve media. Please try again.');
+                                }
                               } else {
                                 widget.onApprove?.call();
+                                Navigator.pop(context);
                               }
-                              Navigator.pop(context);
                             },
                           ),
                         ),
@@ -642,12 +657,21 @@ class _MediaMemberAction extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 16),
-              ...['Spam', 'Harassment', 'Inappropriate Content'].map((reason) {
+              // (reason_id, label) pairs — reason_id must match a row in
+              // reports.report_reasons; a mismatched id fails the report's
+              // foreign key at insert time.
+              ...const [
+                ('spam', 'Spam'),
+                ('harassment', 'Harassment'),
+                ('inappropriate', 'Inappropriate Content'),
+                ('likeness_no_consent', "I'm in this without my consent"),
+              ].map((entry) {
+                final (reasonId, label) = entry;
                 return ListTile(
                   contentPadding: EdgeInsets.zero,
-                  title: Text(reason, style: const TextStyle(color: Colors.white)),
+                  title: Text(label, style: const TextStyle(color: Colors.white)),
                   onTap: () {
-                    onReport(reason);
+                    onReport(reasonId);
                     Navigator.pop(bottomSheetContext);
                   },
                 );

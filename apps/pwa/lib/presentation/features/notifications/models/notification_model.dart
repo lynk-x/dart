@@ -11,6 +11,18 @@ enum NotificationType {
   moneyIn,
   moneyOut,
   ticketResaleOffer,
+  forumUpdate,
+  invitation,
+  payoutApproved,
+  payoutRejected,
+  ticketPurchased,
+  ticketCancelled,
+  eventCancelled,
+  accountSuspended,
+  eventReminder,
+  identity,
+  auth,
+  moderation,
 }
 
 class NotificationModel {
@@ -50,6 +62,14 @@ class NotificationModel {
     );
   }
 
+  // Previously only recognized 8 of comms.notification_type's 20 Postgres
+  // enum values (supabase/schema/00_base/04_types.sql) — every unmatched
+  // type (forum_update, invitation, payout_approved/rejected,
+  // ticket_purchased/cancelled, event_cancelled, account_suspended,
+  // event_reminder, identity, auth, moderation) silently fell through to
+  // the generic system icon/color below. 'livechats'/'media' are not real
+  // Postgres enum values (nothing in the backend ever sends them) — kept
+  // here harmlessly in case client-side code still references them.
   static NotificationType _parseType(String? typeStr) {
     switch (typeStr) {
       case 'marketing':
@@ -70,6 +90,30 @@ class NotificationModel {
         return NotificationType.moneyOut;
       case 'ticket_resale_offer':
         return NotificationType.ticketResaleOffer;
+      case 'forum_update':
+        return NotificationType.forumUpdate;
+      case 'invitation':
+        return NotificationType.invitation;
+      case 'payout_approved':
+        return NotificationType.payoutApproved;
+      case 'payout_rejected':
+        return NotificationType.payoutRejected;
+      case 'ticket_purchased':
+        return NotificationType.ticketPurchased;
+      case 'ticket_cancelled':
+        return NotificationType.ticketCancelled;
+      case 'event_cancelled':
+        return NotificationType.eventCancelled;
+      case 'account_suspended':
+        return NotificationType.accountSuspended;
+      case 'event_reminder':
+        return NotificationType.eventReminder;
+      case 'identity':
+        return NotificationType.identity;
+      case 'auth':
+        return NotificationType.auth;
+      case 'moderation':
+        return NotificationType.moderation;
       case 'system':
       default:
         return NotificationType.system;
@@ -122,6 +166,30 @@ class NotificationModel {
         return Icons.account_balance_wallet_rounded;
       case NotificationType.ticketResaleOffer:
         return Icons.local_offer_rounded;
+      case NotificationType.forumUpdate:
+        return Icons.groups_rounded;
+      case NotificationType.invitation:
+        return Icons.person_add_alt_1_rounded;
+      case NotificationType.payoutApproved:
+        return Icons.check_circle_rounded;
+      case NotificationType.payoutRejected:
+        return Icons.cancel_rounded;
+      case NotificationType.ticketPurchased:
+        return Icons.local_activity_rounded;
+      case NotificationType.ticketCancelled:
+        return Icons.event_busy_rounded;
+      case NotificationType.eventCancelled:
+        return Icons.event_busy_rounded;
+      case NotificationType.accountSuspended:
+        return Icons.block_rounded;
+      case NotificationType.eventReminder:
+        return Icons.alarm_rounded;
+      case NotificationType.identity:
+        return Icons.badge_rounded;
+      case NotificationType.auth:
+        return Icons.lock_outline_rounded;
+      case NotificationType.moderation:
+        return Icons.shield_rounded;
     }
   }
 
@@ -147,6 +215,30 @@ class NotificationModel {
         return Colors.red;
       case NotificationType.ticketResaleOffer:
         return Colors.orange;
+      case NotificationType.forumUpdate:
+        return Colors.indigo;
+      case NotificationType.invitation:
+        return Colors.purple;
+      case NotificationType.payoutApproved:
+        return Colors.teal;
+      case NotificationType.payoutRejected:
+        return Colors.red;
+      case NotificationType.ticketPurchased:
+        return Colors.green;
+      case NotificationType.ticketCancelled:
+        return Colors.red;
+      case NotificationType.eventCancelled:
+        return Colors.red;
+      case NotificationType.accountSuspended:
+        return Colors.red;
+      case NotificationType.eventReminder:
+        return Colors.amber;
+      case NotificationType.identity:
+        return Colors.blueGrey;
+      case NotificationType.auth:
+        return Colors.blueGrey;
+      case NotificationType.moderation:
+        return Colors.deepOrange;
     }
   }
 }

@@ -19,6 +19,8 @@ class NotificationsPage extends StatefulWidget {
 }
 
 class _NotificationsPageState extends State<NotificationsPage> {
+  final _scrollController = ScrollController();
+
   @override
   void initState() {
     super.initState();
@@ -28,6 +30,62 @@ class _NotificationsPageState extends State<NotificationsPage> {
     }
     // Mark all as read immediately so the badge clears when the screen is opened.
     cubit.markAllAsRead();
+    _scrollController.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (!_scrollController.hasClients) return;
+    // Fire loadMore() a bit before the actual end so the next page is
+    // already in flight by the time the user reaches the bottom.
+    final threshold = _scrollController.position.maxScrollExtent - 400;
+    if (_scrollController.position.pixels >= threshold) {
+      context.read<NotificationCubit>().loadMore();
+    }
+  }
+
+  /// Buckets [notifications] (already sorted newest-first) into labeled
+  /// sections — Today / Yesterday / an entry per month before that — and
+  /// flattens them into a single list of row descriptors so the ListView
+  /// only needs one linear itemBuilder instead of nested index math.
+  List<_NotificationRow> _groupByRecency(List<NotificationModel> notifications) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final yesterday = today.subtract(const Duration(days: 1));
+
+    final rows = <_NotificationRow>[];
+    String? currentLabel;
+
+    for (final n in notifications) {
+      final createdDay = DateTime(n.createdAt.year, n.createdAt.month, n.createdAt.day);
+      final label = createdDay == today
+          ? 'Today'
+          : createdDay == yesterday
+              ? 'Yesterday'
+              : _monthLabel(n.createdAt, now);
+
+      if (label != currentLabel) {
+        rows.add(_NotificationRow.header(label));
+        currentLabel = label;
+      }
+      rows.add(_NotificationRow.item(n));
+    }
+    return rows;
+  }
+
+  String _monthLabel(DateTime date, DateTime now) {
+    const months = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December',
+    ];
+    final monthName = months[date.month - 1];
+    return date.year == now.year ? monthName : '$monthName ${date.year}';
   }
 
   void _handleNotificationTap(NotificationModel notification) {
@@ -214,19 +272,61 @@ class _NotificationsPageState extends State<NotificationsPage> {
             );
           }
 
-          final notifications = (state as NotificationLoaded).notifications;
+          final loadedState = state as NotificationLoaded;
+          final notifications = loadedState.notifications;
 
           if (notifications.isEmpty) {
             return const EmptyState(message: 'No notifications yet');
           }
 
+          final rows = _groupByRecency(notifications);
+          final showFooter = loadedState.isLoadingMore || !loadedState.hasMore;
+          final itemCount = rows.length + (showFooter ? 1 : 0);
+
           return ListView.separated(
+            controller: _scrollController,
             padding: const EdgeInsets.only(top: 8, bottom: 20),
-            itemCount: notifications.length,
+            itemCount: itemCount,
             separatorBuilder: (context, index) => const SizedBox(height: 0),
             itemBuilder: (context, index) {
-              final notification = notifications[index];
+              if (index >= rows.length) {
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 20),
+                  child: Center(
+                    child: loadedState.isLoadingMore
+                        ? SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: context.accentColor,
+                            ),
+                          )
+                        : const Text(
+                            "You're all caught up",
+                            style: TextStyle(color: Colors.white38, fontSize: 13),
+                          ),
+                  ),
+                );
+              }
 
+              final row = rows[index];
+              if (row.header != null) {
+                return Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 6),
+                  child: Text(
+                    row.header!,
+                    style: const TextStyle(
+                      color: Colors.white38,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.4,
+                    ),
+                  ),
+                );
+              }
+
+              final notification = row.item!;
               return Dismissible(
                 key: Key(notification.id),
                 direction: DismissDirection.endToStart,
@@ -267,4 +367,16 @@ class _NotificationsPageState extends State<NotificationsPage> {
       ),
     );
   }
+}
+
+/// A single row in the notifications list — either a section header (date
+/// label) or a notification item. Flattening both kinds into one list lets
+/// the ListView use a single linear itemBuilder instead of tracking nested
+/// section/item indices.
+class _NotificationRow {
+  final String? header;
+  final NotificationModel? item;
+
+  _NotificationRow.header(this.header) : item = null;
+  _NotificationRow.item(this.item) : header = null;
 }

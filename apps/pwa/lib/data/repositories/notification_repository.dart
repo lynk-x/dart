@@ -5,7 +5,18 @@ class NotificationRepository {
   final SupabaseClient _client;
   NotificationRepository(this._client);
 
-  Future<List<NotificationModel>> getNotifications({String? accountId}) async {
+  /// [offset]/[limit] page the result (default: first 30) — previously this
+  /// had no range() at all, fetching a user's ENTIRE notification history on
+  /// every load. That grows unbounded over time (worse now with the
+  /// moderation-category notices added alongside the existing social/wallet
+  /// ones) and PostgREST silently truncates past its own default row cap
+  /// rather than erroring, so it would eventually just drop older rows with
+  /// no signal to the caller.
+  Future<List<NotificationModel>> getNotifications({
+    String? accountId,
+    int offset = 0,
+    int limit = 30,
+  }) async {
     var query = _client
         .schema('api')
         .from('v1_notifications')
@@ -15,7 +26,9 @@ class NotificationRepository {
       query = query.eq('data->>account_id', accountId);
     }
 
-    final data = await query.order('created_at', ascending: false);
+    final data = await query
+        .order('created_at', ascending: false)
+        .range(offset, offset + limit - 1);
     return (data as List)
         .map((json) => NotificationModel.fromMap(json as Map<String, dynamic>))
         .toList();

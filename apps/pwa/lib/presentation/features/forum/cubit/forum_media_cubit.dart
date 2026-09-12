@@ -282,8 +282,15 @@ class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
   /// `forum_media.forum_media` is partitioned by `created_at` with composite
   /// PK (id, created_at), so the row's `createdAt` must be in the WHERE clause
   /// or the UPDATE/DELETE matches no rows.
-  Future<void> approveMedia(ForumMedia media) async {
-    if (!isModeratorOrOrganizer) return;
+  /// Returns `true` on success, `false` on permission denial or failure.
+  /// isModeratorOrOrganizer (from ForumCubit's role flags) is only a UI fast
+  /// path — the actual gate is social.fn_guard_forum_media_approval's
+  /// is_forum_media_moderator() check, which also grants privilege via
+  /// system-admin status or an account-level can_manage_forum permission
+  /// that isModeratorOrOrganizer can't see. Previously this returned early
+  /// on !isModeratorOrOrganizer, silently blocking exactly those callers
+  /// the server would have allowed. Same convention as ForumCubit.pinMessage.
+  Future<bool> approveMedia(ForumMedia media) async {
     try {
       await Supabase.instance.client
           .schema('social').from('forum_media')
@@ -291,15 +298,22 @@ class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
           .eq('id', media.id)
           .eq('created_at', media.createdAt.toIso8601String());
       await refreshMedia();
+      return true;
     } catch (e, stack) {
       debugPrint('[ForumMediaCubit] Error: $e\n$stack');
       if (!isClosed) emit(state.copyWith(error: e.toString()));
+      return false;
     }
   }
 
-  Future<void> deleteMedia(ForumMedia media) async {
-    final isUploader = media.uploaderId == userId;
-    if (!isModeratorOrOrganizer && !isUploader) return;
+  /// Returns `true` on success, `false` on permission denial or failure.
+  /// The "ForumMedia: delete" RLS policy already allows the uploader, a
+  /// moderator/organizer, an account-level can_manage_forum holder, or a
+  /// system admin — the same broader set as approveMedia's guard. Previously
+  /// gated on `!isModeratorOrOrganizer && !isUploader`, which blocked a
+  /// system-admin/can_manage_forum caller the database would have allowed;
+  /// removed for the same reason as approveMedia above.
+  Future<bool> deleteMedia(ForumMedia media) async {
     try {
       await Supabase.instance.client
           .schema('social').from('forum_media')
@@ -307,22 +321,30 @@ class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
           .eq('id', media.id)
           .eq('created_at', media.createdAt.toIso8601String());
       await refreshMedia();
+      return true;
     } catch (e, stack) {
       debugPrint('[ForumMediaCubit] Error: $e\n$stack');
       if (!isClosed) emit(state.copyWith(error: e.toString()));
+      return false;
     }
   }
 
-  Future<void> reportMedia(ForumMedia media, String reason) async {
+  /// [reasonId] must match a row in reports.report_reasons (e.g. 'spam',
+  /// 'harassment', 'inappropriate', 'likeness_no_consent') — previously
+  /// this always sent the literal string 'general_abuse', which isn't a
+  /// seeded reason, so every report failed its foreign key constraint
+  /// silently (caught below, never surfaced to the caller).
+  Future<void> reportMedia(ForumMedia media, String reasonId) async {
     try {
       await repo.submitReport(
         targetMediaId: media.id,
         targetMediaCreatedAt: media.createdAt.toIso8601String(),
-        reasonId: 'general_abuse',
-        description: reason,
+        reasonId: reasonId,
+        description: 'Reported from media viewer',
       );
     } catch (e, stack) {
       debugPrint('[ForumMediaCubit] reportMedia error: $e\n$stack');
+      rethrow;
     }
   }
 

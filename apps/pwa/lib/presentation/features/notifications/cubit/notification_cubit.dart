@@ -11,6 +11,8 @@ class NotificationCubit extends Cubit<NotificationState> {
   final AccountRepository _accountRepo;
   NotificationCubit(this._repo, this._accountRepo) : super(const NotificationInitial());
 
+  static const int _pageSize = 30;
+
   RealtimeChannel? _channel;
 
   /// Cached per cubit instance (effectively per session) — this doesn't
@@ -30,13 +32,49 @@ class NotificationCubit extends Cubit<NotificationState> {
     try {
       _resolvedAccountId ??= await _accountRepo.resolveOwnerAccountId(uid);
 
-      final notifications =
-          await _repo.getNotifications(accountId: _resolvedAccountId);
+      final notifications = await _repo.getNotifications(
+        accountId: _resolvedAccountId,
+        limit: _pageSize,
+      );
 
-      emit(NotificationLoaded(notifications: notifications));
+      emit(NotificationLoaded(
+        notifications: notifications,
+        hasMore: notifications.length == _pageSize,
+      ));
       _subscribeToNotifications();
     } catch (e) {
       emit(NotificationError(e.toString()));
+    }
+  }
+
+  /// Fetches the next page and appends it. Previously loadNotifications()
+  /// had no pagination at all — every call fetched the account's entire
+  /// notification history — so this is the first page-aware load path;
+  /// the initial page still comes from loadNotifications() above.
+  Future<void> loadMore() async {
+    final currentState = state;
+    if (currentState is! NotificationLoaded) return;
+    if (currentState.isLoadingMore || !currentState.hasMore) return;
+
+    final uid = _userId;
+    if (uid == null) return;
+
+    emit(currentState.copyWith(isLoadingMore: true));
+    try {
+      final nextPage = await _repo.getNotifications(
+        accountId: _resolvedAccountId,
+        offset: currentState.notifications.length,
+        limit: _pageSize,
+      );
+
+      if (isClosed) return;
+      emit(currentState.copyWith(
+        notifications: [...currentState.notifications, ...nextPage],
+        isLoadingMore: false,
+        hasMore: nextPage.length == _pageSize,
+      ));
+    } catch (_) {
+      if (!isClosed) emit(currentState.copyWith(isLoadingMore: false));
     }
   }
 
