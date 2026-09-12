@@ -54,23 +54,29 @@ class NotificationRepository {
         .rpc('bulk_delete_notifications', params: {'p_notification_ids': [id]});
   }
 
+  /// Uses Realtime Broadcast from Database (internal.fn_broadcast_notification_change,
+  /// wired to a per-user `notifications:{user_id}` topic — see
+  /// 07_comms/triggers/comms_triggers.sql) rather than Postgres Changes.
+  /// Postgres Changes re-evaluates RLS on comms.notifications per subscriber
+  /// on every change to the table, a cost that scales with total subscriber
+  /// count; Broadcast instead authorizes once per channel join via a
+  /// dedicated RLS policy on realtime.messages, then just publishes to the
+  /// matching topic — Supabase's now-recommended pattern for this exact
+  /// per-user feed shape. [callback] receives the raw broadcast payload,
+  /// shaped like { event, operation, table, schema, record, old_record } —
+  /// record/old_record mirror Postgres Changes' newRecord/oldRecord.
   RealtimeChannel subscribeToNotifications(
     String userId,
-    void Function(PostgresChangePayload) callback,
+    void Function(Map<String, dynamic>) callback,
   ) {
     return _client
-        .channel('notifications_realtime:$userId')
-        .onPostgresChanges(
-          event: PostgresChangeEvent.all,
-          schema: 'comms',
-          table: 'notifications',
-          filter: PostgresChangeFilter(
-            type: PostgresChangeFilterType.eq,
-            column: 'user_id',
-            value: userId,
-          ),
-          callback: callback,
-        );
+        .channel(
+          'notifications:$userId',
+          opts: const RealtimeChannelConfig(private: true),
+        )
+        .onBroadcast(event: 'INSERT', callback: callback)
+        .onBroadcast(event: 'UPDATE', callback: callback)
+        .onBroadcast(event: 'DELETE', callback: callback);
   }
 
   void unsubscribe(RealtimeChannel channel) {

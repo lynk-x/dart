@@ -88,23 +88,33 @@ class NotificationCubit extends Cubit<NotificationState> {
       ..subscribe();
   }
 
-  void _handleRealtimeUpdate(PostgresChangePayload payload) {
+  /// [payload] comes from Realtime Broadcast from Database
+  /// (internal.fn_broadcast_notification_change), not Postgres Changes —
+  /// shaped { operation, record, old_record, ... }. Unlike Postgres
+  /// Changes' DELETE event (whose old_record RLS truncates to PK-only
+  /// columns once the row is already gone), broadcast_changes() reads OLD
+  /// directly inside the trigger before RLS ever applies, so old_record is
+  /// always the full row here.
+  void _handleRealtimeUpdate(Map<String, dynamic> payload) {
     final currentState = state;
     if (currentState is! NotificationLoaded) return;
+
+    final operation = payload['operation'] as String?;
+    final record = payload['record'] as Map<String, dynamic>?;
+    final oldRecord = payload['old_record'] as Map<String, dynamic>?;
 
     final List<NotificationModel> updatedList =
         List.from(currentState.notifications);
 
-    if (payload.eventType == PostgresChangeEvent.insert) {
-      updatedList.insert(0, NotificationModel.fromMap(payload.newRecord));
-    } else if (payload.eventType == PostgresChangeEvent.update) {
-      final index =
-          updatedList.indexWhere((n) => n.id == payload.newRecord['id']);
+    if (operation == 'INSERT' && record != null) {
+      updatedList.insert(0, NotificationModel.fromMap(record));
+    } else if (operation == 'UPDATE' && record != null) {
+      final index = updatedList.indexWhere((n) => n.id == record['id']);
       if (index != -1) {
-        updatedList[index] = NotificationModel.fromMap(payload.newRecord);
+        updatedList[index] = NotificationModel.fromMap(record);
       }
-    } else if (payload.eventType == PostgresChangeEvent.delete) {
-      updatedList.removeWhere((n) => n.id == payload.oldRecord['id']);
+    } else if (operation == 'DELETE' && oldRecord != null) {
+      updatedList.removeWhere((n) => n.id == oldRecord['id']);
     }
 
     emit(currentState.copyWith(notifications: updatedList));
