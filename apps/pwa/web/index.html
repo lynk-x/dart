@@ -234,38 +234,39 @@
     // Registers the Workbox-generated service-worker.js for offline caching
     // and the firebase-messaging-sw.js for background push notifications.
     //
+    // Update strategy: automatic, reload as soon as a new SW takes control.
+    // A deferred-reload variant (wait for the tab to background and return
+    // before reloading) was tried and reverted: workbox-config.js's
+    // skipWaiting/clientsClaim make the new service worker take control of an
+    // already-open tab immediately regardless of when this page reloads — so
+    // deferring the reload just left the OLD, already-loaded page JS
+    // (main.dart.js/main.dart.wasm, built against the PREVIOUS deploy's file
+    // hashes) running under the NEW service worker's precache manifest and
+    // routes for as long as the tab stayed foregrounded. Any lazy fetch the
+    // old JS made in that window (CanvasKit variants, font fallback chunks,
+    // CDN images) could miss the new precache entirely and fail in confusing
+    // ways (e.g. "Noto fonts" fallback errors, CDN requests erroring out) —
+    // worse than the brief disruption of reloading right away.
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
         // 1. Main SW (Workbox — handles offline caching & app shell)
         navigator.serviceWorker.register('/service-worker.js')
           .catch((err) => console.warn('[SW] Registration failed:', err));
 
-        // A new SW has taken control of this page — a deploy happened while
-        // it was open. Don't reload immediately; wait for a real
-        // backgrounded-then-returned cycle (see visibilitychange below).
-        let updateReady = false;
+        // Reload as soon as a new service worker takes control of this
+        // already-open tab, so the running page JS is never out of sync with
+        // the service worker's precache/routes for longer than a reload
+        // takes. Gated on hasController so a FIRST controllerchange (initial
+        // activation on a fresh load, nothing to reload for) doesn't trigger
+        // one — only a change while a previous worker already had control.
+        let refreshing = false;
         let hasController = !!navigator.serviceWorker.controller;
         navigator.serviceWorker.addEventListener('controllerchange', () => {
-          if (hasController) {
-            updateReady = true;
-          }
-          hasController = true;
-        });
-
-        const MIN_HIDDEN_MS_FOR_UPDATE_RELOAD = 1 * 60 * 1000;
-        let hiddenAt = null;
-        document.addEventListener('visibilitychange', () => {
-          if (document.visibilityState === 'hidden') {
-            hiddenAt = Date.now();
-            return;
-          }
-          if (
-            updateReady &&
-            hiddenAt !== null &&
-            Date.now() - hiddenAt >= MIN_HIDDEN_MS_FOR_UPDATE_RELOAD
-          ) {
+          if (hasController && !refreshing) {
+            refreshing = true;
             window.location.reload();
           }
+          hasController = true;
         });
 
         // 2. Firebase Messaging SW (background push notifications)

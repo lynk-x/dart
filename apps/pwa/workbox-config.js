@@ -33,13 +33,13 @@ module.exports = {
   ],
 
   // ── SW Behaviour ──────────────────────────────────────────────────────────
-  // skipWaiting + clientsClaim = new SW activates immediately on deploy,
-  // so users get the latest code without needing to close all tabs. This
-  // makes the new SW take control of already-open tabs right away — but the
-  // tab itself decides when to actually reload to run the new code (see
-  // web/index.html's controllerchange/visibilitychange handling), rather than
-  // reloading the instant control changes and disrupting an in-progress
-  // session.
+  // skipWaiting + clientsClaim = new SW activates and takes control of
+  // already-open tabs immediately on deploy. web/index.html reloads each such
+  // tab as soon as that happens (controllerchange) — the two must stay
+  // paired: skipWaiting without an immediate reload leaves the OLD,
+  // already-loaded page JS running under the NEW service worker's precache
+  // manifest/routes, and any lazy fetch the old JS makes (fonts, CanvasKit
+  // variants, CDN images) can miss the new precache and fail outright.
   skipWaiting: true,
   clientsClaim: true,
 
