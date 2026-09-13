@@ -19,7 +19,7 @@ module.exports = {
   // Glob every static asset Flutter produces. Workbox hashes each file and
   // only re-downloads files that actually changed between deploys.
   globPatterns: [
-    '**/*.{js,mjs,wasm,html,css,png,svg,webp,json,woff2,ico}',
+    '**/*.{js,mjs,wasm,html,css,png,svg,webp,json,woff2,otf,ttf,ico}',
   ],
 
   // Exclude files that should never be pre-cached:
@@ -34,7 +34,12 @@ module.exports = {
 
   // ── SW Behaviour ──────────────────────────────────────────────────────────
   // skipWaiting + clientsClaim = new SW activates immediately on deploy,
-  // so users get the latest code without needing to close all tabs.
+  // so users get the latest code without needing to close all tabs. This
+  // makes the new SW take control of already-open tabs right away — but the
+  // tab itself decides when to actually reload to run the new code (see
+  // web/index.html's controllerchange/visibilitychange handling), rather than
+  // reloading the instant control changes and disrupting an in-progress
+  // session.
   skipWaiting: true,
   clientsClaim: true,
 
@@ -61,12 +66,15 @@ module.exports = {
     },
 
     // ── Google Fonts: Stale-while-revalidate ─────────────────────────────────
-    // Serve cached fonts instantly, update in the background.
+    // Serve cached fonts instantly, update in the background. cacheableResponse
+    // guards against caching a transient failure (e.g. a 4xx/5xx blip) and then
+    // serving that same failure back for up to a year.
     {
       urlPattern: /^https:\/\/fonts\.googleapis\.com/,
       handler: 'StaleWhileRevalidate',
       options: {
         cacheName: 'google-fonts-stylesheets',
+        cacheableResponse: { statuses: [0, 200] },
         expiration: {
           maxEntries: 10,
           maxAgeSeconds: 60 * 60 * 24 * 365, // 1 year
@@ -78,6 +86,7 @@ module.exports = {
       handler: 'CacheFirst',
       options: {
         cacheName: 'google-fonts-webfonts',
+        cacheableResponse: { statuses: [0, 200] },
         expiration: {
           maxEntries: 30,
           maxAgeSeconds: 60 * 60 * 24 * 365, // 1 year
@@ -85,35 +94,44 @@ module.exports = {
       },
     },
 
-    // ── Supabase Storage (CDN images/videos): Cache-first ────────────────────
-    // Forum media, profile avatars, event posters are served from Supabase
-    // Storage CDN. Cache them aggressively to avoid re-downloading large files.
-    {
-      urlPattern: /\.supabase\.co\/storage\/v1\/object\/public\//,
-      handler: 'CacheFirst',
-      options: {
-        cacheName: 'supabase-storage-cdn',
-        expiration: {
-          maxEntries: 200,
-          maxAgeSeconds: 60 * 60 * 24 * 30, // 30 days
-        },
-      },
-    },
-
-    // ── Embedding model (R2-hosted): Cache-first ─────────────────────────────
+    // ── Embedding model (R2-hosted, via cdn.lynk-x.app/models/): Cache-first ──
     // The quantized ONNX weights + tokenizer for client-side embedding
     // generation (~123MB) are immutable once uploaded — cache aggressively so
     // they're only ever downloaded once per device. Scoped to /models/ rather
-    // than the whole cdn.lynk-x.app host, which also serves user media that
-    // shouldn't get this same long-lived treatment.
+    // than the whole cdn.lynk-x.app host, which also serves user media (see
+    // the general-media rule below) that shouldn't get this same long-lived
+    // treatment. Must come before that rule — Workbox uses the first matching
+    // entry, and /models/ also matches the broader host pattern.
     {
       urlPattern: /^https:\/\/cdn\.lynk-x\.app\/models\//,
       handler: 'CacheFirst',
       options: {
         cacheName: 'embedding-model',
+        cacheableResponse: { statuses: [0, 200] },
         expiration: {
           maxEntries: 10,
           maxAgeSeconds: 60 * 60 * 24 * 365, // 1 year
+        },
+      },
+    },
+
+    // ── User media (cdn.lynk-x.app, Cloudflare CDN + R2): Cache-first ────────
+    // Forum media, profile avatars, and event posters are served from R2 via
+    // Cloudflare's CDN (see ImageOptimizer, which routes them through
+    // /cdn-cgi/image/... for on-the-fly resizing) — this replaced the old
+    // Supabase Storage CDN, which no longer serves any of this media. Cached
+    // for 30 days rather than the embedding model's 1 year, since this content
+    // can change (a re-uploaded avatar, a deleted forum photo) in ways the
+    // immutable model weights above never do.
+    {
+      urlPattern: /^https:\/\/cdn\.lynk-x\.app\//,
+      handler: 'CacheFirst',
+      options: {
+        cacheName: 'lynkx-cdn-media',
+        cacheableResponse: { statuses: [0, 200] },
+        expiration: {
+          maxEntries: 200,
+          maxAgeSeconds: 60 * 60 * 24 * 30, // 30 days
         },
       },
     },

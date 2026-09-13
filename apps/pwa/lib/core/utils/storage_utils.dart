@@ -3,8 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 /// Extract storage path from a URL or key, keeping the bucket/folder prefix.
-/// E.g. https://xxxx.supabase.co/storage/v1/object/public/forum_media/forum_uuid/file_uuid.ext -> "forum_media/forum_uuid/file_uuid.ext"
-/// Or https://cdn.lynk-x.app/forum_media/forum_uuid/file_uuid.ext -> "forum_media/forum_uuid/file_uuid.ext"
+/// E.g. https://cdn.lynk-x.app/forum_media/forum_uuid/file_uuid.ext -> "forum_media/forum_uuid/file_uuid.ext"
 /// Or "forum_media/forum_uuid/file_uuid.ext" -> "forum_media/forum_uuid/file_uuid.ext"
 String getPathFromStorageUrl(String url, String bucket) {
   if (url.isEmpty) return '';
