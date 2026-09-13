@@ -467,7 +467,7 @@ class _AccountPageState extends State<AccountPage> {
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.support_agent_rounded,
+            icon: const Icon(Icons.chat_bubble_outline_rounded,
                 color: Colors.white70),
             tooltip: 'Support',
             onPressed: () => context.push('/support?context=general'),
@@ -542,6 +542,9 @@ class _AccountPageState extends State<AccountPage> {
                   title: 'Country',
                   subtitle: _getCountryName(profile.countryCode),
                   icon: Icons.public_rounded,
+                  leadingWidget: profile.countryCode != null
+                      ? _buildFlag(profile.countryCode)
+                      : null,
                   onTap: () => _showCountryPicker(context, profile.countryCode),
                   trailing: const Icon(Icons.chevron_right_rounded,
                       color: Colors.white24),
