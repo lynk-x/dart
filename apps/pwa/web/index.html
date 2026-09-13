@@ -219,16 +219,31 @@
     setTimeout(removeLoader, 8000);
 
     // ── Mobile PWA Resume & WebGL Context Restoration Safeguard ─────────────
-    // Minimizing/backgrounding the mobile PWA can purge GPU textures or lose WebGL context.
-    // On resume, dispatch a synthetic resize event so Flutter Web repaints the canvas.
+    // Minimizing/backgrounding the mobile PWA (especially iOS, which is
+    // aggressive about reclaiming GPU memory from backgrounded web content)
+    // can lose the WebGL context CanvasKit renders through, leaving a black
+    // screen on resume. Two things have to both be true for recovery to work:
+    //   1. The page's 'webglcontextlost' handler must call preventDefault() —
+    //      without that, the browser never even attempts to restore the
+    //      context, so 'webglcontextrestored' below could never fire at all.
+    //   2. Both listeners must be registered with { capture: true }.
+    //      WebGL context-loss events fire on the <canvas> element and do NOT
+    //      bubble up to window by default — CanvasKit creates that canvas
+    //      dynamically, so there's no element here to attach a bubble-phase
+    //      listener to directly. Capturing on window catches the event during
+    //      the capture phase (top-down) regardless of where in the DOM it
+    //      originates, which works even for a non-bubbling event.
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'visible') {
         window.dispatchEvent(new Event('resize'));
       }
     });
+    window.addEventListener('webglcontextlost', (event) => {
+      event.preventDefault();
+    }, { capture: true });
     window.addEventListener('webglcontextrestored', () => {
       window.dispatchEvent(new Event('resize'));
-    });
+    }, { capture: true });
 
     // ── Service Worker Registration ──────────────────────────────────────────
     // Registers the Workbox-generated service-worker.js for offline caching
