@@ -5,10 +5,14 @@ import 'widgets/custom_text_field.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../src/utils/friendly_error.dart';
 
-/// Phone number + OTP is the only way in — no password, no email, no OAuth.
-/// A single `signInWithOtp(phone: ...)` call covers both new and returning
-/// users (`shouldCreateUser: true`), so there's no separate login/signup mode
-/// to toggle between; the code-verification step is the only second screen.
+enum _LoginMode { email, phone }
+
+/// Email + OTP is the primary way in, with phone + OTP as an alternative for
+/// users who'd rather not share an email — no password, no OAuth. A single
+/// `signInWithOtp(...)` call covers both new and returning users
+/// (`shouldCreateUser: true`), so there's no separate login/signup mode to
+/// toggle between; the code-verification step is the only second screen,
+/// for either identifier.
 class AuthPage extends StatefulWidget {
   const AuthPage({super.key});
 
@@ -17,15 +21,36 @@ class AuthPage extends StatefulWidget {
 }
 
 class _AuthPageState extends State<AuthPage> {
+  _LoginMode _mode = _LoginMode.email;
   String? _pendingPhone;
+  String? _pendingEmail;
 
-  void _onCodeSent(String phone) {
-    setState(() => _pendingPhone = phone);
+  void _onCodeSent(String identifier) {
+    setState(() {
+      if (_mode == _LoginMode.phone) {
+        _pendingPhone = identifier;
+      } else {
+        _pendingEmail = identifier;
+      }
+    });
   }
 
-  void _onBackToPhone() {
-    setState(() => _pendingPhone = null);
+  void _onBack() {
+    setState(() {
+      _pendingPhone = null;
+      _pendingEmail = null;
+    });
   }
+
+  void _switchMode(_LoginMode mode) {
+    setState(() {
+      _mode = mode;
+      _pendingPhone = null;
+      _pendingEmail = null;
+    });
+  }
+
+  bool get _isPending => _pendingPhone != null || _pendingEmail != null;
 
   @override
   Widget build(BuildContext context) {
@@ -50,7 +75,7 @@ class _AuthPageState extends State<AuthPage> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    _pendingPhone == null ? 'Already Have The Tickets?' : 'Welcome back',
+                    !_isPending ? 'Already Have The Tickets?' : 'Welcome back',
                     textAlign: TextAlign.center,
                     style: const TextStyle(
                       color: Colors.white,
@@ -60,9 +85,13 @@ class _AuthPageState extends State<AuthPage> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    _pendingPhone == null
-                        ? 'Enter the phone number you use for checkout for an OTP'
-                        : 'We sent a code to $_pendingPhone.',
+                    _pendingPhone != null
+                        ? 'We sent a code to $_pendingPhone.'
+                        : _pendingEmail != null
+                            ? 'We sent a code to $_pendingEmail.'
+                            : _mode == _LoginMode.phone
+                                ? 'Enter the phone number you use for checkout for an OTP'
+                                : 'Enter the email you use for checkout for an OTP',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: Colors.white.withValues(alpha: 0.8),
@@ -71,13 +100,73 @@ class _AuthPageState extends State<AuthPage> {
                     ),
                   ),
                   const SizedBox(height: 24),
-                  if (_pendingPhone == null)
-                    _PhoneForm(onCodeSent: _onCodeSent)
+                  if (!_isPending) ...[
+                    _ModeToggle(mode: _mode, onChanged: _switchMode),
+                    const SizedBox(height: 16),
+                    _mode == _LoginMode.phone
+                        ? _PhoneForm(onCodeSent: _onCodeSent)
+                        : _EmailForm(onCodeSent: _onCodeSent),
+                  ] else if (_pendingPhone != null)
+                    _OtpForm(
+                      identifier: _pendingPhone!,
+                      type: OtpType.sms,
+                      onBack: _onBack,
+                    )
                   else
-                    _OtpForm(phone: _pendingPhone!, onBack: _onBackToPhone),
+                    _OtpForm(
+                      identifier: _pendingEmail!,
+                      type: OtpType.email,
+                      onBack: _onBack,
+                    ),
                 ],
               ),
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ModeToggle extends StatelessWidget {
+  final _LoginMode mode;
+  final ValueChanged<_LoginMode> onChanged;
+  const _ModeToggle({required this.mode, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          Expanded(child: _buildTab(context, 'Email', _LoginMode.email)),
+          Expanded(child: _buildTab(context, 'Phone', _LoginMode.phone)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTab(BuildContext context, String label, _LoginMode tabMode) {
+    final isSelected = mode == tabMode;
+    return GestureDetector(
+      onTap: () => onChanged(tabMode),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        decoration: BoxDecoration(
+          color: isSelected ? Colors.white : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Text(
+          label,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: isSelected ? Colors.black : Colors.white70,
+            fontWeight: FontWeight.w600,
+            fontSize: 14,
           ),
         ),
       ),
@@ -275,10 +364,83 @@ class _PhoneFormState extends State<_PhoneForm> {
   }
 }
 
+class _EmailForm extends StatefulWidget {
+  final ValueChanged<String> onCodeSent;
+  const _EmailForm({required this.onCodeSent});
+
+  @override
+  State<_EmailForm> createState() => _EmailFormState();
+}
+
+class _EmailFormState extends State<_EmailForm> {
+  final _emailController = TextEditingController();
+  bool _isLoading = false;
+
+  static final _emailPattern = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
+
+  Future<void> _sendCode() async {
+    final email = _emailController.text.trim().toLowerCase();
+    if (!_emailPattern.hasMatch(email)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter a valid email address')),
+      );
+      return;
+    }
+    setState(() => _isLoading = true);
+    try {
+      await Supabase.instance.client.auth.signInWithOtp(
+        email: email,
+        // Tags a first-time signup so internal.handle_new_user() knows to
+        // auto-provision an attendee profile+account atomically. Ignored by
+        // GoTrue for an existing user (login, not signup) — safe to always send.
+        data: const {'account_type': 'attendee'},
+      );
+      if (mounted) widget.onCodeSent(email);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toFriendlyMessage()), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        CustomTextField(
+          hintText: 'Email address',
+          controller: _emailController,
+          keyboardType: TextInputType.emailAddress,
+          suffixIcon: Icon(
+            Icons.email_outlined,
+            color: Colors.grey[600],
+            size: 20,
+          ),
+        ),
+        const SizedBox(height: 12),
+        PrimaryButton(
+          text: 'Send Code',
+          onPressed: _sendCode,
+          isLoading: _isLoading,
+        ),
+      ],
+    );
+  }
+}
+
+/// Verifies the code sent to either a phone number or an email address —
+/// [type] selects which, and [identifier] is passed as the matching
+/// `phone`/`email` param to both `verifyOTP` and the resend `signInWithOtp`.
 class _OtpForm extends StatefulWidget {
-  final String phone;
+  final String identifier;
+  final OtpType type;
   final VoidCallback onBack;
-  const _OtpForm({required this.phone, required this.onBack});
+  const _OtpForm({required this.identifier, required this.type, required this.onBack});
 
   @override
   State<_OtpForm> createState() => _OtpFormState();
@@ -288,10 +450,12 @@ class _OtpFormState extends State<_OtpForm> {
   final _codeController = TextEditingController();
   bool _isLoading = false;
   bool _isResending = false;
-
+  bool _hasFailed = false;
 
   int _resendCooldown = 30;
   Timer? _cooldownTimer;
+
+  bool get _isPhone => widget.type == OtpType.sms;
 
   @override
   void initState() {
@@ -329,15 +493,17 @@ class _OtpFormState extends State<_OtpForm> {
     setState(() => _isLoading = true);
     try {
       await Supabase.instance.client.auth.verifyOTP(
-        phone: widget.phone,
+        phone: _isPhone ? widget.identifier : null,
+        email: _isPhone ? null : widget.identifier,
         token: code,
-        type: OtpType.sms,
+        type: widget.type,
       );
       // Successful verification updates the auth session; app.dart's
       // onAuthStateChange listener (signedIn) takes over from here — no
       // explicit navigation needed, the router redirect will pick it up.
     } catch (e) {
       if (mounted) {
+        setState(() => _hasFailed = true);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(e.toFriendlyMessage()), backgroundColor: Colors.red),
         );
@@ -347,12 +513,43 @@ class _OtpFormState extends State<_OtpForm> {
     }
   }
 
+  Future<void> _reportIssue() async {
+    final message = await showDialog<String>(
+      context: context,
+      builder: (context) => _ReportLoginIssueDialog(identifier: widget.identifier),
+    );
+    if (message == null || !mounted) return;
+
+    try {
+      await Supabase.instance.client.schema('api').from('v1_support_tickets').insert({
+        'email': _isPhone ? null : widget.identifier,
+        'phone': _isPhone ? widget.identifier : null,
+        'subject': 'Failed login (${_isPhone ? 'phone' : 'email'} OTP)',
+        'message': message.trim().isEmpty
+            ? 'User could not verify their OTP code.'
+            : message.trim(),
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Thanks — our team will look into this.')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toFriendlyMessage()), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
   Future<void> _resend() async {
     setState(() => _isResending = true);
     try {
       await Supabase.instance.client.auth.signInWithOtp(
-        phone: widget.phone,
-        channel: OtpChannel.sms,
+        phone: _isPhone ? widget.identifier : null,
+        email: _isPhone ? null : widget.identifier,
+        channel: OtpChannel.sms, // ignored by the SDK when email is set
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -398,9 +595,9 @@ class _OtpFormState extends State<_OtpForm> {
           children: [
             TextButton(
               onPressed: widget.onBack,
-              child: const Text(
-                'Change number',
-                style: TextStyle(color: Colors.white70, fontSize: 14),
+              child: Text(
+                _isPhone ? 'Change number' : 'Change email',
+                style: const TextStyle(color: Colors.white70, fontSize: 14),
               ),
             ),
             TextButton(
@@ -419,6 +616,78 @@ class _OtpFormState extends State<_OtpForm> {
               ),
             ),
           ],
+        ),
+        if (_hasFailed) ...[
+          const SizedBox(height: 24),
+          Center(
+            child: TextButton(
+              onPressed: _reportIssue,
+              child: const Text(
+                'Trouble logging in? Report an issue',
+                style: TextStyle(color: Colors.white54, fontSize: 13, decoration: TextDecoration.underline),
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+/// Collects an optional message before submitting a login-failure report —
+/// the phone/email is already known (widget.identifier) and sent silently,
+/// so the user only ever types what went wrong, if anything.
+class _ReportLoginIssueDialog extends StatefulWidget {
+  final String identifier;
+  const _ReportLoginIssueDialog({required this.identifier});
+
+  @override
+  State<_ReportLoginIssueDialog> createState() => _ReportLoginIssueDialogState();
+}
+
+class _ReportLoginIssueDialogState extends State<_ReportLoginIssueDialog> {
+  final _messageController = TextEditingController();
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: const Color(0xFF1A1A1A),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      title: const Text('Report a Login Issue', style: TextStyle(color: Colors.white)),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'We\'ll include ${widget.identifier} so our team can look into your account.',
+            style: const TextStyle(color: Colors.white70, fontSize: 13),
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _messageController,
+            maxLines: 4,
+            style: const TextStyle(color: Colors.white),
+            decoration: InputDecoration(
+              hintText: 'What happened? (optional)',
+              hintStyle: const TextStyle(color: Colors.white30),
+              filled: true,
+              fillColor: Colors.white.withValues(alpha: 0.05),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide.none,
+              ),
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel', style: TextStyle(color: Colors.white54)),
+        ),
+        TextButton(
+          onPressed: () => Navigator.pop(context, _messageController.text),
+          child: const Text('Submit', style: TextStyle(color: Color(0xFF00FF00))),
         ),
       ],
     );
