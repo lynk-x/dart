@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'sync_item.dart';
 
@@ -40,12 +42,15 @@ class SyncManager {
   }
   static final instance = SyncManager._();
 
+  static const String _kQueueStorageKey = 'sync_manager_queue';
+
   final List<SyncItem> _queue = [];
 
   /// Item IDs paused pending manual conflict resolution.
   final Set<String> _pausedIds = {};
 
   bool _isSyncing = false;
+  bool _isInitialized = false;
 
   /// Exposes the current number of pending items queued for sync.
   final ValueNotifier<int> pendingCountNotifier = ValueNotifier<int>(0);
@@ -72,6 +77,44 @@ class SyncManager {
     });
   }
 
+  /// Loads any queue items persisted from a previous session (e.g. actions
+  /// still pending when the app was closed or lost connectivity) and resumes
+  /// processing. Call once at app startup, before any [addWork] calls.
+  Future<void> init() async {
+    if (_isInitialized) return;
+    _isInitialized = true;
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final jsonStr = prefs.getString(_kQueueStorageKey);
+      if (jsonStr == null || jsonStr.isEmpty) return;
+
+      final decoded = jsonDecode(jsonStr) as List;
+      _queue.addAll(
+        decoded.map((e) => SyncItem.fromMap(Map<String, dynamic>.from(e as Map))),
+      );
+      _updatePendingCount();
+      debugPrint('[SyncManager] Restored ${_queue.length} queued item(s) from previous session.');
+      _processQueue();
+    } catch (e, stack) {
+      debugPrint('[SyncManager] init() failed to load persisted queue: $e\n$stack');
+    }
+  }
+
+  Future<void> _persistQueue() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (_queue.isEmpty) {
+        await prefs.remove(_kQueueStorageKey);
+        return;
+      }
+      final encoded = _queue.map((item) => item.toMap()).toList();
+      await prefs.setString(_kQueueStorageKey, jsonEncode(encoded));
+    } catch (e, stack) {
+      debugPrint('[SyncManager] Failed to persist queue: $e\n$stack');
+    }
+  }
+
   void dispose() {
     _connectivitySub?.cancel();
     _statusController.close();
@@ -84,6 +127,7 @@ class SyncManager {
   void addWork(SyncItem item) {
     _queue.add(item);
     _updatePendingCount();
+    _persistQueue();
     _processQueue();
   }
 
@@ -104,6 +148,7 @@ class SyncManager {
     if (resolution == ConflictResolution.discardClient) {
       _queue.removeAt(idx);
       _updatePendingCount();
+      _persistQueue();
       _statusController.add({itemId: false});
     } else {
       _processQueue();
@@ -139,11 +184,13 @@ class SyncManager {
         if (outcome == _ExecuteOutcome.success) {
           _queue.removeAt(0);
           _updatePendingCount();
+          _persistQueue();
           _statusController.add({item.id: true});
         } else if (outcome == _ExecuteOutcome.conflictServerWins) {
           // Server won — revert the optimistic UI state.
           _queue.removeAt(0);
           _updatePendingCount();
+          _persistQueue();
           _statusController.add({item.id: false});
         } else if (outcome == _ExecuteOutcome.conflictManual) {
           // Paused — do not advance the queue until resolved.
@@ -157,9 +204,11 @@ class SyncManager {
         if (_queue[0].retryCount >= 5) {
           _queue.removeAt(0);
           _updatePendingCount();
+          _persistQueue();
           _statusController.add({item.id: false});
           debugPrint('[SyncManager] Discarded ${item.id} after max retries');
         } else {
+          _persistQueue();
           break; // Back off; retry on next triggerSync call or timer
         }
       }

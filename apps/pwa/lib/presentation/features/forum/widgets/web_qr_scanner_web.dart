@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:js_interop';
 import 'dart:ui_web' as ui_web;
 import 'package:flutter/material.dart';
+import 'package:lynk_core/core.dart';
 import 'package:web/web.dart' as web;
 
 @JS('window.flutterQrScanner.start')
@@ -154,7 +155,7 @@ class _WebQrScannerState extends State<WebQrScanner> {
       }
     } catch (e) {
       debugPrint('Failed to start web QR scanner: $e');
-      widget.onError?.call(e.toString());
+      widget.onError?.call(e.toFriendlyMessage());
     }
   }
 

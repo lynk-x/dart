@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:lynk_core/core.dart';
 import 'package:lynk_x/data/repositories/repositories.dart';
 import 'quiz_state.dart';
 
@@ -47,8 +48,8 @@ class QuizCubit extends Cubit<QuizState> {
         await fetchLeaderboard();
       }
     } catch (e) {
-      emit(
-          state.copyWith(status: QuizStatus.error, errorMessage: e.toString()));
+      emit(state.copyWith(
+          status: QuizStatus.error, errorMessage: e.toFriendlyMessage()));
     }
   }
 

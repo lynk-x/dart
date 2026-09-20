@@ -108,7 +108,7 @@ class _WalletSettingsPageState extends State<WalletSettingsPage> {
         if (!didAuth) return;
       } catch (e) {
         if (mounted) {
-          AppSnackBars.showError(context, 'Verification failed: ${e.toString()}');
+          AppSnackBars.showError(context, 'Verification failed: ${e.toFriendlyMessage()}');
         }
         return;
       }

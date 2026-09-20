@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -7,6 +8,7 @@ import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
 import 'package:flutter_web_plugins/url_strategy.dart';
 import 'app.dart';
+import 'core/sync/sync_manager.dart';
 
 /// Fallback [Storage] used when [HydratedStorage.build] fails (e.g.
 /// IndexedDB unavailable in private/incognito mode, or blocked by a
@@ -87,6 +89,8 @@ void main() async {
         ? supabaseAnonKey
         : 'placeholder_publishable_key';
     await Supabase.initialize(url: url, publishableKey: key);
+    // Resume any offline actions queued before the app was last closed.
+    unawaited(SyncManager.instance.init());
   } catch (e) {
     debugPrint('[Main] Supabase initialization failed: $e');
   }

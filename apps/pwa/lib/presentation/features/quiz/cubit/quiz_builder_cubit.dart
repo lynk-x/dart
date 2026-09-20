@@ -1,4 +1,5 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:lynk_core/core.dart';
 import 'package:lynk_x/data/repositories/quiz_repository.dart';
 import '../models/quiz_builder_model.dart';
 import 'quiz_builder_state.dart';
@@ -184,7 +185,7 @@ class QuizBuilderCubit extends Cubit<QuizBuilderState> {
         createdMessageCreatedAt: result.createdAt,
       ));
     } catch (e) {
-      emit(state.copyWith(isSaving: false, error: e.toString()));
+      emit(state.copyWith(isSaving: false, error: e.toFriendlyMessage()));
     }
   }
 }

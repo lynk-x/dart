@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:lynk_core/core.dart';
 
 import 'package:lynk_x/data/repositories/repositories.dart';
 import 'notification_state.dart';
@@ -43,7 +44,7 @@ class NotificationCubit extends Cubit<NotificationState> {
       ));
       _subscribeToNotifications();
     } catch (e) {
-      emit(NotificationError(e.toString()));
+      emit(NotificationError(e.toFriendlyMessage()));
     }
   }
 

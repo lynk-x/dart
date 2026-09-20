@@ -237,7 +237,7 @@ class _MediaViewerState extends State<MediaViewer> {
       }
     } catch (e) {
       if (!mounted) return;
-      AppSnackBars.showError(context, 'Download failed: ${e.toString()}');
+      AppSnackBars.showError(context, 'Download failed: ${e.toFriendlyMessage()}');
     }
   }
 

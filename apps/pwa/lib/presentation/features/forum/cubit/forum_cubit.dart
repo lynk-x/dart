@@ -337,13 +337,14 @@ class ForumCubit extends Cubit<ForumState> {
   /// Returns `true` on success, `false` if permission denied or RPC failed.
   /// Only organizers may promote members to moderator — mirrors banUser's
   /// gate, and the backend independently enforces this via
-  /// internal.fn_guard_forum_member_role (a BEFORE UPDATE trigger on
-  /// social.forum_members) since this check alone is UI-only.
+  /// social.promote_forum_member (SECURITY DEFINER RPC, not a raw table
+  /// UPDATE — see ForumRepository.promoteForumMember for why) since this
+  /// check alone is UI-only.
   Future<bool> makeModerator(String userIdToPromote) async {
     final fId = forumId;
     if (!state.isOrganizer || fId == null) return false;
     try {
-      await _repo.updateMemberRole(fId, userIdToPromote, 'moderator');
+      await _repo.promoteForumMember(fId, userIdToPromote);
       return true;
     } catch (e, stack) {
       debugPrint('[ForumCubit] makeModerator error: $e\n$stack');

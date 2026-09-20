@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import 'package:lynk_core/core.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -25,11 +26,13 @@ enum FeedbackMode {
 class TicketScannerSheet extends StatefulWidget {
   final String eventId;
   final DateTime eventCreatedAt;
+  final String? forumReference;
 
   const TicketScannerSheet({
     super.key,
     required this.eventId,
     required this.eventCreatedAt,
+    this.forumReference,
   });
 
   @override
@@ -432,18 +435,19 @@ class _TicketScannerSheetState extends State<TicketScannerSheet> {
     } catch (e) {
       _triggerFeedback(isSuccess: false);
       final String cleanCode = TicketModel.formatCleanReference(code);
+      final String friendlyMessage = e.toFriendlyMessage();
 
       final item = ScanHistoryItem(
         code: cleanCode,
         status: ScanStatus.error,
-        errorMessage: e.toString(),
+        errorMessage: friendlyMessage,
         timestamp: DateTime.now(),
       );
       if (mounted) {
         context.read<TicketValidationCubit>().addScanHistoryItem(item);
         setState(() {
           _status = ScanStatus.error;
-          _errorMessage = e.toString();
+          _errorMessage = friendlyMessage;
         });
       }
     }
@@ -667,10 +671,25 @@ class _TicketScannerSheetState extends State<TicketScannerSheet> {
     return '$hour:$minute';
   }
 
+  void _backToForum(BuildContext context) {
+    final ref = widget.forumReference;
+    if (ref != null && ref.isNotEmpty) {
+      context.go('/forum/$ref');
+    } else if (context.canPop()) {
+      context.pop();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        _backToForum(context);
+      },
+      child: Scaffold(
       backgroundColor: Colors.black,
       endDrawer: BlocBuilder<TicketValidationCubit, TicketValidationState>(
         builder: (context, state) {
@@ -1106,7 +1125,8 @@ class _TicketScannerSheetState extends State<TicketScannerSheet> {
               ),
             ],
           ),
-        );
+        ),
+      );
   }
 
   Widget _buildResultCard({

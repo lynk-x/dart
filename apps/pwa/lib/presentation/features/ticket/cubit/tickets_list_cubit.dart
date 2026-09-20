@@ -1,5 +1,6 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:lynk_core/core.dart';
 import 'package:lynk_x/data/repositories/repositories.dart';
 import 'package:lynk_x/presentation/features/ticket/models/ticket_model.dart';
 import 'package:lynk_x/presentation/features/ticket/utils/ticket_cache.dart';
@@ -99,7 +100,7 @@ class TicketsListCubit extends Cubit<TicketsListState> {
     } catch (e) {
       // 3. If cached tickets exist, preserve offline view gracefully
       if (state.tickets.isEmpty) {
-        emit(state.copyWith(isLoading: false, error: e.toString()));
+        emit(state.copyWith(isLoading: false, error: e.toFriendlyMessage()));
       } else {
         emit(state.copyWith(isLoading: false));
       }
@@ -142,7 +143,7 @@ class TicketsListCubit extends Cubit<TicketsListState> {
         ));
       }
     } catch (e) {
-      emit(state.copyWith(isLoadingMore: false, error: e.toString()));
+      emit(state.copyWith(isLoadingMore: false, error: e.toFriendlyMessage()));
     }
   }
 
