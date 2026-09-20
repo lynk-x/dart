@@ -199,20 +199,23 @@ class ForumCubit extends Cubit<ForumState> {
             .map((e) => e as Map<String, dynamic>)
             .toList(growable: false);
 
-        // Same {'user_profile': {...}} shape refreshMembers() produces, so
-        // downstream widgets consuming state.members don't need to change.
+        // Flat shape — {id, user_name, avatar_url, is_premium, role_id,
+        // is_organizer, is_moderator} — matching what refreshMembers()
+        // actually puts into state.members (it unwraps the repository's
+        // {'user_profile': {...}} wrapper before emitting; downstream
+        // consumers like PresenceDrawer._buildMergedRoster and
+        // message_input.dart's @mention autocomplete both read top-level
+        // keys, not member['user_profile']['id']).
         membersFromDb = membersData
             .map((e) => e as Map<String, dynamic>)
             .map((m) => {
-                  'user_profile': {
-                    'id': m['user_id'],
-                    'user_name': m['user_name'],
-                    'avatar_url': m['avatar_url'],
-                    'is_premium': m['is_premium'],
-                    'role_id': m['role_id'],
-                    'is_organizer': m['role_id'] == 'organizer',
-                    'is_moderator': m['role_id'] == 'moderator',
-                  }
+                  'id': m['user_id'],
+                  'user_name': m['user_name'],
+                  'avatar_url': m['avatar_url'],
+                  'is_premium': m['is_premium'],
+                  'role_id': m['role_id'],
+                  'is_organizer': m['role_id'] == 'organizer',
+                  'is_moderator': m['role_id'] == 'moderator',
                 })
             .toList(growable: false);
       } catch (e) {
