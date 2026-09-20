@@ -57,14 +57,11 @@ class ForumRepository {
         .update({'status': status}).eq('id', forumId);
   }
 
-  Future<void> updateMemberRole(
-      String forumId, String userId, String roleId) async {
-    await _client
-        .schema('social')
-        .from('forum_members')
-        .update({'role_id': roleId})
-        .eq('forum_id', forumId)
-        .eq('user_id', userId);
+  Future<void> promoteForumMember(String forumId, String userId) async {
+    await _client.schema('api').rpc('promote_forum_member', params: {
+      'p_forum_id': forumId,
+      'p_target_user_id': userId,
+    });
   }
 
   Future<void> markForumAsRead(String forumId) async {

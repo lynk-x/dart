@@ -194,6 +194,7 @@ GoRouter createRouter(
           GoRoute(
             path: 'scanner',
             builder: (context, state) {
+              final forumReference = state.pathParameters['reference'];
               final extras = state.extra as Map<String, dynamic>?;
               final eventId = state.uri.queryParameters['eventId'] ?? extras?['eventId'] as String?;
               final eventCreatedAtRaw = state.uri.queryParameters['eventCreatedAt'] ?? extras?['eventCreatedAt'];
@@ -227,6 +228,7 @@ GoRouter createRouter(
                     body: TicketScannerSheet(
                       eventId: eventId,
                       eventCreatedAt: eventCreatedAt,
+                      forumReference: forumReference,
                     ),
                   ),
                 ),

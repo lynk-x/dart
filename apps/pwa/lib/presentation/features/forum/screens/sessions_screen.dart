@@ -49,38 +49,54 @@ class SessionsView extends StatelessWidget {
     this.forumReference,
   });
 
+  void _backToForum(BuildContext context) {
+    final ref = forumReference;
+    if (ref != null && ref.isNotEmpty) {
+      context.go('/forum/$ref');
+    } else if (context.canPop()) {
+      context.pop();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.primaryBackground,
-      appBar: AppBar(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        _backToForum(context);
+      },
+      child: Scaffold(
         backgroundColor: AppColors.primaryBackground,
-        elevation: 0,
-        centerTitle: true,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white, size: 32),
-          onPressed: () => context.pop(),
-        ),
-        title: Text(
-          'Event Schedule',
-          style: AppTypography.interTight(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
+        appBar: AppBar(
+          backgroundColor: AppColors.primaryBackground,
+          elevation: 0,
+          centerTitle: true,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back, color: Colors.white, size: 32),
+            onPressed: () => _backToForum(context),
           ),
-        ),
-        actions: [
-          if (isOrganizer)
-            IconButton(
-              icon: Icon(Icons.add, color: context.accentColor, size: 32),
-              onPressed: () => _showSessionEditor(context),
+          title: Text(
+            'Event Schedule',
+            style: AppTypography.interTight(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
             ),
-        ],
-      ),
-      body: BlocBuilder<ForumSessionsCubit, ForumSessionsState>(
-        builder: (context, state) {
-          return SkeletonFade(child: _buildBody(context, state));
-        },
+          ),
+          actions: [
+            if (isOrganizer)
+              IconButton(
+                icon: Icon(Icons.add, color: context.accentColor, size: 32),
+                onPressed: () => _showSessionEditor(context),
+              ),
+          ],
+        ),
+        body: BlocBuilder<ForumSessionsCubit, ForumSessionsState>(
+          builder: (context, state) {
+            return SkeletonFade(child: _buildBody(context, state));
+          },
+        ),
       ),
     );
   }

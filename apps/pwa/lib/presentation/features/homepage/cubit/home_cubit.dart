@@ -39,7 +39,7 @@ class HomeCubit extends Cubit<HomeState> {
         cursorForumId: last?['forum_id'] as String?,
       ));
     } catch (e) {
-      emit(state.copyWith(isLoading: false, errorMessage: e.toString()));
+      emit(state.copyWith(isLoading: false, errorMessage: e.toFriendlyMessage()));
     }
   }
 
@@ -79,7 +79,7 @@ class HomeCubit extends Cubit<HomeState> {
         ));
       }
     } catch (e) {
-      emit(state.copyWith(isLoadingMore: false, errorMessage: e.toString()));
+      emit(state.copyWith(isLoadingMore: false, errorMessage: e.toFriendlyMessage()));
     }
   }
 

@@ -209,7 +209,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
       _showSuccess();
     } catch (e) {
       if (!mounted) return;
-      _showError(e.toString());
+      _showError(e.toFriendlyMessage());
     } finally {
       if (mounted) setState(() => _isProcessing = false);
     }
@@ -274,7 +274,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
         _waitingMpesa = false;
       });
       _subChannel?.unsubscribe();
-      _showError(e.toString());
+      _showError(e.toFriendlyMessage());
     }
   }
 
@@ -320,7 +320,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
       _load();
     } catch (e) {
       if (!mounted) return;
-      _showError(e.toString());
+      _showError(e.toFriendlyMessage());
     } finally {
       if (mounted) setState(() => _isProcessing = false);
     }
