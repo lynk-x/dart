@@ -158,7 +158,8 @@ class ForumAdsCubit extends Cubit<ForumAdsState> {
     ),
   ];
 
-  void logAdImpression(String adId) {
+  void logAdImpression(AdModel ad) {
+    final adId = ad.id;
     if (adId == 'default_lynk_upgrade') return;
     if (userId == kGuestUserId) return;
     if (_viewedAds.contains(adId)) return;
@@ -168,9 +169,11 @@ class ForumAdsCubit extends Cubit<ForumAdsState> {
       if (isClosed) return;
       _viewedAds.add(adId);
       _impressionTimers.remove(adId);
+      final serveToken = ad.serveToken;
+      if (serveToken == null) return;
       try {
         await Supabase.instance.client.schema('api').rpc('log_ad_interaction', params: {
-          'p_campaign_id': adId,
+          'p_serve_token': serveToken,
           'p_interaction_type': 'impression',
         });
       } catch (e, stack) {
@@ -193,12 +196,14 @@ class ForumAdsCubit extends Cubit<ForumAdsState> {
     return super.close();
   }
 
-  Future<void> logAdClick(String adId) async {
-    if (adId == 'default_lynk_upgrade') return;
+  Future<void> logAdClick(AdModel ad) async {
+    if (ad.id == 'default_lynk_upgrade') return;
     if (userId == kGuestUserId) return;
+    final serveToken = ad.serveToken;
+    if (serveToken == null) return;
     try {
       await Supabase.instance.client.schema('api').rpc('log_ad_interaction', params: {
-        'p_campaign_id': adId,
+        'p_serve_token': serveToken,
         'p_interaction_type': 'click',
       });
     } catch (e, stack) {

@@ -4,82 +4,17 @@ class ForumRepository {
   final SupabaseClient _client;
   ForumRepository(this._client);
 
-  Future<Map<String, dynamic>> getForumWithMemberStatus(
-      String forumId, String userId) async {
-    final forumData = await _client
+  /// Forum screen entry point: profile, forum (by id or reference), the
+  /// caller's membership row, first channel, sessions, and member list in
+  /// one call. Replaces what used to be 6 sequential queries split across
+  /// getForumWithMemberStatus(ByReference), getForumMembers, and
+  /// getForumSessions — those are removed as of this change, superseded by
+  /// api.get_forum_bootstrap.
+  Future<Map<String, dynamic>> getForumBootstrap(String reference) async {
+    final data = await _client
         .schema('api')
-        .from('v1_forums')
-        .select(
-            'id, account_id, status, event_id, event_created_at, event_title, created_at, reference')
-        .eq('id', forumId)
-        .maybeSingle();
-
-    final memberData = await _client
-        .schema('social')
-        .from('forum_members')
-        .select('is_muted, has_muted_live_chats_media, role_id')
-        .eq('forum_id', forumId)
-        .eq('user_id', userId)
-        .maybeSingle();
-
-    final channelData = await _client
-        .schema('social')
-        .from('forum_channels')
-        .select('id, created_at')
-        .eq('forum_id', forumId)
-        .limit(1)
-        .maybeSingle();
-
-    return {
-      'forum': forumData,
-      'member': memberData,
-      'channel': channelData,
-    };
-  }
-
-  Future<Map<String, dynamic>> getForumWithMemberStatusByReference(
-      String reference, String userId) async {
-    final isUuid = RegExp(
-            r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$')
-        .hasMatch(reference);
-    final query = _client.schema('api').from('v1_forums').select(
-        'id, account_id, status, event_id, event_created_at, event_title, event_ends_at, created_at, reference');
-
-    final forumData = await (isUuid
-        ? query.eq('id', reference).maybeSingle()
-        : query.eq('reference', reference).maybeSingle());
-
-    if (forumData == null) {
-      return {
-        'forum': null,
-        'member': null,
-        'channel': null,
-      };
-    }
-
-    final forumId = forumData['id'] as String;
-
-    final memberData = await _client
-        .schema('social')
-        .from('forum_members')
-        .select('is_muted, has_muted_live_chats_media, role_id')
-        .eq('forum_id', forumId)
-        .eq('user_id', userId)
-        .maybeSingle();
-
-    final channelData = await _client
-        .schema('social')
-        .from('forum_channels')
-        .select('id, created_at')
-        .eq('forum_id', forumId)
-        .limit(1)
-        .maybeSingle();
-
-    return {
-      'forum': forumData,
-      'member': memberData,
-      'channel': channelData,
-    };
+        .rpc('get_forum_bootstrap', params: {'p_reference': reference});
+    return Map<String, dynamic>.from(data as Map);
   }
 
   Future<List<Map<String, dynamic>>> getForumMembers(String forumId) async {
@@ -102,23 +37,6 @@ class ForumRepository {
               }
             })
         .toList();
-  }
-
-  Future<List<Map<String, dynamic>>> getForumSessions(
-    String forumId, {
-    DateTime? forumCreatedAt,
-  }) async {
-    var query = _client
-        .from('forum_sessions')
-        .select('starts_at, ends_at')
-        .eq('forum_id', forumId);
-
-    if (forumCreatedAt != null) {
-      query = query.eq('forum_created_at', forumCreatedAt.toIso8601String());
-    }
-
-    final data = await query.order('starts_at', ascending: true);
-    return List<Map<String, dynamic>>.from(data);
   }
 
   Future<void> updateMemberSettings(
@@ -241,21 +159,6 @@ class ForumRepository {
       'p_reason_id': reasonId,
       'p_description': description,
     });
-  }
-
-  Future<List<Map<String, dynamic>>> getThreadReplies({
-    required String rootMessageId,
-    required String rootCreatedAt,
-    int limit = 30,
-    int offset = 0,
-  }) async {
-    final data = await _client.schema('api').rpc('get_thread_replies', params: {
-      'p_root_id': rootMessageId,
-      'p_root_created_at': rootCreatedAt,
-      'p_limit': limit,
-      'p_offset': offset,
-    });
-    return List<Map<String, dynamic>>.from(data as List);
   }
 
   Future<List<Map<String, dynamic>>> getMessages({

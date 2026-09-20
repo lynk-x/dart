@@ -36,7 +36,11 @@ class ForumCubit extends Cubit<ForumState> {
     await _syncUserStatus();
     final fId = forumId;
     if (fId != null) {
-      await refreshMembers();
+      // Member list and session-derived progress are now populated by
+      // _syncUserStatus's single get_forum_bootstrap call — no separate
+      // refreshMembers()/getForumSessions round-trips on entry. refreshMembers()
+      // remains available for explicit re-fetches (e.g. after a moderation
+      // action changes the roster).
       _setupUserStatusListener();
       _setupForumStatusListener();
       _setupReactionListeners();
@@ -114,17 +118,6 @@ class ForumCubit extends Cubit<ForumState> {
       String handle = 'User';
       bool isPremium = true;
 
-      final data = await Supabase.instance.client
-          .schema('api')
-          .from('v1_profiles')
-          .select('user_name, is_premium')
-          .eq('id', userId)
-          .single();
-
-      handle = data['user_name'] as String? ?? 'A User';
-      isPremium = data['is_premium'] == true;
-      userName = handle;
-
       bool isMuted = false;
       bool hasMutedLiveChatsMedia = false;
       bool isModerator = false;
@@ -141,12 +134,25 @@ class ForumCubit extends Cubit<ForumState> {
       DateTime? forumCreatedAtFromDb;
       DateTime? channelCreatedAtFromDb;
 
+      List<Map<String, dynamic>> membersFromDb = const [];
+      List<Map<String, dynamic>> sessionsFromDb = const [];
+
       try {
-        final result = await _repo.getForumWithMemberStatusByReference(
-            forumReference, userId);
+        // Single round trip for everything this screen needs to render:
+        // viewer profile, forum, membership, first channel, sessions,
+        // member roster — collapses what used to be 6 sequential queries.
+        final result = await _repo.getForumBootstrap(forumReference);
+        final profileData = result['profile'] as Map<String, dynamic>?;
         final forumData = result['forum'] as Map<String, dynamic>?;
         final memberData = result['member'] as Map<String, dynamic>?;
         final channelData = result['channel'] as Map<String, dynamic>?;
+        final sessionsData = result['sessions'] as List<dynamic>? ?? const [];
+        final membersData = result['members'] as List<dynamic>? ?? const [];
+
+        if (profileData != null) {
+          handle = profileData['user_name'] as String? ?? 'A User';
+          isPremium = profileData['is_premium'] == true;
+        }
 
         if (forumData != null) {
           forumId = forumData['id'] as String;
@@ -188,8 +194,29 @@ class ForumCubit extends Cubit<ForumState> {
           isModerator = role == 'moderator' || role == 'organizer';
           isOrganizer = role == 'organizer';
         }
+
+        sessionsFromDb = sessionsData
+            .map((e) => e as Map<String, dynamic>)
+            .toList(growable: false);
+
+        // Same {'user_profile': {...}} shape refreshMembers() produces, so
+        // downstream widgets consuming state.members don't need to change.
+        membersFromDb = membersData
+            .map((e) => e as Map<String, dynamic>)
+            .map((m) => {
+                  'user_profile': {
+                    'id': m['user_id'],
+                    'user_name': m['user_name'],
+                    'avatar_url': m['avatar_url'],
+                    'is_premium': m['is_premium'],
+                    'role_id': m['role_id'],
+                    'is_organizer': m['role_id'] == 'organizer',
+                    'is_moderator': m['role_id'] == 'moderator',
+                  }
+                })
+            .toList(growable: false);
       } catch (e) {
-        debugPrint('[ForumCubit] Forum/member sync error: $e');
+        debugPrint('[ForumCubit] Forum bootstrap sync error: $e');
       }
 
       if (!isClosed) {
@@ -211,10 +238,11 @@ class ForumCubit extends Cubit<ForumState> {
           forumCreatedAt: forumCreatedAtFromDb,
           channelId: channelIdFromDb,
           channelCreatedAt: channelCreatedAtFromDb,
+          members: membersFromDb,
         ));
 
-        if (forumId != null) {
-          _syncForumProgress(forumId!, forumCreatedAtFromDb);
+        if (sessionsFromDb.isNotEmpty) {
+          _syncForumProgressFromSessions(sessionsFromDb);
         }
       }
     } catch (e, stack) {
@@ -375,48 +403,43 @@ class ForumCubit extends Cubit<ForumState> {
     }
   }
 
-  Future<void> _syncForumProgress(
-      String forumId, DateTime? forumCreatedAt) async {
-    try {
-      final sessions =
-          await _repo.getForumSessions(forumId, forumCreatedAt: forumCreatedAt);
+  // Takes an already-fetched, starts_at-ascending session list (from
+  // get_forum_bootstrap) rather than fetching it itself — session data is
+  // now part of the single bootstrap round trip in _syncUserStatus.
+  void _syncForumProgressFromSessions(List<Map<String, dynamic>> sessions) {
+    if (sessions.isEmpty || isClosed) return;
 
-      if (sessions.isEmpty) return;
+    void updateProgress() {
+      if (isClosed) return;
 
-      void updateProgress() {
-        if (isClosed) return;
+      final now = DateTime.now();
+      final firstSessionStart =
+          DateTime.parse(sessions.first['starts_at'] as String);
+      final lastSessionEnd =
+          DateTime.parse(sessions.last['ends_at'] as String);
 
-        final now = DateTime.now();
-        final firstSessionStart =
-            DateTime.parse(sessions.first['starts_at'] as String);
-        final lastSessionEnd =
-            DateTime.parse(sessions.last['ends_at'] as String);
-
-        if (now.isBefore(firstSessionStart)) {
-          emit(state.copyWith(eventProgress: 0.0));
-        } else if (now.isAfter(lastSessionEnd)) {
-          emit(state.copyWith(eventProgress: 1.0));
-          // Event is over — stop the ticker to avoid unnecessary rebuilds.
-          _progressTimer?.cancel();
-          _progressTimer = null;
-        } else {
-          final totalDuration =
-              lastSessionEnd.difference(firstSessionStart).inSeconds;
-          final elapsed = now.difference(firstSessionStart).inSeconds;
-          final progress = (totalDuration == 0)
-              ? 1.0
-              : (elapsed / totalDuration).clamp(0.0, 1.0);
-          if (!isClosed) emit(state.copyWith(eventProgress: progress));
-        }
+      if (now.isBefore(firstSessionStart)) {
+        emit(state.copyWith(eventProgress: 0.0));
+      } else if (now.isAfter(lastSessionEnd)) {
+        emit(state.copyWith(eventProgress: 1.0));
+        // Event is over — stop the ticker to avoid unnecessary rebuilds.
+        _progressTimer?.cancel();
+        _progressTimer = null;
+      } else {
+        final totalDuration =
+            lastSessionEnd.difference(firstSessionStart).inSeconds;
+        final elapsed = now.difference(firstSessionStart).inSeconds;
+        final progress = (totalDuration == 0)
+            ? 1.0
+            : (elapsed / totalDuration).clamp(0.0, 1.0);
+        if (!isClosed) emit(state.copyWith(eventProgress: progress));
       }
-
-      updateProgress();
-      _progressTimer?.cancel();
-      _progressTimer =
-          Timer.periodic(const Duration(minutes: 1), (_) => updateProgress());
-    } catch (e, stack) {
-      debugPrint('[ForumCubit] Error: $e\n$stack');
     }
+
+    updateProgress();
+    _progressTimer?.cancel();
+    _progressTimer =
+        Timer.periodic(const Duration(minutes: 1), (_) => updateProgress());
   }
 
   void handleEmojiTap(String emoji) {

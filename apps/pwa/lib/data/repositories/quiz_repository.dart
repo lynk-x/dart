@@ -49,22 +49,6 @@ class QuizRepository {
     return List<Map<String, dynamic>>.from(data as List);
   }
 
-  Future<List<Map<String, dynamic>>> getLeaderboardLive(
-    String messageId, {
-    int limit = 20,
-  }) async {
-    final data = await _client
-        .schema('api')
-        .from('v1_quiz_leaderboard')
-        .select(
-            'user_id, display_name, avatar_url, total_score, answers_count, last_answered_at')
-        .eq('message_id', messageId)
-        .order('total_score', ascending: false)
-        .order('last_answered_at', ascending: true)
-        .limit(limit);
-    return List<Map<String, dynamic>>.from(data);
-  }
-
   Future<void> submitAnswer({
     required String messageId,
     required String questionId,
