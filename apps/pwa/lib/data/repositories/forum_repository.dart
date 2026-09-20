@@ -9,11 +9,12 @@ class ForumRepository {
   /// one call. Replaces what used to be 6 sequential queries split across
   /// getForumWithMemberStatus(ByReference), getForumMembers, and
   /// getForumSessions — those are removed as of this change, superseded by
-  /// api.get_forum_bootstrap.
-  Future<Map<String, dynamic>> getForumBootstrap(String reference) async {
+  /// api.get_forum_data (renamed from api.get_forum_bootstrap to match the
+  /// backend's get_* RPC naming convention).
+  Future<Map<String, dynamic>> getForumData(String reference) async {
     final data = await _client
         .schema('api')
-        .rpc('get_forum_bootstrap', params: {'p_reference': reference});
+        .rpc('get_forum_data', params: {'p_reference': reference});
     return Map<String, dynamic>.from(data as Map);
   }
 

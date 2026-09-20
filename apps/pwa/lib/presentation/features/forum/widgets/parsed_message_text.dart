@@ -61,9 +61,21 @@ class _ParsedMessageTextState extends State<ParsedMessageText> {
       return Text(widget.text, style: widget.style);
     }
 
-    // Regex matching either URLs or mentions
+    // Regex matching either URLs or mentions.
+    //
+    // The schemeless-domain branch (2nd alternative) used to be
+    // [\w/\-?=%.]+\.[\w/\-?=%.]+ — since '.' is itself inside that
+    // character class, a bare run of 3+ periods ("...") satisfied both
+    // sides of the required middle '.' with no actual word content,
+    // linkifying plain ellipsis as a clickable/previewable "link" to
+    // https://... . Anchoring the segment's start on a real letter/digit
+    // ([a-zA-Z0-9], not \w — \w also permits '_', and combined with '-'
+    // that still let pure-punctuation runs like "---.---" through) and
+    // only allowing '.', '/', '?', '=', '%', '-', '_' after that closes
+    // the gap while still matching bare domains/paths
+    // ("example.com/path?x=1") and IPs/version strings ("192.168.1.1").
     final combinedRegex = RegExp(
-      r'((?:https?|ftp)://[^\s/$.?#].[^\s]*|[\w/\-?=%.]+\.[\w/\-?=%.]+|@\w+)',
+      r'((?:https?|ftp)://[^\s/$.?#].[^\s]*|[a-zA-Z0-9][\w\-]*(?:[\w/\-?=%]*\.[\w/\-?=%]+)+|@\w+)',
       caseSensitive: false,
     );
 

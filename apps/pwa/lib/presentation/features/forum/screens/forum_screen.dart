@@ -238,6 +238,11 @@ class _ForumViewState extends State<ForumView> {
           listenWhen: (p, c) => p.userName != c.userName,
           listener: (context, state) {
             context.read<ForumPresenceCubit>().updateUserName(state.userName);
+            context.read<ForumChatCubit>().updateUserName(state.userName);
+            context.read<ForumUpdatesCubit>().updateUserName(state.userName);
+            context
+                .read<ForumAudioStreamCubit>()
+                .updateUserName(state.userName);
           },
         ),
       ],

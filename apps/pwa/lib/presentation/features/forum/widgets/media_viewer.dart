@@ -266,7 +266,24 @@ class _MediaViewerState extends State<MediaViewer> {
       isPremium = context.read<ForumCubit>().state.isPremium;
     } catch (_) {}
 
-    return Scaffold(
+    // This route is pushed imperatively (Navigator.push, not a go_router
+    // route — see MediaViewer.show above), sitting on top of go_router's
+    // own managed stack. Without this, the system back gesture/button was
+    // observed landing on the home page instead of returning to the media
+    // tab the viewer was opened from — most likely go_router's own
+    // back-handling reconciling its route stack around this un-routed
+    // page rather than just popping it. Intercepting the pop here and
+    // always funneling it through the identical Navigator.pop(context)
+    // the close button already uses (not rootNavigator: true, matching
+    // the close button exactly) makes every dismissal path behave the
+    // same, regardless of what triggered it.
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        Navigator.pop(context);
+      },
+      child: Scaffold(
       backgroundColor: Colors.black,
       body: BlocConsumer<ForumMediaCubit, ForumMediaState>(
         listener: (context, state) {
@@ -546,6 +563,7 @@ class _MediaViewerState extends State<MediaViewer> {
             ],
           );
         },
+      ),
       ),
     );
   }

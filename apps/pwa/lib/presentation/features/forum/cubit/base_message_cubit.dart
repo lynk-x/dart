@@ -17,7 +17,7 @@ abstract class BaseMessageCubit<T extends BaseMessageState> extends HydratedCubi
   
   final String forumId;
   final String userId;
-  final String userName;
+  String userName;
   final RealtimeChannel? channel;
   // The primary type a message sent from this tab gets (used by sendMessage);
   // messageTypes is the full set this tab renders/subscribes to — e.g. Live
@@ -54,6 +54,10 @@ abstract class BaseMessageCubit<T extends BaseMessageState> extends HydratedCubi
     required T initialState,
   })  : messageTypes = messageTypes ?? [messageType],
         super(initialState);
+
+  void updateUserName(String newName) {
+    userName = newName;
+  }
 
   /// Must be provided by children to yield a new state.
   T copyWithState({
