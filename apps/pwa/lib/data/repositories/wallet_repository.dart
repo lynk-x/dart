@@ -14,14 +14,18 @@ class WalletRepository {
     return List<Map<String, dynamic>>.from(data);
   }
 
-  Future<Map<String, dynamic>?> getWalletBalance(String accountId, String currency) async {
-    return await _client
+  /// One row per currency the account actually has a wallet in (a missing
+  /// currency is simply absent, not a null entry) — one round trip instead
+  /// of one call per currency.
+  Future<List<Map<String, dynamic>>> getWalletBalances(
+      String accountId, List<String> currencies) async {
+    final data = await _client
         .schema('api')
         .from('v1_wallet_balances')
         .select('account_id, currency, cash_balance, escrow_balance, credit_balance, updated_at')
         .eq('account_id', accountId)
-        .eq('currency', currency)
-        .maybeSingle();
+        .inFilter('currency', currencies);
+    return List<Map<String, dynamic>>.from(data);
   }
 
   /// Keyset-paginated: pass the (created_at, id) of the last row from the

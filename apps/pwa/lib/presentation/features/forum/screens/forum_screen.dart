@@ -568,16 +568,16 @@ class _ForumViewState extends State<ForumView> {
                                                 RepaintBoundary(
                                                   child: AdCarousel(
                                                     ads: adsState.ads,
-                                                    onAdViewed: (adId) => context
+                                                    onAdViewed: (ad) => context
                                                         .read<ForumAdsCubit>()
-                                                        .logAdImpression(adId),
+                                                        .logAdImpression(ad),
                                                     onAdViewEnded: (adId) => context
                                                         .read<ForumAdsCubit>()
                                                         .cancelAdImpression(adId),
                                                     onAdClicked: (ad) async {
                                                       context
                                                           .read<ForumAdsCubit>()
-                                                          .logAdClick(ad.id);
+                                                          .logAdClick(ad);
                                                       if (ad.targetUrl != null) {
                                                         final uri =
                                                             Uri.parse(ad.targetUrl!);

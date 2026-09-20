@@ -9,7 +9,7 @@ import 'package:lynk_x/core/utils/image_optimizer.dart';
 /// viewability tracking, and accessibility support.
 class AdCarousel extends StatefulWidget {
   final List<AdModel> ads;
-  final Function(String)? onAdViewed;
+  final Function(AdModel)? onAdViewed;
   final Function(String)? onAdViewEnded;
   final Function(AdModel)? onAdClicked;
 
@@ -28,7 +28,7 @@ class AdCarousel extends StatefulWidget {
 class _AdCarouselState extends State<AdCarousel> {
   late PageController _pageController;
   int _currentPage = 0;
-  String? _currentAdId;
+  AdModel? _currentAd;
   Timer? _timer;
 
   @override
@@ -36,11 +36,11 @@ class _AdCarouselState extends State<AdCarousel> {
     super.initState();
     _pageController = PageController();
     if (widget.ads.isNotEmpty) {
-      _currentAdId = widget.ads[0].id;
+      _currentAd = widget.ads[0];
       // Trigger initial view for the first ad after first frame rendering
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && _currentAdId != null) {
-          widget.onAdViewed?.call(_currentAdId!);
+        if (mounted && _currentAd != null) {
+          widget.onAdViewed?.call(_currentAd!);
         }
       });
       if (widget.ads.length > 1) {
@@ -72,13 +72,13 @@ class _AdCarouselState extends State<AdCarousel> {
     if (index < 0 || index >= widget.ads.length) return;
 
     // Notify previous ad view ended (cancelling pending 2s impression timer if swiped away early)
-    if (_currentAdId != null && _currentAdId != widget.ads[index].id) {
-      widget.onAdViewEnded?.call(_currentAdId!);
+    if (_currentAd != null && _currentAd!.id != widget.ads[index].id) {
+      widget.onAdViewEnded?.call(_currentAd!.id);
     }
 
     setState(() => _currentPage = index);
-    _currentAdId = widget.ads[index].id;
-    widget.onAdViewed?.call(_currentAdId!);
+    _currentAd = widget.ads[index];
+    widget.onAdViewed?.call(_currentAd!);
   }
 
   @override
@@ -89,11 +89,11 @@ class _AdCarouselState extends State<AdCarousel> {
       _timer = null;
 
       if (widget.ads.isEmpty) {
-        if (_currentAdId != null) {
-          widget.onAdViewEnded?.call(_currentAdId!);
+        if (_currentAd != null) {
+          widget.onAdViewEnded?.call(_currentAd!.id);
         }
         _currentPage = 0;
-        _currentAdId = null;
+        _currentAd = null;
       } else {
         if (_currentPage >= widget.ads.length) {
           _currentPage = 0;
@@ -101,7 +101,7 @@ class _AdCarouselState extends State<AdCarousel> {
             _pageController.jumpToPage(0);
           }
         }
-        _currentAdId = widget.ads[_currentPage].id;
+        _currentAd = widget.ads[_currentPage];
         if (widget.ads.length > 1) {
           _startTimer();
         }

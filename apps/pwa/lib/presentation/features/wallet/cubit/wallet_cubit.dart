@@ -130,12 +130,9 @@ class WalletCubit extends Cubit<WalletState> {
       final accountRef = state.accountReference ?? await _resolveAccountReference(accountId);
 
       final currencies = ['KES', 'USD'];
-      final responses = await Future.wait(
-        currencies.map((c) => _repo.getWalletBalance(accountId, c)),
-      );
+      final responses = await _repo.getWalletBalances(accountId, currencies);
 
       final balances = responses
-          .whereType<Map<String, dynamic>>()
           .map((row) => WalletBalance.fromMap({
                 ...row,
                 'escrow_balance': row['escrow_balance'], // Fix to properly use escrow_balance in fromMap
