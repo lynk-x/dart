@@ -11,7 +11,7 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
   final ForumAudioStreamService service;
   final String forumId;
   final String userId;
-  final String userName;
+  String userName;
   final bool isOrganizer;
 
   ForumAudioStreamCubit({
@@ -21,6 +21,10 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
     required this.userName,
     this.isOrganizer = false,
   }) : super(const ForumAudioStreamState());
+
+  void updateUserName(String newName) {
+    userName = newName;
+  }
 
   Timer? _reconnectTimer;
 

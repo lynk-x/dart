@@ -95,7 +95,7 @@ enum MessageType {
 
 /// Compiled once per process — matches http/https/ftp URLs.
 final _kUrlRegExp =
-    RegExp(r'(?:(?:https?|ftp)://)([\w/\-?=%.]+\.[\w/\-?=%.]+)');
+    RegExp(r'(?:(?:https?|ftp)://)([\w\-]+(?:[\w/\-?=%]*\.[\w/\-?=%]+)*)');
 
 /// Expando cache for [ChatMessage.urlMatch]. Lives outside the object so
 /// [ChatMessage] can keep its `const` constructor.

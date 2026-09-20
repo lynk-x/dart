@@ -37,7 +37,7 @@ class ForumCubit extends Cubit<ForumState> {
     final fId = forumId;
     if (fId != null) {
       // Member list and session-derived progress are now populated by
-      // _syncUserStatus's single get_forum_bootstrap call — no separate
+      // _syncUserStatus's single get_forum_data call — no separate
       // refreshMembers()/getForumSessions round-trips on entry. refreshMembers()
       // remains available for explicit re-fetches (e.g. after a moderation
       // action changes the roster).
@@ -141,7 +141,7 @@ class ForumCubit extends Cubit<ForumState> {
         // Single round trip for everything this screen needs to render:
         // viewer profile, forum, membership, first channel, sessions,
         // member roster — collapses what used to be 6 sequential queries.
-        final result = await _repo.getForumBootstrap(forumReference);
+        final result = await _repo.getForumData(forumReference);
         final profileData = result['profile'] as Map<String, dynamic>?;
         final forumData = result['forum'] as Map<String, dynamic>?;
         final memberData = result['member'] as Map<String, dynamic>?;
@@ -152,6 +152,7 @@ class ForumCubit extends Cubit<ForumState> {
         if (profileData != null) {
           handle = profileData['user_name'] as String? ?? 'A User';
           isPremium = profileData['is_premium'] == true;
+          userName = handle;
         }
 
         if (forumData != null) {
@@ -407,8 +408,8 @@ class ForumCubit extends Cubit<ForumState> {
   }
 
   // Takes an already-fetched, starts_at-ascending session list (from
-  // get_forum_bootstrap) rather than fetching it itself — session data is
-  // now part of the single bootstrap round trip in _syncUserStatus.
+  // get_forum_data) rather than fetching it itself — session data is
+  // now part of the single round trip in _syncUserStatus.
   void _syncForumProgressFromSessions(List<Map<String, dynamic>> sessions) {
     if (sessions.isEmpty || isClosed) return;
 

@@ -12,7 +12,13 @@ import 'package:lynk_x/presentation/shared/screens/system_error_screen.dart';
 /// bridge link. This screen exchanges that token for a real session via
 /// verifyOtp before forwarding to the forum; if no token is present
 /// (returning users navigating here with an existing session already),
-/// it forwards immediately.
+/// it forwards immediately. If the token is present but fails to verify
+/// (expired/already-consumed — expected for a bookmarked confirmation page
+/// or a reopened old email) it re-checks for a session before deciding
+/// where to send the visitor: someone who's independently already
+/// authenticated (e.g. a separate login, or a prior bridge link on the
+/// same device) proceeds straight to the forum; only a genuinely
+/// unauthenticated visitor is routed through the login screen.
 class ClaimBridgeScreen extends StatefulWidget {
   final String? forumReference;
   final String? tokenHash;
@@ -51,13 +57,24 @@ class _ClaimBridgeScreenState extends State<ClaimBridgeScreen> {
       } catch (e) {
         // Token is single-use and short-lived — expired/already-consumed is
         // expected for a bookmarked confirmation page or a reopened old
-        // email, not a dead end. The account already exists from checkout,
-        // so send them through the normal phone-OTP login and land them in
-        // the forum right after, same as any other protected route.
-        if (mounted) {
-          context.go('/auth?next=${Uri.encodeComponent('/forum/$forumReference')}');
+        // email, not a dead end. Re-check for a session rather than assume
+        // there still isn't one: a failed verifyOTP doesn't mean the user
+        // is signed out — they may already hold a valid session from a
+        // completely separate login (e.g. they logged into the app
+        // directly before ever opening this link, or a previous bridge
+        // link on the same device already authenticated them). Only fall
+        // back to the login screen if they're genuinely unauthenticated;
+        // an already-authenticated visitor should proceed straight to the
+        // forum instead of being routed through login redundantly.
+        final hasSessionAfterFailure =
+            Supabase.instance.client.auth.currentSession != null;
+        if (!hasSessionAfterFailure) {
+          if (mounted) {
+            context
+                .go('/auth?next=${Uri.encodeComponent('/forum/$forumReference')}');
+          }
+          return;
         }
-        return;
       }
     } else if (!hasSession) {
       // No token at all and no session — same fallback as above.
