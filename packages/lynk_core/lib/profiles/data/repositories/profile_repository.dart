@@ -175,4 +175,9 @@ class ProfileRepository {
     );
     return result as bool;
   }
+
+  Future<String> regenerateUsername() async {
+    final result = await _client.schema('api').rpc('regenerate_username');
+    return (result as Map<String, dynamic>)['user_name'] as String;
+  }
 }

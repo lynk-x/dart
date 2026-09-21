@@ -139,15 +139,32 @@ class _PresenceDrawerState extends State<PresenceDrawer> {
     }
 
     merged.sort((a, b) {
+      final roleCompare =
+          _rolePriority(a['role_id'] as String?).compareTo(_rolePriority(b['role_id'] as String?));
+      if (roleCompare != 0) return roleCompare;
+
       if (a['is_online'] != b['is_online']) {
         return a['is_online'] == true ? -1 : 1;
       }
+
       return (a['user_name'] as String? ?? '')
           .toLowerCase()
           .compareTo((b['user_name'] as String? ?? '').toLowerCase());
     });
 
     return merged;
+  }
+
+  /// Lower sorts first: organizer, then moderator, then member/null.
+  static int _rolePriority(String? roleId) {
+    switch (roleId) {
+      case 'organizer':
+        return 0;
+      case 'moderator':
+        return 1;
+      default:
+        return 2;
+    }
   }
 
   Widget _buildDropdownSection({

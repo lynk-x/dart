@@ -167,15 +167,31 @@ class _EditProfilePageState extends State<EditProfilePage> {
   }
 
   bool _usernameNeedsConfirmation(ProfileLoaded state) {
+    if (!state.profile.isPremium) return false;
     final name = _usernameController.text.trim();
     if (name.toLowerCase() == _initialUsername.toLowerCase()) return false;
     return state.isCheckingUsername || state.isUsernameAvailable != true;
   }
 
-  void _saveChanges(BuildContext context) {
+  Future<void> _regenerateUsername(BuildContext context) async {
+    final cubit = context.read<ProfileCubit>();
+    await cubit.regenerateUsername();
+    if (!context.mounted) return;
+    final state = cubit.state;
+    if (state is ProfileLoaded && state.error == null) {
+      _usernameController.removeListener(_onUsernameChanged);
+      _usernameController.text = state.profile.userName;
+      _initialUsername = state.profile.userName;
+      _usernameController.addListener(_onUsernameChanged);
+      AppSnackBars.showSuccess(context, 'New username generated');
+    }
+  }
+
+  void _saveChanges(BuildContext context, ProfileModel profile) {
     context.read<ProfileCubit>().updateProfile(
           fullName: _nameController.text.trim(),
-          userName: _usernameController.text.trim(),
+          userName:
+              profile.isPremium ? _usernameController.text.trim() : null,
           gender: _selectedGender,
           dateOfBirth: _selectedDateOfBirth,
         );
@@ -491,13 +507,22 @@ class _EditProfilePageState extends State<EditProfilePage> {
                       const SizedBox(height: 24),
                       TextField(
                         label: 'USERNAME',
-                        hintText: 'Enter your username',
+                        hintText: profile.isPremium
+                            ? 'Enter your username'
+                            : 'Premium members can set a custom username',
                         controller: _usernameController,
-                        enabled: !isUpdating,
-                        prefixIcon: const Icon(Icons.alternate_email,
-                            color: Colors.white24, size: 18),
-                        suffixIcon: state.isCheckingUsername
-                            ? const SizedBox(
+                        enabled: !isUpdating && profile.isPremium,
+                        suffixIcon: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (!profile.isPremium)
+                              const Padding(
+                                padding: EdgeInsets.only(right: 4),
+                                child: Icon(Icons.lock_outline,
+                                    color: Colors.white24, size: 18),
+                              ),
+                            if (state.isCheckingUsername)
+                              const SizedBox(
                                 width: 20,
                                 height: 20,
                                 child: Padding(
@@ -506,13 +531,31 @@ class _EditProfilePageState extends State<EditProfilePage> {
                                       strokeWidth: 2, color: Colors.white24),
                                 ),
                               )
-                            : (state.isUsernameAvailable == true
-                                ? Icon(Icons.check_circle,
-                                    color: context.accentColor, size: 20)
-                                : (state.isUsernameAvailable == false
-                                    ? const Icon(Icons.error,
-                                        color: Colors.redAccent, size: 20)
-                                    : null)),
+                            else if (state.isUsernameAvailable == true)
+                              Icon(Icons.check_circle,
+                                  color: context.accentColor, size: 20)
+                            else if (state.isUsernameAvailable == false)
+                              const Icon(Icons.error,
+                                  color: Colors.redAccent, size: 20),
+                            IconButton(
+                              icon: state.isRegeneratingUsername
+                                  ? SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: context.accentColor),
+                                    )
+                                  : const Icon(Icons.refresh_rounded,
+                                      color: Colors.white54, size: 20),
+                              tooltip: 'Generate a new anonymous username',
+                              onPressed: (isUpdating ||
+                                      state.isRegeneratingUsername)
+                                  ? null
+                                  : () => _regenerateUsername(context),
+                            ),
+                          ],
+                        ),
                       ),
                       const SizedBox(height: 24),
                       TextField(
@@ -593,7 +636,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                           onPressed:
                               (isUpdating || _usernameNeedsConfirmation(state))
                                   ? null
-                                  : () => _saveChanges(context),
+                                  : () => _saveChanges(context, profile),
                         ),
                       ),
                     ),
