@@ -59,7 +59,7 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
 
       await supabase.schema('api').from('v1_support_tickets').insert({
         'user_id': user?.id,
-        'email': 'no-email@lynk-x.app',
+        'email': user?.email,
         'phone': user?.phone,
         'full_name': user?.userMetadata?['full_name'] ?? 'PWA User',
         'subject': 'PWA Feedback: $_selectedCategory',
