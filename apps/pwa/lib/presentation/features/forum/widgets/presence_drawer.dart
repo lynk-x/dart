@@ -122,6 +122,7 @@ class _PresenceDrawerState extends State<PresenceDrawer> {
         'is_organizer': online?['is_organizer'] ?? m['is_organizer'] == true,
         'is_premium': m['is_premium'] == true,
         'is_online': online != null,
+        'joined_at': m['joined_at'],
       });
     }
 
@@ -135,9 +136,17 @@ class _PresenceDrawerState extends State<PresenceDrawer> {
         'is_organizer': u['is_organizer'] == true,
         'is_premium': u['is_premium'] == true,
         'is_online': true,
+        'joined_at': null,
       });
     }
 
+    // Ordered by role, then online status, then membership age (oldest
+    // member first) — replaces an earlier alphabetical-by-username
+    // tiebreaker. Usernames are now an anonymous generated
+    // adjective_noun+suffix (see identity.generate_anonymous_username on
+    // the backend) drawn from a shared word pool, so sorting by that
+    // string just clustered whoever happened to draw the same adjective
+    // together, which isn't a meaningful ordering for a roster.
     merged.sort((a, b) {
       final roleCompare =
           _rolePriority(a['role_id'] as String?).compareTo(_rolePriority(b['role_id'] as String?));
@@ -147,9 +156,12 @@ class _PresenceDrawerState extends State<PresenceDrawer> {
         return a['is_online'] == true ? -1 : 1;
       }
 
-      return (a['user_name'] as String? ?? '')
-          .toLowerCase()
-          .compareTo((b['user_name'] as String? ?? '').toLowerCase());
+      final aJoined = DateTime.tryParse(a['joined_at'] as String? ?? '');
+      final bJoined = DateTime.tryParse(b['joined_at'] as String? ?? '');
+      if (aJoined == null && bJoined == null) return 0;
+      if (aJoined == null) return 1;
+      if (bJoined == null) return -1;
+      return aJoined.compareTo(bJoined);
     });
 
     return merged;

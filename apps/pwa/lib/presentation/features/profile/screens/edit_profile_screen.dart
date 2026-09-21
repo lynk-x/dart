@@ -537,23 +537,24 @@ class _EditProfilePageState extends State<EditProfilePage> {
                             else if (state.isUsernameAvailable == false)
                               const Icon(Icons.error,
                                   color: Colors.redAccent, size: 20),
-                            IconButton(
-                              icon: state.isRegeneratingUsername
-                                  ? SizedBox(
-                                      width: 18,
-                                      height: 18,
-                                      child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                          color: context.accentColor),
-                                    )
-                                  : const Icon(Icons.refresh_rounded,
-                                      color: Colors.white54, size: 20),
-                              tooltip: 'Generate a new anonymous username',
-                              onPressed: (isUpdating ||
-                                      state.isRegeneratingUsername)
-                                  ? null
-                                  : () => _regenerateUsername(context),
-                            ),
+                            if (profile.isPremium)
+                              IconButton(
+                                icon: state.isRegeneratingUsername
+                                    ? SizedBox(
+                                        width: 18,
+                                        height: 18,
+                                        child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            color: context.accentColor),
+                                      )
+                                    : const Icon(Icons.refresh_rounded,
+                                        color: Colors.white54, size: 20),
+                                tooltip: 'Generate a new anonymous username',
+                                onPressed: (isUpdating ||
+                                        state.isRegeneratingUsername)
+                                    ? null
+                                    : () => _regenerateUsername(context),
+                              ),
                           ],
                         ),
                       ),
