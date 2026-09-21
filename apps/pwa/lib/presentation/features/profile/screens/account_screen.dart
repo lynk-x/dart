@@ -467,7 +467,7 @@ class _AccountPageState extends State<AccountPage> {
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.chat_bubble_outline_rounded,
+            icon: const Icon(Icons.support_agent_rounded,
                 color: Colors.white70),
             tooltip: 'Support',
             onPressed: () => context.push('/support?context=general'),

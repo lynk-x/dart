@@ -22,7 +22,7 @@ class ForumRepository {
     final data = await _client
         .schema('api')
         .from('v1_forum_members')
-        .select('user_id, user_name, avatar_url, is_premium, role_id')
+        .select('user_id, user_name, avatar_url, is_premium, role_id, joined_at')
         .eq('forum_id', forumId);
 
     return data
@@ -35,6 +35,7 @@ class ForumRepository {
                 'role_id': item['role_id'],
                 'is_organizer': item['role_id'] == 'organizer',
                 'is_moderator': item['role_id'] == 'moderator',
+                'joined_at': item['joined_at'],
               }
             })
         .toList();

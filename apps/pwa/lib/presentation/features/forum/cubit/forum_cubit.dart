@@ -217,6 +217,7 @@ class ForumCubit extends Cubit<ForumState> {
                   'role_id': m['role_id'],
                   'is_organizer': m['role_id'] == 'organizer',
                   'is_moderator': m['role_id'] == 'moderator',
+                  'joined_at': m['joined_at'],
                 })
             .toList(growable: false);
       } catch (e) {
