@@ -18,6 +18,7 @@ class ProfileLoaded extends ProfileState {
   final String? error;
   final bool? isUsernameAvailable;
   final bool isCheckingUsername;
+  final bool isRegeneratingUsername;
 
   const ProfileLoaded({
     required this.profile,
@@ -25,6 +26,7 @@ class ProfileLoaded extends ProfileState {
     this.error,
     this.isUsernameAvailable,
     this.isCheckingUsername = false,
+    this.isRegeneratingUsername = false,
   });
 
   ProfileLoaded copyWith({
@@ -33,6 +35,7 @@ class ProfileLoaded extends ProfileState {
     String? error,
     bool? isUsernameAvailable,
     bool? isCheckingUsername,
+    bool? isRegeneratingUsername,
   }) {
     return ProfileLoaded(
       profile: profile ?? this.profile,
@@ -40,6 +43,8 @@ class ProfileLoaded extends ProfileState {
       error: error,
       isUsernameAvailable: isUsernameAvailable ?? this.isUsernameAvailable,
       isCheckingUsername: isCheckingUsername ?? this.isCheckingUsername,
+      isRegeneratingUsername:
+          isRegeneratingUsername ?? this.isRegeneratingUsername,
     );
   }
 }

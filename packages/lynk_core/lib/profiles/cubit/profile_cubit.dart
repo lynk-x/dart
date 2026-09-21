@@ -172,5 +172,33 @@ class ProfileCubit extends Cubit<ProfileState> {
     }
   }
 
+  /// Requests a fresh anonymous username from the backend and applies it to
+  /// the loaded profile. Bypasses [checkUsernameAvailability] entirely since
+  /// `api.regenerate_username` only ever returns an already-unique value.
+  Future<void> regenerateUsername() async {
+    final currentState = state;
+    if (currentState is! ProfileLoaded) return;
+
+    emit(currentState.copyWith(isRegeneratingUsername: true));
+    try {
+      final newUsername = await _repo.regenerateUsername();
+      final next = state;
+      if (next is! ProfileLoaded) return;
+      final updatedProfile = next.profile.copyWith(userName: newUsername);
+      emit(ProfileLoaded(
+        profile: updatedProfile,
+        isRegeneratingUsername: false,
+      ));
+    } catch (e) {
+      debugPrint('[ProfileCubit] regenerateUsername failed: $e');
+      final next = state;
+      if (next is! ProfileLoaded) return;
+      emit(next.copyWith(
+        isRegeneratingUsername: false,
+        error: e.toFriendlyMessage(),
+      ));
+    }
+  }
+
   void reset() => emit(const ProfileInitial());
 }
