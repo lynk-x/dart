@@ -345,6 +345,8 @@ class ForumCubit extends Cubit<ForumState> {
     if (!state.isOrganizer || fId == null) return false;
     try {
       await _repo.promoteForumMember(fId, userIdToPromote);
+
+      await refreshMembers();
       return true;
     } catch (e, stack) {
       debugPrint('[ForumCubit] makeModerator error: $e\n$stack');
