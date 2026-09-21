@@ -109,7 +109,7 @@ class SupportRepository {
   Future<String> createTicket(String userId, String contextCategory, String subject, String message) async {
     final response = await _client.schema('api').from('v1_support_tickets').insert({
       'user_id': userId,
-      'email': 'no-email@lynk-x.com',
+      'email': _client.auth.currentUser?.email,
       'phone': _client.auth.currentUser?.phone,
       'subject': subject,
       'message': message,
