@@ -708,7 +708,6 @@ class _ForumViewState extends State<ForumView> {
 
   void _showCreatePollOrQuizSheet({required bool isLiveChat}) {
     final forumId = context.read<ForumCubit>().state.forumId;
-    final forumReference = context.read<ForumCubit>().forumReference;
     final isOrganizer = context.read<ForumCubit>().state.isOrganizer;
     if (forumId == null || !isOrganizer) return;
 
@@ -728,24 +727,40 @@ class _ForumViewState extends State<ForumView> {
         channelCreatedAt: channelCreatedAt,
         messageType: isLiveChat ? 'livechat_poll' : 'update_poll',
       ),
-      onCreateQuiz: () async {
-        final result = await context.push<Map<String, dynamic>>(
-          '/forum/$forumReference/quiz/create',
-          extra: {
-            'forumId': forumId,
-            'isOrganizer': true,
-            'isLiveChat': isLiveChat,
-            'channelId': channelId,
-            'channelCreatedAt': channelCreatedAt,
-          },
-        );
-        if (result == null || !context.mounted) return;
-        _pushCreatedQuizMessage(
-          isLiveChat: isLiveChat,
-          messageType: isLiveChat ? 'livechat_quiz' : 'update_quiz',
-          result: result,
-        );
+
+      onCreateQuiz: () => _openQuizList(isLiveChat: isLiveChat),
+    );
+  }
+
+  void _openQuizList({required bool isLiveChat}) async {
+    final forumId = context.read<ForumCubit>().state.forumId;
+    final forumReference = context.read<ForumCubit>().forumReference;
+    final isOrganizer = context.read<ForumCubit>().state.isOrganizer;
+    if (forumId == null || !isOrganizer) return;
+
+    final channelId = isLiveChat
+        ? context.read<ForumChatCubit>().channelId
+        : context.read<ForumUpdatesCubit>().channelId;
+    final channelCreatedAt = (isLiveChat
+            ? context.read<ForumChatCubit>().channelCreatedAt
+            : context.read<ForumUpdatesCubit>().channelCreatedAt)
+        ?.toIso8601String();
+
+    final result = await context.push<Map<String, dynamic>>(
+      '/forum/$forumReference/quiz/list',
+      extra: {
+        'forumId': forumId,
+        'isOrganizer': true,
+        'isLiveChat': isLiveChat,
+        'channelId': channelId,
+        'channelCreatedAt': channelCreatedAt,
       },
+    );
+    if (result == null || !context.mounted) return;
+    _pushCreatedQuizMessage(
+      isLiveChat: isLiveChat,
+      messageType: isLiveChat ? 'livechat_quiz' : 'update_quiz',
+      result: result,
     );
   }
 

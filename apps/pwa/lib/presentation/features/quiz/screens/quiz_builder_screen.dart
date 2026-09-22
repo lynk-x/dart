@@ -10,12 +10,17 @@ import '../cubit/quiz_builder_state.dart';
 import '../models/quiz_builder_model.dart';
 import '../widgets/builder/option_editor_row.dart';
 
-/// Entry page for building a LiveQuiz or Poll using a Master-Detail Slide Canvas layout.
+/// Entry page for building a LiveQuiz using a Master-Detail Slide Canvas
+/// layout. Shares its cubit/state (QuizBuilderCubit/DraftQuiz) with
+/// PollCardEditor, which reuses the same publish/validation logic for
+/// polls behind its own UI — but this screen itself is reached only from
+/// the quiz path (QuizListScreen), so draft.type is always 'quiz' here.
 class QuizBuilderPage extends StatelessWidget {
   final String forumId;
   final String? channelId;
   final String? channelCreatedAt;
   final String messageType;
+  final Map<String, dynamic>? duplicateFrom;
 
   const QuizBuilderPage({
     super.key,
@@ -23,26 +28,44 @@ class QuizBuilderPage extends StatelessWidget {
     this.channelId,
     this.channelCreatedAt,
     required this.messageType,
+    this.duplicateFrom,
   });
 
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (context) => QuizBuilderCubit(
-        repo: quizRepository,
-        forumId: forumId,
-        channelId: channelId,
-        channelCreatedAt: channelCreatedAt,
-      )..addQuestion(),
-      child: QuizBuilderView(messageType: messageType),
+      create: (context) {
+        final cubit = QuizBuilderCubit(
+          repo: quizRepository,
+          forumId: forumId,
+          channelId: channelId,
+          channelCreatedAt: channelCreatedAt,
+        );
+        final source = duplicateFrom;
+        if (source != null) {
+          cubit.loadFromHistory(source);
+        } else {
+          cubit.addQuestion();
+        }
+        return cubit;
+      },
+      child: QuizBuilderView(
+        messageType: messageType,
+        isEditMode: duplicateFrom != null,
+      ),
     );
   }
 }
 
 class QuizBuilderView extends StatefulWidget {
   final String messageType;
+  final bool isEditMode;
 
-  const QuizBuilderView({super.key, required this.messageType});
+  const QuizBuilderView({
+    super.key,
+    required this.messageType,
+    this.isEditMode = false,
+  });
 
   @override
   State<QuizBuilderView> createState() => _QuizBuilderViewState();
@@ -108,7 +131,7 @@ class _QuizBuilderViewState extends State<QuizBuilderView> {
               onPressed: () => _handleExit(context),
             ),
             title: Text(
-              isQuiz ? 'LiveQuiz' : 'Poll',
+              widget.isEditMode ? 'Edit LiveQuiz' : 'Create LiveQuiz',
               style: AppTypography.inter(
                 fontSize: 16,
                 fontWeight: FontWeight.w700,
@@ -555,7 +578,7 @@ class _SlideDeckLeftPanel extends StatelessWidget {
   }
 }
 
-/// Center Stage Header for Quiz/Poll Title & Description
+/// Center Stage Header for the quiz's title & description
 class _QuizHeaderSection extends StatelessWidget {
   final TextEditingController titleController;
   final TextEditingController infoController;
@@ -571,7 +594,6 @@ class _QuizHeaderSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isQuiz = draft.type == 'quiz';
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(16),
@@ -591,9 +613,9 @@ class _QuizHeaderSection extends StatelessWidget {
               color: Colors.white,
             ),
             onChanged: (val) => cubit.updateSettings(val, infoController.text, draft.type),
-            decoration: InputDecoration(
-              hintText: isQuiz ? 'Enter Quiz Title...' : 'Enter Poll Title...',
-              hintStyle: const TextStyle(color: Colors.white38, fontSize: 18, fontWeight: FontWeight.bold),
+            decoration: const InputDecoration(
+              hintText: 'Enter Quiz Title...',
+              hintStyle: TextStyle(color: Colors.white38, fontSize: 18, fontWeight: FontWeight.bold),
               border: InputBorder.none,
               isDense: true,
               contentPadding: EdgeInsets.zero,
@@ -690,7 +712,7 @@ class _QuestionStageEditor extends StatelessWidget {
           ),
           const SizedBox(height: 20),
           Text(
-            isQuiz ? 'Answer Options (Select correct answer)' : 'Poll Options',
+            'Answer Options (Select correct answer)',
             style: AppTypography.inter(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.white70),
           ),
           const SizedBox(height: 10),

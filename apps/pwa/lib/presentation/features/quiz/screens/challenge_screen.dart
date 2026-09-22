@@ -114,6 +114,17 @@ class _ChallengeScreenState extends State<ChallengeScreen> {
                       height: 1.3,
                     ),
                   ),
+
+                  if (widget.timeLeft <= 0 && !widget.isHost)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 12),
+                      child: Text(
+                        'Waiting for the host to continue...',
+                        style: AppTypography.bodyMedium.copyWith(
+                          color: AppColors.alternate.withValues(alpha: 0.6),
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ),

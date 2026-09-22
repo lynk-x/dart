@@ -14,6 +14,7 @@ import 'package:lynk_x/presentation/features/forum/cubit/ticket_validation_cubit
 import 'package:lynk_x/presentation/features/quiz/cubit/quiz_cubit.dart';
 import 'package:lynk_x/presentation/features/quiz/screens/quiz_orchestrator_screen.dart';
 import 'package:lynk_x/presentation/features/quiz/screens/quiz_builder_screen.dart';
+import 'package:lynk_x/presentation/features/quiz/screens/quiz_list_screen.dart';
 import 'package:lynk_x/data/repositories/repository_providers.dart';
 import 'package:lynk_x/presentation/features/notifications/screens/notifications_screen.dart';
 import 'package:lynk_x/presentation/features/auth/screens/claim_bridge_screen.dart';
@@ -259,6 +260,11 @@ GoRouter createRouter(
               final isLiveChat = extras?['isLiveChat'] as bool? ?? false;
               final channelId = extras?['channelId'] as String?;
               final channelCreatedAt = extras?['channelCreatedAt'] as String?;
+              // Set only when reached via QuizListScreen's "duplicate"
+              // action — pre-fills the builder from a past quiz instead of
+              // starting blank.
+              final duplicateFrom =
+                  extras?['duplicateFrom'] as Map<String, dynamic>?;
 
               if (forumId == null || !isOrganizer) {
                 return Title(
@@ -276,6 +282,44 @@ GoRouter createRouter(
                 color: Colors.black,
                 child: QuizBuilderPage(
                   forumId: forumId,
+                  channelId: channelId,
+                  channelCreatedAt: channelCreatedAt,
+                  messageType: isLiveChat ? 'livechat_quiz' : 'update_quiz',
+                  duplicateFrom: duplicateFrom,
+                ),
+              );
+            },
+          ),
+          GoRoute(
+            // Declared before 'quiz/:questionnaireId' so the literal segment
+            // 'list' is matched first rather than captured as an id.
+            path: 'quiz/list',
+            builder: (context, state) {
+              final forumReference = state.pathParameters['reference']!;
+              final extras = state.extra as Map<String, dynamic>?;
+              final forumId = extras?['forumId'] as String?;
+              final isOrganizer = extras?['isOrganizer'] as bool? ?? false;
+              final isLiveChat = extras?['isLiveChat'] as bool? ?? false;
+              final channelId = extras?['channelId'] as String?;
+              final channelCreatedAt = extras?['channelCreatedAt'] as String?;
+
+              if (forumId == null || !isOrganizer) {
+                return Title(
+                  title: 'Error',
+                  color: Colors.black,
+                  child: const SystemErrorScreen(
+                    title: 'Not Available',
+                    message: 'Only forum organizers can view past quizzes.',
+                  ),
+                );
+              }
+
+              return Title(
+                title: 'LiveQuiz',
+                color: Colors.black,
+                child: QuizListScreen(
+                  forumId: forumId,
+                  forumReference: forumReference,
                   channelId: channelId,
                   channelCreatedAt: channelCreatedAt,
                   messageType: isLiveChat ? 'livechat_quiz' : 'update_quiz',

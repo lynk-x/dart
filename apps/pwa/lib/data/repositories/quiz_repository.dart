@@ -130,4 +130,10 @@ class QuizRepository {
       createdAt: DateTime.parse(result['created_at'] as String),
     );
   }
+
+  Future<List<Map<String, dynamic>>> getForumQuizList(String forumId) async {
+    final data = await _client.schema('api').rpc('get_forum_quiz_list',
+        params: {'p_forum_id': forumId});
+    return List<Map<String, dynamic>>.from(data as List);
+  }
 }

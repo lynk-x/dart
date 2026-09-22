@@ -99,24 +99,14 @@ class QuizOrchestratorScreen extends StatelessWidget {
             );
 
           case QuizStatus.finished:
-            return Scaffold(
-              backgroundColor: AppColors.primaryBackground,
-              body: Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      'Quiz ended',
-                      style: AppTypography.h2.copyWith(color: Colors.white),
-                    ),
-                    const SizedBox(height: 24),
-                    TextButton(
-                      onPressed: () => context.pop(),
-                      child: const Text('Back to forum'),
-                    ),
-                  ],
-                ),
-              ),
+            final finishedAnnotated =
+                _withCurrentUserFlag(state.leaderboard, cubit.userId);
+            final finishedMyEntry = _findCurrentUser(finishedAnnotated);
+            return LeaderboardScreen(
+              leaderboard: finishedAnnotated,
+              userScore: (finishedMyEntry?['total_score'] as num?)?.toInt() ?? 0,
+              userRank: _rankOf(finishedAnnotated, cubit.userId),
+              isFinishedView: true,
             );
 
           case QuizStatus.error:
