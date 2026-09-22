@@ -10,6 +10,7 @@ class LeaderboardScreen extends StatelessWidget {
   final bool isHost;
   final VoidCallback? onNext;
   final bool isLastQuestion;
+  final bool isFinishedView;
 
   const LeaderboardScreen({
     super.key,
@@ -20,6 +21,7 @@ class LeaderboardScreen extends StatelessWidget {
     this.isHost = false,
     this.onNext,
     this.isLastQuestion = false,
+    this.isFinishedView = false,
   });
 
   @override
@@ -101,7 +103,14 @@ class LeaderboardScreen extends StatelessWidget {
               
               const SizedBox(height: 32),
               
-              if (isHost)
+              if (isFinishedView)
+                Text(
+                  "Quiz closed — final standings",
+                  style: AppTypography.bodyMedium.copyWith(
+                    color: AppColors.alternate.withValues(alpha: 0.6),
+                  ),
+                )
+              else if (isHost)
                 Center(
                   child: ConstrainedBox(
                     constraints: const BoxConstraints(maxWidth: 400),

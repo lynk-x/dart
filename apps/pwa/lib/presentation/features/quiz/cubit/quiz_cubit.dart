@@ -44,7 +44,8 @@ class QuizCubit extends Cubit<QuizState> {
       }
 
       if (state.status == QuizStatus.leaderboard ||
-          state.status == QuizStatus.podium) {
+          state.status == QuizStatus.podium ||
+          state.status == QuizStatus.finished) {
         await fetchLeaderboard();
       }
     } catch (e) {

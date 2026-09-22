@@ -139,6 +139,33 @@ class QuizBuilderCubit extends Cubit<QuizBuilderState> {
         draft: state.draft.copyWith(questions: updatedQuestions)));
   }
 
+  void loadFromHistory(Map<String, dynamic> quiz) {
+    final questions = (quiz['questions'] as List<dynamic>? ?? [])
+        .map((q) => q as Map<String, dynamic>)
+        .map((q) {
+      final correct = (q['correct'] as Map<String, dynamic>? ?? {});
+      return DraftQuestion(
+        text: q['question_text'] as String? ?? '',
+        options: List<String>.from(q['options'] as List<dynamic>? ?? []),
+        correctIndices: correct.keys.map(int.parse).toList(),
+      );
+    }).toList();
+
+    emit(state.copyWith(
+      draft: state.draft.copyWith(
+        title: quiz['title'] as String? ?? '',
+        type: 'quiz',
+        questions: questions,
+        timePerQuestionSeconds: quiz['time_per_question_seconds'] as int?,
+        scoringMode:
+            QuizScoringMode.fromValue(quiz['scoring_mode'] as String?),
+        shuffleAnswers: quiz['shuffle_answers'] as bool?,
+        shuffleQuestions: quiz['shuffle_questions'] as bool?,
+        revealAnswer: quiz['reveal_answer'] as bool?,
+      ),
+    ));
+  }
+
   String? _validate() {
     if (state.draft.title.trim().isEmpty) return 'Quiz title is required.';
     if (state.draft.questions.isEmpty) {
