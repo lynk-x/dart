@@ -126,7 +126,9 @@ class QuizOrchestratorScreen extends StatelessWidget {
   /// configurable via the builder's "Reveal correct answer" toggle, default
   /// true (today's only behavior) so unset/legacy quizzes are unchanged.
   bool _revealAnswerEnabled(QuizState state) {
-    return state.questionnaire?['reveal_answer'] as bool? ?? true;
+    final settings =
+        state.questionnaire?['session_settings'] as Map<String, dynamic>?;
+    return settings?['reveal_answer'] as bool? ?? true;
   }
 
   /// The leaderboard RPC (`get_quiz_leaderboard`) does not return an

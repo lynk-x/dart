@@ -2,55 +2,49 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// Quiz/poll data access. All reads go through the `api.v1_*` views and all
 /// writes through `api.*` RPCs — the `surveys` schema is not PostgREST-exposed.
-/// A poll/quiz IS its announcing forum_messages row (message_id below is
-/// always that message's id) — see `surveys.polls` / `surveys.quiz_sessions`.
-/// `v1_questions.correct_options` is null until the quiz moves past 'playing'
-/// (reveal/leaderboard/podium/finished); scoring itself always happens
-/// server-side in `api.submit_survey_response`'s insert triggers.
+/// A poll/quiz (surveys.questionnaires) has its own independent id and can
+/// exist as an unpublished draft with no announcing forum_messages row at
+/// all — questionnaireId below is always that independent id, never a
+/// message id. Publishing (creating the message, see publishQuestionnaire)
+/// is a separate step from creation. `v1_questions.correct_options` is null
+/// until the quiz moves past 'playing' (reveal/leaderboard/podium/finished);
+/// scoring itself always happens server-side in
+/// `api.submit_survey_response`'s insert triggers.
 class QuizRepository {
   final SupabaseClient _client;
   QuizRepository(this._client);
 
-  Future<Map<String, dynamic>> getPoll(String messageId) async {
+  Future<Map<String, dynamic>> getQuestionnaire(String questionnaireId) async {
     return await _client
         .schema('api')
-        .from('v1_polls')
+        .from('v1_questionnaires')
         .select()
-        .eq('message_id', messageId)
-        .single();
-  }
-
-  Future<Map<String, dynamic>> getQuizSession(String messageId) async {
-    return await _client
-        .schema('api')
-        .from('v1_quiz_sessions')
-        .select()
-        .eq('message_id', messageId)
+        .eq('id', questionnaireId)
         .single();
   }
 
   Future<Map<String, dynamic>?> getQuestion(
-    String messageId,
+    String questionnaireId,
     int orderIndex,
   ) async {
     return await _client
         .schema('api')
         .from('v1_questions')
         .select()
-        .eq('message_id', messageId)
+        .eq('questionnaire_id', questionnaireId)
         .eq('order_index', orderIndex)
         .maybeSingle();
   }
 
-  Future<List<Map<String, dynamic>>> getLeaderboard(String quizId,
+  Future<List<Map<String, dynamic>>> getLeaderboard(String questionnaireId,
       {int limit = 5}) async {
     final data = await _client.schema('api').rpc('get_quiz_leaderboard',
-        params: {'p_quiz_id': quizId, 'p_limit': limit});
+        params: {'p_questionnaire_id': questionnaireId, 'p_limit': limit});
     return List<Map<String, dynamic>>.from(data as List);
   }
 
   Future<void> submitAnswer({
-    required String messageId,
+    required String questionnaireId,
     required String questionId,
     required String userId,
     required List<int> selectedAnswer,
@@ -58,14 +52,14 @@ class QuizRepository {
     // account_id resolution, published check and per-question dedupe all
     // happen server-side; userId is derived from the session there too.
     await _client.schema('api').rpc('submit_survey_response', params: {
-      'p_message_id': messageId,
+      'p_questionnaire_id': questionnaireId,
       'p_question_id': questionId,
       'p_selected_answer': selectedAnswer,
     });
   }
 
   Future<void> updateQuizState({
-    required String messageId,
+    required String questionnaireId,
     required String quizState,
     required int questionIndex,
     String? expiresAt,
@@ -75,7 +69,7 @@ class QuizRepository {
     bool shuffleQuestions = false,
   }) async {
     await _client.schema('api').rpc('update_quiz_state', params: {
-      'p_message_id': messageId,
+      'p_questionnaire_id': questionnaireId,
       'p_quiz_state': quizState,
       'p_question_index': questionIndex,
       'p_expires_at': expiresAt,
@@ -84,47 +78,63 @@ class QuizRepository {
   }
 
   RealtimeChannel subscribeToQuizSession(
-    String messageId,
+    String questionnaireId,
     void Function(PostgresChangePayload) callback,
   ) {
-    return _client.channel('quiz_live_$messageId').onPostgresChanges(
+    return _client.channel('quiz_live_$questionnaireId').onPostgresChanges(
           event: PostgresChangeEvent.update,
           schema: 'surveys',
-          table: 'quiz_sessions',
+          table: 'questionnaires',
           filter: PostgresChangeFilter(
             type: PostgresChangeFilterType.eq,
-            column: 'message_id',
-            value: messageId,
+            column: 'id',
+            value: questionnaireId,
           ),
           callback: callback,
         );
   }
 
-  /// Atomically creates the announcing forum_messages row and its poll
-  /// config + single question. Returns the new message's id + created_at —
-  /// the RPC does not broadcast a realtime event (unlike sendMessage()), so
-  /// the caller needs both to build a local optimistic ChatMessage itself.
-  /// messageType must be 'livechat_poll' or 'update_poll'.
-  Future<({String messageId, DateTime createdAt})> createPoll(
-      Map<String, dynamic> params) async {
+  /// Creates a DRAFT poll: a surveys.questionnaires row (type='poll') plus
+  /// its single question — no forum_messages row yet. Call
+  /// publishQuestionnaire separately to post it to the forum.
+  Future<String> createPoll(Map<String, dynamic> params) async {
     final result = await _client
         .schema('api')
         .rpc('create_poll', params: params) as Map<String, dynamic>;
-    return (
-      messageId: result['message_id'] as String,
-      createdAt: DateTime.parse(result['created_at'] as String),
-    );
+    return result['questionnaire_id'] as String;
   }
 
-  /// Atomically creates the announcing forum_messages row, its quiz_sessions
-  /// config, and all its questions. Returns the new message's id + created_at
-  /// — see createPoll's doc comment for why both are needed client-side.
-  /// messageType must be 'livechat_quiz' or 'update_quiz'.
-  Future<({String messageId, DateTime createdAt})> createQuiz(
-      Map<String, dynamic> params) async {
+  /// Creates a DRAFT quiz: a surveys.questionnaires row (type='quiz') plus
+  /// all its questions — no forum_messages row yet. Call
+  /// publishQuestionnaire separately to post it to the forum.
+  Future<String> createQuiz(Map<String, dynamic> params) async {
     final result = await _client
         .schema('api')
         .rpc('create_quiz', params: params) as Map<String, dynamic>;
+    return result['questionnaire_id'] as String;
+  }
+
+  /// Publishes a draft: atomically creates the announcing forum_messages row
+  /// and flips the questionnaire to 'published'. Returns the new message's
+  /// id + created_at — the RPC does not broadcast a realtime event (unlike
+  /// sendMessage()), so the caller needs both to build a local optimistic
+  /// ChatMessage itself. messageType must match the questionnaire's type
+  /// ('livechat_poll'/'update_poll' for a poll, 'livechat_quiz'/
+  /// 'update_quiz' for a quiz).
+  Future<({String messageId, DateTime createdAt})> publishQuestionnaire({
+    required String questionnaireId,
+    String? channelId,
+    String? channelCreatedAt,
+    required String content,
+    required String messageType,
+  }) async {
+    final result = await _client.schema('api').rpc('publish_questionnaire', params: {
+      'p_questionnaire_id': questionnaireId,
+      'p_channel_id': channelId,
+      'p_channel_created_at': channelCreatedAt,
+      'p_content': content,
+      'p_message_type': messageType,
+    }) as Map<String, dynamic>;
     return (
       messageId: result['message_id'] as String,
       createdAt: DateTime.parse(result['created_at'] as String),

@@ -5,12 +5,16 @@ import '../skeletons.dart';
 import 'poll_card.dart';
 import 'poll_quiz_card_shell.dart';
 
-/// Poll body: loads and renders a poll attached to a forum message.
+/// Poll body: loads and renders a published poll attached to a forum
+/// message.
 ///
-/// A poll IS its announcing forum_messages row — see surveys.polls, keyed on
-/// message_id. Renders a [PollCard] per question (a poll is always exactly
-/// one question in practice, but this stays list-shaped to match the
-/// underlying table). Hidden while `status != 'published'`.
+/// A poll (surveys.questionnaires, type='poll') has its own independent id,
+/// separate from the announcing forum_messages row it points at once
+/// published — questionnaireId here is that independent id, resolved from
+/// the message via v1_questionnaires' message_id column. Renders a
+/// [PollCard] per question (a poll is always exactly one question in
+/// practice, but this stays list-shaped to match the underlying table).
+/// Hidden while `status != 'published'`.
 class PollBody extends StatefulWidget {
   final String messageId;
   final bool isMe;
@@ -25,6 +29,7 @@ class _PollBodyState extends State<PollBody> {
   SupabaseClient get _supabase => Supabase.instance.client;
   bool _isLoading = true;
   List<Map<String, dynamic>> _questions = [];
+  String? _questionnaireId;
 
   @override
   void initState() {
@@ -36,8 +41,8 @@ class _PollBodyState extends State<PollBody> {
     try {
       final pollData = await _supabase
           .schema('api')
-          .from('v1_polls')
-          .select('status')
+          .from('v1_questionnaires')
+          .select('id, status')
           .eq('message_id', widget.messageId)
           .single();
 
@@ -46,15 +51,18 @@ class _PollBodyState extends State<PollBody> {
         return;
       }
 
+      final questionnaireId = pollData['id'] as String;
+
       final questions = await _supabase
           .schema('api')
           .from('v1_questions')
           .select('id, question_text, options, order_index')
-          .eq('message_id', widget.messageId)
+          .eq('questionnaire_id', questionnaireId)
           .order('order_index', ascending: true);
 
       if (mounted) {
         setState(() {
+          _questionnaireId = questionnaireId;
           _questions = List<Map<String, dynamic>>.from(questions);
           _isLoading = false;
         });
@@ -92,7 +100,7 @@ class _PollBodyState extends State<PollBody> {
         final options =
             (q['options'] as List?)?.map((o) => o.toString()).toList() ?? [];
         return PollCard(
-          messageId: widget.messageId,
+          questionnaireId: _questionnaireId!,
           questionId: q['id'] as String,
           questionText: q['question_text'] as String,
           options: options,

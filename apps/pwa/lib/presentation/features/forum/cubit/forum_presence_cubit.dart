@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/foundation.dart';
+import 'package:lynk_x/data/repositories/forum_repository.dart';
 import 'forum_presence_state.dart';
 
 class ForumPresenceCubit extends Cubit<ForumPresenceState> {
@@ -18,8 +19,9 @@ class ForumPresenceCubit extends Cubit<ForumPresenceState> {
     required this.userName,
     required this.isOrganizer,
     required this.isPremium,
+    required ForumRepository repo,
     RealtimeChannel? channel,
-  }) : channel = channel ?? Supabase.instance.client.channel('forum_presence_$forumId'),
+  }) : channel = channel ?? repo.createPresenceChannel(forumId),
        super(const ForumPresenceState());
 
   void updateUserName(String newName) {

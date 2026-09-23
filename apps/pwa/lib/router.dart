@@ -356,7 +356,7 @@ GoRouter createRouter(
                 color: Colors.black,
                 child: BlocProvider<QuizCubit>(
                   create: (context) => QuizCubit(
-                    messageId: questionnaireId,
+                    questionnaireId: questionnaireId,
                     userId: userId,
                     repo: quizRepository,
                     isHost: isHost,

@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'dart:js_interop';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:web/web.dart' as web;
 
 /// PushNotificationService for PWA.
 ///
@@ -59,8 +61,56 @@ class PushNotificationService {
       _messaging.onTokenRefresh.listen((newToken) {
         _saveTokenToSupabase(newToken);
       });
+
+      if (kIsWeb) {
+        _setupServiceWorkerBridge();
+      }
     } catch (e) {
       debugPrint('[Push] Initialization failed: $e');
+    }
+  }
+
+  /// Bridges to firebase-messaging-sw.js so it can re-derive and report a
+  /// new FCM token when the browser fires `pushsubscriptionchange` — an
+  /// event the browser dispatches on its own initiative (e.g. a stale
+  /// subscription expiring from disuse), independent of this app's own
+  /// onTokenRefresh stream. Without this, a device whose token the backend
+  /// already pruned (see api.prune_unregistered_device, triggered by an FCM
+  /// 404/UNREGISTERED response) stays un-notifiable until the user happens
+  /// to fully relaunch the app — this closes that gap for any tab left open
+  /// in the background.
+  ///
+  /// Two-way: sends the VAPID public key the SW needs to call
+  /// messaging.getToken() itself (it has no access to this app's Dart
+  /// build-time constants), and listens for the SW's resulting
+  /// 'fcm-token-refreshed' message to save the new token the normal way.
+  void _setupServiceWorkerBridge() {
+    // No re-run guard: re-assigning the same onmessage handler and
+    // re-sending the same VAPID key on every init() call is harmless and
+    // idempotent, and lets a transient failure here self-heal on the next
+    // auth event instead of being permanently skipped for the session.
+    try {
+      const vapidKey = String.fromEnvironment('FIREBASE_VAPID_KEY');
+      if (vapidKey.isEmpty) return;
+
+      web.window.navigator.serviceWorker.onmessage = (web.MessageEvent event) {
+        final data = event.data.dartify();
+        if (data is Map && data['type'] == 'fcm-token-refreshed') {
+          final newToken = data['token'] as String?;
+          if (newToken != null && newToken.isNotEmpty) {
+            debugPrint('[Push] Service worker reported a refreshed FCM token');
+            _saveTokenToSupabase(newToken);
+          }
+        }
+      }.toJS;
+
+      web.window.navigator.serviceWorker.ready.toDart.then((registration) {
+        registration.active?.postMessage(
+          {'type': 'set-vapid-key', 'key': vapidKey}.jsify(),
+        );
+      });
+    } catch (e) {
+      debugPrint('[Push] Service worker bridge setup failed: $e');
     }
   }
 

@@ -8,6 +8,7 @@ import '../cubit/forum_sessions_cubit.dart';
 import '../cubit/forum_sessions_state.dart';
 import '../widgets/skeletons.dart';
 import 'package:lynk_x/presentation/shared/utils/app_snackbars.dart';
+import 'package:lynk_x/data/repositories/repository_providers.dart';
 
 class SessionsScreen extends StatelessWidget {
   final String? forumId;
@@ -30,6 +31,7 @@ class SessionsScreen extends StatelessWidget {
         forumId: forumId ?? '',
         forumCreatedAt: forumCreatedAt,
         forumReference: forumReference,
+        repo: forumRepository,
       )..loadSessions(),
       child: SessionsView(
         isOrganizer: isOrganizer,
@@ -228,9 +230,17 @@ class SessionsView extends StatelessWidget {
     final cubit = context.read<ForumSessionsCubit>();
     final titleController = TextEditingController(text: session?.title);
     final roomController = TextEditingController(text: session?.room);
-    DateTime startsAt = session?.startsAt ?? DateTime.now();
-    DateTime endsAt =
-        session?.endsAt ?? DateTime.now().add(const Duration(hours: 1));
+    // Session times are constrained to the event's own window when known —
+    // an existing session's saved time always wins over "now" as the
+    // default so editing a session doesn't silently clamp it to a
+    // different moment before the organizer has touched anything.
+    final eventStartsAt = cubit.state.eventStartsAt;
+    final eventEndsAt = cubit.state.eventEndsAt;
+    DateTime startsAt = session?.startsAt ?? eventStartsAt ?? DateTime.now();
+    DateTime endsAt = session?.endsAt ??
+        (eventStartsAt != null
+            ? eventStartsAt.add(const Duration(hours: 1))
+            : DateTime.now().add(const Duration(hours: 1)));
 
     showModalBottomSheet(
       context: context,
@@ -297,6 +307,8 @@ class SessionsView extends StatelessWidget {
                     child: _DateTimePicker(
                       label: 'Starts At',
                       value: startsAt,
+                      minimumDate: eventStartsAt,
+                      maximumDate: eventEndsAt,
                       borderRadius: const BorderRadius.only(
                         topLeft: Radius.circular(12),
                         bottomLeft: Radius.circular(12),
@@ -309,6 +321,8 @@ class SessionsView extends StatelessWidget {
                     child: _DateTimePicker(
                       label: 'Ends At',
                       value: endsAt,
+                      minimumDate: eventStartsAt,
+                      maximumDate: eventEndsAt,
                       borderRadius: const BorderRadius.only(
                         topRight: Radius.circular(12),
                         bottomRight: Radius.circular(12),
@@ -630,6 +644,8 @@ class _DateTimePicker extends StatelessWidget {
   final ValueChanged<DateTime> onChanged;
   final BorderRadius? borderRadius;
   final bool showRightBorder;
+  final DateTime? minimumDate;
+  final DateTime? maximumDate;
 
   const _DateTimePicker({
     required this.label,
@@ -637,6 +653,8 @@ class _DateTimePicker extends StatelessWidget {
     required this.onChanged,
     this.borderRadius,
     this.showRightBorder = false,
+    this.minimumDate,
+    this.maximumDate,
   });
 
   @override
@@ -648,7 +666,14 @@ class _DateTimePicker extends StatelessWidget {
         const SizedBox(height: 8),
         InkWell(
           onTap: () {
-            DateTime tempDateTime = value;
+            DateTime clampedInitial = value;
+            if (minimumDate != null && clampedInitial.isBefore(minimumDate!)) {
+              clampedInitial = minimumDate!;
+            }
+            if (maximumDate != null && clampedInitial.isAfter(maximumDate!)) {
+              clampedInitial = maximumDate!;
+            }
+            DateTime tempDateTime = clampedInitial;
             showCupertinoModalPopup<void>(
               context: context,
               builder: (BuildContext modalContext) => CupertinoTheme(
@@ -702,7 +727,9 @@ class _DateTimePicker extends StatelessWidget {
                       ),
                       Expanded(
                         child: CupertinoDatePicker(
-                          initialDateTime: value,
+                          initialDateTime: clampedInitial,
+                          minimumDate: minimumDate,
+                          maximumDate: maximumDate,
                           mode: CupertinoDatePickerMode.dateAndTime,
                           use24hFormat: false,
                           onDateTimeChanged: (DateTime newDateTime) {

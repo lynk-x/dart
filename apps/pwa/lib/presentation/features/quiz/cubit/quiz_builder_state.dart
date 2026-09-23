@@ -5,38 +5,49 @@ class QuizBuilderState extends Equatable {
   final DraftQuiz draft;
   final bool isSaving;
   final String? error;
-  final bool isSuccess;
-  // Set once publish() succeeds — the caller (PollCardEditor / QuizBuilderPage)
-  // uses these to build a local optimistic ChatMessage, since create_poll /
-  // create_quiz don't broadcast a realtime event the way sendMessage() does.
-  final String? createdMessageId;
-  final DateTime? createdMessageCreatedAt;
+  // Set once saveDraft() succeeds — the questionnaire now exists server-side
+  // (as a draft, no forum_messages row yet) and can be published later.
+  final String? questionnaireId;
+  final bool isDraftSaved;
+  // Set once publish() succeeds. The caller (PollCardEditor / QuizBuilderPage)
+  // uses these to build a local optimistic ChatMessage, since
+  // publish_questionnaire doesn't broadcast a realtime event the way
+  // sendMessage() does.
+  final bool isPublished;
+  final String? publishedMessageId;
+  final DateTime? publishedMessageCreatedAt;
 
   const QuizBuilderState({
     required this.draft,
     this.isSaving = false,
     this.error,
-    this.isSuccess = false,
-    this.createdMessageId,
-    this.createdMessageCreatedAt,
+    this.questionnaireId,
+    this.isDraftSaved = false,
+    this.isPublished = false,
+    this.publishedMessageId,
+    this.publishedMessageCreatedAt,
   });
 
   QuizBuilderState copyWith({
     DraftQuiz? draft,
     bool? isSaving,
     String? error,
-    bool? isSuccess,
-    String? createdMessageId,
-    DateTime? createdMessageCreatedAt,
+    String? questionnaireId,
+    bool? isDraftSaved,
+    bool? isPublished,
+    String? publishedMessageId,
+    DateTime? publishedMessageCreatedAt,
   }) {
     return QuizBuilderState(
       draft: draft ?? this.draft,
       isSaving: isSaving ?? this.isSaving,
       error: error,
-      isSuccess: isSuccess ?? this.isSuccess,
-      createdMessageId: createdMessageId ?? this.createdMessageId,
-      createdMessageCreatedAt:
-          createdMessageCreatedAt ?? this.createdMessageCreatedAt,
+      questionnaireId: questionnaireId ?? this.questionnaireId,
+      isDraftSaved: isDraftSaved ?? this.isDraftSaved,
+      isPublished: isPublished ?? this.isPublished,
+      publishedMessageId: publishedMessageId ?? this.publishedMessageId,
+      publishedMessageCreatedAt:
+          publishedMessageCreatedAt ?? this.publishedMessageCreatedAt,
     );
   }
 
@@ -45,8 +56,10 @@ class QuizBuilderState extends Equatable {
         draft,
         isSaving,
         error,
-        isSuccess,
-        createdMessageId,
-        createdMessageCreatedAt,
+        questionnaireId,
+        isDraftSaved,
+        isPublished,
+        publishedMessageId,
+        publishedMessageCreatedAt,
       ];
 }

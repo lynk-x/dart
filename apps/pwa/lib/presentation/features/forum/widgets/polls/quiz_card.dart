@@ -10,10 +10,14 @@ import 'poll_quiz_card_shell.dart';
 /// Quiz body: loads and renders a quiz's join-launcher card attached to a
 /// forum message.
 ///
-/// A quiz IS its announcing forum_messages row — see surveys.quiz_sessions,
-/// keyed on message_id. A quiz is a session to join rather than a question
-/// to answer inline, so this renders a single join card, not a PollCard.
-/// Hidden while `status != 'published'`.
+/// A quiz (surveys.questionnaires, type='quiz') has its own independent id,
+/// separate from the announcing forum_messages row it points at once
+/// published — resolved here from the message via v1_questionnaires'
+/// message_id column, since QuizBody itself is only ever handed the
+/// message's own id (from the chat message it's rendered inside). A quiz is
+/// a session to join rather than a question to answer inline, so this
+/// renders a single join card, not a PollCard. Hidden while
+/// `status != 'published'`.
 class QuizBody extends StatefulWidget {
   final String messageId;
   final bool isMe;
@@ -30,6 +34,7 @@ class _QuizBodyState extends State<QuizBody> {
   bool _isPublished = false;
   String _title = '';
   String _quizState = 'lobby';
+  String? _questionnaireId;
 
   @override
   void initState() {
@@ -41,16 +46,17 @@ class _QuizBodyState extends State<QuizBody> {
     try {
       final sessionData = await _supabase
           .schema('api')
-          .from('v1_quiz_sessions')
-          .select('title, status, quiz_state')
+          .from('v1_questionnaires')
+          .select('id, title, status, session_state')
           .eq('message_id', widget.messageId)
           .single();
 
       if (mounted) {
         setState(() {
+          _questionnaireId = sessionData['id'] as String?;
           _title = sessionData['title'] as String? ?? '';
           _isPublished = sessionData['status'] == 'published';
-          _quizState = sessionData['quiz_state'] as String? ?? 'lobby';
+          _quizState = sessionData['session_state'] as String? ?? 'lobby';
           _isLoading = false;
         });
       }
@@ -77,13 +83,13 @@ class _QuizBodyState extends State<QuizBody> {
       );
     }
 
-    if (!_isPublished) {
+    if (!_isPublished || _questionnaireId == null) {
       return const SizedBox.shrink(key: ValueKey('empty'));
     }
 
     return _QuizJoinCard(
       key: const ValueKey('content'),
-      messageId: widget.messageId,
+      questionnaireId: _questionnaireId!,
       title: _title,
       quizState: _quizState,
       isMe: widget.isMe,
@@ -115,14 +121,14 @@ class _QuizSkeletonBody extends StatelessWidget {
 }
 
 class _QuizJoinCard extends StatelessWidget {
-  final String messageId;
+  final String questionnaireId;
   final String title;
   final String quizState;
   final bool isMe;
 
   const _QuizJoinCard({
     super.key,
-    required this.messageId,
+    required this.questionnaireId,
     required this.title,
     required this.quizState,
     required this.isMe,
@@ -186,7 +192,7 @@ class _QuizJoinCard extends StatelessWidget {
               onPressed: _isEnded || forumReference == null
                   ? null
                   : () => context.push(
-                        '/forum/$forumReference/quiz/$messageId',
+                        '/forum/$forumReference/quiz/$questionnaireId',
                         extra: {'isHost': isOrganizer},
                       ),
               style: ElevatedButton.styleFrom(

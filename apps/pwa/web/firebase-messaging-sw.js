@@ -68,6 +68,57 @@ try {
   console.warn('[firebase-messaging-sw] Firebase initialisation skipped:', e);
 }
 
+// The app sends its VAPID public key here shortly after init() succeeds
+// (see push_notification_service.dart) — messaging.getToken() requires it,
+// but it's a Dart build-time constant (--dart-define, see build.sh) not
+// available to this plain, unprocessed JS file. A VAPID *public* key is
+// non-secret by design (the browser transmits it as part of every push
+// subscription anyway), so caching it here is no different from the rest of
+// this file's already-hardcoded, non-secret Firebase config.
+let cachedVapidKey = null;
+self.addEventListener('message', (event) => {
+  if (event.data?.type === 'set-vapid-key' && typeof event.data.key === 'string') {
+    cachedVapidKey = event.data.key;
+  }
+});
+
+// The browser fires this when it invalidates/rotates a push subscription on
+// its own initiative (not via the app's own onTokenRefresh flow) — e.g. the
+// subscription simply expired from disuse. This is a real, observed failure
+// mode: a previously-working device stops receiving push because the old
+// FCM token was pruned server-side (see api.prune_unregistered_device) after
+// a 404/UNREGISTERED response, and nothing re-registers the new one until
+// the user happens to relaunch the app. This SW-level handler closes that
+// gap for the case where a tab is still open (even backgrounded) — it can't
+// itself call the authenticated register_user_device RPC (no Supabase
+// session in the SW context), so it re-derives the new FCM token and hands
+// it to any open app tab via postMessage, which forwards to
+// PushNotificationService's already-authenticated save path
+// (see app.dart's navigator.serviceWorker.onmessage listener).
+self.addEventListener('pushsubscriptionchange', (event) => {
+  event.waitUntil(
+    (async () => {
+      try {
+        if (typeof firebase === 'undefined' || !firebase.apps?.length) return;
+        if (!cachedVapidKey) {
+          console.warn('[firebase-messaging-sw] pushsubscriptionchange fired but no VAPID key cached yet — cannot re-derive token.');
+          return;
+        }
+        const messaging = firebase.messaging();
+        const newToken = await messaging.getToken({ vapidKey: cachedVapidKey });
+        if (!newToken) return;
+
+        const windowClients = await clients.matchAll({ type: 'window', includeUncontrolled: true });
+        for (const client of windowClients) {
+          client.postMessage({ type: 'fcm-token-refreshed', token: newToken });
+        }
+      } catch (e) {
+        console.warn('[firebase-messaging-sw] pushsubscriptionchange handling failed:', e);
+      }
+    })()
+  );
+});
+
 // Handle notification click — open or focus the PWA tab
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();

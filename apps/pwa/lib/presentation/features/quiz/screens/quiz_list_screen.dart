@@ -6,21 +6,19 @@ import 'package:lynk_x/presentation/shared/utils/app_snackbars.dart';
 
 enum _QuizCardStatus { notStarted, live, finished }
 
-/// Lists quizzes previously posted in this forum, split into three
-/// sections by quiz_state, in order: "Live now" (playing/reveal/
-/// leaderboard/podium — actively running), "Not started" (lobby —
-/// created and already visible in the forum, host just hasn't hit Start)
-/// and "Finished" (closed, scores final). "Not started" is deliberately
-/// not called "Draft": surveys.questionnaire_status already reserves a
-/// separate, unused 'draft' value (with RLS already scoped for it) for a
-/// genuine unpublished/not-yet-posted quiz — a lobby quiz is already
-/// status='published' and publicly visible, just paused at its first
-/// state, so reusing "Draft" for it here would collide with that other
-/// concept if an actual draft-save feature is ever built. Each card's
-/// primary action reflects its section: Resume for a live quiz, Start for
-/// a not-started one, View for a finished one; Duplicate is always
-/// available as the secondary action so an organizer can prep a fresh
-/// copy of an old quiz instead of rebuilding it from scratch.
+/// Lists quizzes previously posted (or drafted) in this forum, split into
+/// three sections, in order: "Live now" (playing/reveal/leaderboard/
+/// podium — actively running), "Not started" (either a genuine unpublished
+/// draft — status='draft', no forum message yet — or a published-but-lobby
+/// quiz that's already visible in the forum and just hasn't been started),
+/// and "Finished" (closed, scores final). A draft and a lobby quiz share
+/// the "Not started" section since both read as "nothing to resume/watch
+/// yet" to an organizer scanning the list, but each card's actions differ:
+/// a draft's primary action is Publish (post it to the forum) with Preview
+/// as secondary (reopen the builder to review/edit first); a lobby quiz's
+/// primary action is Start with Duplicate as secondary. Resume (live) and
+/// View (finished) round out the primary actions for the other two
+/// sections.
 class QuizListScreen extends StatefulWidget {
   final String forumId;
   final String forumReference;
@@ -60,6 +58,11 @@ class _QuizListScreenState extends State<QuizListScreen> {
   // state means, or the list's promise and the orchestrator's render
   // diverge.
   _QuizCardStatus _statusOf(Map<String, dynamic> quiz) {
+    // A draft has no live session at all yet — reads the same as "not
+    // started" for section grouping, even though its quiz_state column is
+    // just sitting at its unused default ('lobby').
+    if (quiz['status'] == 'draft') return _QuizCardStatus.notStarted;
+
     switch (quiz['quiz_state'] as String?) {
       case 'finished':
         return _QuizCardStatus.finished;
@@ -77,11 +80,66 @@ class _QuizListScreenState extends State<QuizListScreen> {
   /// same navigation — QuizOrchestratorScreen/QuizCubit already render
   /// whichever screen matches the session's live quiz_state, lobby and
   /// finished included (see QuizOrchestratorScreen's QuizStatus.lobby and
-  /// QuizStatus.finished cases).
+  /// QuizStatus.finished cases). Never called for a draft (see _publish).
   void _openQuiz(Map<String, dynamic> quiz) {
-    final messageId = quiz['message_id'] as String;
-    context.push('/forum/${widget.forumReference}/quiz/$messageId',
+    final questionnaireId = quiz['questionnaire_id'] as String;
+    context.push('/forum/${widget.forumReference}/quiz/$questionnaireId',
         extra: {'isHost': true});
+  }
+
+  /// Publishes a draft directly from its list card — posts it to the forum
+  /// (api.publish_questionnaire) without reopening the builder. Reuses
+  /// QuizBuilderCubit purely as a thin one-shot RPC wrapper here (via a
+  /// throwaway instance) since publish() already lives there.
+  Future<void> _publish(Map<String, dynamic> quiz) async {
+    final questionnaireId = quiz['questionnaire_id'] as String;
+    try {
+      await quizRepository.publishQuestionnaire(
+        questionnaireId: questionnaireId,
+        channelId: widget.channelId,
+        channelCreatedAt: widget.channelCreatedAt,
+        content: quiz['title'] as String? ?? 'Quiz',
+        messageType: widget.messageType,
+      );
+      if (!mounted) return;
+      AppSnackBars.showSuccess(context, 'Quiz published.');
+      setState(() {
+        _future = quizRepository.getForumQuizList(widget.forumId);
+      });
+    } catch (e) {
+      if (!mounted) return;
+      AppSnackBars.showError(context, e.toFriendlyMessage());
+    }
+  }
+
+  /// Reopens the builder pre-filled with this draft's content so the
+  /// organizer can review or keep editing before publishing — the same
+  /// "resume this draft" path as tapping it, just named for what it does
+  /// from the card's secondary-action slot. See QuizBuilderPage's
+  /// isResumingDraft check (keys off status='draft' + questionnaire_id).
+  Future<void> _previewDraft(Map<String, dynamic> quiz) async {
+    final result = await context.push<Map<String, dynamic>>(
+      '/forum/${widget.forumReference}/quiz/create',
+      extra: {
+        'forumId': widget.forumId,
+        'isOrganizer': true,
+        'isLiveChat': widget.messageType == 'livechat_quiz',
+        'channelId': widget.channelId,
+        'channelCreatedAt': widget.channelCreatedAt,
+        'duplicateFrom': quiz,
+      },
+    );
+    if (!mounted) return;
+    // Refresh either way: the draft may have been updated (or published)
+    // while the builder was open.
+    setState(() {
+      _future = quizRepository.getForumQuizList(widget.forumId);
+    });
+    if (result != null) {
+      // A publish happened from inside the builder — hand the created-
+      // message result up to forum_screen.dart same as _duplicate does.
+      context.pop(result);
+    }
   }
 
   /// Force-closes a not-started or live quiz (quiz_state -> 'finished')
@@ -93,7 +151,7 @@ class _QuizListScreenState extends State<QuizListScreen> {
   /// so a stuck quiz was already recoverable server-side; this just adds
   /// the UI to actually reach that path from outside a live session.
   Future<void> _forceClose(Map<String, dynamic> quiz) async {
-    final messageId = quiz['message_id'] as String;
+    final questionnaireId = quiz['questionnaire_id'] as String;
     final title = quiz['title'] as String? ?? 'this quiz';
 
     final confirmed = await showDialog<bool>(
@@ -121,7 +179,7 @@ class _QuizListScreenState extends State<QuizListScreen> {
 
     try {
       await quizRepository.updateQuizState(
-        messageId: messageId,
+        questionnaireId: questionnaireId,
         quizState: 'finished',
         questionIndex: (quiz['current_question_index'] as int?) ?? -1,
       );
@@ -178,7 +236,7 @@ class _QuizListScreenState extends State<QuizListScreen> {
         title: Text(
           'LiveQuiz',
           style: AppTypography.inter(
-            fontSize: 16,
+            fontSize: 18,
             fontWeight: FontWeight.w700,
             color: Colors.white,
           ),
@@ -203,7 +261,7 @@ class _QuizListScreenState extends State<QuizListScreen> {
           if (snapshot.hasError) {
             return Center(
               child: Text(
-                'Could not load past quizzes: ${snapshot.error!.toFriendlyMessage()}',
+                'Could not load LiveQuizzes: ${snapshot.error!.toFriendlyMessage()}',
                 textAlign: TextAlign.center,
                 style: AppTypography.inter(color: Colors.white54, fontSize: 14),
               ),
@@ -215,7 +273,7 @@ class _QuizListScreenState extends State<QuizListScreen> {
               child: Padding(
                 padding: const EdgeInsets.all(32),
                 child: Text(
-                  'No past quizzes in this forum yet.\nCreate one and it\'ll show up here for next time.',
+                  'No LiveQuiz in this forum yet.\nCreate one and it\'ll show up here for next time.',
                   textAlign: TextAlign.center,
                   style: AppTypography.inter(color: Colors.white38, fontSize: 14),
                 ),
@@ -248,7 +306,7 @@ class _QuizListScreenState extends State<QuizListScreen> {
                     status: _QuizCardStatus.live,
                     quiz: quiz,
                     onPrimary: () => _openQuiz(quiz),
-                    onDuplicate: () => _duplicate(quiz),
+                    onSecondary: () => _duplicate(quiz),
                     onForceClose: () => _forceClose(quiz),
                   ),
                   const SizedBox(height: 10),
@@ -261,10 +319,11 @@ class _QuizListScreenState extends State<QuizListScreen> {
                 for (final quiz in notStarted) ...[
                   _PastQuizCard(
                     status: _QuizCardStatus.notStarted,
+                    isDraft: quiz['status'] == 'draft',
                     quiz: quiz,
-                    onPrimary: () => _openQuiz(quiz),
-                    onDuplicate: () => _duplicate(quiz),
-                    onForceClose: () => _forceClose(quiz),
+                    onPrimary: quiz['status'] == 'draft' ? () => _publish(quiz) : () => _openQuiz(quiz),
+                    onSecondary: quiz['status'] == 'draft' ? () => _previewDraft(quiz) : () => _duplicate(quiz),
+                    onForceClose: quiz['status'] == 'draft' ? null : () => _forceClose(quiz),
                   ),
                   const SizedBox(height: 10),
                 ],
@@ -278,7 +337,7 @@ class _QuizListScreenState extends State<QuizListScreen> {
                     status: _QuizCardStatus.finished,
                     quiz: quiz,
                     onPrimary: () => _openQuiz(quiz),
-                    onDuplicate: () => _duplicate(quiz),
+                    onSecondary: () => _duplicate(quiz),
                   ),
                   const SizedBox(height: 10),
                 ],
@@ -315,10 +374,12 @@ class _SectionLabel extends StatelessWidget {
 class _PastQuizCard extends StatelessWidget {
   final Map<String, dynamic> quiz;
   final _QuizCardStatus status;
+  final bool isDraft;
   final VoidCallback onPrimary;
-  final VoidCallback onDuplicate;
-  // Only offered for live/not-started quizzes (null for finished ones,
-  // which have nothing left to close) — see QuizListScreen._forceClose's
+  final VoidCallback onSecondary;
+  // Only offered for live/not-started-and-published quizzes (null for
+  // finished ones, which have nothing left to close, and for drafts, which
+  // have no live session to force-close) — see QuizListScreen._forceClose's
   // doc comment for why this exists: today it's the only recovery path
   // for a quiz whose host disconnected before reaching Podium's Exit.
   final VoidCallback? onForceClose;
@@ -326,8 +387,9 @@ class _PastQuizCard extends StatelessWidget {
   const _PastQuizCard({
     required this.quiz,
     required this.status,
+    this.isDraft = false,
     required this.onPrimary,
-    required this.onDuplicate,
+    required this.onSecondary,
     this.onForceClose,
   });
 
@@ -464,14 +526,14 @@ class _PastQuizCard extends StatelessWidget {
                 width: 38,
                 height: 38,
                 child: OutlinedButton(
-                  onPressed: onDuplicate,
+                  onPressed: onSecondary,
                   style: OutlinedButton.styleFrom(
                     padding: EdgeInsets.zero,
                     side: BorderSide(color: Colors.white.withValues(alpha: 0.14)),
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10)),
                   ),
-                  child: const Icon(Icons.copy_rounded,
+                  child: Icon(isDraft ? Icons.visibility_outlined : Icons.copy_rounded,
                       color: Colors.white70, size: 15),
                 ),
               ),
@@ -525,7 +587,7 @@ class _PastQuizCard extends StatelessWidget {
   IconData get _primaryIcon {
     switch (status) {
       case _QuizCardStatus.notStarted:
-        return Icons.play_circle_outline;
+        return isDraft ? Icons.publish_outlined : Icons.play_circle_outline;
       case _QuizCardStatus.live:
         return Icons.play_arrow_rounded;
       case _QuizCardStatus.finished:
@@ -536,7 +598,7 @@ class _PastQuizCard extends StatelessWidget {
   String get _primaryLabel {
     switch (status) {
       case _QuizCardStatus.notStarted:
-        return 'Start';
+        return isDraft ? 'Publish' : 'Start';
       case _QuizCardStatus.live:
         return 'Resume';
       case _QuizCardStatus.finished:

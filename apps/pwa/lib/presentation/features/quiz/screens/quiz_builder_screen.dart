@@ -12,7 +12,7 @@ import '../widgets/builder/option_editor_row.dart';
 
 /// Entry page for building a LiveQuiz using a Master-Detail Slide Canvas
 /// layout. Shares its cubit/state (QuizBuilderCubit/DraftQuiz) with
-/// PollCardEditor, which reuses the same publish/validation logic for
+/// PollCardEditor, which reuses the same save/publish/validation logic for
 /// polls behind its own UI — but this screen itself is reached only from
 /// the quiz path (QuizListScreen), so draft.type is always 'quiz' here.
 class QuizBuilderPage extends StatelessWidget {
@@ -33,6 +33,10 @@ class QuizBuilderPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final source = duplicateFrom;
+    final isResumingDraft =
+        source != null && source['status'] == 'draft' && source['questionnaire_id'] != null;
+
     return BlocProvider(
       create: (context) {
         final cubit = QuizBuilderCubit(
@@ -40,8 +44,9 @@ class QuizBuilderPage extends StatelessWidget {
           forumId: forumId,
           channelId: channelId,
           channelCreatedAt: channelCreatedAt,
+          questionnaireId:
+              isResumingDraft ? source['questionnaire_id'] as String : null,
         );
-        final source = duplicateFrom;
         if (source != null) {
           cubit.loadFromHistory(source);
         } else {
@@ -51,7 +56,7 @@ class QuizBuilderPage extends StatelessWidget {
       },
       child: QuizBuilderView(
         messageType: messageType,
-        isEditMode: duplicateFrom != null,
+        isEditMode: source != null,
       ),
     );
   }
@@ -98,15 +103,26 @@ class _QuizBuilderViewState extends State<QuizBuilderView> {
 
     return BlocConsumer<QuizBuilderCubit, QuizBuilderState>(
       listenWhen: (prev, curr) =>
-          prev.error != curr.error || prev.isSuccess != curr.isSuccess,
+          prev.error != curr.error ||
+          prev.isDraftSaved != curr.isDraftSaved ||
+          prev.isPublished != curr.isPublished,
       listener: (context, state) {
         if (state.error != null) {
           AppSnackBars.showError(context, state.error!);
-        } else if (state.isSuccess) {
+        } else if (state.isPublished) {
           AppSnackBars.showSuccess(context, 'Quiz published successfully!');
           context.pop({
-            'messageId': state.createdMessageId,
-            'createdAt': state.createdMessageCreatedAt,
+            'messageId': state.publishedMessageId,
+            'createdAt': state.publishedMessageCreatedAt,
+            'title': state.draft.title,
+          });
+        } else if (state.isDraftSaved) {
+          AppSnackBars.showSuccess(context, 'Draft saved.');
+          // No forum_messages row exists yet for a draft — nothing to push
+          // into the chat feed, so this pops with just enough for
+          // QuizListScreen to refresh and show the new/updated draft.
+          context.pop({
+            'questionnaireId': state.questionnaireId,
             'title': state.draft.title,
           });
         }
@@ -149,12 +165,21 @@ class _QuizBuilderViewState extends State<QuizBuilderView> {
                     child: CircularProgressIndicator(strokeWidth: 2),
                   ),
                 )
-              else
+              else ...[
+                // Publish only once a draft actually exists server-side —
+                // either resumed from QuizListScreen's Drafts section, or
+                // just created by the checkmark below in this same session.
+                if (state.questionnaireId != null)
+                  TextButton(
+                    onPressed: () => cubit.publish(widget.messageType),
+                    child: const Text('Publish', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+                  ),
                 IconButton(
                   icon: const Icon(Icons.check_rounded, color: Colors.white),
-                  tooltip: 'Publish',
-                  onPressed: () => cubit.publish(widget.messageType),
+                  tooltip: 'Save Draft',
+                  onPressed: () => cubit.saveDraft(),
                 ),
+              ],
             ],
           ),
           body: isDesktop
@@ -391,9 +416,9 @@ class _QuizBuilderViewState extends State<QuizBuilderView> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: AppColors.surface,
-        title: const Text('Discard quiz?', style: TextStyle(color: Colors.white)),
+        title: const Text('Unsaved changes', style: TextStyle(color: Colors.white)),
         content: const Text(
-          'You have unsaved progress on this quiz. It will be lost if you leave now.',
+          'You have unsaved progress on this quiz. Save it as a draft, or discard it and leave now.',
           style: TextStyle(color: Colors.white70),
         ),
         actions: [
@@ -407,6 +432,13 @@ class _QuizBuilderViewState extends State<QuizBuilderView> {
               context.pop();
             },
             child: const Text('Discard', style: TextStyle(color: Colors.redAccent)),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              cubit.saveDraft();
+            },
+            child: Text('Save Draft', style: TextStyle(color: context.accentColor, fontWeight: FontWeight.w700)),
           ),
         ],
       ),

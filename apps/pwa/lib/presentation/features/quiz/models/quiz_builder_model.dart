@@ -79,27 +79,22 @@ class DraftQuiz {
     );
   }
 
-  /// Params for api.create_poll — a poll is always exactly one question, so
-  /// `p_options` is that single question's option list.
-  Map<String, dynamic> toCreatePollParams({required String messageType}) {
+  /// Params for api.create_poll (draft creation only — no message yet). A
+  /// poll is always exactly one question, so `p_options` is that single
+  /// question's option list.
+  Map<String, dynamic> toCreatePollParams() {
     return {
       'p_forum_id': forumId,
-      'p_channel_id': channelId,
-      'p_channel_created_at': channelCreatedAt,
       'p_content': title,
       'p_options': questions.isNotEmpty ? questions.first.options : <String>[],
-      'p_message_type': messageType,
     };
   }
 
-  /// Params for api.create_quiz.
-  Map<String, dynamic> toCreateQuizParams({required String messageType}) {
+  /// Params for api.create_quiz (draft creation only — no message yet).
+  Map<String, dynamic> toCreateQuizParams() {
     return {
       'p_forum_id': forumId,
-      'p_channel_id': channelId,
-      'p_channel_created_at': channelCreatedAt,
-      'p_content': title,
-      'p_message_type': messageType,
+      'p_title': title,
       'p_questions': questions.map((q) => q.toMap()).toList(),
       'p_time_per_question_seconds': timePerQuestionSeconds,
       'p_scoring_mode': scoringMode.value,

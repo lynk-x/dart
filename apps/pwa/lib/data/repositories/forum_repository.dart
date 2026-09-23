@@ -1,4 +1,5 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:lynk_core/core.dart';
 
 class ForumRepository {
   final SupabaseClient _client;
@@ -290,4 +291,165 @@ class ForumRepository {
           callback: callback,
         );
   }
+
+  // ── Sessions (event schedule) ────────────────────────────────────────────
+
+  /// Resolves a forum's id/created_at (when looked up by reference) and its
+  /// linked event's starts_at/ends_at in one place — previously duplicated
+  /// inline across two branches in ForumSessionsCubit.loadSessions().
+  ///
+  /// Reads go through public.forums/public.events (unqualified schema) —
+  /// the PostgREST-facing security_invoker proxy views, per this backend's
+  /// "frontends never query domain tables directly" convention. Only the
+  /// CDC subscription below (subscribeToSessionChanges) targets the real
+  /// social.forum_sessions table directly, since Realtime CDC listens on
+  /// physical tables, not views.
+  Future<ForumEventWindow> getForumEventWindow({
+    String? forumId,
+    String? forumReference,
+  }) async {
+    Map<String, dynamic>? forumRes;
+    if ((forumId == null || forumId.isEmpty) &&
+        forumReference != null &&
+        forumReference.isNotEmpty) {
+      forumRes = await _client
+          .from('forums')
+          .select('id, created_at, event_id, event_created_at')
+          .eq('reference', forumReference)
+          .maybeSingle();
+    } else if (forumId != null && forumId.isNotEmpty) {
+      forumRes = await _client
+          .from('forums')
+          .select('id, created_at, event_id, event_created_at')
+          .eq('id', forumId)
+          .maybeSingle();
+    }
+
+    if (forumRes == null) return const ForumEventWindow();
+
+    final resolvedForumId = forumRes['id'] as String?;
+    final resolvedForumCreatedAt = forumRes['created_at'] != null
+        ? DateTime.parse(forumRes['created_at'] as String)
+        : null;
+    final eventId = forumRes['event_id'] as String?;
+    final eventCreatedAt = forumRes['event_created_at'] != null
+        ? DateTime.parse(forumRes['event_created_at'] as String)
+        : null;
+
+    if (eventId == null || eventCreatedAt == null) {
+      return ForumEventWindow(
+        forumId: resolvedForumId,
+        forumCreatedAt: resolvedForumCreatedAt,
+      );
+    }
+
+    // Unqualified .from('events') — public.events, the PostgREST-facing
+    // security_invoker proxy view (see original ForumSessionsCubit code this
+    // replaces), not the events.events domain schema directly.
+    final eventRes = await _client
+        .from('events')
+        .select('starts_at, ends_at')
+        .eq('id', eventId)
+        .eq('created_at', eventCreatedAt.toIso8601String())
+        .maybeSingle();
+
+    return ForumEventWindow(
+      forumId: resolvedForumId,
+      forumCreatedAt: resolvedForumCreatedAt,
+      eventStartsAt: eventRes?['starts_at'] != null
+          ? DateTime.parse(eventRes!['starts_at'] as String)
+          : null,
+      eventEndsAt: eventRes?['ends_at'] != null
+          ? DateTime.parse(eventRes!['ends_at'] as String)
+          : null,
+    );
+  }
+
+  Future<List<SessionModel>> getSessions(String forumId) async {
+    final response = await _client
+        .from('forum_sessions')
+        .select()
+        .eq('forum_id', forumId)
+        .order('starts_at', ascending: true);
+
+    return (response as List)
+        .map((json) => SessionModel.fromMap(json as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<SessionModel> addSession(SessionModel session, String forumId, DateTime? forumCreatedAt) async {
+    final payload = session.toMap()..remove('id');
+    payload['forum_id'] = forumId;
+    payload['forum_created_at'] = forumCreatedAt?.toIso8601String();
+
+    final response = await _client
+        .from('forum_sessions')
+        .insert(payload)
+        .select()
+        .single();
+
+    return SessionModel.fromMap(response);
+  }
+
+  Future<SessionModel> updateSession(SessionModel session, String forumId, DateTime? forumCreatedAt) async {
+    final payload = session.toMap();
+    payload['forum_id'] = forumId;
+    payload['forum_created_at'] = forumCreatedAt?.toIso8601String();
+
+    final response = await _client
+        .from('forum_sessions')
+        .update(payload)
+        .eq('id', session.id)
+        .select()
+        .single();
+
+    return SessionModel.fromMap(response);
+  }
+
+  Future<void> deleteSession(String sessionId) async {
+    await _client
+        .from('forum_sessions')
+        .delete()
+        .eq('id', sessionId);
+  }
+
+  // ── Broadcast / Presence channels ────────────────────────────────────────
+  // ForumSessionsCubit combines a broadcast listener AND a CDC
+  // (onPostgresChanges) listener on the SAME channel object (one
+  // subscription, not two) — so its CDC half is attached directly in the
+  // cubit via createBroadcastChannel below, not through a separate
+  // subscribeToX method like subscribeToMessages/subscribeToMediaChanges.
+  // Channel *construction* goes through the repository so cubits never touch
+  // Supabase.instance.client directly (per CLAUDE.md's "cubits never call
+  // Supabase directly" rule) — but attaching broadcast/presence-specific
+  // listeners (onBroadcast, onPresenceSync, track/untrack, etc.) still
+  // happens in the cubit, since those are channel-usage concerns, not data
+  // access. No existing Supabase Realtime abstraction wraps broadcast/
+  // presence generically enough to move that part here too without losing
+  // type-specific callback shapes.
+
+  RealtimeChannel createBroadcastChannel(String channelName) {
+    return _client.channel(channelName);
+  }
+
+  RealtimeChannel createPresenceChannel(String forumId) {
+    return _client.channel('forum_presence_$forumId');
+  }
+}
+
+/// A forum's own id/created_at (when resolved by reference) plus its linked
+/// event's start/end — used to constrain session-scheduling UI to the
+/// event's own date range.
+class ForumEventWindow {
+  final String? forumId;
+  final DateTime? forumCreatedAt;
+  final DateTime? eventStartsAt;
+  final DateTime? eventEndsAt;
+
+  const ForumEventWindow({
+    this.forumId,
+    this.forumCreatedAt,
+    this.eventStartsAt,
+    this.eventEndsAt,
+  });
 }

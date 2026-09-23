@@ -94,8 +94,8 @@ class _PollCardEditorViewState extends State<_PollCardEditorView> {
   /// own view, if that fires before this widget is even listening). Mirrors
   /// sendMessage()'s own optimistic-insert shape/defaults exactly.
   void _pushLocalMessage(BuildContext context, QuizBuilderState state) {
-    final messageId = state.createdMessageId;
-    final createdAt = state.createdMessageCreatedAt;
+    final messageId = state.publishedMessageId;
+    final createdAt = state.publishedMessageCreatedAt;
     if (messageId == null || createdAt == null) return;
 
     final isLiveChat = widget.messageType == 'livechat_poll';
@@ -142,11 +142,11 @@ class _PollCardEditorViewState extends State<_PollCardEditorView> {
 
     return BlocConsumer<QuizBuilderCubit, QuizBuilderState>(
       listenWhen: (prev, curr) =>
-          prev.error != curr.error || prev.isSuccess != curr.isSuccess,
+          prev.error != curr.error || prev.isPublished != curr.isPublished,
       listener: (context, state) {
         if (state.error != null) {
           AppSnackBars.showError(context, state.error!);
-        } else if (state.isSuccess) {
+        } else if (state.isPublished) {
           AppSnackBars.showSuccess(context, 'Poll posted!');
           _pushLocalMessage(context, state);
           widget.onPublished?.call();
@@ -287,7 +287,7 @@ class _PollCardEditorViewState extends State<_PollCardEditorView> {
                               '',
                               'poll',
                             );
-                            cubit.publish(widget.messageType);
+                            cubit.saveDraftAndPublish(widget.messageType);
                           },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.black,
