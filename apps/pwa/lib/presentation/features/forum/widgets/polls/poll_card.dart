@@ -7,12 +7,14 @@ import 'poll_quiz_card_shell.dart';
 
 /// Displays a single poll question with live-updating results.
 ///
-/// A poll IS its announcing forum_messages row (messageId is that message's
-/// id — see surveys.polls). When the user taps an option, the response is
+/// A poll (surveys.questionnaires, type='poll') has its own independent id,
+/// separate from the announcing forum_messages row it points at once
+/// published — questionnaireId here is that independent id, resolved by the
+/// caller (PollBody). When the user taps an option, the response is
 /// inserted into the `responses` table and the UI shows the aggregated
-/// results from `vw_poll_results`.
+/// results from `v1_poll_results`.
 class PollCard extends StatefulWidget {
-  final String messageId;
+  final String questionnaireId;
   final String questionId;
   final String questionText;
   final List<String> options;
@@ -23,7 +25,7 @@ class PollCard extends StatefulWidget {
 
   const PollCard({
     super.key,
-    required this.messageId,
+    required this.questionnaireId,
     required this.questionId,
     required this.questionText,
     required this.options,
@@ -144,7 +146,7 @@ class _PollCardState extends State<PollCard> {
       // account_id resolution and per-question dedupe happen server-side.
       final response =
           await _supabase.schema('api').rpc('submit_survey_response', params: {
-        'p_message_id': widget.messageId,
+        'p_questionnaire_id': widget.questionnaireId,
         'p_question_id': widget.questionId,
         'p_selected_answer': [index],
       });

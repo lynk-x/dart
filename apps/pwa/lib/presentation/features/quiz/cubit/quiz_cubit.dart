@@ -8,14 +8,14 @@ import 'package:lynk_x/data/repositories/repositories.dart';
 import 'quiz_state.dart';
 
 class QuizCubit extends Cubit<QuizState> {
-  final String messageId;
+  final String questionnaireId;
   final String userId;
   final QuizRepository _repo;
   RealtimeChannel? _channel;
   Timer? _timer;
 
   QuizCubit({
-    required this.messageId,
+    required this.questionnaireId,
     required this.userId,
     required QuizRepository repo,
     bool isHost = false,
@@ -25,10 +25,10 @@ class QuizCubit extends Cubit<QuizState> {
   Future<void> init() async {
     try {
       // 1. Initial Fetch
-      final data = await _repo.getQuizSession(messageId);
+      final data = await _repo.getQuestionnaire(questionnaireId);
 
       emit(state.copyWith(
-        status: _mapStatus(data['quiz_state']),
+        status: _mapStatus(data['session_state']),
         questionnaire: data,
         currentQuestionIndex: data['current_question_index'] ?? -1,
       ));
@@ -55,19 +55,19 @@ class QuizCubit extends Cubit<QuizState> {
   }
 
   void _setupRealtimeListener() {
-    _channel = _repo.subscribeToQuizSession(messageId, (payload) {
+    _channel = _repo.subscribeToQuizSession(questionnaireId, (payload) {
       _handleUpdate(payload.newRecord);
     }).subscribe();
   }
 
   Future<void> _handleUpdate(Map<String, dynamic> data) async {
-    final newStatus = _mapStatus(data['quiz_state']);
+    final newStatus = _mapStatus(data['session_state']);
     final newIndex = data['current_question_index'] as int? ?? -1;
     final expiresAt = data['state_expires_at'] as String?;
 
     // If question index changed or state moved to playing, fetch question.
     // Also re-fetch on entering 'reveal': api.v1_questions only populates
-    // correct_options once quiz_state is past 'playing', so the copy fetched
+    // correct_options once session_state is past 'playing', so the copy fetched
     // during 'playing' never carries it.
     if (newIndex != state.currentQuestionIndex ||
         (newStatus == QuizStatus.playing && state.currentQuestion == null) ||
@@ -90,7 +90,7 @@ class QuizCubit extends Cubit<QuizState> {
   }
 
   bool get _shuffleAnswers =>
-      state.questionnaire?['shuffle_answers'] as bool? ?? false;
+      _sessionSettings?['shuffle_answers'] as bool? ?? false;
 
   /// Per-user, per-question shuffle order for answer options —
   /// deterministic (seeded from userId + questionId) rather than stored, so
@@ -113,7 +113,7 @@ class QuizCubit extends Cubit<QuizState> {
   Future<void> _fetchCurrentQuestion(int index) async {
     if (index < 0) return;
     try {
-      final data = await _repo.getQuestion(messageId, index);
+      final data = await _repo.getQuestion(questionnaireId, index);
       if (data != null) {
         emit(state.copyWith(
           currentQuestion: data,
@@ -172,7 +172,7 @@ class QuizCubit extends Cubit<QuizState> {
       // responses.responses columns: question_id NOT NULL, selected_answer jsonb
       // (array of indices). The legacy 'answers' name was wrong.
       await _repo.submitAnswer(
-        messageId: messageId,
+        questionnaireId: questionnaireId,
         questionId: questionId,
         userId: userId,
         selectedAnswer: [storedIndex],
@@ -189,7 +189,7 @@ class QuizCubit extends Cubit<QuizState> {
 
   Future<void> fetchLeaderboard() async {
     try {
-      final data = await _repo.getLeaderboard(messageId);
+      final data = await _repo.getLeaderboard(questionnaireId);
       emit(state.copyWith(leaderboard: data));
     } catch (e) {
       debugPrint('Error fetching leaderboard: $e');
@@ -198,15 +198,19 @@ class QuizCubit extends Cubit<QuizState> {
 
   // --- Host Controls ---
 
+  Map<String, dynamic>? get _sessionSettings =>
+      state.questionnaire?['session_settings'] as Map<String, dynamic>?;
+
   /// Seconds allotted per question — configurable per-quiz via the builder's
-  /// "Time per question" setting (surveys.quiz_sessions.time_per_question_seconds);
-  /// 30 is the same default the runtime always used before that setting
-  /// existed, so an unset/legacy quiz behaves identically.
+  /// "Time per question" setting (surveys.questionnaires.session_settings
+  /// ->>'time_per_question_seconds'); 30 is the same default the runtime
+  /// always used before that setting existed, so an unset/legacy quiz
+  /// behaves identically.
   int get _timePerQuestionSeconds =>
-      state.questionnaire?['time_per_question_seconds'] as int? ?? 30;
+      _sessionSettings?['time_per_question_seconds'] as int? ?? 30;
 
   bool get _shuffleQuestions =>
-      state.questionnaire?['shuffle_questions'] as bool? ?? false;
+      _sessionSettings?['shuffle_questions'] as bool? ?? false;
 
   Future<void> startQuiz() async {
     if (!state.isHost) return;
@@ -267,7 +271,7 @@ class QuizCubit extends Cubit<QuizState> {
         : null;
 
     await _repo.updateQuizState(
-      messageId: messageId,
+      questionnaireId: questionnaireId,
       quizState: quizState,
       questionIndex: questionIndex,
       expiresAt: expiresAt,

@@ -57,6 +57,7 @@ class ForumBlocProviders extends StatelessWidget {
               userName: mainCubit.userName,
               isOrganizer: state.isOrganizer,
               isPremium: state.isPremium,
+              repo: forumRepository,
             );
             final flagEnabled = context
                 .read<FeatureFlagCubit>()

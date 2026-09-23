@@ -2,12 +2,14 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:lynk_core/core.dart';
+import 'package:lynk_x/data/repositories/forum_repository.dart';
 import 'forum_sessions_state.dart';
 
 class ForumSessionsCubit extends Cubit<ForumSessionsState> {
   final String forumId;
   final DateTime? forumCreatedAt;
   final String? forumReference;
+  final ForumRepository _repo;
 
   String? _resolvedForumId;
   DateTime? _resolvedForumCreatedAt;
@@ -18,21 +20,22 @@ class ForumSessionsCubit extends Cubit<ForumSessionsState> {
 
   ForumSessionsCubit({
     required this.forumId,
+    required ForumRepository repo,
     this.forumCreatedAt,
     this.forumReference,
-  }) : super(const ForumSessionsState());
+  }) : _repo = repo,
+       super(const ForumSessionsState());
 
   /// Sets up the Supabase Realtime Channel for client-to-client Broadcast mutations
   /// and PostgreSQL CDC table change listening.
   void setupRealtime() {
     if (_realtimeChannel != null) return;
-    
+
     final fId = activeForumId;
     if (fId.isEmpty) return;
 
-    final client = Supabase.instance.client;
     final channelName = 'forum_sessions_realtime_$fId';
-    _realtimeChannel = client.channel(channelName);
+    _realtimeChannel = _repo.createBroadcastChannel(channelName);
 
     // 1. Listen for instant client Broadcast mutations
     _realtimeChannel!.onBroadcast(
@@ -145,33 +148,28 @@ class ForumSessionsCubit extends Cubit<ForumSessionsState> {
   Future<void> loadSessions() async {
     emit(state.copyWith(isLoading: true, clearError: true));
     try {
-      if (activeForumId.isEmpty && forumReference != null && forumReference!.isNotEmpty) {
-        final forumRes = await Supabase.instance.client
-            .from('forums')
-            .select('id, created_at')
-            .eq('reference', forumReference!)
-            .maybeSingle();
-        if (forumRes != null) {
-          _resolvedForumId = forumRes['id'] as String;
-          _resolvedForumCreatedAt = DateTime.parse(forumRes['created_at'] as String);
-        }
+      final window = await _repo.getForumEventWindow(
+        forumId: activeForumId.isNotEmpty ? activeForumId : null,
+        forumReference: forumReference,
+      );
+
+      if (window.forumId != null) {
+        _resolvedForumId = window.forumId;
+        _resolvedForumCreatedAt = window.forumCreatedAt;
       }
 
       if (activeForumId.isEmpty) {
         throw Exception('Forum not found or reference is invalid.');
       }
 
-      final response = await Supabase.instance.client
-          .from('forum_sessions')
-          .select()
-          .eq('forum_id', activeForumId)
-          .order('starts_at', ascending: true);
+      final sessions = await _repo.getSessions(activeForumId);
 
-      final sessions = (response as List)
-          .map((json) => SessionModel.fromMap(json as Map<String, dynamic>))
-          .toList();
-
-      emit(state.copyWith(sessions: sessions, isLoading: false));
+      emit(state.copyWith(
+        sessions: sessions,
+        isLoading: false,
+        eventStartsAt: window.eventStartsAt,
+        eventEndsAt: window.eventEndsAt,
+      ));
       setupRealtime();
     } catch (e) {
       emit(state.copyWith(
@@ -185,17 +183,7 @@ class ForumSessionsCubit extends Cubit<ForumSessionsState> {
     emit(state.copyWith(isLoading: true, clearError: true));
 
     try {
-      final payload = session.toMap()..remove('id');
-      payload['forum_id'] = activeForumId;
-      payload['forum_created_at'] = activeForumCreatedAt?.toIso8601String();
-      
-      final response = await Supabase.instance.client
-          .from('forum_sessions')
-          .insert(payload)
-          .select()
-          .single();
-
-      final savedSession = SessionModel.fromMap(response);
+      final savedSession = await _repo.addSession(session, activeForumId, activeForumCreatedAt);
 
       _onSessionInserted(savedSession);
       _broadcastMutation('insert', savedSession);
@@ -209,18 +197,7 @@ class ForumSessionsCubit extends Cubit<ForumSessionsState> {
   Future<void> updateSession(SessionModel session) async {
     emit(state.copyWith(isLoading: true, clearError: true));
     try {
-      final payload = session.toMap();
-      payload['forum_id'] = activeForumId;
-      payload['forum_created_at'] = activeForumCreatedAt?.toIso8601String();
-      
-      final response = await Supabase.instance.client
-          .from('forum_sessions')
-          .update(payload)
-          .eq('id', session.id)
-          .select()
-          .single();
-
-      final savedSession = SessionModel.fromMap(response);
+      final savedSession = await _repo.updateSession(session, activeForumId, activeForumCreatedAt);
 
       _onSessionUpdated(savedSession);
       _broadcastMutation('update', savedSession);
@@ -234,13 +211,10 @@ class ForumSessionsCubit extends Cubit<ForumSessionsState> {
   Future<void> deleteSession(String sessionId) async {
     emit(state.copyWith(isLoading: true, clearError: true));
     try {
-      await Supabase.instance.client
-          .from('forum_sessions')
-          .delete()
-          .eq('id', sessionId);
+      await _repo.deleteSession(sessionId);
 
       _onSessionDeleted(sessionId);
-      
+
       _realtimeChannel?.sendBroadcastMessage(
         event: 'session_mutation',
         payload: {

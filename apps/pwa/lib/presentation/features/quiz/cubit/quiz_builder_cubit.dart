@@ -6,14 +6,21 @@ import 'quiz_builder_state.dart';
 
 class QuizBuilderCubit extends Cubit<QuizBuilderState> {
   final QuizRepository _repo;
+  final String? channelId;
+  final String? channelCreatedAt;
 
   QuizBuilderCubit({
     required QuizRepository repo,
     required String forumId,
-    String? channelId,
-    String? channelCreatedAt,
+    this.channelId,
+    this.channelCreatedAt,
+    // Set when editing an already-saved draft (e.g. reopened from
+    // QuizListScreen's "Drafts" section) rather than starting fresh — lets
+    // saveDraft() update the existing row instead of creating a new one.
+    String? questionnaireId,
   })  : _repo = repo,
         super(QuizBuilderState(
+          questionnaireId: questionnaireId,
           draft: DraftQuiz(
             forumId: forumId,
             channelId: channelId,
@@ -139,6 +146,11 @@ class QuizBuilderCubit extends Cubit<QuizBuilderState> {
         draft: state.draft.copyWith(questions: updatedQuestions)));
   }
 
+  /// Pre-fills the builder from a past quiz (draft, live, or finished) —
+  /// used by both "Duplicate" (questionnaireId left null, so saveDraft()
+  /// creates a brand new row) and "resume editing a draft" (caller passes
+  /// this cubit a questionnaireId at construction so saveDraft() updates the
+  /// existing row instead).
   void loadFromHistory(Map<String, dynamic> quiz) {
     final questions = (quiz['questions'] as List<dynamic>? ?? [])
         .map((q) => q as Map<String, dynamic>)
@@ -187,32 +199,72 @@ class QuizBuilderCubit extends Cubit<QuizBuilderState> {
     return null;
   }
 
-  /// Publishes immediately — there is no draft-save/reopen flow, so this
-  /// always creates a published poll/quiz. [messageType] must be one of
-  /// livechat_poll/livechat_quiz/update_poll/update_quiz, matching which tab
-  /// launched the composer.
-  Future<void> publish(String messageType) async {
+  /// Saves the current draft — creates a new surveys.questionnaires row (or,
+  /// for a poll, always creates fresh; quizzes may later support in-place
+  /// draft updates once an edit RPC exists) with no forum_messages row yet.
+  /// This is the LiveQuiz builder's primary "checkmark" action — it never
+  /// publishes on its own; publish() is a separate, explicit step.
+  Future<void> saveDraft() async {
     final validationError = _validate();
     if (validationError != null) {
       emit(state.copyWith(error: validationError));
       return;
     }
 
-    emit(state.copyWith(isSaving: true, error: null, isSuccess: false));
+    emit(state.copyWith(isSaving: true, error: null));
     try {
-      final result = state.draft.type == 'poll'
-          ? await _repo.createPoll(
-              state.draft.toCreatePollParams(messageType: messageType))
-          : await _repo.createQuiz(
-              state.draft.toCreateQuizParams(messageType: messageType));
+      final id = state.draft.type == 'poll'
+          ? await _repo.createPoll(state.draft.toCreatePollParams())
+          : await _repo.createQuiz(state.draft.toCreateQuizParams());
       emit(state.copyWith(
         isSaving: false,
-        isSuccess: true,
-        createdMessageId: result.messageId,
-        createdMessageCreatedAt: result.createdAt,
+        isDraftSaved: true,
+        questionnaireId: id,
       ));
     } catch (e) {
       emit(state.copyWith(isSaving: false, error: e.toFriendlyMessage()));
     }
+  }
+
+  /// Publishes an already-saved draft: creates the announcing forum_messages
+  /// row and flips the questionnaire to 'published', atomically, via
+  /// api.publish_questionnaire. Requires saveDraft() (or a
+  /// questionnaireId passed at construction) to have run first.
+  /// [messageType] must be one of livechat_poll/livechat_quiz/update_poll/
+  /// update_quiz, matching which tab launched the composer.
+  Future<void> publish(String messageType) async {
+    final id = state.questionnaireId;
+    if (id == null) {
+      emit(state.copyWith(error: 'Save this as a draft before publishing.'));
+      return;
+    }
+
+    emit(state.copyWith(isSaving: true, error: null));
+    try {
+      final result = await _repo.publishQuestionnaire(
+        questionnaireId: id,
+        channelId: channelId,
+        channelCreatedAt: channelCreatedAt,
+        content: state.draft.title,
+        messageType: messageType,
+      );
+      emit(state.copyWith(
+        isSaving: false,
+        isPublished: true,
+        publishedMessageId: result.messageId,
+        publishedMessageCreatedAt: result.createdAt,
+      ));
+    } catch (e) {
+      emit(state.copyWith(isSaving: false, error: e.toFriendlyMessage()));
+    }
+  }
+
+  /// Convenience for flows with no separate draft step in their UI (today:
+  /// PollCardEditor's single "Post Poll" button) — saves the draft then
+  /// immediately publishes it in one call.
+  Future<void> saveDraftAndPublish(String messageType) async {
+    await saveDraft();
+    if (state.questionnaireId == null || state.error != null) return;
+    await publish(messageType);
   }
 }

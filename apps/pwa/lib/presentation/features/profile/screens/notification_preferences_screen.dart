@@ -12,7 +12,6 @@ import 'package:lynk_x/data/repositories/repository_providers.dart';
 const Map<String, String> _categoryGroups = {
   'mention': 'Activity',
   'forum_update': 'Activity',
-  'forum_announcement': 'Activity',
   'invitation': 'Activity',
   'event_update': 'Events & Tickets',
   'event_reminder': 'Events & Tickets',
