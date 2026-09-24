@@ -224,16 +224,10 @@ class _MessageInputState extends State<MessageInput> {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               if (widget.isOrganizer && widget.onCreatePollOrQuiz != null)
-                Padding(
-                  // Offsets IconButton's larger default 48px tap target so
-                  // it lines up with the input pill's own bottom padding at
-                  // 1 line, rather than overhanging above it.
-                  padding: const EdgeInsets.only(bottom: 2),
-                  child: IconButton(
-                    tooltip: 'Create poll or quiz',
-                    icon: const Icon(Icons.add_circle_outline_rounded, color: Colors.white, size: 24),
-                    onPressed: widget.onCreatePollOrQuiz,
-                  ),
+                IconButton(
+                  tooltip: 'Create poll or quiz',
+                  icon: const Icon(Icons.add_circle_outline_rounded, color: Colors.white, size: 24),
+                  onPressed: widget.onCreatePollOrQuiz,
                 ),
               Expanded(
                 child: Container(
@@ -264,23 +258,20 @@ class _MessageInputState extends State<MessageInput> {
                 ),
               ),
               const SizedBox(width: 4),
-              Padding(
-                padding: const EdgeInsets.only(bottom: 2),
-                child: ValueListenableBuilder<bool>(
-                  valueListenable: _isEmptyNotifier,
-                  builder: (context, isEmpty, _) {
-                    return IconButton(
-                      tooltip: widget.editingMessage != null ? 'Save edit' : 'Send message',
-                      icon: Icon(
-                          widget.editingMessage != null
-                              ? Icons.check_rounded
-                              : Icons.send_rounded,
-                          color: Colors.white,
-                          size: 26),
-                      onPressed: isEmpty ? null : _handleSend,
-                    );
-                  },
-                ),
+              ValueListenableBuilder<bool>(
+                valueListenable: _isEmptyNotifier,
+                builder: (context, isEmpty, _) {
+                  return IconButton(
+                    tooltip: widget.editingMessage != null ? 'Save edit' : 'Send message',
+                    icon: Icon(
+                        widget.editingMessage != null
+                            ? Icons.check_rounded
+                            : Icons.send_rounded,
+                        color: Colors.white,
+                        size: 26),
+                    onPressed: isEmpty ? null : _handleSend,
+                  );
+                },
               ),
             ],
           ),
