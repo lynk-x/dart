@@ -183,7 +183,7 @@ class _ChatBubbleState extends State<ChatBubble> {
             const SizedBox(width: 3),
           ],
           Text(
-            '${widget.message.sender} • ${DateFormat('HH:mm').format(widget.message.createdAt)}',
+            '${widget.message.sender} • ${DateFormat('hh:mm a').format(widget.message.createdAt)}',
             style: AppTypography.inter(color: Colors.white38, fontSize: 10),
           ),
         ],

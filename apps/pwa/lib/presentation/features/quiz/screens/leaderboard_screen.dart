@@ -22,6 +22,15 @@ class LeaderboardScreen extends StatelessWidget {
     this.isLastQuestion = false,
   });
 
+  List<Map<String, dynamic>> get _displayLeaderboard =>
+      leaderboard.isEmpty ? _placeholderLeaderboard() : leaderboard;
+
+  List<Map<String, dynamic>> _placeholderLeaderboard() => const [
+    {'user_id': 'placeholder_1', 'display_name': '---', 'total_score': 0, 'is_current_user': false},
+    {'user_id': 'placeholder_2', 'display_name': '---', 'total_score': 0, 'is_current_user': false},
+    {'user_id': 'placeholder_3', 'display_name': '---', 'total_score': 0, 'is_current_user': false},
+  ];
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -61,14 +70,7 @@ class LeaderboardScreen extends StatelessWidget {
               Expanded(
                 child: isLoading
                   ? Center(child: CircularProgressIndicator(color: context.accentColor))
-                  : leaderboard.isEmpty
-                    ? Center(
-                        child: Text(
-                          "Calculating scores...",
-                          style: AppTypography.bodyLarge.copyWith(color: AppColors.alternate),
-                        ),
-                      )
-                    : _AnimatedLeaderboardList(leaderboard: leaderboard),
+                  : _AnimatedLeaderboardList(leaderboard: _displayLeaderboard),
               ),
               
               const SizedBox(height: 40),

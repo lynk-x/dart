@@ -38,6 +38,15 @@ class PodiumScreen extends StatefulWidget {
     this.skipReveal = false,
   });
 
+  List<Map<String, dynamic>> get _effectiveWinners =>
+      winners.isEmpty
+          ? [
+              {'display_name': '---', 'total_score': 0},
+              {'display_name': '---', 'total_score': 0},
+              {'display_name': '---', 'total_score': 0},
+            ]
+          : winners;
+
   @override
   State<PodiumScreen> createState() => _PodiumScreenState();
 }
@@ -90,18 +99,23 @@ class _PodiumScreenState extends State<PodiumScreen> {
               Expanded(
                 child: ListView.separated(
                   physics: const NeverScrollableScrollPhysics(),
-                  itemCount: widget.winners.length > 3 ? 3 : widget.winners.length,
+                  itemCount: widget._effectiveWinners.length > 3
+                      ? 3
+                      : widget._effectiveWinners.length,
                   separatorBuilder: (context, index) => const SizedBox(height: 16),
                   itemBuilder: (context, index) {
-                    final winner = widget.winners[index];
-                    final placesFromLast =
-                        (widget.winners.length > 3 ? 3 : widget.winners.length) - 1 - index;
+                    final winner = widget._effectiveWinners[index];
+                    final placesFromLast = (widget._effectiveWinners.length > 3
+                            ? 3
+                            : widget._effectiveWinners.length) -
+                        1 -
+                        index;
                     final revealDelay =
                         widget.skipReveal ? Duration.zero : _podiumRevealDelay(placesFromLast);
 
                     return _PodiumItem(
                       rank: index + 1,
-                      name: winner['display_name'] ?? 'Player',
+                      name: winner['display_name'] ?? '---',
                       score: winner['total_score'] ?? 0,
                     ).animate()
                      .fadeIn(delay: revealDelay, duration: 500.ms)

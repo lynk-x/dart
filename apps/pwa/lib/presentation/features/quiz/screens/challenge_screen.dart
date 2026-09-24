@@ -154,6 +154,7 @@ class _ChallengeScreenState extends State<ChallengeScreen> {
                     index: index,
                     isSelected: isSelected,
                     isDisabled: isDisabled,
+                    isHost: widget.isHost,
                     isCorrect: isCorrect,
                     isWrongPick: isWrongPick,
                     onTap: () {
@@ -231,6 +232,7 @@ class _AnswerButton extends StatelessWidget {
   final int index;
   final bool isSelected;
   final bool isDisabled;
+  final bool isHost;
   final bool isCorrect;
   final bool isWrongPick;
   final VoidCallback onTap;
@@ -240,6 +242,7 @@ class _AnswerButton extends StatelessWidget {
     required this.index,
     required this.isSelected,
     required this.isDisabled,
+    this.isHost = false,
     this.isCorrect = false,
     this.isWrongPick = false,
     required this.onTap,
@@ -272,7 +275,7 @@ class _AnswerButton extends StatelessWidget {
       onTap: isDisabled ? null : onTap,
       child: AnimatedOpacity(
         duration: const Duration(milliseconds: 200),
-        opacity: isDisabled && !isSelected && !isRevealed ? 0.3 : 1.0,
+        opacity: isDisabled && !isSelected && !isRevealed && !isHost ? 0.3 : 1.0,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
           width: double.infinity,

@@ -316,8 +316,8 @@ class _NotificationsPageState extends State<NotificationsPage> {
                   padding: const EdgeInsets.fromLTRB(16, 16, 16, 6),
                   child: Text(
                     row.header!,
-                    style: const TextStyle(
-                      color: Colors.white38,
+                    style: TextStyle(
+                      color: context.accentColor,
                       fontSize: 12,
                       fontWeight: FontWeight.w700,
                       letterSpacing: 0.4,
