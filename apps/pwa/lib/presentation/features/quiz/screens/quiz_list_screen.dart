@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lynk_core/core.dart';
+import 'package:lynk_x/core/utils/breakpoints.dart';
 import 'package:lynk_x/data/repositories/repository_providers.dart';
 import 'package:lynk_x/presentation/shared/utils/app_snackbars.dart';
+import 'package:lynk_x/presentation/shared/widgets/empty_state.dart';
+import 'package:lynk_x/presentation/shared/widgets/list_action_card.dart';
+import 'package:lynk_x/presentation/shared/widgets/section_label.dart';
 
 enum _QuizCardStatus { notStarted, live, finished }
 
@@ -135,7 +139,7 @@ class _QuizListScreenState extends State<QuizListScreen> {
     setState(() {
       _future = quizRepository.getForumQuizList(widget.forumId);
     });
-    if (result != null) {
+    if (result != null && result.containsKey('messageId')) {
       // A publish happened from inside the builder — hand the created-
       // message result up to forum_screen.dart same as _duplicate does.
       context.pop(result);
@@ -205,10 +209,19 @@ class _QuizListScreenState extends State<QuizListScreen> {
         'duplicateFrom': quiz,
       },
     );
-    if (result == null || !mounted) return;
-    // Hand the created-message result straight back up to forum_screen.dart,
-    // same as if the organizer had used the plain "Create Quiz" path.
-    context.pop(result);
+    if (!mounted) return;
+    // Refresh either way: a draft-save still needs to show up in this list.
+    setState(() {
+      _future = quizRepository.getForumQuizList(widget.forumId);
+    });
+    // Only a publish result carries messageId — a draft-save result should
+    // stay on this list rather than pop past it to the forum.
+    if (result != null && result.containsKey('messageId')) {
+      // Hand the created-message result straight back up to
+      // forum_screen.dart, same as if the organizer had used the plain
+      // "Create Quiz" path.
+      context.pop(result);
+    }
   }
 
   Future<void> _createNew() async {
@@ -222,8 +235,16 @@ class _QuizListScreenState extends State<QuizListScreen> {
         'channelCreatedAt': widget.channelCreatedAt,
       },
     );
-    if (result == null || !mounted) return;
-    context.pop(result);
+    if (!mounted) return;
+    // Refresh either way: a draft-save still needs to show up in this list.
+    setState(() {
+      _future = quizRepository.getForumQuizList(widget.forumId);
+    });
+    // Only a publish result carries messageId — a draft-save result should
+    // stay on this list rather than pop past it to the forum.
+    if (result != null && result.containsKey('messageId')) {
+      context.pop(result);
+    }
   }
 
   @override
@@ -269,15 +290,11 @@ class _QuizListScreenState extends State<QuizListScreen> {
           }
           final quizzes = snapshot.data ?? const [];
           if (quizzes.isEmpty) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(32),
-                child: Text(
+            return EmptyState(
+              message:
                   'No LiveQuiz in this forum yet.\nCreate one and it\'ll show up here for next time.',
-                  textAlign: TextAlign.center,
-                  style: AppTypography.inter(color: Colors.white38, fontSize: 14),
-                ),
-              ),
+              actionLabel: 'Create Quiz',
+              onAction: _createNew,
             );
           }
 
@@ -295,286 +312,121 @@ class _QuizListScreenState extends State<QuizListScreen> {
             }
           }
 
-          return ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              if (live.isNotEmpty) ...[
-                _SectionLabel('Live now'),
-                const SizedBox(height: 10),
-                for (final quiz in live) ...[
-                  _PastQuizCard(
-                    status: _QuizCardStatus.live,
-                    quiz: quiz,
-                    onPrimary: () => _openQuiz(quiz),
-                    onSecondary: () => _duplicate(quiz),
-                    onForceClose: () => _forceClose(quiz),
-                  ),
+          // Constrained to a max content width so cards don't stretch to
+          // full bleed on wide desktop viewports — same pattern as
+          // TicketScreen (Breakpoints.constrain).
+          return Breakpoints.constrain(
+            ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                if (live.isNotEmpty) ...[
+                  const SectionLabel('Live now'),
                   const SizedBox(height: 10),
+                  for (final quiz in live) ...[
+                    _buildQuizCard(
+                      status: _QuizCardStatus.live,
+                      quiz: quiz,
+                      onPrimary: () => _openQuiz(quiz),
+                      onSecondary: () => _duplicate(quiz),
+                      onForceClose: () => _forceClose(quiz),
+                    ),
+                    const SizedBox(height: 10),
+                  ],
+                  const SizedBox(height: 8),
                 ],
-                const SizedBox(height: 8),
-              ],
-              if (notStarted.isNotEmpty) ...[
-                _SectionLabel('Not started'),
-                const SizedBox(height: 10),
-                for (final quiz in notStarted) ...[
-                  _PastQuizCard(
-                    status: _QuizCardStatus.notStarted,
-                    isDraft: quiz['status'] == 'draft',
-                    quiz: quiz,
-                    onPrimary: quiz['status'] == 'draft' ? () => _publish(quiz) : () => _openQuiz(quiz),
-                    onSecondary: quiz['status'] == 'draft' ? () => _previewDraft(quiz) : () => _duplicate(quiz),
-                    onForceClose: quiz['status'] == 'draft' ? null : () => _forceClose(quiz),
-                  ),
+                if (notStarted.isNotEmpty) ...[
+                  const SectionLabel('Not started'),
                   const SizedBox(height: 10),
+                  for (final quiz in notStarted) ...[
+                    _buildQuizCard(
+                      status: _QuizCardStatus.notStarted,
+                      isDraft: quiz['status'] == 'draft',
+                      quiz: quiz,
+                      onPrimary: quiz['status'] == 'draft' ? () => _publish(quiz) : () => _openQuiz(quiz),
+                      onSecondary: quiz['status'] == 'draft' ? () => _previewDraft(quiz) : () => _duplicate(quiz),
+                      onForceClose: quiz['status'] == 'draft' ? null : () => _forceClose(quiz),
+                    ),
+                    const SizedBox(height: 10),
+                  ],
+                  const SizedBox(height: 8),
                 ],
-                const SizedBox(height: 8),
-              ],
-              if (finished.isNotEmpty) ...[
-                _SectionLabel('Finished'),
-                const SizedBox(height: 10),
-                for (final quiz in finished) ...[
-                  _PastQuizCard(
-                    status: _QuizCardStatus.finished,
-                    quiz: quiz,
-                    onPrimary: () => _openQuiz(quiz),
-                    onSecondary: () => _duplicate(quiz),
-                  ),
+                if (finished.isNotEmpty) ...[
+                  const SectionLabel('Finished'),
                   const SizedBox(height: 10),
+                  for (final quiz in finished) ...[
+                    _buildQuizCard(
+                      status: _QuizCardStatus.finished,
+                      quiz: quiz,
+                      onPrimary: () => _openQuiz(quiz),
+                      onSecondary: () => _duplicate(quiz),
+                    ),
+                    const SizedBox(height: 10),
+                  ],
                 ],
               ],
-            ],
+            ),
+            maxWidth: Breakpoints.maxContentWidth,
           );
         },
       ),
     );
   }
-}
 
-class _SectionLabel extends StatelessWidget {
-  final String text;
-  const _SectionLabel(this.text);
+  static const _quizAccent = Color(0xFFFF8A3D);
 
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(4, 4, 4, 0),
-      child: Text(
-        text.toUpperCase(),
-        style: AppTypography.inter(
-          fontSize: 11,
-          fontWeight: FontWeight.w700,
-          color: Colors.white38,
-          letterSpacing: 0.6,
-        ),
-      ),
-    );
-  }
-}
-
-class _PastQuizCard extends StatelessWidget {
-  final Map<String, dynamic> quiz;
-  final _QuizCardStatus status;
-  final bool isDraft;
-  final VoidCallback onPrimary;
-  final VoidCallback onSecondary;
-  // Only offered for live/not-started-and-published quizzes (null for
-  // finished ones, which have nothing left to close, and for drafts, which
-  // have no live session to force-close) — see QuizListScreen._forceClose's
-  // doc comment for why this exists: today it's the only recovery path
-  // for a quiz whose host disconnected before reaching Podium's Exit.
-  final VoidCallback? onForceClose;
-
-  const _PastQuizCard({
-    required this.quiz,
-    required this.status,
-    this.isDraft = false,
-    required this.onPrimary,
-    required this.onSecondary,
-    this.onForceClose,
-  });
-
-  static const _accent = Color(0xFFFF8A3D);
-
-  @override
-  Widget build(BuildContext context) {
+  /// Builds a quiz list-row as a [ListActionCard] — see that widget's own
+  /// doc for the shared shape (leading icon/badge, title/subtitle, primary +
+  /// up to two trailing action slots).
+  Widget _buildQuizCard({
+    required Map<String, dynamic> quiz,
+    required _QuizCardStatus status,
+    bool isDraft = false,
+    required VoidCallback onPrimary,
+    required VoidCallback onSecondary,
+    // Only offered for live/not-started-and-published quizzes (null for
+    // finished ones, which have nothing left to close, and for drafts,
+    // which have no live session to force-close) — the only recovery path
+    // today for a quiz whose host disconnected before reaching Podium's
+    // Exit button.
+    VoidCallback? onForceClose,
+  }) {
     final title = quiz['title'] as String? ?? 'Untitled quiz';
     final questionsCount = quiz['questions_count'] as int? ?? 0;
     final createdAt = DateTime.tryParse(quiz['created_at'] as String? ?? '');
     final currentQuestionIndex = quiz['current_question_index'] as int?;
     final isLive = status == _QuizCardStatus.live;
 
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: isLive
-              ? context.accentColor.withValues(alpha: 0.3)
-              : Colors.white.withValues(alpha: 0.08),
-        ),
-      ),
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  Container(
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(
-                      color: _accent.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    alignment: Alignment.center,
-                    child: const Icon(Icons.quiz_outlined,
-                        color: _accent, size: 22),
-                  ),
-                  if (isLive)
-                    Positioned(
-                      top: -3,
-                      right: -3,
-                      child: Container(
-                        width: 11,
-                        height: 11,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: context.accentColor,
-                          border: Border.all(color: AppColors.surface, width: 2),
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: AppTypography.interTight(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white,
-                      ),
-                    ),
-                    const SizedBox(height: 3),
-                    if (isLive)
-                      Text(
-                        currentQuestionIndex != null && questionsCount > 0
-                            ? '● Live · Question ${currentQuestionIndex + 1} of $questionsCount'
-                            : '● Live',
-                        style: AppTypography.inter(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: context.accentColor,
-                        ),
-                      )
-                    else
-                      Text(
-                        [
-                          '$questionsCount question${questionsCount == 1 ? '' : 's'}',
-                          if (createdAt != null) _formatDate(createdAt),
-                        ].join(' · '),
-                        style: AppTypography.inter(
-                          fontSize: 12,
-                          color: Colors.white54,
-                        ),
-                      ),
-                  ],
+    final subtitle = isLive
+        ? (currentQuestionIndex != null && questionsCount > 0
+            ? '● Live · Question ${currentQuestionIndex + 1} of $questionsCount'
+            : '● Live')
+        : [
+            '$questionsCount question${questionsCount == 1 ? '' : 's'}',
+            if (createdAt != null) _formatDate(createdAt),
+          ].join(' · ');
+
+    return Builder(
+      builder: (context) => ListActionCard(
+        leadingIcon: Icons.quiz_outlined,
+        leadingIconColor: _quizAccent,
+        showLeadingBadge: isLive,
+        title: title,
+        subtitle: subtitle,
+        subtitleColor: isLive ? context.accentColor : null,
+        highlighted: isLive,
+        primaryIcon: _primaryIcon(status, isDraft),
+        primaryLabel: _primaryLabel(status, isDraft),
+        onPrimary: onPrimary,
+        secondaryIcon: isDraft ? Icons.visibility_outlined : Icons.copy_rounded,
+        onSecondary: onSecondary,
+        overflowItems: onForceClose != null
+            ? [
+                PopupMenuItem<void>(
+                  onTap: onForceClose,
+                  child: const Text('Close quiz', style: TextStyle(color: Colors.redAccent)),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Container(height: 1, color: Colors.white.withValues(alpha: 0.08)),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: SizedBox(
-                  height: 38,
-                  child: ElevatedButton.icon(
-                    onPressed: onPrimary,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: context.accentColor,
-                      foregroundColor: Colors.black,
-                      elevation: 0,
-                      padding: EdgeInsets.zero,
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10)),
-                    ),
-                    icon: Icon(_primaryIcon, size: 15),
-                    label: Text(
-                      _primaryLabel,
-                      style: AppTypography.interTight(
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              SizedBox(
-                width: 38,
-                height: 38,
-                child: OutlinedButton(
-                  onPressed: onSecondary,
-                  style: OutlinedButton.styleFrom(
-                    padding: EdgeInsets.zero,
-                    side: BorderSide(color: Colors.white.withValues(alpha: 0.14)),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10)),
-                  ),
-                  child: Icon(isDraft ? Icons.visibility_outlined : Icons.copy_rounded,
-                      color: Colors.white70, size: 15),
-                ),
-              ),
-              const SizedBox(width: 8),
-              SizedBox(
-                width: 38,
-                height: 38,
-                child: onForceClose != null
-                    ? PopupMenuButton<void>(
-                        tooltip: 'More actions',
-                        color: AppColors.surface,
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12)),
-                        icon: const Icon(Icons.more_horiz,
-                            color: Colors.white70, size: 18),
-                        itemBuilder: (context) => [
-                          PopupMenuItem<void>(
-                            onTap: onForceClose,
-                            child: const Text('Close quiz',
-                                style: TextStyle(color: Colors.redAccent)),
-                          ),
-                        ],
-                      )
-                    : OutlinedButton(
-                        // No further actions for a finished quiz today —
-                        // deleting a quiz has no backend RPC yet.
-                        onPressed: null,
-                        style: OutlinedButton.styleFrom(
-                          padding: EdgeInsets.zero,
-                          side: BorderSide(
-                              color: Colors.white.withValues(alpha: 0.08)),
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10)),
-                        ),
-                        child: const Icon(Icons.more_horiz,
-                            color: Colors.white24, size: 18),
-                      ),
-              ),
-            ],
-          ),
-        ],
+              ]
+            : null,
       ),
     );
   }
@@ -584,7 +436,7 @@ class _PastQuizCard extends StatelessWidget {
     return '${local.month}/${local.day}/${local.year}';
   }
 
-  IconData get _primaryIcon {
+  IconData _primaryIcon(_QuizCardStatus status, bool isDraft) {
     switch (status) {
       case _QuizCardStatus.notStarted:
         return isDraft ? Icons.publish_outlined : Icons.play_circle_outline;
@@ -595,7 +447,7 @@ class _PastQuizCard extends StatelessWidget {
     }
   }
 
-  String get _primaryLabel {
+  String _primaryLabel(_QuizCardStatus status, bool isDraft) {
     switch (status) {
       case _QuizCardStatus.notStarted:
         return isDraft ? 'Publish' : 'Start';

@@ -114,6 +114,33 @@ class QuizRepository {
     return result['questionnaire_id'] as String;
   }
 
+  /// Updates an existing DRAFT poll in place — same param shape as
+  /// createPoll, plus p_questionnaire_id. Only draft rows are editable this
+  /// way; the RPC raises if the poll has already been published.
+  Future<String> updatePollDraft(
+    String questionnaireId,
+    Map<String, dynamic> params,
+  ) async {
+    final result = await _client.schema('api').rpc('update_poll_draft',
+        params: {'p_questionnaire_id': questionnaireId, ...params}) as Map<String, dynamic>;
+    return result['questionnaire_id'] as String;
+  }
+
+  /// Updates an existing DRAFT quiz in place — same param shape as
+  /// createQuiz, plus p_questionnaire_id. Replaces all of its questions
+  /// (delete + reinsert) rather than diffing, matching how the builder form
+  /// always sends the complete current question list. Only draft rows are
+  /// editable this way; the RPC raises if the quiz has already been
+  /// published.
+  Future<String> updateQuizDraft(
+    String questionnaireId,
+    Map<String, dynamic> params,
+  ) async {
+    final result = await _client.schema('api').rpc('update_quiz_draft',
+        params: {'p_questionnaire_id': questionnaireId, ...params}) as Map<String, dynamic>;
+    return result['questionnaire_id'] as String;
+  }
+
   /// Publishes a draft: atomically creates the announcing forum_messages row
   /// and flips the questionnaire to 'published'. Returns the new message's
   /// id + created_at — the RPC does not broadcast a realtime event (unlike

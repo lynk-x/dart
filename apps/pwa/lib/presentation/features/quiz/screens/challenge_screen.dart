@@ -10,7 +10,6 @@ class ChallengeScreen extends StatefulWidget {
   final int? selectedIndex;
   final Function(int) onOptionSelected;
   final bool isHost;
-  final VoidCallback? onPause;
   final VoidCallback? onNext;
   final VoidCallback? onBack;
   // Reveal support: null until the backend exposes which option(s) were
@@ -26,7 +25,6 @@ class ChallengeScreen extends StatefulWidget {
     this.selectedIndex,
     required this.onOptionSelected,
     this.isHost = false,
-    this.onPause,
     this.onNext,
     this.onBack,
     this.correctOptionIndices,
@@ -63,76 +61,83 @@ class _ChallengeScreenState extends State<ChallengeScreen> {
         actions: const [SizedBox(width: 48)],
       ),
       bottomNavigationBar: widget.isHost ? _buildHostControls() : null,
+      // Scrollable rather than Expanded-in-a-Column: with the host's fixed
+      // bottom control dock also taking up space, a plain Column could
+      // squeeze the question/options area to zero height on short
+      // viewports, leaving the host looking at nothing but the dock. A
+      // scroll view guarantees the question and every option stay reachable
+      // above the dock regardless of viewport height.
       body: SafeArea(
         top: false,
         bottom: false,
-        child: Column(
-          children: [
-            // Question Header
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-              decoration: BoxDecoration(
-                color: AppColors.surface,
-                border: Border(bottom: BorderSide(color: AppColors.outline)),
-              ),
-              child: Column(
-                children: [
-                  // Timer
-                  Container(
-                    width: 70,
-                    height: 70,
-                    decoration: BoxDecoration(
-                      color: context.accentColor,
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: context.accentColor.withValues(alpha: 0.3),
-                          blurRadius: 15,
-                        )
-                      ],
-                    ),
-                    alignment: Alignment.center,
-                    child: Text(
-                      '${widget.timeLeft}',
-                      style: AppTypography.h1.copyWith(
-                        color: Colors.black,
-                        fontWeight: FontWeight.w900,
+        child: SingleChildScrollView(
+          child: Column(
+            children: [
+              // Question Header
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+                decoration: BoxDecoration(
+                  color: AppColors.surface,
+                  border: Border(bottom: BorderSide(color: AppColors.outline)),
+                ),
+                child: Column(
+                  children: [
+                    // Timer
+                    Container(
+                      width: 70,
+                      height: 70,
+                      decoration: BoxDecoration(
+                        color: context.accentColor,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: context.accentColor.withValues(alpha: 0.3),
+                            blurRadius: 15,
+                          )
+                        ],
                       ),
-                    ),
-                  ).animate(target: widget.timeLeft < 5 ? 1 : 0)
-                   .shake(hz: 4, curve: Curves.easeInOut),
-
-                  const SizedBox(height: 20),
-
-                  Text(
-                    widget.question['question_text'] ?? '',
-                    textAlign: TextAlign.center,
-                    style: AppTypography.h2.copyWith(
-                      color: AppColors.primaryText,
-                      fontWeight: FontWeight.w800,
-                      height: 1.3,
-                    ),
-                  ),
-
-                  if (widget.timeLeft <= 0 && !widget.isHost)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 12),
+                      alignment: Alignment.center,
                       child: Text(
-                        'Waiting for the host to continue...',
-                        style: AppTypography.bodyMedium.copyWith(
-                          color: AppColors.alternate.withValues(alpha: 0.6),
+                        '${widget.timeLeft}',
+                        style: AppTypography.h1.copyWith(
+                          color: Colors.black,
+                          fontWeight: FontWeight.w900,
                         ),
                       ),
-                    ),
-                ],
-              ),
-            ),
+                    ).animate(target: widget.timeLeft < 5 ? 1 : 0)
+                     .shake(hz: 4, curve: Curves.easeInOut),
 
-            // Options — vertical stacked list, one full-width row per answer.
-            Expanded(
-              child: ListView.separated(
+                    const SizedBox(height: 20),
+
+                    Text(
+                      widget.question['question_text'] ?? '',
+                      textAlign: TextAlign.center,
+                      style: AppTypography.h2.copyWith(
+                        color: AppColors.primaryText,
+                        fontWeight: FontWeight.w800,
+                        height: 1.3,
+                      ),
+                    ),
+
+                    if (widget.timeLeft <= 0 && !widget.isHost)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 12),
+                        child: Text(
+                          'Waiting for the host to continue...',
+                          style: AppTypography.bodyMedium.copyWith(
+                            color: AppColors.alternate.withValues(alpha: 0.6),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+
+              // Options — vertical stacked list, one full-width row per answer.
+              ListView.separated(
                 padding: const EdgeInsets.all(16.0),
+                shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
                 itemCount: options.length,
                 separatorBuilder: (context, index) => const SizedBox(height: 10),
@@ -158,14 +163,18 @@ class _ChallengeScreenState extends State<ChallengeScreen> {
                   );
                 },
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
 
   Widget _buildHostControls() {
+    // NEXT is null (disabled) until the question moves to 'reveal' — see
+    // QuizOrchestratorScreen, which only supplies onNext there. The status
+    // line makes that wait state legible instead of leaving the host
+    // looking at a button that appears enabled but silently does nothing.
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
       decoration: BoxDecoration(
@@ -176,26 +185,27 @@ class _ChallengeScreenState extends State<ChallengeScreen> {
         child: Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 600),
-            child: Row(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: widget.onPause,
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      side: const BorderSide(color: Colors.white24),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                if (widget.onNext == null) ...[
+                  Text(
+                    "Waiting for answers...",
+                    style: AppTypography.bodyMedium.copyWith(
+                      color: AppColors.alternate.withValues(alpha: 0.6),
                     ),
-                    child: const Text("PAUSE", style: TextStyle(color: Colors.white)),
                   ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
+                  const SizedBox(height: 10),
+                ],
+                SizedBox(
+                  width: double.infinity,
                   child: ElevatedButton(
                     onPressed: widget.onNext,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: context.accentColor,
                       foregroundColor: Colors.black,
+                      disabledBackgroundColor: Colors.white.withValues(alpha: 0.08),
+                      disabledForegroundColor: Colors.white38,
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lynk_core/core.dart';
+import 'package:lynk_x/core/utils/breakpoints.dart';
 import 'package:lynk_x/data/repositories/repository_providers.dart';
 import 'package:lynk_x/presentation/shared/utils/app_snackbars.dart';
 
@@ -99,7 +100,7 @@ class _QuizBuilderViewState extends State<QuizBuilderView> {
   @override
   Widget build(BuildContext context) {
     final cubit = context.read<QuizBuilderCubit>();
-    final isDesktop = MediaQuery.of(context).size.width >= 800;
+    final isDesktop = Breakpoints.isDesktop(context);
 
     return BlocConsumer<QuizBuilderCubit, QuizBuilderState>(
       listenWhen: (prev, curr) =>
@@ -242,37 +243,44 @@ class _QuizBuilderViewState extends State<QuizBuilderView> {
         ),
         const VerticalDivider(width: 1, color: Colors.white10),
 
-        // Center Stage: Focused Active Question Canvas
+        // Center Stage: Focused Active Question Canvas — top-aligned, not
+        // stretched edge-to-edge on wide viewports (Breakpoints.constrain,
+        // same pattern as TicketScreen) so the editor reads as a properly
+        // proportioned card instead of an oversized, sparse-looking form.
         Expanded(
           child: Container(
             color: AppColors.primaryBackground,
+            alignment: Alignment.topCenter,
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(24),
-              child: Column(
-                children: [
-                  _QuizHeaderSection(
-                    titleController: _titleController,
-                    infoController: _infoController,
-                    draft: draft,
-                    cubit: cubit,
-                  ),
-                  if (activeQuestion == null)
-                    const Center(child: Text('No questions added.', style: TextStyle(color: Colors.white54)))
-                  else
-                    AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 200),
-                      child: KeyedSubtree(
-                        key: ValueKey('stage_q_$_activeQuestionIndex'),
-                        child: _QuestionStageEditor(
-                          index: _activeQuestionIndex,
-                          totalQuestions: draft.questions.length,
-                          question: activeQuestion,
-                          isQuiz: isQuiz,
-                          cubit: cubit,
+              child: Breakpoints.constrain(
+                Column(
+                  children: [
+                    _QuizHeaderSection(
+                      titleController: _titleController,
+                      infoController: _infoController,
+                      draft: draft,
+                      cubit: cubit,
+                    ),
+                    if (activeQuestion == null)
+                      const Center(child: Text('No questions added.', style: TextStyle(color: Colors.white54)))
+                    else
+                      AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 200),
+                        child: KeyedSubtree(
+                          key: ValueKey('stage_q_$_activeQuestionIndex'),
+                          child: _QuestionStageEditor(
+                            index: _activeQuestionIndex,
+                            totalQuestions: draft.questions.length,
+                            question: activeQuestion,
+                            isQuiz: isQuiz,
+                            cubit: cubit,
+                          ),
                         ),
                       ),
-                    ),
-                ],
+                  ],
+                ),
+                maxWidth: Breakpoints.maxContentWidth,
               ),
             ),
           ),
