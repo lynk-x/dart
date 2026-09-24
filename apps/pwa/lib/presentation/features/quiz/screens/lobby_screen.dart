@@ -40,9 +40,12 @@ class LobbyScreen extends StatelessWidget {
                         letterSpacing: -1,
                       ),
                       children: [
-                        const TextSpan(text: 'Quiz '),
                         TextSpan(
-                          text: 'Live!',
+                          text: 'Live ',
+                          style: const TextStyle(color: Colors.white), 
+                        ),
+                        TextSpan(
+                          text: 'Quiz!',
                           style: TextStyle(color: context.accentColor),
                         ),
                       ],

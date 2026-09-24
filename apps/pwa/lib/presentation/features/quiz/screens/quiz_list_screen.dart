@@ -265,7 +265,7 @@ class _QuizListScreenState extends State<QuizListScreen> {
         centerTitle: true,
         actions: [
           IconButton(
-            icon: const Icon(Icons.add, color: Colors.white),
+            icon: const Icon(Icons.add, color: Colors.white, size: 32),
             tooltip: 'Create new quiz',
             onPressed: _createNew,
           ),

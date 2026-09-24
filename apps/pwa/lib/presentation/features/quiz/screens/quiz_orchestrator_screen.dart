@@ -25,9 +25,9 @@ class QuizOrchestratorScreen extends StatelessWidget {
 
         switch (state.status) {
           case QuizStatus.initial:
-            return const Scaffold(
+            return Scaffold(
               backgroundColor: AppColors.primaryBackground,
-              body: Center(child: CircularProgressIndicator()),
+              body: Center(child: CircularProgressIndicator(color: context.accentColor)),
             );
 
           case QuizStatus.lobby:
