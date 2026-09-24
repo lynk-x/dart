@@ -5,13 +5,14 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 class ChallengeScreen extends StatefulWidget {
-  final Map<String, dynamic> question;
+  final Map<String, dynamic>? question;
   final int timeLeft;
   final int? selectedIndex;
   final Function(int) onOptionSelected;
   final bool isHost;
   final VoidCallback? onNext;
   final VoidCallback? onBack;
+  final List<dynamic> options;
   // Reveal support: null until the backend exposes which option(s) were
   // correct (api.v1_questions only populates this once quiz_state moves
   // past 'playing' — see QuizRepository's doc comment). When null, no
@@ -21,6 +22,7 @@ class ChallengeScreen extends StatefulWidget {
   const ChallengeScreen({
     super.key,
     required this.question,
+    required this.options,
     required this.timeLeft,
     this.selectedIndex,
     required this.onOptionSelected,
@@ -37,9 +39,7 @@ class ChallengeScreen extends StatefulWidget {
 class _ChallengeScreenState extends State<ChallengeScreen> {
   @override
   Widget build(BuildContext context) {
-    final options = widget.question['options'] is List
-        ? widget.question['options'] as List
-        : [];
+    final options = widget.options;
 
     return Scaffold(
       backgroundColor: AppColors.primaryBackground,
@@ -111,10 +111,10 @@ class _ChallengeScreenState extends State<ChallengeScreen> {
                     const SizedBox(height: 20),
 
                     Text(
-                      widget.question['question_text'] ?? '',
+                       widget.question?['question_text'] ?? '',
                       textAlign: TextAlign.center,
                       style: AppTypography.h2.copyWith(
-                        color: AppColors.primaryText,
+                        color: Colors.white,
                         fontWeight: FontWeight.w800,
                         height: 1.3,
                       ),

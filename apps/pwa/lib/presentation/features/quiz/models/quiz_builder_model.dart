@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 /// Scoring behavior for a quiz. 'flat' gives 1 point per correct answer
 /// (today's only behavior); 'speed' adds up to +50% for near-instant correct
 /// answers, computed server-side in surveys.fn_calculate_response_score.
@@ -79,6 +81,39 @@ class DraftQuiz {
     );
   }
 
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is DraftQuiz &&
+          forumId == other.forumId &&
+          channelId == other.channelId &&
+          channelCreatedAt == other.channelCreatedAt &&
+          title == other.title &&
+          info == other.info &&
+          type == other.type &&
+          listEquals(questions, other.questions) &&
+          timePerQuestionSeconds == other.timePerQuestionSeconds &&
+          scoringMode == other.scoringMode &&
+          shuffleAnswers == other.shuffleAnswers &&
+          shuffleQuestions == other.shuffleQuestions &&
+          revealAnswer == other.revealAnswer;
+
+  @override
+  int get hashCode => Object.hash(
+        forumId,
+        channelId,
+        channelCreatedAt,
+        title,
+        info,
+        type,
+        questions,
+        timePerQuestionSeconds,
+        scoringMode,
+        shuffleAnswers,
+        shuffleQuestions,
+        revealAnswer,
+      );
+
   /// Params for api.create_poll (draft creation only — no message yet). A
   /// poll is always exactly one question, so `p_options` is that single
   /// question's option list.
@@ -139,4 +174,16 @@ class DraftQuestion {
       'correct': {for (var i in correctIndices) i.toString(): true},
     };
   }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is DraftQuestion &&
+          id == other.id &&
+          text == other.text &&
+          listEquals(options, other.options) &&
+          listEquals(correctIndices, other.correctIndices);
+
+  @override
+  int get hashCode => Object.hash(id, text, options, correctIndices);
 }

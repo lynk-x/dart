@@ -39,16 +39,9 @@ class QuizOrchestratorScreen extends StatelessWidget {
 
           case QuizStatus.playing:
           case QuizStatus.reveal:
-            // options is swapped for the (possibly per-user-shuffled)
-            // display order; ChallengeScreen only ever deals in display
-            // positions — index translation to/from stored order happens
-            // in QuizState/QuizCubit, not here or in ChallengeScreen.
-            final displayQuestion = {
-              ...?state.currentQuestion,
-              'options': state.displayOptions,
-            };
             return ChallengeScreen(
-              question: displayQuestion,
+              question: state.currentQuestion,
+              options: state.displayOptions,
               timeLeft: state.timeLeft,
               selectedIndex: state.myAnswerDisplayIndex,
               onOptionSelected: cubit.submitAnswer,
