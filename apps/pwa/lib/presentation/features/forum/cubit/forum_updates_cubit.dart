@@ -194,20 +194,7 @@ class ForumUpdatesCubit extends BaseMessageCubit<ForumUpdatesState> {
     final thumbnailUrl = state.mentionedMedia?.thumbnailUrl;
 
     // Extract #hashtag from text if present, otherwise fall back to selected filter.
-    const validHashtags = ['Urgent', 'Activity', 'Q&A', 'Resources', 'Rules'];
-    String? category = state.selectedCategory;
-    final trimmed = text.trimLeft();
-    if (trimmed.startsWith('#')) {
-      final tagPart = trimmed.substring(1).trimLeft();
-      for (final tag in validHashtags) {
-        final escapedTag = RegExp.escape(tag);
-        final regExp = RegExp('^$escapedTag(?:\\s|[.,!?]|\$)', caseSensitive: false);
-        if (regExp.hasMatch(tagPart)) {
-          category = tag;
-          break;
-        }
-      }
-    }
+    final category = ForumCategory.detectFrom(text) ?? state.selectedCategory;
 
     final newMessage = ChatMessage(
       id: messageId,

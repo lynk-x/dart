@@ -136,20 +136,7 @@ class _MessageInputState extends State<MessageInput> {
     });
   }
 
-  String? _getDetectedCategory() {
-    final trimmed = _controller.text.trimLeft();
-    if (!trimmed.startsWith('#')) return null;
-
-    final tagPart = trimmed.substring(1).trimLeft();
-    for (final tag in ForumCategory.values) {
-      final escapedTag = RegExp.escape(tag);
-      final regExp = RegExp('^$escapedTag(?:\\s|[.,!?]|\$)', caseSensitive: false);
-      if (regExp.hasMatch(tagPart)) {
-        return tag;
-      }
-    }
-    return null;
-  }
+  String? _getDetectedCategory() => ForumCategory.detectFrom(_controller.text);
 
   Widget _buildCategoryPreview(String category) {
     final color = ForumCategory.getColorForCategory(category, context.accentColor);
@@ -230,12 +217,23 @@ class _MessageInputState extends State<MessageInput> {
             },
           ),
           Row(
+            // Bottom-aligned rather than the default center: as the
+            // multiline TextField grows past 1 line, the +/send icon
+            // buttons should stay pinned to the input's baseline instead of
+            // drifting toward the vertical middle of the growing field.
+            crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               if (widget.isOrganizer && widget.onCreatePollOrQuiz != null)
-                IconButton(
-                  tooltip: 'Create poll or quiz',
-                  icon: const Icon(Icons.add_circle_outline_rounded, color: Colors.white, size: 24),
-                  onPressed: widget.onCreatePollOrQuiz,
+                Padding(
+                  // Offsets IconButton's larger default 48px tap target so
+                  // it lines up with the input pill's own bottom padding at
+                  // 1 line, rather than overhanging above it.
+                  padding: const EdgeInsets.only(bottom: 2),
+                  child: IconButton(
+                    tooltip: 'Create poll or quiz',
+                    icon: const Icon(Icons.add_circle_outline_rounded, color: Colors.white, size: 24),
+                    onPressed: widget.onCreatePollOrQuiz,
+                  ),
                 ),
               Expanded(
                 child: Container(
@@ -257,26 +255,32 @@ class _MessageInputState extends State<MessageInput> {
                       border: InputBorder.none,
                       isDense: true,
                     ),
+                    minLines: 1,
+                    maxLines: 4,
+                    textInputAction: TextInputAction.newline,
+                    keyboardType: TextInputType.multiline,
                     onChanged: _onChanged,
-                    onSubmitted: (_) => _handleSend(),
                   ),
                 ),
               ),
               const SizedBox(width: 4),
-              ValueListenableBuilder<bool>(
-                valueListenable: _isEmptyNotifier,
-                builder: (context, isEmpty, _) {
-                  return IconButton(
-                    tooltip: widget.editingMessage != null ? 'Save edit' : 'Send message',
-                    icon: Icon(
-                        widget.editingMessage != null
-                            ? Icons.check_rounded
-                            : Icons.send_rounded,
-                        color: Colors.white,
-                        size: 26),
-                    onPressed: isEmpty ? null : _handleSend,
-                  );
-                },
+              Padding(
+                padding: const EdgeInsets.only(bottom: 2),
+                child: ValueListenableBuilder<bool>(
+                  valueListenable: _isEmptyNotifier,
+                  builder: (context, isEmpty, _) {
+                    return IconButton(
+                      tooltip: widget.editingMessage != null ? 'Save edit' : 'Send message',
+                      icon: Icon(
+                          widget.editingMessage != null
+                              ? Icons.check_rounded
+                              : Icons.send_rounded,
+                          color: Colors.white,
+                          size: 26),
+                      onPressed: isEmpty ? null : _handleSend,
+                    );
+                  },
+                ),
               ),
             ],
           ),
