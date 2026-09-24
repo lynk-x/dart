@@ -107,6 +107,18 @@ class _QuizBuilderViewState extends State<QuizBuilderView> {
           prev.error != curr.error ||
           prev.isDraftSaved != curr.isDraftSaved ||
           prev.isPublished != curr.isPublished,
+      buildWhen: (prev, curr) {
+        if (prev.draft == curr.draft) return false;
+        return prev.draft.title != curr.draft.title ||
+            prev.draft.info != curr.draft.info ||
+            prev.draft.type != curr.draft.type ||
+            prev.draft.questions != curr.draft.questions ||
+            prev.isSaving != curr.isSaving ||
+            prev.questionnaireId != curr.questionnaireId ||
+            prev.error != curr.error ||
+            prev.isDraftSaved != curr.isDraftSaved ||
+            prev.isPublished != curr.isPublished;
+      },
       listener: (context, state) {
         if (state.error != null) {
           AppSnackBars.showError(context, state.error!);
@@ -397,7 +409,7 @@ class _QuizBuilderViewState extends State<QuizBuilderView> {
               ),
               const SizedBox(height: 12),
               if (isQuiz)
-                _GameSettingsSection(draft: draft, cubit: cubit),
+                _GameSettingsSection(cubit: cubit),
             ],
           ),
         ),
@@ -860,97 +872,102 @@ class _MobileBottomSlideDock extends StatelessWidget {
 
 /// Game settings section
 class _GameSettingsSection extends StatelessWidget {
-  final DraftQuiz draft;
   final QuizBuilderCubit cubit;
 
-  const _GameSettingsSection({required this.draft, required this.cubit});
+  const _GameSettingsSection({required this.cubit});
 
   static const _timeOptions = [10, 15, 20, 30, 45, 60];
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Game Settings',
-            style: AppTypography.inter(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.white70),
+    return BlocBuilder<QuizBuilderCubit, QuizBuilderState>(
+      bloc: cubit,
+      builder: (context, state) {
+        final draft = state.draft;
+        return Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.05),
+            borderRadius: BorderRadius.circular(12),
           ),
-          const SizedBox(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Time per question', style: AppTypography.inter(fontSize: 14, color: Colors.white)),
-              DropdownButton<int>(
-                value: draft.timePerQuestionSeconds,
-                dropdownColor: AppColors.surface,
-                underline: const SizedBox.shrink(),
-                style: AppTypography.inter(fontSize: 14, color: Colors.white),
-                items: _timeOptions
-                    .map((s) => DropdownMenuItem(
-                          value: s,
-                          child: Text('${s}s'),
-                        ))
-                    .toList(),
-                onChanged: (val) {
-                  if (val != null) {
-                    cubit.updateGameConfig(timePerQuestionSeconds: val);
-                  }
-                },
+              Text(
+                'Game Settings',
+                style: AppTypography.inter(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.white70),
               ),
-            ],
-          ),
-          const Divider(color: Colors.white12, height: 24),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text('Scoring', style: AppTypography.inter(fontSize: 14, color: Colors.white)),
-              SegmentedButton<QuizScoringMode>(
-                segments: const [
-                  ButtonSegment(value: QuizScoringMode.flat, label: Text('Flat')),
-                  ButtonSegment(value: QuizScoringMode.speed, label: Text('Speed bonus')),
+              const SizedBox(height: 12),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('Time per question', style: AppTypography.inter(fontSize: 14, color: Colors.white)),
+                  DropdownButton<int>(
+                    value: draft.timePerQuestionSeconds,
+                    dropdownColor: AppColors.surface,
+                    underline: const SizedBox.shrink(),
+                    style: AppTypography.inter(fontSize: 14, color: Colors.white),
+                    items: _timeOptions
+                        .map((s) => DropdownMenuItem(
+                              value: s,
+                              child: Text('${s}s'),
+                            ))
+                        .toList(),
+                    onChanged: (val) {
+                      if (val != null) {
+                        cubit.updateGameConfig(timePerQuestionSeconds: val);
+                      }
+                    },
+                  ),
                 ],
-                selected: {draft.scoringMode},
-                onSelectionChanged: (selection) {
-                  cubit.updateGameConfig(scoringMode: selection.first);
-                },
-                style: SegmentedButton.styleFrom(
-                  backgroundColor: Colors.transparent,
-                  foregroundColor: Colors.white70,
-                  selectedForegroundColor: Colors.black,
-                  selectedBackgroundColor: context.accentColor,
-                  side: const BorderSide(color: Colors.white24),
-                ),
+              ),
+              const Divider(color: Colors.white12, height: 24),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('Scoring', style: AppTypography.inter(fontSize: 14, color: Colors.white)),
+                  SegmentedButton<QuizScoringMode>(
+                    segments: const [
+                      ButtonSegment(value: QuizScoringMode.flat, label: Text('Flat')),
+                      ButtonSegment(value: QuizScoringMode.speed, label: Text('Speed bonus')),
+                    ],
+                    selected: {draft.scoringMode},
+                    onSelectionChanged: (selection) {
+                      cubit.updateGameConfig(scoringMode: selection.first);
+                    },
+                    style: SegmentedButton.styleFrom(
+                      backgroundColor: Colors.transparent,
+                      foregroundColor: Colors.white70,
+                      selectedForegroundColor: Colors.black,
+                      selectedBackgroundColor: context.accentColor,
+                      side: const BorderSide(color: Colors.white24),
+                    ),
+                  ),
+                ],
+              ),
+              const Divider(color: Colors.white12, height: 24),
+              _SettingSwitch(
+                label: 'Shuffle answers',
+                subtitle: 'Each player sees options in a different order',
+                value: draft.shuffleAnswers,
+                onChanged: (v) => cubit.updateGameConfig(shuffleAnswers: v),
+              ),
+              _SettingSwitch(
+                label: 'Shuffle questions',
+                subtitle: 'Randomize question order when the quiz starts',
+                value: draft.shuffleQuestions,
+                onChanged: (v) => cubit.updateGameConfig(shuffleQuestions: v),
+              ),
+              _SettingSwitch(
+                label: 'Reveal answer',
+                subtitle: 'Show correct option after timer',
+                value: draft.revealAnswer,
+                onChanged: (v) => cubit.updateGameConfig(revealAnswer: v),
               ),
             ],
           ),
-          const Divider(color: Colors.white12, height: 24),
-          _SettingSwitch(
-            label: 'Shuffle answers',
-            subtitle: 'Each player sees options in a different order',
-            value: draft.shuffleAnswers,
-            onChanged: (v) => cubit.updateGameConfig(shuffleAnswers: v),
-          ),
-          _SettingSwitch(
-            label: 'Shuffle questions',
-            subtitle: 'Randomize question order when the quiz starts',
-            value: draft.shuffleQuestions,
-            onChanged: (v) => cubit.updateGameConfig(shuffleQuestions: v),
-          ),
-          _SettingSwitch(
-            label: 'Reveal answer',
-            subtitle: 'Show correct option after timer',
-            value: draft.revealAnswer,
-            onChanged: (v) => cubit.updateGameConfig(revealAnswer: v),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 }
