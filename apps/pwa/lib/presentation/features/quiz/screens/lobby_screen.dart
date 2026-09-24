@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:lynk_core/core.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
@@ -144,7 +145,7 @@ class LobbyScreen extends StatelessWidget {
               
               // Exit Button
               TextButton(
-                onPressed: () => Navigator.pop(context),
+                onPressed: () => context.pop(),
                 style: TextButton.styleFrom(
                   padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                 ),

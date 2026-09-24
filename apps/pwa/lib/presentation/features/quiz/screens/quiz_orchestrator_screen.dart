@@ -53,10 +53,6 @@ class QuizOrchestratorScreen extends StatelessWidget {
               selectedIndex: state.myAnswerDisplayIndex,
               onOptionSelected: cubit.submitAnswer,
               isHost: state.isHost,
-              // Pausing has no server-side counterpart today (no 'paused'
-              // quiz_state) — until that exists, the button has nothing to
-              // wire to.
-              onPause: null,
               onNext: state.isHost && state.status == QuizStatus.reveal
                   ? cubit.showLeaderboard
                   : null,
@@ -99,14 +95,23 @@ class QuizOrchestratorScreen extends StatelessWidget {
             );
 
           case QuizStatus.finished:
+            // Same podium visuals as QuizStatus.podium — a quiz reaches
+            // 'finished' either via a genuine close (host exits Podium,
+            // which flips the state after popping) or by someone
+            // rejoining/lingering after that already happened, so this
+            // should read as "the podium, calmly" rather than dropping to
+            // the plainer leaderboard. skipReveal suppresses the
+            // suspense-reveal sequence and sound since this isn't a fresh
+            // win moment.
             final finishedAnnotated =
                 _withCurrentUserFlag(state.leaderboard, cubit.userId);
             final finishedMyEntry = _findCurrentUser(finishedAnnotated);
-            return LeaderboardScreen(
-              leaderboard: finishedAnnotated,
-              userScore: (finishedMyEntry?['total_score'] as num?)?.toInt() ?? 0,
-              userRank: _rankOf(finishedAnnotated, cubit.userId),
-              isFinishedView: true,
+            return PodiumScreen(
+              winners: finishedAnnotated,
+              finalScore: (finishedMyEntry?['total_score'] as num?)?.toInt() ?? 0,
+              onExit: () => context.pop(),
+              isHost: state.isHost,
+              skipReveal: true,
             );
 
           case QuizStatus.error:

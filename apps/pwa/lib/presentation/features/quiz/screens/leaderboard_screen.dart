@@ -10,7 +10,6 @@ class LeaderboardScreen extends StatelessWidget {
   final bool isHost;
   final VoidCallback? onNext;
   final bool isLastQuestion;
-  final bool isFinishedView;
 
   const LeaderboardScreen({
     super.key,
@@ -21,7 +20,6 @@ class LeaderboardScreen extends StatelessWidget {
     this.isHost = false,
     this.onNext,
     this.isLastQuestion = false,
-    this.isFinishedView = false,
   });
 
   @override
@@ -43,11 +41,11 @@ class LeaderboardScreen extends StatelessWidget {
                   fontWeight: FontWeight.bold,
                 ),
               ).animate().fadeIn().moveY(begin: -10, end: 0),
-              
+
               const SizedBox(height: 8),
-              
+
               Text(
-                "Global Standings",
+                "Live Leaderboard",
                 style: AppTypography.h1.copyWith(
                   color: Colors.white,
                   fontWeight: FontWeight.w900,
@@ -75,7 +73,11 @@ class LeaderboardScreen extends StatelessWidget {
               
               const SizedBox(height: 40),
               
-              // User Personal Stats
+              // Stats card — the host never plays/scores (ChallengeScreen
+              // disables answer selection for isHost), so "YOUR RANK/TOTAL
+              // SCORE" would always read "--"/"0" for them. Show the top
+              // performer instead, which is what a host watching standings
+              // actually wants to see.
               Container(
                 padding: const EdgeInsets.all(24),
                 decoration: BoxDecoration(
@@ -85,32 +87,43 @@ class LeaderboardScreen extends StatelessWidget {
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: [
-                    _StatItem(
-                      label: "YOUR RANK",
-                      value: userRank != null ? "#$userRank" : "--",
-                      color: context.accentColor,
-                    ),
-                    Container(width: 1, height: 40, color: AppColors.outline),
-                    _StatItem(
-                      label: "TOTAL SCORE",
-                      value: "$userScore",
-                      color: context.accentColor,
-                    ),
-                  ],
+                  children: isHost
+                      ? [
+                          _StatItem(
+                            label: "TOP SCORE",
+                            value: leaderboard.isNotEmpty
+                                ? "${leaderboard.first['total_score'] ?? 0}"
+                                : "--",
+                            color: context.accentColor,
+                          ),
+                          Container(width: 1, height: 40, color: AppColors.outline),
+                          _StatItem(
+                            label: "LEADING",
+                            value: leaderboard.isNotEmpty
+                                ? "${leaderboard.first['display_name'] ?? 'Player'}"
+                                : "--",
+                            color: context.accentColor,
+                          ),
+                        ]
+                      : [
+                          _StatItem(
+                            label: "YOUR RANK",
+                            value: userRank != null ? "#$userRank" : "--",
+                            color: context.accentColor,
+                          ),
+                          Container(width: 1, height: 40, color: AppColors.outline),
+                          _StatItem(
+                            label: "TOTAL SCORE",
+                            value: "$userScore",
+                            color: context.accentColor,
+                          ),
+                        ],
                 ),
               ).animate().fadeIn(delay: 500.ms).slideY(begin: 0.2, end: 0),
               
               const SizedBox(height: 32),
               
-              if (isFinishedView)
-                Text(
-                  "Quiz closed — final standings",
-                  style: AppTypography.bodyMedium.copyWith(
-                    color: AppColors.alternate.withValues(alpha: 0.6),
-                  ),
-                )
-              else if (isHost)
+              if (isHost)
                 Center(
                   child: ConstrainedBox(
                     constraints: const BoxConstraints(maxWidth: 400),
@@ -280,6 +293,7 @@ class _StatItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
         Text(
           label,
@@ -289,11 +303,21 @@ class _StatItem extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 4),
-        Text(
-          value,
-          style: AppTypography.h2.copyWith(
-            color: color,
-            fontWeight: FontWeight.w900,
+        // maxWidth constrains free-text values (e.g. the host card's
+        // LEADING player name) so a long name ellipsizes instead of
+        // overflowing the stat slot — numeric values (rank/score) are
+        // always short enough to never hit this.
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 140),
+          child: Text(
+            value,
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: AppTypography.h2.copyWith(
+              color: color,
+              fontWeight: FontWeight.w900,
+            ),
           ),
         ),
       ],

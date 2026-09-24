@@ -199,11 +199,15 @@ class QuizBuilderCubit extends Cubit<QuizBuilderState> {
     return null;
   }
 
-  /// Saves the current draft — creates a new surveys.questionnaires row (or,
-  /// for a poll, always creates fresh; quizzes may later support in-place
-  /// draft updates once an edit RPC exists) with no forum_messages row yet.
-  /// This is the LiveQuiz builder's primary "checkmark" action — it never
-  /// publishes on its own; publish() is a separate, explicit step.
+  /// Saves the current draft — creates a new surveys.questionnaires row the
+  /// first time (state.questionnaireId is null), or updates the existing
+  /// one in place on every save after that (e.g. reopened via "Preview"/
+  /// "resume draft", which passes questionnaireId at construction — see the
+  /// constructor's own doc comment). Without the update branch, saving an
+  /// already-saved draft again silently created a second, orphaned row.
+  /// No forum_messages row is touched either way. This is the LiveQuiz
+  /// builder's primary "checkmark" action — it never publishes on its own;
+  /// publish() is a separate, explicit step.
   Future<void> saveDraft() async {
     final validationError = _validate();
     if (validationError != null) {
@@ -213,9 +217,17 @@ class QuizBuilderCubit extends Cubit<QuizBuilderState> {
 
     emit(state.copyWith(isSaving: true, error: null));
     try {
-      final id = state.draft.type == 'poll'
-          ? await _repo.createPoll(state.draft.toCreatePollParams())
-          : await _repo.createQuiz(state.draft.toCreateQuizParams());
+      final existingId = state.questionnaireId;
+      final String id;
+      if (existingId == null) {
+        id = state.draft.type == 'poll'
+            ? await _repo.createPoll(state.draft.toCreatePollParams())
+            : await _repo.createQuiz(state.draft.toCreateQuizParams());
+      } else {
+        id = state.draft.type == 'poll'
+            ? await _repo.updatePollDraft(existingId, state.draft.toCreatePollParams())
+            : await _repo.updateQuizDraft(existingId, state.draft.toCreateQuizParams());
+      }
       emit(state.copyWith(
         isSaving: false,
         isDraftSaved: true,

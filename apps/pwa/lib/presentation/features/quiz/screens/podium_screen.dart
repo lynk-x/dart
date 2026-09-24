@@ -27,6 +27,7 @@ class PodiumScreen extends StatefulWidget {
   final int finalScore;
   final VoidCallback onExit;
   final bool isHost;
+  final bool skipReveal;
 
   const PodiumScreen({
     super.key,
@@ -34,6 +35,7 @@ class PodiumScreen extends StatefulWidget {
     required this.finalScore,
     required this.onExit,
     this.isHost = false,
+    this.skipReveal = false,
   });
 
   @override
@@ -46,9 +48,9 @@ class _PodiumScreenState extends State<PodiumScreen> {
   @override
   void initState() {
     super.initState();
-    // Starts as soon as the podium mounts, running alongside the full
-    // 6-second reveal sequence (3rd -> 2nd -> 1st).
-    _audioPlayer.play(AssetSource('audio/liveQuiz_podium_sound.mp3'));
+    if (!widget.skipReveal) {
+      _audioPlayer.play(AssetSource('audio/liveQuiz_podium_sound.mp3'));
+    }
   }
 
   @override
@@ -94,7 +96,8 @@ class _PodiumScreenState extends State<PodiumScreen> {
                     final winner = widget.winners[index];
                     final placesFromLast =
                         (widget.winners.length > 3 ? 3 : widget.winners.length) - 1 - index;
-                    final revealDelay = _podiumRevealDelay(placesFromLast);
+                    final revealDelay =
+                        widget.skipReveal ? Duration.zero : _podiumRevealDelay(placesFromLast);
 
                     return _PodiumItem(
                       rank: index + 1,
@@ -152,7 +155,7 @@ class _PodiumScreenState extends State<PodiumScreen> {
                         ),
                       ),
                       child: Text(
-                        widget.isHost ? "CLOSE QUIZ" : "BACK TO FORUM",
+                        widget.isHost && !widget.skipReveal ? "CLOSE QUIZ" : "BACK TO FORUM",
                         style: AppTypography.labelLarge.copyWith(
                           fontWeight: FontWeight.bold,
                           letterSpacing: 1.5,
@@ -161,7 +164,7 @@ class _PodiumScreenState extends State<PodiumScreen> {
                     ),
                   ),
                 ),
-              ).animate().fadeIn(delay: _podiumRevealCompleteDelay),
+              ).animate().fadeIn(delay: widget.skipReveal ? Duration.zero : _podiumRevealCompleteDelay),
               
               const SizedBox(height: 20),
             ],
