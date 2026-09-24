@@ -105,8 +105,19 @@ abstract class BaseMessageCubit<T extends BaseMessageState> extends HydratedCubi
           final String? msgId = payload['id'] as String?;
           final String? content = payload['content'] as String?;
           final bool? isPinned = payload['is_pinned'] as bool?;
+          // 'hashtag' is only present on a content-edit broadcast (see
+          // editMessage) — payload.containsKey distinguishes "not sent, keep
+          // existing category" from "sent as null, clear the category".
+          final bool hasCategory = payload.containsKey('hashtag');
+          final String? category = payload['hashtag'] as String?;
           if (msgId != null) {
-            updateMessageInPlace(msgId, content: content, isPinned: isPinned);
+            updateMessageInPlace(
+              msgId,
+              content: content,
+              isPinned: isPinned,
+              category: category,
+              clearCategory: hasCategory && category == null,
+            );
           }
         } catch (e, stack) {
           debugPrint('[BaseMessageCubit] edit_message broadcast parse error: $e\n$stack');
@@ -214,12 +225,15 @@ abstract class BaseMessageCubit<T extends BaseMessageState> extends HydratedCubi
           final updated = state.messages.where((m) => m.id != id).toList();
           if (!isClosed) emit(copyWithState(messages: updated));
         } else {
+          final category = data['hashtag'] as String?;
           updateMessageInPlace(
             data['id'] as String,
             content: data['content'] as String?,
             isPinned: data['is_pinned'] == true,
             isSending: false,
             hasError: false,
+            category: category,
+            clearCategory: category == null,
           );
         }
       }
@@ -377,12 +391,17 @@ abstract class BaseMessageCubit<T extends BaseMessageState> extends HydratedCubi
   Future<void> editMessage(ChatMessage message, String newContent) async {
     if (userId == kGuestUserId) return;
     final originalMessages = List<ChatMessage>.from(state.messages);
-    updateMessageInPlace(message.id, content: newContent);
+    // Re-detect #hashtag from the edited text — previously only ever
+    // computed on send, so changing/adding a hashtag while editing left
+    // the message's category stuck at whatever it was (or wasn't) when
+    // first sent.
+    final category = ForumCategory.detectFrom(newContent);
+    updateMessageInPlace(message.id, content: newContent, category: category, clearCategory: category == null);
 
     try {
       await Supabase.instance.client
           .schema('social').from('forum_messages')
-          .update({'content': newContent})
+          .update({'content': newContent, 'hashtag': category})
           .eq('id', message.id)
           .eq('created_at', message.createdAt.toIso8601String());
 
@@ -391,6 +410,7 @@ abstract class BaseMessageCubit<T extends BaseMessageState> extends HydratedCubi
         payload: {
           'id': message.id,
           'content': newContent,
+          'hashtag': category,
         },
       );
     } catch (_) {
@@ -434,6 +454,8 @@ abstract class BaseMessageCubit<T extends BaseMessageState> extends HydratedCubi
     bool? isSending,
     bool? hasError,
     bool? isEdited,
+    String? category,
+    bool clearCategory = false,
   }) {
     final index = state.messages.indexWhere((m) => m.id == messageId);
     if (index != -1) {
@@ -446,6 +468,8 @@ abstract class BaseMessageCubit<T extends BaseMessageState> extends HydratedCubi
         isSending: isSending ?? oldMsg.isSending,
         hasError: hasError ?? oldMsg.hasError,
         isEdited: isEdited ?? (wasContentChanged ? true : oldMsg.isEdited),
+        category: category,
+        clearCategory: clearCategory,
       );
 
       final updated = List<ChatMessage>.from(state.messages);

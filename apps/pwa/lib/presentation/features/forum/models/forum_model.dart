@@ -250,6 +250,7 @@ class ChatMessage {
     bool? isPinned,
     bool? isPremium,
     bool? isEdited,
+    bool clearCategory = false,
   }) {
     return ChatMessage(
       id: id ?? this.id,
@@ -267,7 +268,7 @@ class ChatMessage {
       linkPreviewTitle: linkPreviewTitle ?? this.linkPreviewTitle,
       linkPreviewUrl: linkPreviewUrl ?? this.linkPreviewUrl,
       targetRoute: targetRoute ?? this.targetRoute,
-      category: category ?? this.category,
+      category: clearCategory ? null : (category ?? this.category),
       reactions: reactions ?? this.reactions,
       isSending: isSending ?? this.isSending,
       hasError: hasError ?? this.hasError,
@@ -476,6 +477,27 @@ class ForumCategory {
 
   static Color getColorForCategory(String category, Color fallbackColor) {
     return colors[category] ?? fallbackColor;
+  }
+
+  /// Detects a leading "#tagname" in [text] and returns the matching known
+  /// category, or null if there is none. Single source of truth for
+  /// hashtag detection — previously duplicated separately in
+  /// MessageInput's live composer preview and each message-sending cubit,
+  /// which is how editing a message's text ended up never re-deriving its
+  /// category: the detection logic only ever ran on send, not on edit.
+  static String? detectFrom(String text) {
+    final trimmed = text.trimLeft();
+    if (!trimmed.startsWith('#')) return null;
+
+    final tagPart = trimmed.substring(1).trimLeft();
+    for (final tag in values) {
+      final escapedTag = RegExp.escape(tag);
+      final regExp = RegExp('^$escapedTag(?:\\s|[.,!?]|\$)', caseSensitive: false);
+      if (regExp.hasMatch(tagPart)) {
+        return tag;
+      }
+    }
+    return null;
   }
 }
 
