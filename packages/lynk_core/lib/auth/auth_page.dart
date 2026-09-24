@@ -14,7 +14,8 @@ enum _LoginMode { email, phone }
 /// toggle between; the code-verification step is the only second screen,
 /// for either identifier.
 class AuthPage extends StatefulWidget {
-  const AuthPage({super.key});
+  final VoidCallback? onVerified;
+  const AuthPage({super.key, this.onVerified});
 
   @override
   State<AuthPage> createState() => _AuthPageState();
@@ -111,12 +112,14 @@ class _AuthPageState extends State<AuthPage> {
                       identifier: _pendingPhone!,
                       type: OtpType.sms,
                       onBack: _onBack,
+                      onVerified: widget.onVerified,
                     )
                   else
                     _OtpForm(
                       identifier: _pendingEmail!,
                       type: OtpType.email,
                       onBack: _onBack,
+                      onVerified: widget.onVerified,
                     ),
                 ],
               ),
@@ -440,7 +443,8 @@ class _OtpForm extends StatefulWidget {
   final String identifier;
   final OtpType type;
   final VoidCallback onBack;
-  const _OtpForm({required this.identifier, required this.type, required this.onBack});
+  final VoidCallback? onVerified;
+  const _OtpForm({required this.identifier, required this.type, required this.onBack, this.onVerified});
 
   @override
   State<_OtpForm> createState() => _OtpFormState();
@@ -498,9 +502,7 @@ class _OtpFormState extends State<_OtpForm> {
         token: code,
         type: widget.type,
       );
-      // Successful verification updates the auth session; app.dart's
-      // onAuthStateChange listener (signedIn) takes over from here — no
-      // explicit navigation needed, the router redirect will pick it up.
+      widget.onVerified?.call();
     } catch (e) {
       if (mounted) {
         setState(() => _hasFailed = true);

@@ -128,11 +128,16 @@ GoRouter createRouter(
     routes: [
       GoRoute(
         path: '/auth',
-        builder: (_, __) => Title(
-          title: 'Access Account',
-          color: Colors.black,
-          child: const AuthPage(),
-        ),
+        builder: (context, state) {
+          final next = state.uri.queryParameters['next'];
+          return Title(
+            title: 'Access Account',
+            color: Colors.black,
+            child: AuthPage(
+              onVerified: () => GoRouter.of(context).go(next ?? '/'),
+            ),
+          );
+        },
       ),
       GoRoute(
         path: '/auth/bridge',

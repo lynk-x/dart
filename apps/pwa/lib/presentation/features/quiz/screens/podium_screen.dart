@@ -38,14 +38,21 @@ class PodiumScreen extends StatefulWidget {
     this.skipReveal = false,
   });
 
-  List<Map<String, dynamic>> get _effectiveWinners =>
-      winners.isEmpty
-          ? [
-              {'display_name': '---', 'total_score': 0},
-              {'display_name': '---', 'total_score': 0},
-              {'display_name': '---', 'total_score': 0},
-            ]
-          : winners;
+  List<Map<String, dynamic>> get _effectiveWinners {
+    if (winners.isEmpty) {
+      return const [
+        {'display_name': '---', 'total_score': 0},
+        {'display_name': '---', 'total_score': 0},
+        {'display_name': '---', 'total_score': 0},
+      ];
+    }
+
+    final result = List<Map<String, dynamic>>.from(winners);
+    while (result.length < 3) {
+      result.add(const {'display_name': '---', 'total_score': 0});
+    }
+    return result.take(3).toList();
+  }
 
   @override
   State<PodiumScreen> createState() => _PodiumScreenState();
@@ -97,29 +104,119 @@ class _PodiumScreenState extends State<PodiumScreen> {
               // instead of the winner appearing first and the tension
               // deflating from there.
               Expanded(
-                child: ListView.separated(
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: widget._effectiveWinners.length > 3
-                      ? 3
-                      : widget._effectiveWinners.length,
-                  separatorBuilder: (context, index) => const SizedBox(height: 16),
-                  itemBuilder: (context, index) {
-                    final winner = widget._effectiveWinners[index];
-                    final placesFromLast = (widget._effectiveWinners.length > 3
-                            ? 3
-                            : widget._effectiveWinners.length) -
-                        1 -
-                        index;
-                    final revealDelay =
-                        widget.skipReveal ? Duration.zero : _podiumRevealDelay(placesFromLast);
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final isDesktop = constraints.maxWidth > 600;
+                    final scale = isDesktop ? 1.3 : 1.0;
 
-                    return _PodiumItem(
-                      rank: index + 1,
-                      name: winner['display_name'] ?? '---',
-                      score: winner['total_score'] ?? 0,
-                    ).animate()
-                     .fadeIn(delay: revealDelay, duration: 500.ms)
-                     .slideY(begin: 0.2, end: 0, duration: 500.ms);
+                    final secondWidth = 80.0 * scale;
+                    final firstWidth = 100.0 * scale;
+                    final thirdWidth = 80.0 * scale;
+
+                    final secondHeight = 120.0 * scale;
+                    final firstHeight = 160.0 * scale;
+                    final thirdHeight = 80.0 * scale;
+
+                    final gap = isDesktop ? 24.0 : 12.0;
+
+                    final winners = widget._effectiveWinners;
+                    final second = winners[1];
+                    final first = winners[0];
+                    final third = winners[2];
+
+                    return Column(
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            _PodiumSlot(
+                              rank: 2,
+                              name: second['display_name'] ?? '---',
+                              score: second['total_score'] ?? 0,
+                              podiumWidth: secondWidth,
+                              podiumHeight: secondHeight,
+                            ).animate().fadeIn(delay: _podiumRevealDelay(1), duration: 500.ms).slideY(begin: 0.2, end: 0, duration: 500.ms),
+                            SizedBox(width: gap),
+                            _PodiumSlot(
+                              rank: 1,
+                              name: first['display_name'] ?? '---',
+                              score: first['total_score'] ?? 0,
+                              podiumWidth: firstWidth,
+                              podiumHeight: firstHeight,
+                            ).animate().fadeIn(delay: _podiumRevealDelay(0), duration: 500.ms).slideY(begin: 0.2, end: 0, duration: 500.ms),
+                            SizedBox(width: gap),
+                            _PodiumSlot(
+                              rank: 3,
+                              name: third['display_name'] ?? '---',
+                              score: third['total_score'] ?? 0,
+                              podiumWidth: thirdWidth,
+                              podiumHeight: thirdHeight,
+                            ).animate().fadeIn(delay: _podiumRevealDelay(2), duration: 500.ms).slideY(begin: 0.2, end: 0, duration: 500.ms),
+                          ],
+                        ),
+                        
+                        const SizedBox(height: 40),
+                        
+                        // Personal final score
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(vertical: 40),
+                          child: Column(
+                            children: [
+                              Text(
+                                "YOUR FINAL SCORE",
+                                style: AppTypography.bodyMedium.copyWith(
+                                  color: AppColors.alternate,
+                                  letterSpacing: 2,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                "${widget.finalScore}",
+                                style: AppTypography.h1.copyWith(
+                                  color: const Color(0xFFFFD700),
+                                  fontSize: 64,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ).animate(onPlay: (c) => c.repeat(reverse: true))
+                               .shimmer(duration: 2.seconds, color: Colors.white24),
+                            ],
+                          ),
+                        ),
+                        
+                        // Exit button
+                        Center(
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 400),
+                            child: SizedBox(
+                              width: double.infinity,
+                              height: 60,
+                              child: ElevatedButton(
+                                onPressed: widget.onExit,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppColors.surface,
+                                  foregroundColor: Colors.white,
+                                  side: const BorderSide(color: Colors.white24),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                ),
+                                child: Text(
+                                  widget.isHost && !widget.skipReveal ? "CLOSE QUIZ" : "BACK TO FORUM",
+                                  style: AppTypography.labelLarge.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                    letterSpacing: 1.5,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ).animate().fadeIn(delay: widget.skipReveal ? Duration.zero : _podiumRevealCompleteDelay),
+                        
+                        const SizedBox(height: 20),
+                      ],
+                    );
                   },
                 ),
               ),
@@ -189,83 +286,90 @@ class _PodiumScreenState extends State<PodiumScreen> {
   }
 }
 
-class _PodiumItem extends StatelessWidget {
+class _PodiumSlot extends StatelessWidget {
   final int rank;
   final String name;
   final int score;
+  final double podiumWidth;
+  final double podiumHeight;
 
-  const _PodiumItem({
+  const _PodiumSlot({
     required this.rank,
     required this.name,
     required this.score,
+    required this.podiumWidth,
+    required this.podiumHeight,
   });
 
   @override
   Widget build(BuildContext context) {
-    final bool isFirst = rank == 1;
-    final Color rankColor = isFirst ? const Color(0xFFFFD700) : context.accentColor;
-    
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: isFirst ? rankColor.withValues(alpha: 0.1) : AppColors.surface,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: isFirst ? rankColor : Colors.white10,
-          width: isFirst ? 2 : 1,
+    final rankColor = rank == 1
+        ? const Color(0xFFFFD700)
+        : rank == 2
+            ? const Color(0xFFC0C0C0)
+            : const Color(0xFFCD7F32);
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Name (above podium)
+        Text(
+          name,
+          style: AppTypography.bodyLarge.copyWith(
+            color: Colors.white,
+            fontWeight: rank == 1 ? FontWeight.w900 : FontWeight.w700,
+            fontSize: rank == 1 ? 18 : 14,
+          ),
+          textAlign: TextAlign.center,
         ),
-        boxShadow: isFirst ? [
-          BoxShadow(
-            color: rankColor.withValues(alpha: 0.2),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-          )
-        ] : null,
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 50,
-            height: 50,
-            decoration: BoxDecoration(
-              color: rankColor.withValues(alpha: 0.2),
-              shape: BoxShape.circle,
+        const SizedBox(height: 8),
+
+        // Podium block with rank on it
+        Container(
+          width: podiumWidth,
+          height: podiumHeight,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                rankColor.withValues(alpha: 0.2),
+                rankColor.withValues(alpha: 0.05),
+              ],
             ),
-            alignment: Alignment.center,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
+            border: Border.all(color: rankColor.withValues(alpha: 0.3)),
+            boxShadow: [
+              BoxShadow(
+                color: rankColor.withValues(alpha: 0.2),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Center(
             child: Text(
-              isFirst ? "👑" : "#$rank",
+              rank == 1 ? '👑' : '#$rank',
               style: TextStyle(
-                fontSize: isFirst ? 24 : 18,
+                fontSize: podiumWidth * 0.4,
                 fontWeight: FontWeight.bold,
                 color: rankColor,
               ),
             ),
           ),
-          const SizedBox(width: 20),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  name,
-                  style: AppTypography.bodyLarge.copyWith(
-                    color: Colors.white,
-                    fontWeight: isFirst ? FontWeight.w900 : FontWeight.w700,
-                    fontSize: isFirst ? 20 : 16,
-                  ),
-                ),
-                Text(
-                  "$score Points",
-                  style: AppTypography.bodyMedium.copyWith(
-                    color: rankColor,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
+        ),
+
+        // Score (below podium)
+        const SizedBox(height: 8),
+        Text(
+          '$score',
+          style: AppTypography.bodyMedium.copyWith(
+            color: rankColor,
+            fontWeight: FontWeight.bold,
           ),
-        ],
-      ),
+          textAlign: TextAlign.center,
+        ),
+      ],
     );
   }
 }
