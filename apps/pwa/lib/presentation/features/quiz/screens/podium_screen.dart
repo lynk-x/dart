@@ -130,29 +130,29 @@ class _PodiumScreenState extends State<PodiumScreen> {
                           mainAxisAlignment: MainAxisAlignment.center,
                           crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
-                            _PodiumSlot(
-                              rank: 2,
-                              name: second['display_name'] ?? '---',
-                              score: second['total_score'] ?? 0,
-                              podiumWidth: secondWidth,
-                              podiumHeight: secondHeight,
-                            ).animate().fadeIn(delay: _podiumRevealDelay(1), duration: 500.ms).slideY(begin: 0.2, end: 0, duration: 500.ms),
-                            SizedBox(width: gap),
-                            _PodiumSlot(
-                              rank: 1,
-                              name: first['display_name'] ?? '---',
-                              score: first['total_score'] ?? 0,
-                              podiumWidth: firstWidth,
-                              podiumHeight: firstHeight,
-                            ).animate().fadeIn(delay: _podiumRevealDelay(0), duration: 500.ms).slideY(begin: 0.2, end: 0, duration: 500.ms),
-                            SizedBox(width: gap),
-                            _PodiumSlot(
-                              rank: 3,
-                              name: third['display_name'] ?? '---',
-                              score: third['total_score'] ?? 0,
-                              podiumWidth: thirdWidth,
-                              podiumHeight: thirdHeight,
-                            ).animate().fadeIn(delay: _podiumRevealDelay(2), duration: 500.ms).slideY(begin: 0.2, end: 0, duration: 500.ms),
+                             _PodiumSlot(
+                               rank: 3,
+                               name: third['display_name'] ?? '---',
+                               score: third['total_score'] ?? 0,
+                               podiumWidth: thirdWidth,
+                               podiumHeight: thirdHeight,
+                             ).animate().fadeIn(delay: _podiumRevealDelay(0), duration: 500.ms).slideY(begin: 0.2, end: 0, duration: 500.ms),
+                             SizedBox(width: gap),
+                             _PodiumSlot(
+                               rank: 2,
+                               name: second['display_name'] ?? '---',
+                               score: second['total_score'] ?? 0,
+                               podiumWidth: secondWidth,
+                               podiumHeight: secondHeight,
+                             ).animate().fadeIn(delay: _podiumRevealDelay(1), duration: 500.ms).slideY(begin: 0.2, end: 0, duration: 500.ms),
+                             SizedBox(width: gap),
+                             _PodiumSlot(
+                               rank: 1,
+                               name: first['display_name'] ?? '---',
+                               score: first['total_score'] ?? 0,
+                               podiumWidth: firstWidth,
+                               podiumHeight: firstHeight,
+                             ).animate().fadeIn(delay: _podiumRevealDelay(2), duration: 500.ms).slideY(begin: 0.2, end: 0, duration: 500.ms),
                           ],
                         ),
                         
@@ -220,64 +220,6 @@ class _PodiumScreenState extends State<PodiumScreen> {
                   },
                 ),
               ),
-              
-              // Personal Final Score
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 40),
-                child: Column(
-                  children: [
-                    Text(
-                      "YOUR FINAL SCORE",
-                      style: AppTypography.bodyMedium.copyWith(
-                        color: AppColors.alternate,
-                        letterSpacing: 2,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      "${widget.finalScore}",
-                      style: AppTypography.h1.copyWith(
-                        color: const Color(0xFFFFD700),
-                        fontSize: 64,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ).animate(onPlay: (c) => c.repeat(reverse: true))
-                     .shimmer(duration: 2.seconds, color: Colors.white24),
-                  ],
-                ),
-              ),
-              
-              // Exit Button
-              Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 400),
-                  child: SizedBox(
-                    width: double.infinity,
-                    height: 60,
-                    child: ElevatedButton(
-                      onPressed: widget.onExit,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.surface,
-                        foregroundColor: Colors.white,
-                        side: const BorderSide(color: Colors.white24),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                      ),
-                      child: Text(
-                        widget.isHost && !widget.skipReveal ? "CLOSE QUIZ" : "BACK TO FORUM",
-                        style: AppTypography.labelLarge.copyWith(
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 1.5,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ).animate().fadeIn(delay: widget.skipReveal ? Duration.zero : _podiumRevealCompleteDelay),
-              
-              const SizedBox(height: 20),
             ],
           ),
         ),
@@ -312,16 +254,19 @@ class _PodiumSlot extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Name (above podium)
-        Text(
-          name,
-          style: AppTypography.bodyLarge.copyWith(
-            color: Colors.white,
-            fontWeight: rank == 1 ? FontWeight.w900 : FontWeight.w700,
-            fontSize: rank == 1 ? 18 : 14,
-          ),
-          textAlign: TextAlign.center,
-        ),
+         // Name (above podium)
+         Tooltip(
+           message: name,
+           child: Text(
+             name,
+             style: AppTypography.bodyLarge.copyWith(
+               color: Colors.white,
+               fontWeight: rank == 1 ? FontWeight.w900 : FontWeight.w700,
+               fontSize: rank == 1 ? 18 : 14,
+             ),
+             textAlign: TextAlign.center,
+           ),
+         ),
         const SizedBox(height: 8),
 
         // Podium block with rank on it
