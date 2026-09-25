@@ -261,11 +261,6 @@ class _MediaViewerState extends State<MediaViewer> {
 
   @override
   Widget build(BuildContext context) {
-    bool isPremium = false;
-    try {
-      isPremium = context.read<ForumCubit>().state.isPremium;
-    } catch (_) {}
-
     // This route is pushed imperatively (Navigator.push, not a go_router
     // route — see MediaViewer.show above), sitting on top of go_router's
     // own managed stack. Without this, the system back gesture/button was
@@ -380,7 +375,6 @@ class _MediaViewerState extends State<MediaViewer> {
                           return _SingleMediaView(
                             url: media.url,
                             mediaType: media.mediaType,
-                            isPremium: isPremium,
                           );
                         },
                       )
@@ -725,12 +719,10 @@ class _MediaMemberAction extends StatelessWidget {
 class _SingleMediaView extends StatefulWidget {
   final String url;
   final String mediaType;
-  final bool isPremium;
 
   const _SingleMediaView({
     required this.url,
     required this.mediaType,
-    required this.isPremium,
   });
 
   @override
@@ -823,12 +815,6 @@ class _SingleMediaViewState extends State<_SingleMediaView> {
                 maxScale: PhotoViewComputedScale.covered * 2,
                 heroAttributes: PhotoViewHeroAttributes(tag: widget.url),
               ),
-              if (!widget.isPremium)
-                const Positioned.fill(
-                  child: IgnorePointer(
-                    child: ForumMediaWatermark(),
-                  ),
-                ),
             ],
           ),
         ),
@@ -846,12 +832,6 @@ class _SingleMediaViewState extends State<_SingleMediaView> {
           alignment: Alignment.bottomCenter,
           children: [
             VideoPlayer(_videoController!),
-            if (!widget.isPremium)
-              const Positioned.fill(
-                child: IgnorePointer(
-                  child: ForumMediaWatermark(),
-                ),
-              ),
             VideoProgressIndicator(_videoController!, allowScrubbing: true),
             GestureDetector(
               onTap: () {
@@ -876,58 +856,5 @@ class _SingleMediaViewState extends State<_SingleMediaView> {
   }
 }
 
-class ForumMediaWatermark extends StatelessWidget {
-  const ForumMediaWatermark({super.key});
 
-  @override
-  Widget build(BuildContext context) {
-    const double baseDensity = 0.25; 
-
-    return SizedBox.expand(
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final crossAxisCount = (constraints.maxWidth / 80).ceil();
-          final rowCount = (constraints.maxHeight / 80).ceil();
-          final totalCount = crossAxisCount * rowCount;
-
-          return GridView.builder(
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: crossAxisCount > 0 ? crossAxisCount : 1,
-              childAspectRatio: 1.0,
-            ),
-            itemCount: totalCount,
-            itemBuilder: (context, index) {
-              final pseudoRandom = ((index * 37) + 11) % 100 / 100.0;
-              
-              if (pseudoRandom > baseDensity) {
-                return const SizedBox.shrink();
-              }
-
-              final alphaValue = (0.15 + (pseudoRandom * 0.15)).clamp(0.0, 1.0);
-
-              return Center(
-                child: Text(
-                  'X',
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: alphaValue),
-                    fontSize: 20 + (pseudoRandom * 30), 
-                    fontWeight: FontWeight.w900,
-                    shadows: [
-                      Shadow(
-                        color: Colors.black.withValues(alpha: alphaValue * 1.5),
-                        offset: const Offset(2, 2),
-                        blurRadius: 4,
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            },
-          );
-        }
-      ),
-    );
-  }
-}
 
