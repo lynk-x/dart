@@ -369,16 +369,6 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
             _buildCountrySelector().animate().slideX(begin: -0.1).fadeIn(delay: 100.ms),
             const SizedBox(height: 24),
             _buildTextField(
-              controller: _fullNameController,
-              label: 'Full Name',
-              hint: 'John Doe',
-              suffixIcon: _fullNameController.text.trim().isEmpty
-                  ? null
-                  : Icon(Icons.check_circle, color: context.accentColor, size: 20),
-              validator: (v) => v == null || v.isEmpty ? 'Required' : null,
-            ).animate().slideX(begin: -0.1).fadeIn(delay: 200.ms),
-            const SizedBox(height: 24),
-            _buildTextField(
               controller: _userNameController,
               label: 'Username',
               hint: 'johndoe_99',
@@ -393,6 +383,16 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                         ? const Icon(Icons.error, color: Colors.redAccent, size: 20)
                         : null)),
               validator: (v) => v == null || v.isEmpty ? 'Required' : (_isUsernameAvailable == false ? 'Username already taken' : null),
+            ).animate().slideX(begin: -0.1).fadeIn(delay: 200.ms),
+            const SizedBox(height: 24),
+            _buildTextField(
+              controller: _fullNameController,
+              label: 'Full Name',
+              hint: 'John Doe',
+              suffixIcon: _fullNameController.text.trim().isEmpty
+                  ? null
+                  : Icon(Icons.check_circle, color: context.accentColor, size: 20),
+              validator: (v) => v == null || v.isEmpty ? 'Required' : null,
             ).animate().slideX(begin: -0.1).fadeIn(delay: 300.ms),
             const SizedBox(height: 60),
             _isSubmitting
