@@ -50,7 +50,7 @@ class EventModel extends Equatable {
     this.createdAt,
   });
 
-  bool get isPassed => startDatetime.isBefore(DateTime.now());
+  bool get isPassed => endDatetime.isBefore(DateTime.now());
   bool get hasUnread => chatCount > 0;
 
   factory EventModel.fromMap(Map<String, dynamic> map) {

@@ -27,24 +27,24 @@ class ForumWidget extends StatelessWidget {
   /// "Today · 3:30 PM", "Tomorrow · 7:00 PM", "In 3 days · 6:00 PM" for
   /// events within the next week; falls back to the absolute date further
   /// out or for events that have already started/passed.
-  static String _formatEventDate(DateTime startDatetime) {
+  static String _formatEventDate(DateTime endDatetime) {
     final now = DateTime.now();
-    final time = DateFormat('h:mm a').format(startDatetime);
+    final time = DateFormat('h:mm a').format(endDatetime);
 
-    final startDay = DateTime(startDatetime.year, startDatetime.month, startDatetime.day);
+    final endDay = DateTime(endDatetime.year, endDatetime.month, endDatetime.day);
     final today = DateTime(now.year, now.month, now.day);
-    final daysUntil = startDay.difference(today).inDays;
+    final daysUntil = endDay.difference(today).inDays;
 
     if (daysUntil == 0) return 'Today • $time';
     if (daysUntil == 1) return 'Tomorrow • $time';
     if (daysUntil > 1 && daysUntil <= 7) return 'In $daysUntil days • $time';
 
-    return DateFormat('EEE, MMM d • h:mm a').format(startDatetime);
+    return DateFormat('EEE, MMM d • h:mm a').format(endDatetime);
   }
 
   @override
   Widget build(BuildContext context) {
-    final formattedDate = _formatEventDate(event.startDatetime);
+    final formattedDate = _formatEventDate(event.endDatetime);
 
     if (isGrid) {
       return FlameBadge(
