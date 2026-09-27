@@ -104,10 +104,10 @@ class HomeCubit extends Cubit<HomeState> {
       // 2. Unread items bubble to the top within the same group
       if (a.hasUnread != b.hasUnread) return a.hasUnread ? -1 : 1;
       // 3. Closest to now takes precedence
-      return a.startDatetime
+      return a.endDatetime
           .difference(now)
           .abs()
-          .compareTo(b.startDatetime.difference(now).abs());
+          .compareTo(b.endDatetime.difference(now).abs());
     });
     return copy;
   }
