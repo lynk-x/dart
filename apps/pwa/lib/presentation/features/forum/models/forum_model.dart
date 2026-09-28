@@ -336,7 +336,7 @@ class AdModel {
       callToAction: firstAsset?['call_to_action'] as String? ??
           metadata['call_to_action'] as String? ??
           'Learn More',
-      targetUrl: map['target_url'] as String? ?? metadata['target_url'] as String?,
+      targetUrl: map['destination_url'] as String? ?? metadata['destination_url'] as String?,
       targetEventId: map['target_event_id'] as String?,
       imageUrl:
           firstAsset?['url'] as String? ?? metadata['image_url'] as String?,

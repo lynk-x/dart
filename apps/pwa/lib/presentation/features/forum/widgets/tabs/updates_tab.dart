@@ -337,6 +337,11 @@ class _UpdatesScrollView extends StatelessWidget {
                             selectedMessageId == message.id ? null : message.id);
                       },
                       onTapBubble: () => onSelectMessage(null),
+                      linkPreviewData: message.resolvedUrl != null
+                          ? updatesState.linkPreviews[message.resolvedUrl!]
+                          : null,
+                      onLinkPreviewDataFetched: (url, data) =>
+                          updatesCubit.saveLinkPreview(url, data),
                     ),
                   );
 
