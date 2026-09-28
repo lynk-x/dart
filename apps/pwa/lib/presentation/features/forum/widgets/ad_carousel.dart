@@ -101,7 +101,15 @@ class _AdCarouselState extends State<AdCarousel> {
             _pageController.jumpToPage(0);
           }
         }
-        _currentAd = widget.ads[_currentPage];
+
+        final nextAd = widget.ads[_currentPage];
+
+        if (_currentAd != null && _currentAd!.id != nextAd.id) {
+          widget.onAdViewEnded?.call(_currentAd!.id);
+        }
+        _currentAd = nextAd;
+        widget.onAdViewed?.call(_currentAd!);
+
         if (widget.ads.length > 1) {
           _startTimer();
         }
@@ -127,28 +135,30 @@ class _AdCarouselState extends State<AdCarousel> {
         onNotification: (notification) {
           if (notification is ScrollStartNotification &&
               notification.dragDetails != null) {
-            // Pause timer while user is actively dragging the carousel
             _timer?.cancel();
             _timer = null;
           } else if (notification is ScrollEndNotification) {
-            // Resume periodic timer when drag gesture completes
             if (widget.ads.length > 1 && _timer == null) {
               _startTimer();
             }
           }
           return false;
         },
-        child: PageView.builder(
-          controller: _pageController,
-          onPageChanged: _handlePageChanged,
-          itemCount: widget.ads.length,
-          itemBuilder: (context, index) {
-            final ad = widget.ads[index];
-            return Semantics(
-              button: true,
-              label: 'Advertisement: ${ad.title}. Action: ${ad.callToAction}',
-              child: GestureDetector(
-                onTap: () => widget.onAdClicked?.call(ad),
+        child: GestureDetector(
+          onTap: () {
+            if (_currentAd != null) {
+              widget.onAdClicked?.call(_currentAd!);
+            }
+          },
+          child: PageView.builder(
+            controller: _pageController,
+            onPageChanged: _handlePageChanged,
+            itemCount: widget.ads.length,
+            itemBuilder: (context, index) {
+              final ad = widget.ads[index];
+              return Semantics(
+                button: true,
+                label: 'Advertisement: ${ad.title}. Action: ${ad.callToAction}',
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
@@ -227,9 +237,9 @@ class _AdCarouselState extends State<AdCarousel> {
                     ),
                   ],
                 ),
-              ),
-            );
-          },
+              );
+            },
+          ),
         ),
       ),
     );
