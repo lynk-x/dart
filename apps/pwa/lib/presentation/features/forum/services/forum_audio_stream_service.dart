@@ -1,8 +1,7 @@
-import 'dart:convert';
 import 'dart:js_interop';
 import 'package:flutter/foundation.dart';
-import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:web/web.dart' as web;
 
 @JS('window.lynkAudioStreamHelper.setupMediaSession')
 external void _jsSetupMediaSession(JSString title, JSString artist, JSString artworkUrl);
@@ -28,18 +27,45 @@ external JSNumber _jsGetAudioLevel();
 @JS('window.lynkAudioStreamHelper.setBroadcastMuted')
 external void _jsSetBroadcastMuted(JSBoolean muted);
 
+@JS('window.lynkAudioStreamHelper.joinAsListener')
+external JSPromise<JSBoolean> _jsJoinAsListener(
+  JSString edgeFunctionUrl,
+  JSString authToken,
+  JSString forumId,
+  JSString remoteSessionId,
+  JSString remoteTrackName,
+);
+
+@JS('window.lynkAudioStreamHelper.stopListening')
+external void _jsStopListening();
+
 class ForumAudioStreamService {
   final SupabaseClient supabase;
-  final String appId;
-  final String appSecret;
 
   RealtimeChannel? _channel;
+  JSFunction? _listenerLostListener;
 
   ForumAudioStreamService({
     SupabaseClient? supabase,
-    this.appId = '',
-    this.appSecret = '',
   }) : supabase = supabase ?? Supabase.instance.client;
+
+  /// Registers [onLost] to fire when the JS layer's listener-side retry
+  /// (see audio_stream_helper.js's _scheduleListenerReconnect) exhausts its
+  /// 3 attempts and gives up reconnecting a dropped remote audio track.
+  /// Call [removeListenerLostCallback] when done (e.g. cubit close()) to
+  /// avoid leaking the JS-side event listener.
+  void onRemoteAudioListenerLost(void Function() onLost) {
+    if (!kIsWeb) return;
+    removeListenerLostCallback();
+    _listenerLostListener = ((web.Event event) => onLost()).toJS;
+    web.window.addEventListener('lynkAudioListenerLost', _listenerLostListener);
+  }
+
+  void removeListenerLostCallback() {
+    if (!kIsWeb || _listenerLostListener == null) return;
+    web.window.removeEventListener('lynkAudioListenerLost', _listenerLostListener);
+    _listenerLostListener = null;
+  }
 
   /// Controls HTML5 audio element broadcast mute state on Web
   void setBroadcastMuted(bool muted) {
@@ -205,30 +231,118 @@ class ForumAudioStreamService {
     _channel = null;
   }
 
-  /// Creates a new Cloudflare Calls WebRTC Session via REST API
-  Future<String?> createCloudflareSession() async {
-    if (appId.isEmpty || appSecret.isEmpty) {
-      // Mock session ID for local testing when Cloudflare credentials are unset
-      return 'mock_cf_session_${DateTime.now().millisecondsSinceEpoch}';
-    }
-
+  /// Joins an already-live host's audio session as a listener in a single
+  /// Edge Function round-trip — session creation and remote track pull are
+  /// combined server-side (join_as_listener) rather than two separate
+  /// client round-trips, so a spike of listeners joining at once (e.g. a
+  /// popular host starting a call) costs half the auth+membership-check
+  /// work and half the latency per join. No Cloudflare credential ever
+  /// reaches this client.
+  ///
+  /// The remote track name is always 'audio' — the host's publish side
+  /// (createCloudflareSession + the JS publish call) hardcodes a single
+  /// 'audio' track per session, so there is no per-speaker track to target
+  /// here. A speaker_update event only changes who is unmuted on the
+  /// host's existing published track; it does not require re-pulling.
+  ///
+  /// On a dropped connection, the JS layer retries automatically (bounded
+  /// at 3 attempts) without this method being called again.
+  Future<bool> subscribeToRemoteAudio({
+    required String forumId,
+    required String hostSessionId,
+  }) async {
+    if (!kIsWeb) return false;
     try {
-      final response = await http.post(
-        Uri.parse('https://rtc.live.cloudflare.com/v1/apps/$appId/sessions/new'),
-        headers: {
-          'Authorization': 'Bearer $appSecret',
-          'Content-Type': 'application/json',
-        },
+      final session = Supabase.instance.client.auth.currentSession;
+      const supabaseUrl = String.fromEnvironment('SUPABASE_URL');
+      final res = await _jsJoinAsListener(
+        '$supabaseUrl/functions/v1'.toJS,
+        (session?.accessToken ?? '').toJS,
+        forumId.toJS,
+        hostSessionId.toJS,
+        'audio'.toJS,
+      ).toDart;
+      return res.toDart;
+    } catch (e) {
+      debugPrint('[AudioStreamService] subscribeToRemoteAudio error: $e');
+      return false;
+    }
+  }
+
+  /// Tears down the listener-side peer connection and stops playback of the
+  /// remote host's audio. Safe to call even if never subscribed.
+  void unsubscribeFromRemoteAudio() {
+    if (!kIsWeb) return;
+    try {
+      _jsStopListening();
+    } catch (e) {
+      debugPrint('[AudioStreamService] unsubscribeFromRemoteAudio error: $e');
+    }
+  }
+
+  /// Creates a new Cloudflare Calls WebRTC session via the cloudflare-calls-session
+  /// Edge Function. The Cloudflare app secret is held server-side only — this
+  /// never talks to rtc.live.cloudflare.com directly, so no credential is
+  /// ever present in client code or network traffic.
+  Future<String?> createCloudflareSession(String forumId) async {
+    try {
+      final response = await supabase.functions.invoke(
+        'cloudflare-calls-session',
+        body: {'action': 'create_session', 'forumId': forumId},
       );
 
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        final data = jsonDecode(response.body);
-        return data['sessionId'] as String?;
+      if (response.status == 200) {
+        return response.data?['sessionId'] as String?;
       }
+      debugPrint('[AudioStreamService] createCloudflareSession returned status ${response.status}');
     } catch (e) {
       debugPrint('[AudioStreamService] createCloudflareSession error: $e');
     }
+    // Falls back to a mock session only when the Edge Function itself is
+    // unreachable (e.g. local dev without `supabase functions serve`) — not
+    // when credentials are missing, since credentials no longer live here.
     return 'mock_cf_session_${DateTime.now().millisecondsSinceEpoch}';
+  }
+
+  /// Inserts a new social.forum_call_summaries row when a host starts a
+  /// call — aggregate-only call history (no per-listener data, explicitly
+  /// descoped). Returns the new row's id so endCallSummary can close it;
+  /// failures are swallowed (not critical-path — the call itself already
+  /// started via updateForumStreamingConfig by the time this runs).
+  Future<String?> startCallSummary({
+    required String forumId,
+    required DateTime forumCreatedAt,
+    required String hostId,
+    String? sessionId,
+  }) async {
+    try {
+      final response = await supabase.from('forum_call_summaries').insert({
+        'forum_id': forumId,
+        'forum_created_at': forumCreatedAt.toIso8601String(),
+        'host_id': hostId,
+        'stream_type': 'audio',
+        'cf_session_id': sessionId,
+      }).select('id').single();
+      return response['id'] as String?;
+    } catch (e) {
+      debugPrint('[AudioStreamService] startCallSummary error: $e');
+      return null;
+    }
+  }
+
+  /// Sets ended_at on the call summary row created by [startCallSummary].
+  /// No-op if [summaryId] is null (e.g. the insert itself failed) — the
+  /// call already ended either way; a missing summary row shouldn't block that.
+  Future<void> endCallSummary(String? summaryId) async {
+    if (summaryId == null) return;
+    try {
+      await supabase
+          .from('forum_call_summaries')
+          .update({'ended_at': DateTime.now().toIso8601String()})
+          .eq('id', summaryId);
+    } catch (e) {
+      debugPrint('[AudioStreamService] endCallSummary error: $e');
+    }
   }
 
   /// Updates streaming_config JSONB on v1_forums table in Supabase
@@ -238,6 +352,7 @@ class ForumAudioStreamService {
     String? sessionId,
     String? hostId,
   }) async {
+    final previousConfig = _localConfigCache[forumId];
     _localConfigCache[forumId] = {
       'is_live': isLive,
       'stream_type': 'audio',
@@ -251,6 +366,14 @@ class ForumAudioStreamService {
       }).eq('id', forumId);
     } catch (e) {
       debugPrint('[AudioStreamService] updateForumStreamingConfig error: $e');
+      // Roll back the local cache so a later fetchInitialStreamingConfig()
+      // fallback doesn't report a write that never reached the server.
+      if (previousConfig != null) {
+        _localConfigCache[forumId] = previousConfig;
+      } else {
+        _localConfigCache.remove(forumId);
+      }
+      rethrow;
     }
   }
 }

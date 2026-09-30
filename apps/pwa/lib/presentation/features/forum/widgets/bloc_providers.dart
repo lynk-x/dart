@@ -113,6 +113,7 @@ class ForumBlocProviders extends StatelessWidget {
           create: (context) => ForumAudioStreamCubit(
             service: ForumAudioStreamService(supabase: Supabase.instance.client),
             forumId: forumId,
+            forumCreatedAt: state.forumCreatedAt,
             userId: mainCubit.userId,
             userName: mainCubit.userName,
             isOrganizer: state.isOrganizer,

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -245,6 +246,13 @@ class _ForumViewState extends State<ForumView> {
                 .updateUserName(state.userName);
           },
         ),
+        BlocListener<ForumAudioStreamCubit, ForumAudioStreamState>(
+          listenWhen: (p, c) => c.errorMessage != null,
+          listener: (context, state) {
+            AppSnackBars.showError(context, state.errorMessage!);
+            context.read<ForumAudioStreamCubit>().clearAudioStreamError();
+          },
+        ),
       ],
       child: Scaffold(
         backgroundColor: AppColors.primaryBackground,
@@ -288,7 +296,8 @@ class _ForumViewState extends State<ForumView> {
               valueListenable: ForumVideoStreamService().isLiveNotifier,
               builder: (context, isLive, _) {
                 return ValueListenableBuilder<bool>(
-                  valueListenable: ForumVideoStreamService().isMinimizedNotifier,
+                  valueListenable:
+                      ForumVideoStreamService().isMinimizedNotifier,
                   builder: (context, isMinimized, _) {
                     final isStageActive = isLive && !isMinimized;
 
@@ -317,26 +326,36 @@ class _ForumViewState extends State<ForumView> {
 
                                   final adsHeight = hasAds ? 50.0 : 0.0;
 
+                                  // Updates is always tab 0 when enabled
+                                  // (PageView's fixed children order) — used
+                                  // to gate the header's start-call/
+                                  // start-stream gestures to that tab only.
+                                  final showUpdates = context
+                                      .read<FeatureFlagCubit>()
+                                      .isEnabled('enable_forum_announcements');
+                                  final isUpdatesTabActive = showUpdates &&
+                                      forumState.currentTabIndex == 0;
+
                                   double extraHeight = 0;
                                   Widget? extraHeaderWidgets;
 
                                   if (!isStageActive) {
-                                    final featureFlags = context.read<FeatureFlagCubit>();
-                                    final showUpdates = featureFlags
-                                        .isEnabled('enable_forum_announcements');
-                                    final showChat =
-                                        featureFlags.isEnabled('enable_forum_live_chat');
+                                    final featureFlags =
+                                        context.read<FeatureFlagCubit>();
+                                    final showChat = featureFlags
+                                        .isEnabled('enable_forum_live_chat');
                                     final chatTabIndex = showUpdates ? 1 : 0;
 
-                                    if (forumState.currentTabIndex == 0 && showUpdates) {
+                                    if (forumState.currentTabIndex == 0 &&
+                                        showUpdates) {
                                       final updatesCubit =
                                           context.read<ForumUpdatesCubit>();
-                                      final selectedCategory =
-                                          context.select<ForumUpdatesCubit, String?>(
+                                      final selectedCategory = context
+                                          .select<ForumUpdatesCubit, String?>(
                                         (c) => c.state.selectedCategory,
                                       );
-                                      final pinnedMessage =
-                                          context.select<ForumUpdatesCubit, ChatMessage?>(
+                                      final pinnedMessage = context.select<
+                                          ForumUpdatesCubit, ChatMessage?>(
                                         (c) {
                                           for (final m in c.state.messages) {
                                             if (m.isPinned) return m;
@@ -357,7 +376,8 @@ class _ForumViewState extends State<ForumView> {
                                           ColoredBox(
                                             color: AppColors.primaryBackground,
                                             child: CategoryFilterBar(
-                                              selectedCategory: selectedCategory,
+                                              selectedCategory:
+                                                  selectedCategory,
                                               onSelectionChanged: (cat) =>
                                                   updatesCubit.setCategory(cat),
                                             ),
@@ -365,10 +385,13 @@ class _ForumViewState extends State<ForumView> {
                                           if (pinnedMessage != null)
                                             Padding(
                                               padding:
-                                                  const EdgeInsets.fromLTRB(4, 4, 4, 4),
+                                                  const EdgeInsets.fromLTRB(
+                                                      4, 4, 4, 4),
                                               child: InfoBanner(
                                                 icon: Icons.push_pin,
-                                                text: pinnedMessage.message.length > 80
+                                                text: pinnedMessage
+                                                            .message.length >
+                                                        80
                                                     ? '${pinnedMessage.message.substring(0, 80)}…'
                                                     : pinnedMessage.message,
                                               ),
@@ -383,8 +406,8 @@ class _ForumViewState extends State<ForumView> {
                                       extraHeaderWidgets = ColoredBox(
                                         color: AppColors.primaryBackground,
                                         child: Padding(
-                                          padding:
-                                              const EdgeInsets.symmetric(vertical: 8.0),
+                                          padding: const EdgeInsets.symmetric(
+                                              vertical: 8.0),
                                           child: ReactionBar(
                                             onEmojiTap: (emoji) => context
                                                 .read<ForumCubit>()
@@ -396,13 +419,14 @@ class _ForumViewState extends State<ForumView> {
                                   }
 
                                   final forumHeaderHeight = 56.0;
-                                  final totalHeaderHeight =
-                                      (isStageActive ? forumHeaderHeight : 104.0) +
-                                          adsHeight +
-                                          (isStageActive ? 0 : extraHeight);
+                                  final totalHeaderHeight = (isStageActive
+                                          ? forumHeaderHeight
+                                          : 104.0) +
+                                      adsHeight +
+                                      (isStageActive ? 0 : extraHeight);
                                   return SliverOverlapAbsorber(
-                                    handle:
-                                        NestedScrollView.sliverOverlapAbsorberHandleFor(
+                                    handle: NestedScrollView
+                                        .sliverOverlapAbsorberHandleFor(
                                             context),
                                     sliver: SliverPersistentHeader(
                                       pinned: true,
@@ -411,164 +435,357 @@ class _ForumViewState extends State<ForumView> {
                                         child: SizedBox(
                                           height: totalHeaderHeight,
                                           child: Column(
-                                            mainAxisAlignment: MainAxisAlignment.start,
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.start,
                                             children: [
-                                              BlocBuilder<ForumAudioStreamCubit, ForumAudioStreamState>(
+                                              BlocBuilder<ForumAudioStreamCubit,
+                                                  ForumAudioStreamState>(
                                                 builder: (context, audioState) {
-                                                  final audioCubit = context.read<ForumAudioStreamCubit>();
-                                                  final videoService = ForumVideoStreamService();
+                                                  final audioCubit = context.read<
+                                                      ForumAudioStreamCubit>();
+                                                  final videoService =
+                                                      ForumVideoStreamService();
                                                   return ForumHeader(
                                                     isVideoStreamLive: isLive,
-                                                    isAudioLive: audioState.isLive,
-                                                    role: isLive && forumState.isOrganizer ? ForumHeaderRole.host : audioState.role,
-                                                    activeSpeakerNames: audioState.activeSpeakerNames,
-                                                    currentUserName: cubit.state.userName,
-                                                    isMicMuted: isLive ? videoService.isMicMuted : audioState.isMicMuted,
-                                                    isCameraOn: videoService.isCameraOn,
-                                                    isBroadcastMuted: audioState.isBroadcastMuted,
-                                                    getAudioLevel: () => isLive ? videoService.getAudioLevel() : audioCubit.service.getAudioLevel(),
+                                                    isAudioLive:
+                                                        audioState.isLive,
+                                                    role: isLive &&
+                                                            forumState
+                                                                .isOrganizer
+                                                        ? ForumHeaderRole.host
+                                                        : audioState.role,
+                                                    activeSpeakerNames:
+                                                        audioState
+                                                            .activeSpeakerNames,
+                                                    currentUserName:
+                                                        cubit.state.userName,
+                                                    isMicMuted: isLive
+                                                        ? videoService
+                                                            .isMicMuted
+                                                        : audioState.isMicMuted,
+                                                    isCameraOn:
+                                                        videoService.isCameraOn,
+                                                    isBroadcastMuted: audioState
+                                                        .isBroadcastMuted,
+                                                    getAudioLevel: () => isLive
+                                                        ? videoService
+                                                            .getAudioLevel()
+                                                        : audioCubit.service
+                                                            .getAudioLevel(),
                                                     onToggleMic: () {
                                                       if (isLive) {
-                                                        final nextMicMuted = !videoService.isMicMuted;
-                                                        videoService.isMicMuted = nextMicMuted;
-                                                        videoService.toggleMic(!nextMicMuted);
-                                                        videoService.updateParticipantMediaState('host', isMicMuted: nextMicMuted);
-                                                        if (mounted) setState(() {});
+                                                        final nextMicMuted =
+                                                            !videoService
+                                                                .isMicMuted;
+                                                        videoService
+                                                                .isMicMuted =
+                                                            nextMicMuted;
+                                                        videoService.toggleMic(
+                                                            !nextMicMuted);
+                                                        videoService
+                                                            .updateParticipantMediaState(
+                                                                'host',
+                                                                isMicMuted:
+                                                                    nextMicMuted);
+                                                        if (mounted) {
+                                                          setState(() {});
+                                                        }
                                                       } else {
-                                                        if (audioState.isMicMuted) {
-                                                          PermissionAcks.ensureAcknowledged(
+                                                        if (audioState
+                                                            .isMicMuted) {
+                                                          PermissionAcks
+                                                              .ensureAcknowledged(
                                                             context,
-                                                            PermissionAckType.microphone,
-                                                            title: 'Microphone Permission',
+                                                            PermissionAckType
+                                                                .microphone,
+                                                            title:
+                                                                'Microphone Permission',
                                                             description:
                                                                 'To speak in live community streams, Lynk-X needs access to your microphone.',
-                                                            icon: Icons.mic_rounded,
-                                                            actionLabel: 'Allow Microphone',
-                                                            onReady: () => audioCubit.toggleMic(),
+                                                            icon: Icons
+                                                                .mic_rounded,
+                                                            actionLabel:
+                                                                'Allow Microphone',
+                                                            onReady: () =>
+                                                                audioCubit
+                                                                    .toggleMic(),
                                                           );
                                                         } else {
-                                                          audioCubit.toggleMic();
+                                                          audioCubit
+                                                              .toggleMic();
                                                         }
                                                       }
                                                     },
                                                     onToggleCamera: () {
                                                       if (isLive) {
-                                                        final nextCamOn = !videoService.isCameraOn;
-                                                        videoService.isCameraOn = nextCamOn;
-                                                        videoService.toggleCamera(nextCamOn);
-                                                        videoService.updateParticipantMediaState('host', isCameraOn: nextCamOn);
-                                                        if (mounted) setState(() {});
+                                                        final nextCamOn =
+                                                            !videoService
+                                                                .isCameraOn;
+                                                        videoService
+                                                                .isCameraOn =
+                                                            nextCamOn;
+                                                        videoService
+                                                            .toggleCamera(
+                                                                nextCamOn);
+                                                        videoService
+                                                            .updateParticipantMediaState(
+                                                                'host',
+                                                                isCameraOn:
+                                                                    nextCamOn);
+                                                        if (mounted) {
+                                                          setState(() {});
+                                                        }
                                                       }
                                                     },
-                                                    onToggleBroadcastMute: () => audioCubit.toggleBroadcastMute(),
+                                                    onToggleBroadcastMute: () =>
+                                                        audioCubit
+                                                            .toggleBroadcastMute(),
                                                     onEndBroadcast: () {
                                                       if (isLive) {
-                                                        ForumVideoStreamService().setMinimized(false);
-                                                        ForumVideoStreamService().stopVideoStream();
-                                                        ForumVideoStreamService().setLive(false);
-                                                        MiniOverlayService().endPipSession();
+                                                        final videoService = ForumVideoStreamService();
+                                                        final vfId = forumState.forumId;
+                                                        videoService.setMinimized(false);
+                                                        videoService.stopVideoStream();
+                                                        videoService.setLive(false);
+                                                        MiniOverlayService()
+                                                            .endPipSession();
+                                                        // Host is the only
+                                                        // party that can
+                                                        // reach this branch
+                                                        // (only isHost sees
+                                                        // the end-broadcast
+                                                        // control) — safe to
+                                                        // fire-and-forget,
+                                                        // local teardown above
+                                                        // already happened.
+                                                        if (vfId != null && vfId.isNotEmpty) {
+                                                          unawaited(videoService.updateForumStreamingConfig(
+                                                            forumId: vfId,
+                                                            isLive: false,
+                                                          ).catchError((e) {
+                                                            debugPrint('[ForumScreen] video end updateForumStreamingConfig failed: $e');
+                                                          }));
+                                                        }
+                                                        final vfSummaryId = videoService.callSummaryId;
+                                                        videoService.callSummaryId = null;
+                                                        unawaited(videoService.endCallSummary(vfSummaryId));
                                                       } else {
-                                                        audioCubit.endAudioStream();
-                                                        MiniOverlayService().endPipSession();
+                                                        audioCubit
+                                                            .endAudioStream();
                                                       }
                                                     },
-                                                    onStartLiveStream: () {
-                                                      PermissionAcks.ensureAcknowledged(
+                                                    // Header start gestures
+                                                    // are test-only "cheat
+                                                    // codes" for now, but
+                                                    // are still restricted to
+                                                    // the Updates tab for
+                                                    // consistency with where
+                                                    // call/stream/quiz
+                                                    // creation now lives.
+                                                    onStartLiveStream: !isUpdatesTabActive
+                                                        ? null
+                                                        : () {
+                                                      PermissionAcks
+                                                          .ensureAcknowledged(
                                                         context,
-                                                        PermissionAckType.camera,
-                                                        title: 'Host Live Video Stream',
+                                                        PermissionAckType
+                                                            .camera,
+                                                        title:
+                                                            'Host Live Video Stream',
                                                         description:
                                                             'To host a live video stream, Lynk-X needs access to your camera and microphone.',
-                                                        icon: Icons.videocam_rounded,
-                                                        actionLabel: 'Allow Camera & Mic',
-                                                        onReady: () {
-                                                          final name = forumState.userName.isNotEmpty ? forumState.userName : 'Host';
-                                                          ForumVideoStreamService().setLive(true);
-                                                          ForumVideoStreamService().setMinimized(false);
-                                                          MiniOverlayService().activateLiveStream(hostName: name);
-                                                          context.read<ForumChatCubit>().sendMessage(
-                                                            '$name started the live stream',
-                                                            isOrganizer: forumState.isOrganizer,
-                                                            isPremium: forumState.isPremium,
-                                                            messageType: MessageType.systemChat,
-                                                          );
-                                                          context.read<ForumUpdatesCubit>().sendMessage(
-                                                            '$name started the live stream',
-                                                            isOrganizer: forumState.isOrganizer,
-                                                            isPremium: forumState.isPremium,
-                                                            messageType: MessageType.systemAnnouncement,
-                                                          );
+                                                        icon: Icons
+                                                            .videocam_rounded,
+                                                        actionLabel:
+                                                            'Allow Camera & Mic',
+                                                        onReady: () async {
+                                                          final name = forumState
+                                                                  .userName
+                                                                  .isNotEmpty
+                                                              ? forumState
+                                                                  .userName
+                                                              : 'Host';
+                                                          final vfId = forumState.forumId;
+                                                          final videoService = ForumVideoStreamService();
+                                                          videoService.forumId = vfId ?? '';
+                                                          // Read cubits before the await below —
+                                                          // context shouldn't cross an async gap.
+                                                          final chatCubit = context.read<ForumChatCubit>();
+                                                          final updatesCubit = context.read<ForumUpdatesCubit>();
+                                                          videoService.setLive(true);
+                                                          videoService.setMinimized(false);
+                                                          MiniOverlayService()
+                                                              .activateLiveStream(
+                                                                  hostName:
+                                                                      name);
+
+                                                          if (vfId != null && vfId.isNotEmpty) {
+                                                            final sessionId = await videoService.createCloudflareSession(vfId);
+                                                            try {
+                                                              await videoService.updateForumStreamingConfig(
+                                                                forumId: vfId,
+                                                                isLive: true,
+                                                                sessionId: sessionId,
+                                                                hostId: cubit.userId,
+                                                              );
+                                                            } catch (e) {
+                                                              debugPrint('[ForumScreen] video updateForumStreamingConfig failed: $e');
+                                                            }
+                                                            final vfCreatedAt = forumState.forumCreatedAt;
+                                                            if (vfCreatedAt != null) {
+                                                              videoService.callSummaryId = await videoService.startCallSummary(
+                                                                forumId: vfId,
+                                                                forumCreatedAt: vfCreatedAt,
+                                                                hostId: cubit.userId,
+                                                                sessionId: sessionId,
+                                                              );
+                                                            }
+                                                          }
+
+                                                          chatCubit
+                                                              .sendMessage(
+                                                                '$name started the live stream',
+                                                                isOrganizer:
+                                                                    forumState
+                                                                        .isOrganizer,
+                                                                isPremium:
+                                                                    forumState
+                                                                        .isPremium,
+                                                                messageType:
+                                                                    MessageType
+                                                                        .systemChat,
+                                                              );
+                                                          updatesCubit
+                                                              .sendMessage(
+                                                                '$name started the live stream',
+                                                                isOrganizer:
+                                                                    forumState
+                                                                        .isOrganizer,
+                                                                isPremium:
+                                                                    forumState
+                                                                        .isPremium,
+                                                                messageType:
+                                                                    MessageType
+                                                                        .systemAnnouncement,
+                                                              );
                                                         },
                                                       );
                                                     },
-                                                    onStartAudioStream: () {
-                                                      PermissionAcks.ensureAcknowledged(
+                                                    onStartAudioStream: !isUpdatesTabActive
+                                                        ? null
+                                                        : () {
+                                                      PermissionAcks
+                                                          .ensureAcknowledged(
                                                         context,
-                                                        PermissionAckType.microphone,
-                                                        title: 'Host Audio Stream',
+                                                        PermissionAckType
+                                                            .microphone,
+                                                        title:
+                                                            'Host Audio Stream',
                                                         description:
                                                             'To start a live audio stream and speak with attendees, Lynk-X needs access to your microphone.',
                                                         icon: Icons.mic_rounded,
-                                                        actionLabel: 'Allow Microphone',
+                                                        actionLabel:
+                                                            'Allow Microphone',
                                                         onReady: () {
-                                                          final name = forumState.userName.isNotEmpty ? forumState.userName : 'Host';
-                                                          MiniOverlayService().activateLiveCall(hostName: name);
-                                                          audioCubit.startAudioStream();
-                                                          context.read<ForumChatCubit>().sendMessage(
-                                                            '$name started the live call',
-                                                            isOrganizer: forumState.isOrganizer,
-                                                            isPremium: forumState.isPremium,
-                                                            messageType: MessageType.systemChat,
-                                                          );
-                                                          context.read<ForumUpdatesCubit>().sendMessage(
-                                                            '$name started the live call',
-                                                            isOrganizer: forumState.isOrganizer,
-                                                            isPremium: forumState.isPremium,
-                                                            messageType: MessageType.systemAnnouncement,
-                                                          );
+                                                          final name = forumState
+                                                                  .userName
+                                                                  .isNotEmpty
+                                                              ? forumState
+                                                                  .userName
+                                                              : 'Host';
+                                                          MiniOverlayService()
+                                                              .activateLiveCall(
+                                                                  hostName:
+                                                                      name);
+                                                          audioCubit
+                                                              .startAudioStream();
+                                                          context
+                                                              .read<
+                                                                  ForumChatCubit>()
+                                                              .sendMessage(
+                                                                '$name started the live call',
+                                                                isOrganizer:
+                                                                    forumState
+                                                                        .isOrganizer,
+                                                                isPremium:
+                                                                    forumState
+                                                                        .isPremium,
+                                                                messageType:
+                                                                    MessageType
+                                                                        .systemChat,
+                                                              );
+                                                          context
+                                                              .read<
+                                                                  ForumUpdatesCubit>()
+                                                              .sendMessage(
+                                                                '$name started the live call',
+                                                                isOrganizer:
+                                                                    forumState
+                                                                        .isOrganizer,
+                                                                isPremium:
+                                                                    forumState
+                                                                        .isPremium,
+                                                                messageType:
+                                                                    MessageType
+                                                                        .systemAnnouncement,
+                                                              );
                                                         },
                                                       );
                                                     },
-                                                isOrganizer: forumState.isOrganizer,
-                                                isReadOnly: forumState.isReadOnly,
-                                                forumName: forumState.forumName,
-                                                onLockToggle: () {
-                                                   final nextStatus =
-                                                       forumState.isReadOnly
-                                                           ? 'open'
-                                                           : 'read_only';
-                                                   cubit.updateForumStatus(nextStatus);
-                                                   AppSnackBars.showInfo(
-                                                     context,
-                                                     forumState.isReadOnly
-                                                         ? 'Chat unlocked'
-                                                         : 'Chat locked',
-                                                   );
-                                                 },
-                                                onSearch: (q) {
-                                                  context
-                                                      .read<ForumUpdatesCubit>()
-                                                      .setSearchQuery(q);
-                                                  context
-                                                      .read<ForumChatCubit>()
-                                                      .setSearchQuery(q);
+                                                    isOrganizer:
+                                                        forumState.isOrganizer,
+                                                    isReadOnly:
+                                                        forumState.isReadOnly,
+                                                    forumName:
+                                                        forumState.forumName,
+                                                    onLockToggle: () {
+                                                      final nextStatus =
+                                                          forumState.isReadOnly
+                                                              ? 'open'
+                                                              : 'read_only';
+                                                      cubit.updateForumStatus(
+                                                          nextStatus);
+                                                      AppSnackBars.showInfo(
+                                                        context,
+                                                        forumState.isReadOnly
+                                                            ? 'Chat unlocked'
+                                                            : 'Chat locked',
+                                                      );
+                                                    },
+                                                    onSearch: (q) {
+                                                      context
+                                                          .read<
+                                                              ForumUpdatesCubit>()
+                                                          .setSearchQuery(q);
+                                                      context
+                                                          .read<
+                                                              ForumChatCubit>()
+                                                          .setSearchQuery(q);
+                                                    },
+                                                    onSearchToggle: () {
+                                                      final updatesCubit =
+                                                          context.read<
+                                                              ForumUpdatesCubit>();
+                                                      final chatCubit =
+                                                          context.read<
+                                                              ForumChatCubit>();
+                                                      if (updatesCubit
+                                                              .state
+                                                              .searchQuery
+                                                              .isNotEmpty ||
+                                                          chatCubit
+                                                              .state
+                                                              .searchQuery
+                                                              .isNotEmpty) {
+                                                        updatesCubit
+                                                            .setSearchQuery('');
+                                                        chatCubit
+                                                            .setSearchQuery('');
+                                                      }
+                                                    },
+                                                  );
                                                 },
-                                                onSearchToggle: () {
-                                                  final updatesCubit =
-                                                      context.read<ForumUpdatesCubit>();
-                                                  final chatCubit =
-                                                      context.read<ForumChatCubit>();
-                                                  if (updatesCubit.state.searchQuery
-                                                          .isNotEmpty ||
-                                                      chatCubit.state.searchQuery
-                                                          .isNotEmpty) {
-                                                    updatesCubit.setSearchQuery('');
-                                                    chatCubit.setSearchQuery('');
-                                                  }
-                                                },
-                                              );
-                                            },
-                                          ),
+                                              ),
                                               if (hasAds)
                                                 RepaintBoundary(
                                                   child: AdCarousel(
@@ -576,20 +793,26 @@ class _ForumViewState extends State<ForumView> {
                                                     onAdViewed: (ad) => context
                                                         .read<ForumAdsCubit>()
                                                         .logAdImpression(ad),
-                                                    onAdViewEnded: (adId) => context
-                                                        .read<ForumAdsCubit>()
-                                                        .cancelAdImpression(adId),
+                                                    onAdViewEnded: (adId) =>
+                                                        context
+                                                            .read<
+                                                                ForumAdsCubit>()
+                                                            .cancelAdImpression(
+                                                                adId),
                                                     onAdClicked: (ad) async {
                                                       context
                                                           .read<ForumAdsCubit>()
                                                           .logAdClick(ad);
-                                                      if (ad.targetUrl != null) {
-                                                        final uri =
-                                                            Uri.parse(ad.targetUrl!);
-                                                        if (await canLaunchUrl(uri)) {
+                                                      if (ad.targetUrl !=
+                                                          null) {
+                                                        final uri = Uri.parse(
+                                                            ad.targetUrl!);
+                                                        if (await canLaunchUrl(
+                                                            uri)) {
                                                           await launchUrl(uri);
                                                         }
-                                                      } else if (ad.targetEventId !=
+                                                      } else if (ad
+                                                              .targetEventId !=
                                                           null) {
                                                         context.push(
                                                             '/events/${ad.targetEventId}');
@@ -619,7 +842,8 @@ class _ForumViewState extends State<ForumView> {
                       body: isStageActive
                           ? BlocBuilder<ForumAdsCubit, ForumAdsState>(
                               builder: (context, adsState) {
-                                final forumState = context.read<ForumCubit>().state;
+                                final forumState =
+                                    context.read<ForumCubit>().state;
                                 final hasAds = ForumConfig.showBannerAd(
                                   isPremium: forumState.isPremium,
                                   bannerEnabled: context
@@ -630,14 +854,17 @@ class _ForumViewState extends State<ForumView> {
                                       .isEnabled('enable_forum_ads'),
                                   hasAdsContent: adsState.ads.isNotEmpty,
                                 );
-                                final stageHeaderHeight = 56.0 + (hasAds ? 50.0 : 0.0);
+                                final stageHeaderHeight =
+                                    56.0 + (hasAds ? 50.0 : 0.0);
 
                                 return Padding(
-                                  padding: EdgeInsets.only(top: stageHeaderHeight),
+                                  padding:
+                                      EdgeInsets.only(top: stageHeaderHeight),
                                   child: ForumVideoStage(
                                     forumName: forumState.forumName,
                                     hostName: cubit.state.userName,
                                     isHost: forumState.isOrganizer,
+                                    forumId: forumState.forumId,
                                   ),
                                 );
                               },
@@ -706,18 +933,17 @@ class _ForumViewState extends State<ForumView> {
     );
   }
 
-  void _showCreatePollOrQuizSheet({required bool isLiveChat}) {
+  // Poll/quiz creation is Updates-tab-only (Live Chat only ever receives the
+  // resulting announcement), so these no longer branch on which tab was
+  // active — they always target ForumUpdatesCubit's channel.
+  void _showCreatePollOrQuizSheet() {
     final forumId = context.read<ForumCubit>().state.forumId;
     final isOrganizer = context.read<ForumCubit>().state.isOrganizer;
     if (forumId == null || !isOrganizer) return;
 
-    final channelId = isLiveChat
-        ? context.read<ForumChatCubit>().channelId
-        : context.read<ForumUpdatesCubit>().channelId;
-    final channelCreatedAt = (isLiveChat
-            ? context.read<ForumChatCubit>().channelCreatedAt
-            : context.read<ForumUpdatesCubit>().channelCreatedAt)
-        ?.toIso8601String();
+    final channelId = context.read<ForumUpdatesCubit>().channelId;
+    final channelCreatedAt =
+        context.read<ForumUpdatesCubit>().channelCreatedAt?.toIso8601String();
 
     ForumAddOptionSheet.show(
       context: context,
@@ -725,43 +951,34 @@ class _ForumViewState extends State<ForumView> {
         forumId: forumId,
         channelId: channelId,
         channelCreatedAt: channelCreatedAt,
-        messageType: isLiveChat ? 'livechat_poll' : 'update_poll',
+        messageType: 'update_poll',
       ),
-
-      onCreateQuiz: () => _openQuizList(isLiveChat: isLiveChat),
+      onCreateQuiz: _openQuizList,
     );
   }
 
-  void _openQuizList({required bool isLiveChat}) async {
+  void _openQuizList() async {
     final forumId = context.read<ForumCubit>().state.forumId;
     final forumReference = context.read<ForumCubit>().forumReference;
     final isOrganizer = context.read<ForumCubit>().state.isOrganizer;
     if (forumId == null || !isOrganizer) return;
 
-    final channelId = isLiveChat
-        ? context.read<ForumChatCubit>().channelId
-        : context.read<ForumUpdatesCubit>().channelId;
-    final channelCreatedAt = (isLiveChat
-            ? context.read<ForumChatCubit>().channelCreatedAt
-            : context.read<ForumUpdatesCubit>().channelCreatedAt)
-        ?.toIso8601String();
+    final channelId = context.read<ForumUpdatesCubit>().channelId;
+    final channelCreatedAt =
+        context.read<ForumUpdatesCubit>().channelCreatedAt?.toIso8601String();
 
     final result = await context.push<Map<String, dynamic>>(
       '/forum/$forumReference/quiz/list',
       extra: {
         'forumId': forumId,
         'isOrganizer': true,
-        'isLiveChat': isLiveChat,
+        'isLiveChat': false,
         'channelId': channelId,
         'channelCreatedAt': channelCreatedAt,
       },
     );
     if (result == null || !context.mounted) return;
-    _pushCreatedQuizMessage(
-      isLiveChat: isLiveChat,
-      messageType: isLiveChat ? 'livechat_quiz' : 'update_quiz',
-      result: result,
-    );
+    _pushCreatedQuizMessage(messageType: 'update_quiz', result: result);
   }
 
   Widget _buildTabContent() {
@@ -781,15 +998,15 @@ class _ForumViewState extends State<ForumView> {
             return PageView(
               controller: _pageController,
               physics: const NeverScrollableScrollPhysics(),
-              onPageChanged: (index) => context.read<ForumCubit>().setTabIndex(index),
+              onPageChanged: (index) =>
+                  context.read<ForumCubit>().setTabIndex(index),
               children: [
                 showUpdates
                     ? UpdatesTab(
                         scrollController: _updatesScrollController,
                         onActionTap: () => _navigateToTab(2),
                         onMediaTap: (url) => _viewMedia(url),
-                        onCreatePollOrQuiz: () =>
-                            _showCreatePollOrQuizSheet(isLiveChat: false),
+                        onCreatePollOrQuiz: _showCreatePollOrQuizSheet,
                       )
                     : const SizedBox.shrink(),
                 showChat
@@ -799,8 +1016,10 @@ class _ForumViewState extends State<ForumView> {
                         emojiTrigger: state.emojiTrigger,
                         onActionTap: () => _navigateToTab(2),
                         onMediaTap: (url) => _viewMedia(url),
-                        onCreatePollOrQuiz: () =>
-                            _showCreatePollOrQuizSheet(isLiveChat: true),
+                        // Poll/quiz creation is Updates-tab-only — Live Chat
+                        // shows the resulting system announcement but never
+                        // originates one. Passing null hides the composer's
+                        // "+" button entirely (see MessageInput).
                       )
                     : const SizedBox.shrink(),
                 showMedia
@@ -825,8 +1044,8 @@ class _ForumViewState extends State<ForumView> {
     );
   }
 
+
   void _pushCreatedQuizMessage({
-    required bool isLiveChat,
     required String messageType,
     required Map<String, dynamic> result,
   }) {
@@ -835,29 +1054,34 @@ class _ForumViewState extends State<ForumView> {
     final title = result['title'] as String?;
     if (messageId == null || createdAt == null) return;
 
-    if (isLiveChat) {
-      final cubit = context.read<ForumChatCubit>();
-      cubit.onBroadcastMessageReceived(ChatMessage(
-        id: messageId,
-        sender: cubit.userName,
-        userId: cubit.userId,
-        message: title ?? '',
-        createdAt: createdAt,
-        isMe: true,
-        type: MessageType.fromValue(messageType),
-      ));
-    } else {
-      final cubit = context.read<ForumUpdatesCubit>();
-      cubit.onBroadcastMessageReceived(ChatMessage(
-        id: messageId,
-        sender: cubit.userName,
-        userId: cubit.userId,
-        message: title ?? '',
-        createdAt: createdAt,
-        isMe: true,
-        type: MessageType.fromValue(messageType),
-      ));
-    }
+    final updatesCubit = context.read<ForumUpdatesCubit>();
+    updatesCubit.onBroadcastMessageReceived(ChatMessage(
+      id: messageId,
+      sender: updatesCubit.userName,
+      userId: updatesCubit.userId,
+      message: title ?? '',
+      createdAt: createdAt,
+      isMe: true,
+      type: MessageType.fromValue(messageType),
+    ));
+
+    // Deliberately NOT systemAnnouncement/systemChat: MessageType
+    // .isLiveAnnouncement (and the literal "started the live call/stream"
+    // string checks in ChatMessage.isLiveSessionEvent) key JoinCard
+    // rendering in the Updates tab off exactly those types. Reusing them
+    // here would make this plain-text quiz pointer misdetect as a live
+    // call/stream announcement and render a broken JoinCard pointing at
+    // nothing. Plain chat renders as a normal bubble instead — correct, if
+    // slightly less styled than a real system message.
+    final forumState = context.read<ForumCubit>().state;
+    final name = forumState.userName.isNotEmpty ? forumState.userName : 'Host';
+    final announcement = '$name started a live quiz${title != null && title.isNotEmpty ? ': $title' : ''}';
+    context.read<ForumChatCubit>().sendMessage(
+          announcement,
+          isOrganizer: forumState.isOrganizer,
+          isPremium: forumState.isPremium,
+          messageType: MessageType.chat,
+        );
   }
 
   void _showPollEditorSheet({

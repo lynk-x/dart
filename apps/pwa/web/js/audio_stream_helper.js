@@ -69,6 +69,146 @@ window.lynkAudioStreamHelper = {
     this.setupAudioAnalyser(stream);
   },
 
+  listenerPeerConnection: null,
+  _listenerReconnectAttempts: 0,
+  _listenerReconnectTimer: null,
+  _listenerParams: null,
+  _listenerStopped: false,
+
+  initCloudflareListenerConnection() {
+    if (this.listenerPeerConnection) {
+      try { this.listenerPeerConnection.close(); } catch (_) {}
+    }
+    this.listenerPeerConnection = new RTCPeerConnection({
+      iceServers: [{ urls: 'stun:stun.cloudflare.com:3478' }]
+    });
+    this.listenerPeerConnection.ontrack = (event) => {
+      if (event.streams && event.streams[0]) {
+        this.bindRemoteStream(event.streams[0]);
+      }
+    };
+    // ICE state is the signal a listener's connection has actually died
+    // (vs. just being momentarily slow to connect) — 'failed' means ICE
+    // gave up finding a working candidate pair, 'disconnected' means one
+    // was lost and may or may not recover on its own. Both warrant a retry
+    // since neither self-heals reliably on mobile networks (handoffs,
+    // brief signal loss) without renegotiating a fresh session.
+    this.listenerPeerConnection.oniceconnectionstatechange = () => {
+      const state = this.listenerPeerConnection && this.listenerPeerConnection.iceConnectionState;
+      if (state === 'failed' || state === 'disconnected') {
+        this._scheduleListenerReconnect();
+      }
+    };
+    return true;
+  },
+
+  // Bounded retry: 3 attempts with short backoff (1s/2s/4s) covers a brief
+  // network blip without leaving a listener silently retrying forever
+  // against a call that's genuinely ended or a connection that's
+  // permanently gone. A failed ICE connection generally can't be revived
+  // by renegotiating the same Cloudflare session, so each attempt redoes
+  // the full join (fresh listener session + fresh offer) via joinAsListener.
+  _scheduleListenerReconnect() {
+    if (this._listenerStopped || !this._listenerParams) return;
+    if (this._listenerReconnectTimer) return;
+    if (this._listenerReconnectAttempts >= 3) {
+      console.warn('[AudioStreamHelper] Listener reconnect gave up after 3 attempts');
+      window.dispatchEvent(new CustomEvent('lynkAudioListenerLost'));
+      return;
+    }
+
+    const attempt = this._listenerReconnectAttempts;
+    this._listenerReconnectAttempts++;
+    const delayMs = 1000 * Math.pow(2, attempt);
+    console.log(`[AudioStreamHelper] Listener connection ${this.listenerPeerConnection.iceConnectionState}, retrying in ${delayMs}ms (attempt ${attempt + 1}/3)`);
+
+    this._listenerReconnectTimer = setTimeout(async () => {
+      this._listenerReconnectTimer = null;
+      if (this._listenerStopped || !this._listenerParams) return;
+      const p = this._listenerParams;
+      await this.joinAsListener(p.edgeFunctionUrl, p.authToken, p.forumId, p.remoteSessionId, p.remoteTrackName);
+    }, delayMs);
+  },
+
+  // Joins an already-live host session in one Edge Function round-trip
+  // (session creation + remote track pull combined server-side, via the
+  // join_as_listener action) instead of two — halves both the auth/DB
+  // membership-check work and the network latency a listener pays on join,
+  // which matters most exactly when it's most likely to happen: many
+  // listeners joining within the same few seconds of a popular call starting.
+  async joinAsListener(edgeFunctionUrl, authToken, forumId, remoteSessionId, remoteTrackName) {
+    this._listenerStopped = false;
+    this._listenerParams = { edgeFunctionUrl, authToken, forumId, remoteSessionId, remoteTrackName };
+
+    try {
+      this.initCloudflareListenerConnection();
+      this.listenerPeerConnection.addTransceiver('audio', { direction: 'recvonly' });
+
+      const offer = await this.listenerPeerConnection.createOffer();
+      await this.listenerPeerConnection.setLocalDescription(offer);
+
+      if (remoteSessionId.startsWith('mock_')) {
+        console.log('[AudioStreamHelper] Mock Cloudflare remote track pull simulated');
+        this._listenerReconnectAttempts = 0;
+        return true;
+      }
+
+      const res = await fetch(`${edgeFunctionUrl}/cloudflare-calls-session`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`
+        },
+        body: JSON.stringify({
+          action: 'join_as_listener',
+          forumId: forumId,
+          remoteSessionId: remoteSessionId,
+          remoteTrackName: remoteTrackName,
+          sessionDescription: {
+            type: 'offer',
+            sdp: offer.sdp
+          }
+        })
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.sessionDescription && data.sessionDescription.sdp) {
+          await this.listenerPeerConnection.setRemoteDescription(new RTCSessionDescription(data.sessionDescription));
+          console.log('[AudioStreamHelper] Joined as listener successfully');
+          this._listenerReconnectAttempts = 0;
+          return true;
+        }
+      } else {
+        console.warn('[AudioStreamHelper] join_as_listener request failed:', res.status);
+      }
+    } catch (e) {
+      console.warn('[AudioStreamHelper] joinAsListener error:', e);
+    }
+    return false;
+  },
+
+  // Tears down the listener-side peer connection and detaches the remote
+  // stream from the audio element. Does NOT touch localAudioStream (the
+  // listener's own mic, if they're also speaking) — that's stopLocalMicrophone's job.
+  stopListening() {
+    this._listenerStopped = true;
+    this._listenerParams = null;
+    this._listenerReconnectAttempts = 0;
+    if (this._listenerReconnectTimer) {
+      clearTimeout(this._listenerReconnectTimer);
+      this._listenerReconnectTimer = null;
+    }
+    if (this.listenerPeerConnection) {
+      try { this.listenerPeerConnection.close(); } catch (_) {}
+      this.listenerPeerConnection = null;
+    }
+    if (this.audioElement) {
+      this.audioElement.pause();
+      this.audioElement.srcObject = null;
+    }
+  },
+
   setBroadcastMuted(isMuted) {
     const el = this.getOrCreateAudioElement();
     el.muted = !!isMuted;
@@ -674,7 +814,7 @@ window.lynkVideoStreamHelper = {
     return true;
   },
 
-  async publishCloudflareTracks(appId, sessionId) {
+  async publishCloudflareTracks(appId, sessionId, edgeFunctionUrl, authToken, forumId) {
     try {
       if (!this.peerConnection) {
         await this.initCloudflarePeerConnection(appId, sessionId);
@@ -710,10 +850,16 @@ window.lynkVideoStreamHelper = {
         return true;
       }
 
-      const res = await fetch(`https://rtc.live.cloudflare.com/v1/apps/${appId}/sessions/${sessionId}/tracks/new`, {
+      const res = await fetch(`${edgeFunctionUrl}/cloudflare-calls-session`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`
+        },
         body: JSON.stringify({
+          action: 'publish_track',
+          forumId: forumId,
+          sessionId: sessionId,
           sessionDescription: {
             type: 'offer',
             sdp: offer.sdp
@@ -729,6 +875,8 @@ window.lynkVideoStreamHelper = {
           console.log('[VideoStreamHelper] Cloudflare Calls WebRTC stream published successfully');
           return true;
         }
+      } else {
+        console.warn('[VideoStreamHelper] publish_track request failed:', res.status);
       }
     } catch (e) {
       console.warn('[VideoStreamHelper] Cloudflare Calls publish error:', e);
@@ -823,6 +971,138 @@ window.lynkVideoStreamHelper = {
     }
     if (window.lynkAudioStreamHelper) {
       window.lynkAudioStreamHelper.stopAudioAnalyser();
+    }
+  },
+
+  listenerPeerConnection: null,
+  listenerElement: null,
+  _listenerReconnectAttempts: 0,
+  _listenerReconnectTimer: null,
+  _listenerParams: null,
+  _listenerStopped: false,
+
+  initCloudflareVideoListenerConnection(elementId) {
+    if (this.listenerPeerConnection) {
+      try { this.listenerPeerConnection.close(); } catch (_) {}
+    }
+    this.listenerElement = document.getElementById(elementId) || null;
+    this.listenerPeerConnection = new RTCPeerConnection({
+      iceServers: [{ urls: 'stun:stun.cloudflare.com:3478' }]
+    });
+    this.listenerPeerConnection.ontrack = (event) => {
+      if (event.streams && event.streams[0] && this.listenerElement) {
+        this.listenerElement.srcObject = event.streams[0];
+        this.listenerElement.muted = false;
+        this.listenerElement.style.objectFit = 'cover';
+        this.listenerElement.play().catch(e => console.warn('[VideoStreamHelper] remote video play failed:', e));
+      }
+    };
+    // See lynkAudioStreamHelper's identical handler for the full rationale
+    // (ICE failed/disconnected is the real "connection is dead" signal on
+    // mobile networks; bounded retry redoes the full join since the same
+    // session generally can't be renegotiated back to health).
+    this.listenerPeerConnection.oniceconnectionstatechange = () => {
+      const state = this.listenerPeerConnection && this.listenerPeerConnection.iceConnectionState;
+      if (state === 'failed' || state === 'disconnected') {
+        this._scheduleListenerReconnect();
+      }
+    };
+    return true;
+  },
+
+  _scheduleListenerReconnect() {
+    if (this._listenerStopped || !this._listenerParams) return;
+    if (this._listenerReconnectTimer) return;
+    if (this._listenerReconnectAttempts >= 3) {
+      console.warn('[VideoStreamHelper] Listener reconnect gave up after 3 attempts');
+      window.dispatchEvent(new CustomEvent('lynkVideoListenerLost'));
+      return;
+    }
+
+    const attempt = this._listenerReconnectAttempts;
+    this._listenerReconnectAttempts++;
+    const delayMs = 1000 * Math.pow(2, attempt);
+    console.log(`[VideoStreamHelper] Listener connection ${this.listenerPeerConnection.iceConnectionState}, retrying in ${delayMs}ms (attempt ${attempt + 1}/3)`);
+
+    this._listenerReconnectTimer = setTimeout(async () => {
+      this._listenerReconnectTimer = null;
+      if (this._listenerStopped || !this._listenerParams) return;
+      const p = this._listenerParams;
+      await this.joinAsVideoListener(p.elementId, p.edgeFunctionUrl, p.authToken, p.forumId, p.remoteSessionId, p.remoteTrackName);
+    }, delayMs);
+  },
+
+  // Joins an already-live host video session in one Edge Function
+  // round-trip (session creation + remote track pull combined server-side)
+  // instead of two — same scaling motivation as the audio listener path.
+  async joinAsVideoListener(elementId, edgeFunctionUrl, authToken, forumId, remoteSessionId, remoteTrackName) {
+    this._listenerStopped = false;
+    this._listenerParams = { elementId, edgeFunctionUrl, authToken, forumId, remoteSessionId, remoteTrackName };
+
+    try {
+      this.initCloudflareVideoListenerConnection(elementId);
+      this.listenerPeerConnection.addTransceiver('video', { direction: 'recvonly' });
+
+      const offer = await this.listenerPeerConnection.createOffer();
+      await this.listenerPeerConnection.setLocalDescription(offer);
+
+      if (remoteSessionId.startsWith('mock_')) {
+        console.log('[VideoStreamHelper] Mock Cloudflare remote video track pull simulated');
+        this._listenerReconnectAttempts = 0;
+        return true;
+      }
+
+      const res = await fetch(`${edgeFunctionUrl}/cloudflare-calls-session`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`
+        },
+        body: JSON.stringify({
+          action: 'join_as_listener',
+          forumId: forumId,
+          remoteSessionId: remoteSessionId,
+          remoteTrackName: remoteTrackName,
+          sessionDescription: {
+            type: 'offer',
+            sdp: offer.sdp
+          }
+        })
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.sessionDescription && data.sessionDescription.sdp) {
+          await this.listenerPeerConnection.setRemoteDescription(new RTCSessionDescription(data.sessionDescription));
+          console.log('[VideoStreamHelper] Joined as video listener successfully');
+          this._listenerReconnectAttempts = 0;
+          return true;
+        }
+      } else {
+        console.warn('[VideoStreamHelper] join_as_listener request failed:', res.status);
+      }
+    } catch (e) {
+      console.warn('[VideoStreamHelper] joinAsVideoListener error:', e);
+    }
+    return false;
+  },
+
+  stopListeningVideo() {
+    this._listenerStopped = true;
+    this._listenerParams = null;
+    this._listenerReconnectAttempts = 0;
+    if (this._listenerReconnectTimer) {
+      clearTimeout(this._listenerReconnectTimer);
+      this._listenerReconnectTimer = null;
+    }
+    if (this.listenerPeerConnection) {
+      try { this.listenerPeerConnection.close(); } catch (_) {}
+      this.listenerPeerConnection = null;
+    }
+    if (this.listenerElement) {
+      this.listenerElement.pause();
+      this.listenerElement.srcObject = null;
+      this.listenerElement = null;
     }
   }
 };

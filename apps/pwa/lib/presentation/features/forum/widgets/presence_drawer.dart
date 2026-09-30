@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:lynk_core/core.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -65,10 +66,22 @@ class _PresenceDrawerState extends State<PresenceDrawer> {
   String _streamQuality = 'Auto (Adaptive HD)';
   List<Map<String, dynamic>> _cachedRoster = const [];
 
+  ForumAudioStreamCubit? _audioCubit;
+  StreamSubscription? _audioCubitSub;
+
   @override
   void initState() {
     super.initState();
-    _cachedRoster = _buildMergedRoster(widget.members, widget.onlineUsers);
+    try {
+      _audioCubit = context.read<ForumAudioStreamCubit>();
+    } catch (_) {}
+    _audioCubitSub = _audioCubit?.stream.listen((_) => _onCallMembershipChanged());
+
+    // No setState here — this runs before the first build, so assigning
+    // directly is enough (matches the pattern setState would otherwise
+    // redundantly trigger).
+    _cachedRoster = _buildMergedRoster(widget.members, widget.onlineUsers, _collectInCallUserIds());
+    ForumVideoStreamService().activeParticipantsNotifier.addListener(_onCallMembershipChanged);
   }
 
   @override
@@ -76,8 +89,55 @@ class _PresenceDrawerState extends State<PresenceDrawer> {
     super.didUpdateWidget(oldWidget);
     if (!identical(oldWidget.members, widget.members) ||
         !identical(oldWidget.onlineUsers, widget.onlineUsers)) {
-      _cachedRoster = _buildMergedRoster(widget.members, widget.onlineUsers);
+      _rebuildRoster();
     }
+  }
+
+  void _onCallMembershipChanged() {
+    if (!mounted) return;
+    _rebuildRoster();
+  }
+
+  void _rebuildRoster() {
+    final inCallIds = _collectInCallUserIds();
+    final next = _buildMergedRoster(widget.members, widget.onlineUsers, inCallIds);
+    setState(() {
+      _cachedRoster = next;
+    });
+  }
+
+
+  Set<String> _collectInCallUserIds() {
+    final ids = <String>{};
+    for (final p in ForumVideoStreamService().activeParticipantsNotifier.value) {
+      if (p.id.isNotEmpty) ids.add(p.id);
+    }
+
+    final audioState = _audioCubit?.state;
+    if (audioState != null && audioState.isLive) {
+      final speakerNames = audioState.activeSpeakerNames.toSet();
+      if (speakerNames.isNotEmpty) {
+        for (final m in widget.members) {
+          final id = (m['id'] ?? '').toString();
+          final name = (m['user_name'] ?? '').toString();
+          if (id.isNotEmpty && speakerNames.contains(name)) ids.add(id);
+        }
+        for (final u in widget.onlineUsers) {
+          final id = (u['user_id'] ?? u['id'] ?? '').toString();
+          final name = (u['user_name'] ?? u['full_name'] ?? '').toString();
+          if (id.isNotEmpty && speakerNames.contains(name)) ids.add(id);
+        }
+      }
+    }
+
+    return ids;
+  }
+
+  @override
+  void dispose() {
+    ForumVideoStreamService().activeParticipantsNotifier.removeListener(_onCallMembershipChanged);
+    _audioCubitSub?.cancel();
+    super.dispose();
   }
 
   Future<void> _loadAvailableDevices() async {
@@ -96,9 +156,13 @@ class _PresenceDrawerState extends State<PresenceDrawer> {
   }
 
   /// Merges the full member roster with live presence, keyed by user id.
+  /// [inCallIds] marks members currently attached to a live video call/
+  /// stream or actively speaking in a live audio call (see
+  /// _collectInCallUserIds) — used to rank them above other online members.
   static List<Map<String, dynamic>> _buildMergedRoster(
     List<Map<String, dynamic>> members,
     List<Map<String, dynamic>> onlineUsers,
+    Set<String> inCallIds,
   ) {
     final onlineById = <String, Map<String, dynamic>>{};
     for (final u in onlineUsers) {
@@ -122,6 +186,7 @@ class _PresenceDrawerState extends State<PresenceDrawer> {
         'is_organizer': online?['is_organizer'] ?? m['is_organizer'] == true,
         'is_premium': m['is_premium'] == true,
         'is_online': online != null,
+        'is_in_call': inCallIds.contains(id),
         'joined_at': m['joined_at'],
       });
     }
@@ -136,21 +201,26 @@ class _PresenceDrawerState extends State<PresenceDrawer> {
         'is_organizer': u['is_organizer'] == true,
         'is_premium': u['is_premium'] == true,
         'is_online': true,
+        'is_in_call': inCallIds.contains(id),
         'joined_at': null,
       });
     }
 
-    // Ordered by role, then online status, then membership age (oldest
-    // member first) — replaces an earlier alphabetical-by-username
-    // tiebreaker. Usernames are now an anonymous generated
-    // adjective_noun+suffix (see identity.generate_anonymous_username on
-    // the backend) drawn from a shared word pool, so sorting by that
+    // Ordered by role, then live-call membership, then online status, then
+    // membership age (oldest member first) — replaces an earlier
+    // alphabetical-by-username tiebreaker. Usernames are now an anonymous
+    // generated adjective_noun+suffix (see identity.generate_anonymous_username
+    // on the backend) drawn from a shared word pool, so sorting by that
     // string just clustered whoever happened to draw the same adjective
     // together, which isn't a meaningful ordering for a roster.
     merged.sort((a, b) {
       final roleCompare =
           _rolePriority(a['role_id'] as String?).compareTo(_rolePriority(b['role_id'] as String?));
       if (roleCompare != 0) return roleCompare;
+
+      if (a['is_in_call'] != b['is_in_call']) {
+        return a['is_in_call'] == true ? -1 : 1;
+      }
 
       if (a['is_online'] != b['is_online']) {
         return a['is_online'] == true ? -1 : 1;
