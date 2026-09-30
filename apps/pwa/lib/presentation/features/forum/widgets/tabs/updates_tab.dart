@@ -17,6 +17,7 @@ import 'package:lynk_x/presentation/features/forum/services/mini_overlay_service
 import 'package:lynk_x/presentation/features/forum/services/stream_service.dart';
 import 'package:lynk_x/presentation/features/forum/cubit/forum_audio_stream_cubit.dart';
 import 'package:lynk_x/presentation/features/forum/cubit/forum_audio_stream_state.dart';
+import 'package:lynk_x/presentation/features/forum/widgets/header.dart' show ForumHeaderRole;
 import 'package:lynk_x/presentation/shared/widgets/empty_state.dart';
 
 /// The 'Updates' tab content for the Forum.
@@ -252,6 +253,8 @@ class _UpdatesScrollView extends StatelessWidget {
                             cardState = JoinCardState.active;
                           }
 
+                          final isActive = cardState == JoinCardState.active;
+
                           return Padding(
                             padding: const EdgeInsets.symmetric(vertical: 8),
                             child: JoinCard(
@@ -260,11 +263,13 @@ class _UpdatesScrollView extends StatelessWidget {
                               title: message.message,
                               subtitle: isEnded
                                   ? 'Session finished'
-                                  : (cardState == JoinCardState.active
-                                      ? 'In call — Tap controls'
+                                  : (isActive
+                                      ? (audioState.role == ForumHeaderRole.host
+                                          ? 'You\'re hosting — see controls above'
+                                          : 'You\'re in this call — see controls above')
                                       : 'Tap to enter'),
                               isMe: message.isMe,
-                              onAction: isEnded
+                              onAction: (isEnded || isActive)
                                   ? null
                                   : () {
                                       context

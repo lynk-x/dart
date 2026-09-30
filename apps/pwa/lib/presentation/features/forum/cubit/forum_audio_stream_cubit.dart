@@ -10,23 +10,52 @@ import 'forum_audio_stream_state.dart';
 class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
   final ForumAudioStreamService service;
   final String forumId;
+  final DateTime? forumCreatedAt;
   final String userId;
   String userName;
   final bool isOrganizer;
 
+  /// Id of the social.forum_call_summaries row for the call this cubit is
+  /// currently hosting — set by startAudioStream(), consumed by
+  /// endAudioStream() to close it out. Null when not hosting, or when the
+  /// insert itself failed (call-summary writes are best-effort, not
+  /// critical-path — see ForumAudioStreamService.startCallSummary).
+  String? _callSummaryId;
+
   ForumAudioStreamCubit({
     required this.service,
     required this.forumId,
+    this.forumCreatedAt,
     required this.userId,
     required this.userName,
     this.isOrganizer = false,
-  }) : super(const ForumAudioStreamState());
+  }) : super(const ForumAudioStreamState()) {
+    // Fires when the JS layer's bounded reconnect (3 attempts) for a
+    // dropped listener connection gives up — surfaces it the same way
+    // every other audio-stream failure reaches the user, via errorMessage.
+    service.onRemoteAudioListenerLost(() {
+      if (isClosed || state.role == ForumHeaderRole.host) return;
+      emit(state.copyWith(
+        errorMessage: 'Lost connection to the live call. Tap to rejoin.',
+      ));
+    });
+  }
 
   void updateUserName(String newName) {
     userName = newName;
   }
 
+  /// Clears a one-shot error message after it's been shown to the user, so
+  /// an identical subsequent failure (e.g. denying mic permission twice)
+  /// still registers as a state change for listeners keyed on errorMessage.
+  void clearAudioStreamError() {
+    if (state.errorMessage == null) return;
+    emit(state.copyWith(errorMessage: null));
+  }
+
   Timer? _reconnectTimer;
+  bool _isJoiningOrStarting = false;
+  bool _isTogglingMic = false;
 
   /// Initializes Supabase Realtime channel subscription & initial state fetch
   Future<void> initRealtimeSubscription() async {
@@ -40,14 +69,23 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
       onStatusChange: (status) {
         if (status == RealtimeSubscribeStatus.channelError ||
             status == RealtimeSubscribeStatus.timedOut) {
-          if (state.isLive && state.role != ForumHeaderRole.host) {
-            service.clearMediaSession();
-            MiniOverlayService().endPipSession();
-            emit(state.copyWith(
-              isLive: false,
-              errorMessage: 'Audio stream disconnected.',
-            ));
+          if (!state.isLive) return;
+
+          // Hosts lose their ability to broadcast start/end/speaker events
+          // over this channel just like listeners lose their ability to
+          // receive them — a disconnected host silently stops notifying
+          // anyone the call ended, so this can't be listener-only.
+          if (state.role != ForumHeaderRole.host) {
+            service.unsubscribeFromRemoteAudio();
           }
+          service.clearMediaSession();
+          MiniOverlayService().endPipSession();
+          emit(state.copyWith(
+            isLive: false,
+            errorMessage: state.role == ForumHeaderRole.host
+                ? 'Connection lost. Your live call has ended — start a new one to continue.'
+                : 'Audio stream disconnected.',
+          ));
         }
       },
     );
@@ -79,9 +117,22 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
             isMicMuted: !isHost,
             isBroadcastMuted: false,
           ));
+
+          // The host's own publish flow already owns their peer connection
+          // (startAudioStream); only a listener needs to pull the host's
+          // track down. sessionId can be null here only if the host wrote
+          // streaming_config before session creation resolved — nothing to
+          // subscribe to yet in that case.
+          if (!isHost && sessionId != null) {
+            unawaited(service.subscribeToRemoteAudio(
+              forumId: forumId,
+              hostSessionId: sessionId,
+            ));
+          }
         }
       } else {
         // Stream explicitly not live according to config
+        service.unsubscribeFromRemoteAudio();
         service.clearMediaSession();
         MiniOverlayService().endPipSession();
 
@@ -94,6 +145,7 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
         ));
       }
     } else if (state.isLive && state.role != ForumHeaderRole.host) {
+      service.unsubscribeFromRemoteAudio();
       service.clearMediaSession();
       MiniOverlayService().endPipSession();
       emit(state.copyWith(isLive: false));
@@ -108,15 +160,18 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
       case 'start_stream':
         final sessionId = payload['sessionId'] as String?;
         final hostId = payload['hostId'] as String?;
+        final hostName = payload['hostName'] as String?;
         final activeSpeakers = List<String>.from(payload['activeSpeakers'] ?? []);
         final isHost = hostId == userId;
 
         service.configureMediaSession(
           title: 'Lynk-X Live Audio Stream',
-          artist: isHost ? userName : 'Community Stream',
+          artist: isHost ? userName : (hostName ?? 'Community Stream'),
         );
 
-        MiniOverlayService().activateLiveCall(hostName: isHost ? userName : 'Host');
+        MiniOverlayService().activateLiveCall(
+          hostName: isHost ? userName : (hostName ?? 'Host'),
+        );
 
         emit(state.copyWith(
           isLive: true,
@@ -126,9 +181,19 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
           isMicMuted: !isHost,
           isBroadcastMuted: false,
         ));
+
+        // The broadcaster's own startAudioStream() already owns publishing
+        // its track; a listener needs to pull it down to actually hear it.
+        if (!isHost && sessionId != null) {
+          unawaited(service.subscribeToRemoteAudio(
+            forumId: forumId,
+            hostSessionId: sessionId,
+          ));
+        }
         break;
 
       case 'end_stream':
+        service.unsubscribeFromRemoteAudio();
         service.clearMediaSession();
         MiniOverlayService().endPipSession();
 
@@ -150,25 +215,57 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
     }
   }
 
-  /// Joins an ongoing live audio call as a listener
-  void joinAudioStream({String? hostName}) {
-    final hName = hostName ?? 'Host';
-    service.configureMediaSession(
-      title: 'Lynk-X Live Audio Stream',
-      artist: hName,
-    );
-    MiniOverlayService().activateLiveCall(hostName: hName);
-    emit(state.copyWith(
-      isLive: true,
-      role: ForumHeaderRole.listener,
-      isMicMuted: true,
-      isBroadcastMuted: false,
-    ));
+  /// Joins an ongoing live audio call as a listener. Only reachable in the
+  /// narrow window before the cubit's own auto-sync (_subscribeAndSyncState /
+  /// _handleAudioEvent) has caught up — the Join Card disables its own tap
+  /// target once state.isLive is true (see updates_tab.dart), which happens
+  /// automatically the moment auto-sync resolves. Re-fetches streaming_config
+  /// itself (rather than trusting a sessionId passed in — the caller, the
+  /// Join Card, never has one) so the actual subscribe call below has a real
+  /// session to pull from instead of emitting isLive:true with nothing
+  /// behind it.
+  Future<void> joinAudioStream({String? hostName}) async {
+    if (state.isLive || _isJoiningOrStarting) return;
+    _isJoiningOrStarting = true;
+
+    try {
+      final config = await service.fetchInitialStreamingConfig(forumId);
+      if (isClosed || state.isLive) return;
+      if (config == null || config['is_live'] != true) return;
+
+      final sessionId = config['cf_session_id'] as String?;
+      final hostId = config['active_host_id'] as String?;
+      final isHost = hostId == userId;
+      final hName = hostName ?? 'Host';
+
+      service.configureMediaSession(
+        title: 'Lynk-X Live Audio Stream',
+        artist: isHost ? userName : hName,
+      );
+      MiniOverlayService().activateLiveCall(hostName: isHost ? userName : hName);
+      emit(state.copyWith(
+        isLive: true,
+        role: isHost ? ForumHeaderRole.host : ForumHeaderRole.listener,
+        sessionId: sessionId,
+        isMicMuted: !isHost,
+        isBroadcastMuted: false,
+      ));
+
+      if (!isHost && sessionId != null) {
+        await service.subscribeToRemoteAudio(
+          forumId: forumId,
+          hostSessionId: sessionId,
+        );
+      }
+    } finally {
+      _isJoiningOrStarting = false;
+    }
   }
 
   /// Starts a new live Audio Stream (Invoked by organizer/user double tap)
   Future<void> startAudioStream() async {
-    if (state.isLive) return;
+    if (state.isLive || _isJoiningOrStarting) return;
+    _isJoiningOrStarting = true;
 
     try {
       final micGranted = await service.startLocalMicrophone();
@@ -181,7 +278,7 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
         return;
       }
 
-      final sessionId = await service.createCloudflareSession();
+      final sessionId = await service.createCloudflareSession(forumId);
 
       await service.updateForumStreamingConfig(
         forumId: forumId,
@@ -215,7 +312,21 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
         sessionId: sessionId,
         hostId: userId,
         activeSpeakers: initialSpeakers,
+        extraData: {'hostName': userName},
       );
+
+      // Call-summary row — aggregate history only, not critical-path, so a
+      // failure here doesn't roll back the call itself (already live for
+      // everyone by this point). See ForumAudioStreamService.startCallSummary.
+      final createdAt = forumCreatedAt;
+      if (createdAt != null) {
+        _callSummaryId = await service.startCallSummary(
+          forumId: forumId,
+          forumCreatedAt: createdAt,
+          hostId: userId,
+          sessionId: sessionId,
+        );
+      }
     } catch (e) {
       service.stopLocalMicrophone();
       service.clearMediaSession();
@@ -224,6 +335,8 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
         isLive: false,
         errorMessage: 'Failed to start audio stream: $e',
       ));
+    } finally {
+      _isJoiningOrStarting = false;
     }
   }
 
@@ -231,18 +344,9 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
   Future<void> endAudioStream() async {
     if (!state.isLive) return;
 
-    // Immediately stop local audio hardware and tear down PIP session locally
+    // Stop local audio hardware immediately — no reason to keep the mic hot
+    // while the network call below is in flight.
     service.stopLocalMicrophone();
-    service.clearMediaSession();
-    MiniOverlayService().endPipSession();
-
-    emit(const ForumAudioStreamState(
-      isLive: false,
-      role: ForumHeaderRole.listener,
-      activeSpeakerNames: [],
-      isMicMuted: true,
-      isBroadcastMuted: false,
-    ));
 
     try {
       await service.updateForumStreamingConfig(
@@ -256,44 +360,74 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
         hostId: userId,
       );
     } catch (e) {
-      // Stream is already ended locally; log online update failure
+      // Server never learned the call ended: keep local state live (with the
+      // mic already stopped, matching a muted host) instead of showing
+      // "ended" locally while listeners and a later config fetch would still
+      // see is_live: true — that mismatch was silently stranding listeners
+      // and reviving the call out from under the host on their next visit.
       debugPrint('[ForumAudioStreamCubit] endAudioStream network sync error: $e');
+      emit(state.copyWith(
+        isMicMuted: true,
+        errorMessage: 'Could not end the call — check your connection and try again.',
+      ));
+      return;
     }
+
+    service.clearMediaSession();
+    MiniOverlayService().endPipSession();
+
+    await service.endCallSummary(_callSummaryId);
+    _callSummaryId = null;
+
+    emit(const ForumAudioStreamState(
+      isLive: false,
+      role: ForumHeaderRole.listener,
+      activeSpeakerNames: [],
+      isMicMuted: true,
+      isBroadcastMuted: false,
+    ));
   }
 
   /// Toggles local microphone mute/unmute state for speakers and host
   Future<void> toggleMic() async {
-    final nextMuted = !state.isMicMuted;
-    final currentSpeakers = List<String>.from(state.activeSpeakerNames);
+    if (_isTogglingMic) return;
+    _isTogglingMic = true;
 
-    if (nextMuted) {
-      service.stopLocalMicrophone();
-      currentSpeakers.remove(userName);
-    } else {
-      final micGranted = await service.startLocalMicrophone();
-      if (!micGranted) {
-        emit(state.copyWith(
-          errorMessage: 'Microphone access is required to speak.',
-        ));
-        return;
+    try {
+      final nextMuted = !state.isMicMuted;
+      final currentSpeakers = List<String>.from(state.activeSpeakerNames);
+
+      if (nextMuted) {
+        service.stopLocalMicrophone();
+        currentSpeakers.remove(userName);
+      } else {
+        final micGranted = await service.startLocalMicrophone();
+        if (!micGranted) {
+          emit(state.copyWith(
+            errorMessage: 'Microphone access is required to speak.',
+          ));
+          return;
+        }
+        if (!currentSpeakers.contains(userName)) {
+          currentSpeakers.add(userName);
+        }
+        service.requestWakeLock();
       }
-      if (!currentSpeakers.contains(userName)) {
-        currentSpeakers.add(userName);
-      }
-      service.requestWakeLock();
+
+      emit(state.copyWith(
+        isMicMuted: nextMuted,
+        activeSpeakerNames: currentSpeakers,
+      ));
+
+      // Broadcast updated speaker list to all attendees via WebSocket
+      await service.broadcastAudioEvent(
+        action: 'speaker_update',
+        hostId: userId,
+        activeSpeakers: currentSpeakers,
+      );
+    } finally {
+      _isTogglingMic = false;
     }
-
-    emit(state.copyWith(
-      isMicMuted: nextMuted,
-      activeSpeakerNames: currentSpeakers,
-    ));
-
-    // Broadcast updated speaker list to all attendees via WebSocket
-    await service.broadcastAudioEvent(
-      action: 'speaker_update',
-      hostId: userId,
-      activeSpeakers: currentSpeakers,
-    );
   }
 
   /// Toggles broadcast audio output mute/unmute state for listeners
@@ -308,7 +442,11 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
   @override
   Future<void> close() async {
     _reconnectTimer?.cancel();
+    service.removeListenerLostCallback();
     service.stopLocalMicrophone();
+    if (state.role != ForumHeaderRole.host) {
+      service.unsubscribeFromRemoteAudio();
+    }
     service.clearMediaSession();
     MiniOverlayService().endPipSession();
     await service.unsubscribe();

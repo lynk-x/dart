@@ -27,12 +27,14 @@ class ForumVideoStage extends StatefulWidget {
   final String forumName;
   final String hostName;
   final bool isHost;
+  final String? forumId;
 
   const ForumVideoStage({
     super.key,
     this.forumName = 'Community Live Stream',
     this.hostName = 'Alex',
     this.isHost = true,
+    this.forumId,
   });
 
   @override
@@ -100,6 +102,16 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
         }
       }.toJS;
       web.window.addEventListener('lynkScreenShareEnded', _onScreenShareEndedListener);
+
+      if (!widget.isHost) {
+        // Fires once the JS layer's bounded reconnect (3 attempts) for a
+        // dropped remote video track gives up.
+        _videoService.onRemoteVideoListenerLost(() {
+          if (mounted) {
+            AppSnackBars.showInfo(context, 'Lost connection to the live stream.');
+          }
+        });
+      }
 
       if (!_viewRegistered) {
         _sharedVideoElement = web.HTMLVideoElement()
@@ -275,16 +287,52 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
     }
 
     if (!_videoService.isMinimizedNotifier.value) {
-      if (_isCameraOn) {
-        final success = await _videoService.startVideoStream(_elementId, isFrontCamera: _isFrontCamera);
-        if (mounted && !success) {
-          AppSnackBars.showInfo(context, 'Camera permission requested or offline preview active');
+      if (widget.isHost) {
+        if (_isCameraOn) {
+          final success = await _videoService.startVideoStream(_elementId, isFrontCamera: _isFrontCamera);
+          if (mounted && !success) {
+            AppSnackBars.showInfo(context, 'Camera permission requested or offline preview active');
+          }
+        } else {
+          _videoService.toggleCamera(false);
         }
       } else {
-        _videoService.toggleCamera(false);
+        // Listener: no local camera to start — pull the host's published
+        // track into the same shared _elementId instead (there's no local
+        // preview competing for it, unlike the audio listener path which
+        // needs a distinct element from the host's own camera preview).
+        await _subscribeToHostStream();
       }
     } else {
       _videoService.setMinimized(false);
+    }
+  }
+
+  /// Fetches the persisted streaming_config for this forum and, if a live
+  /// video session exists with a different host, pulls its track down.
+  /// Mirrors ForumAudioStreamCubit's initial-sync pattern — the Join Card
+  /// that led here has no sessionId of its own to pass in.
+  Future<void> _subscribeToHostStream() async {
+    final forumId = widget.forumId;
+    if (forumId == null || forumId.isEmpty) return;
+
+    try {
+      final config = await _videoService.fetchInitialStreamingConfig(forumId);
+      if (!mounted || config == null || config['is_live'] != true) return;
+
+      final sessionId = config['cf_session_id'] as String?;
+      if (sessionId == null) return;
+
+      final success = await _videoService.subscribeToRemoteVideo(
+        elementId: _elementId,
+        forumId: forumId,
+        hostSessionId: sessionId,
+      );
+      if (mounted && !success) {
+        AppSnackBars.showInfo(context, 'Could not connect to the live stream — check your connection.');
+      }
+    } catch (e) {
+      debugPrint('[ForumVideoStage] _subscribeToHostStream error: $e');
     }
   }
 
@@ -294,6 +342,9 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
     if (kIsWeb && _onScreenShareEndedListener != null) {
       web.window.removeEventListener('lynkScreenShareEnded', _onScreenShareEndedListener);
     }
+    if (!widget.isHost) {
+      _videoService.removeListenerLostCallback();
+    }
     _audioLevelTimer?.cancel();
     _durationTimer?.cancel();
     _telemetryTimer?.cancel();
@@ -301,7 +352,12 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
     _sessionDurationNotifier.dispose();
     if (!_videoService.isMinimizedNotifier.value) {
       _videoService.releaseWakeLock();
-      _videoService.stopVideoStream();
+      if (widget.isHost) {
+        _videoService.stopVideoStream();
+      } else {
+        _videoService.unsubscribeFromRemoteVideo();
+        _videoService.setLive(false);
+      }
       if (kIsWeb && _videoElement != null) {
         _videoElement!.srcObject = null;
       }

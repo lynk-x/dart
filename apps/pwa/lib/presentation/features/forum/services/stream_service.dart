@@ -1,7 +1,8 @@
 import 'dart:convert';
 import 'dart:js_interop';
 import 'package:flutter/foundation.dart';
-import 'package:http/http.dart' as http;
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:web/web.dart' as web;
 import 'mini_overlay_service.dart';
 import 'media_device_manager.dart';
 export 'media_device_manager.dart';
@@ -37,7 +38,26 @@ external JSPromise<JSAny?> _jsRequestWakeLock();
 external JSPromise<JSAny?> _jsReleaseWakeLock();
 
 @JS('window.lynkVideoStreamHelper.publishCloudflareTracks')
-external JSPromise<JSBoolean> _jsPublishCloudflareTracks(JSString appId, JSString sessionId);
+external JSPromise<JSBoolean> _jsPublishCloudflareTracks(
+  JSString appId,
+  JSString sessionId,
+  JSString edgeFunctionUrl,
+  JSString authToken,
+  JSString forumId,
+);
+
+@JS('window.lynkVideoStreamHelper.joinAsVideoListener')
+external JSPromise<JSBoolean> _jsJoinAsVideoListener(
+  JSString elementId,
+  JSString edgeFunctionUrl,
+  JSString authToken,
+  JSString forumId,
+  JSString remoteSessionId,
+  JSString remoteTrackName,
+);
+
+@JS('window.lynkVideoStreamHelper.stopListeningVideo')
+external void _jsStopListeningVideo();
 
 @JS('window.lynkVideoStreamHelper.getTelemetryStats')
 external JSPromise<JSString> _jsGetTelemetryStats();
@@ -138,6 +158,26 @@ class ForumVideoStreamService {
   factory ForumVideoStreamService() => _instance;
   ForumVideoStreamService._internal();
 
+  JSFunction? _listenerLostListener;
+
+  /// Registers [onLost] to fire when the JS layer's listener-side retry
+  /// (see audio_stream_helper.js's _scheduleListenerReconnect, video block)
+  /// exhausts its 3 attempts and gives up reconnecting a dropped remote
+  /// video track. Call [removeListenerLostCallback] when done (e.g. the
+  /// stage widget's dispose()) to avoid leaking the JS-side event listener.
+  void onRemoteVideoListenerLost(void Function() onLost) {
+    if (!kIsWeb) return;
+    removeListenerLostCallback();
+    _listenerLostListener = ((web.Event event) => onLost()).toJS;
+    web.window.addEventListener('lynkVideoListenerLost', _listenerLostListener);
+  }
+
+  void removeListenerLostCallback() {
+    if (!kIsWeb || _listenerLostListener == null) return;
+    web.window.removeEventListener('lynkVideoListenerLost', _listenerLostListener);
+    _listenerLostListener = null;
+  }
+
   final ValueNotifier<bool> isMinimizedNotifier = ValueNotifier<bool>(false);
   final ValueNotifier<bool> isLiveNotifier = ValueNotifier<bool>(false);
   final ValueNotifier<StreamType> streamTypeNotifier =
@@ -169,9 +209,20 @@ class ForumVideoStreamService {
   bool isHost = true;
   int spectatorCount = 0;
 
-  String appId = '';
-  String appSecret = '';
+  /// Set by the caller before createCloudflareSession()/publishCloudflareStream()
+  /// — required by the cloudflare-calls-session Edge Function's forum
+  /// membership authorization check.
+  String forumId = '';
+
   String? cfSessionId;
+  String? _cfAppId;
+
+  /// Id of the social.forum_call_summaries row for the call this service is
+  /// currently hosting — set by the caller after startCallSummary(),
+  /// cleared after endCallSummary() closes it. Same bookkeeping role as
+  /// ForumAudioStreamCubit._callSummaryId, just held here since video has
+  /// no cubit of its own.
+  String? callSummaryId;
   bool _isPublished = false;
 
   void setStageLayout(StageLayoutMode mode) {
@@ -434,32 +485,177 @@ class ForumVideoStreamService {
     }
   }
 
-  /// Creates a new Cloudflare Calls WebRTC Session via REST API
-  Future<String?> createCloudflareSession() async {
-    if (appId.isEmpty || appSecret.isEmpty) {
-      cfSessionId = 'mock_cf_session_${DateTime.now().millisecondsSinceEpoch}';
-      return cfSessionId;
-    }
+  final Map<String, Map<String, dynamic>> _localConfigCache = {};
 
+  /// Fetches initial streaming_config for a forum on open — same
+  /// forums.streaming_config JSONB column ForumAudioStreamService uses,
+  /// distinguished by stream_type: 'video'. A forum can't run a live audio
+  /// call and a live video stream at once today (both write the same
+  /// column; the header already treats isAudioLive/isVideoStreamLive as
+  /// mutually exclusive for display), so sharing the column matches the
+  /// existing single-live-session-per-forum assumption rather than adding a new one.
+  Future<Map<String, dynamic>?> fetchInitialStreamingConfig(String forumId) async {
     try {
-      final response = await http.post(
-        Uri.parse('https://rtc.live.cloudflare.com/v1/apps/$appId/sessions/new'),
-        headers: {
-          'Authorization': 'Bearer $appSecret',
-          'Content-Type': 'application/json',
-        },
+      final data = await Supabase.instance.client
+          .from('forums')
+          .select('streaming_config')
+          .eq('id', forumId)
+          .maybeSingle();
+
+      if (data != null && data['streaming_config'] != null) {
+        final config = Map<String, dynamic>.from(data['streaming_config']);
+        if (config['stream_type'] == 'video') {
+          _localConfigCache[forumId] = config;
+          return config;
+        }
+        // A live audio call owns the column right now — nothing for video to join.
+        return null;
+      }
+    } catch (e) {
+      debugPrint('[VideoStreamService] fetchInitialStreamingConfig error: $e');
+    }
+    return _localConfigCache[forumId];
+  }
+
+  /// Updates streaming_config JSONB on the forums table. Mirrors
+  /// ForumAudioStreamService.updateForumStreamingConfig's shape/rollback
+  /// behavior exactly, with stream_type: 'video'.
+  Future<void> updateForumStreamingConfig({
+    required String forumId,
+    required bool isLive,
+    String? sessionId,
+    String? hostId,
+  }) async {
+    final previousConfig = _localConfigCache[forumId];
+    _localConfigCache[forumId] = {
+      'is_live': isLive,
+      'stream_type': 'video',
+      'cf_session_id': sessionId,
+      'active_host_id': hostId,
+      'allow_multi_speaker': false,
+    };
+    try {
+      await Supabase.instance.client.from('forums').update({
+        'streaming_config': _localConfigCache[forumId]
+      }).eq('id', forumId);
+    } catch (e) {
+      debugPrint('[VideoStreamService] updateForumStreamingConfig error: $e');
+      if (previousConfig != null) {
+        _localConfigCache[forumId] = previousConfig;
+      } else {
+        _localConfigCache.remove(forumId);
+      }
+      rethrow;
+    }
+  }
+
+  /// Inserts a new social.forum_call_summaries row when a host starts a
+  /// live stream — aggregate-only call history, mirrors
+  /// ForumAudioStreamService.startCallSummary exactly with stream_type:
+  /// 'video'. Returns the new row's id so endCallSummary can close it;
+  /// failures are swallowed (not critical-path).
+  Future<String?> startCallSummary({
+    required String forumId,
+    required DateTime forumCreatedAt,
+    required String hostId,
+    String? sessionId,
+  }) async {
+    try {
+      final response = await Supabase.instance.client.from('forum_call_summaries').insert({
+        'forum_id': forumId,
+        'forum_created_at': forumCreatedAt.toIso8601String(),
+        'host_id': hostId,
+        'stream_type': 'video',
+        'cf_session_id': sessionId,
+      }).select('id').single();
+      return response['id'] as String?;
+    } catch (e) {
+      debugPrint('[VideoStreamService] startCallSummary error: $e');
+      return null;
+    }
+  }
+
+  /// Sets ended_at on the call summary row created by [startCallSummary].
+  Future<void> endCallSummary(String? summaryId) async {
+    if (summaryId == null) return;
+    try {
+      await Supabase.instance.client
+          .from('forum_call_summaries')
+          .update({'ended_at': DateTime.now().toIso8601String()})
+          .eq('id', summaryId);
+    } catch (e) {
+      debugPrint('[VideoStreamService] endCallSummary error: $e');
+    }
+  }
+
+  /// Creates a new Cloudflare Calls WebRTC session via the cloudflare-calls-session
+  /// Edge Function. The Cloudflare app secret is held server-side only — this
+  /// never talks to rtc.live.cloudflare.com directly for session creation.
+  Future<String?> createCloudflareSession(String forumId) async {
+    try {
+      final response = await Supabase.instance.client.functions.invoke(
+        'cloudflare-calls-session',
+        body: {'action': 'create_session', 'forumId': forumId},
       );
 
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        final data = jsonDecode(response.body);
-        cfSessionId = data['sessionId'] as String?;
+      if (response.status == 200) {
+        cfSessionId = response.data?['sessionId'] as String?;
+        _cfAppId = response.data?['appId'] as String?;
         return cfSessionId;
       }
+      debugPrint('[VideoStreamService] createCloudflareSession returned status ${response.status}');
     } catch (e) {
       debugPrint('[VideoStreamService] createCloudflareSession error: $e');
     }
+    // Falls back to a mock session only when the Edge Function itself is
+    // unreachable — not when credentials are missing, since credentials no
+    // longer live here.
     cfSessionId = 'mock_cf_session_${DateTime.now().millisecondsSinceEpoch}';
     return cfSessionId;
+  }
+
+  /// Joins an already-live host's video session as a listener in a single
+  /// Edge Function round-trip (session creation + remote track pull
+  /// combined server-side via join_as_listener), pulling the host's
+  /// published 'video' track into a peer connection targeting [elementId]
+  /// (a DISTINCT DOM element from the local camera preview — see
+  /// initCloudflareVideoListenerConnection). Same scaling rationale and
+  /// single-track assumption as the audio listener path. On a dropped
+  /// connection, the JS layer retries automatically (bounded at 3 attempts)
+  /// without this method being called again.
+  Future<bool> subscribeToRemoteVideo({
+    required String elementId,
+    required String forumId,
+    required String hostSessionId,
+  }) async {
+    if (!kIsWeb) return false;
+    try {
+      final session = Supabase.instance.client.auth.currentSession;
+      const supabaseUrl = String.fromEnvironment('SUPABASE_URL');
+      final res = await _jsJoinAsVideoListener(
+        elementId.toJS,
+        '$supabaseUrl/functions/v1'.toJS,
+        (session?.accessToken ?? '').toJS,
+        forumId.toJS,
+        hostSessionId.toJS,
+        'video'.toJS,
+      ).toDart;
+      return res.toDart;
+    } catch (e) {
+      debugPrint('[VideoStreamService] subscribeToRemoteVideo error: $e');
+      return false;
+    }
+  }
+
+  /// Tears down the listener-side peer connection and stops playback of the
+  /// remote host's video. Safe to call even if never subscribed.
+  void unsubscribeFromRemoteVideo() {
+    if (!kIsWeb) return;
+    try {
+      _jsStopListeningVideo();
+    } catch (e) {
+      debugPrint('[VideoStreamService] unsubscribeFromRemoteVideo error: $e');
+    }
   }
 
   /// Publishes local video & audio WebRTC tracks to Cloudflare Calls SFU.
@@ -470,7 +666,15 @@ class ForumVideoStreamService {
     // Skip re-publishing if already live on the same session.
     if (_isPublished && customSessionId == null) return true;
     try {
-      final res = await _jsPublishCloudflareTracks(appId.toJS, targetSessionId.toJS).toDart;
+      final session = Supabase.instance.client.auth.currentSession;
+      const supabaseUrl = String.fromEnvironment('SUPABASE_URL');
+      final res = await _jsPublishCloudflareTracks(
+        (_cfAppId ?? '').toJS,
+        targetSessionId.toJS,
+        '$supabaseUrl/functions/v1'.toJS,
+        (session?.accessToken ?? '').toJS,
+        forumId.toJS,
+      ).toDart;
       _isPublished = res.toDart;
       return _isPublished;
     } catch (e) {
