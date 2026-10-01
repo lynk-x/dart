@@ -142,6 +142,14 @@ class _PresenceDrawerState extends State<PresenceDrawer> {
     super.dispose();
   }
 
+  /// Whether a video or audio call is actually live right now — gates
+  /// device-switch actions that would otherwise activate camera/mic
+  /// hardware (via getUserMedia) just from picking a dropdown value with no
+  /// call in progress.
+  bool get _isAnyCallLive =>
+      ForumVideoStreamService().isLiveNotifier.value ||
+      _audioCubit?.state.isLive == true;
+
   Future<void> _loadAvailableDevices() async {
     if (_devicesLoaded) return;
     setState(() {
@@ -438,6 +446,8 @@ class _PresenceDrawerState extends State<PresenceDrawer> {
                 if (val == null) return;
                 setState(() => _selectedCamera = val);
                 if (videoDevices.isEmpty) return;
+                // Camera specifically — not _isAnyCallLive — since an
+                // audio-only call never has camera hardware in use at all.
                 if (!ForumVideoStreamService().isLiveNotifier.value) return;
                 final ok = await MediaDeviceManager().switchCameraDevice(
                   ForumVideoStage.elementId,
@@ -458,13 +468,7 @@ class _PresenceDrawerState extends State<PresenceDrawer> {
                 if (val == null) return;
                 setState(() => _selectedAudioInput = val);
                 if (audioInputDevices.isEmpty) return;
-                // Same guard as camera — only switch while a video or
-                // audio call is actually live.
-                final audioLive = _audioCubit?.state.isLive == true;
-                if (!ForumVideoStreamService().isLiveNotifier.value &&
-                    !audioLive) {
-                  return;
-                }
+                if (!_isAnyCallLive) return;
                 final ok = await MediaDeviceManager().switchAudioDevice(val);
                 if (!context.mounted) return;
                 if (!ok) {
@@ -481,11 +485,7 @@ class _PresenceDrawerState extends State<PresenceDrawer> {
                 if (val == null) return;
                 setState(() => _selectedAudioOutput = val);
                 if (audioOutputDevices.isEmpty) return;
-                final audioLive = _audioCubit?.state.isLive == true;
-                if (!ForumVideoStreamService().isLiveNotifier.value &&
-                    !audioLive) {
-                  return;
-                }
+                if (!_isAnyCallLive) return;
                 final ok = await MediaDeviceManager().switchAudioOutputDevice(
                   ForumVideoStage.elementId,
                   val,
