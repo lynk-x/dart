@@ -62,6 +62,9 @@ external void _jsStopListeningVideo();
 @JS('window.lynkVideoStreamHelper.getTelemetryStats')
 external JSPromise<JSString> _jsGetTelemetryStats();
 
+@JS('window.lynkVideoStreamHelper.getListenerTelemetryStats')
+external JSPromise<JSString> _jsGetListenerTelemetryStats();
+
 @JS('window.lynkVideoStreamHelper.setStreamQuality')
 external JSPromise<JSBoolean> _jsSetStreamQuality(JSString elementId, JSString quality);
 
@@ -184,6 +187,8 @@ class ForumVideoStreamService {
       ValueNotifier<StreamType>(StreamType.liveStream);
   final ValueNotifier<bool> isLowBandwidthNotifier = ValueNotifier<bool>(false);
   final ValueNotifier<TelemetryData> telemetryNotifier =
+      ValueNotifier<TelemetryData>(const TelemetryData());
+  final ValueNotifier<TelemetryData> listenerTelemetryNotifier =
       ValueNotifier<TelemetryData>(const TelemetryData());
   final ValueNotifier<StageLayoutMode> stageLayoutNotifier =
       ValueNotifier<StageLayoutMode>(StageLayoutMode.focus);
@@ -482,6 +487,39 @@ class ForumVideoStreamService {
     } catch (e) {
       debugPrint('[VideoStreamService] fetchTelemetryStats error: $e');
       return telemetryNotifier.value;
+    }
+  }
+
+  /// Fetches receive-side WebRTC telemetry for a LISTENER's own connection
+  /// (see listenerTelemetryNotifier doc). Unlike fetchTelemetryStats, this
+  /// doesn't call setStreamQuality — that only adjusts the HOST's own
+  /// outgoing encode, which can't help a specific listener; Cloudflare's SFU
+  /// is what picks which simulcast layer to forward per receiver; this
+  /// method only reports the listener's own experienced quality so the UI
+  /// can show it. (Explicit per-listener layer selection, if Cloudflare
+  /// Calls exposes one, is unverified — see the simulcast publish comment
+  /// in audio_stream_helper.js.)
+  Future<TelemetryData> fetchListenerTelemetryStats() async {
+    if (!kIsWeb) return listenerTelemetryNotifier.value;
+    try {
+      final rawJson = await _jsGetListenerTelemetryStats().toDart;
+      final data = jsonDecode(rawJson.toDart) as Map<String, dynamic>;
+      if (data['connected'] != true) return listenerTelemetryNotifier.value;
+
+      final telemetry = TelemetryData(
+        width: (data['width'] as num?)?.toInt() ?? 0,
+        height: (data['height'] as num?)?.toInt() ?? 0,
+        fps: (data['fps'] as num?)?.toInt() ?? 0,
+        rttMs: (data['rttMs'] as num?)?.toInt() ?? 0,
+        bitrateMbps: (data['bitrateMbps'] as String?) ?? '0.0',
+        packetLossPercent: (data['packetLossPercent'] as String?) ?? '0.0',
+        codec: 'H.264 / Opus',
+      );
+      listenerTelemetryNotifier.value = telemetry;
+      return telemetry;
+    } catch (e) {
+      debugPrint('[VideoStreamService] fetchListenerTelemetryStats error: $e');
+      return listenerTelemetryNotifier.value;
     }
   }
 

@@ -28,6 +28,7 @@ class ForumVideoStage extends StatefulWidget {
   final String hostName;
   final bool isHost;
   final String? forumId;
+  static const String elementId = 'lynk_live_video_stage';
 
   const ForumVideoStage({
     super.key,
@@ -44,7 +45,7 @@ class ForumVideoStage extends StatefulWidget {
 class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingObserver {
   final ForumVideoStreamService _videoService = ForumVideoStreamService();
 
-  static const String _elementId = 'lynk_live_video_stage';
+  static const String _elementId = ForumVideoStage.elementId;
   static const String _viewType = 'lynk-video-stage-view';
   static bool _viewRegistered = false;
   static web.HTMLVideoElement? _sharedVideoElement;
@@ -175,13 +176,25 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
   }
 
   /// Polls telemetry stats from the video service every second.
-  /// Only fetches when the telemetry overlay is visible to avoid redundant work.
+  /// Host: only fetches when the telemetry overlay is visible (on-demand
+  /// detail view, avoids redundant work). Listener: polls continuously at a
+  /// slower 5s cadence regardless of the overlay — a struggling listener
+  /// needs to see "your connection is poor" proactively (_PoorConnectionBadge
+  /// below), not only once they've already opened a stats panel to ask why
+  /// the video looks bad.
   void _startTelemetryPolling() {
     _telemetryTimer?.cancel();
-    _telemetryTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (!mounted || !_showTelemetryOverlay) return;
-      _videoService.fetchTelemetryStats();
-    });
+    if (widget.isHost) {
+      _telemetryTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+        if (!mounted || !_showTelemetryOverlay) return;
+        _videoService.fetchTelemetryStats();
+      });
+    } else {
+      _telemetryTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+        if (!mounted) return;
+        _videoService.fetchListenerTelemetryStats();
+      });
+    }
   }
 
   String _formatDuration(int totalSeconds) {
@@ -557,6 +570,16 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
               onToggleCamera: _toggleCamera,
             ),
           ),
+
+          // WEAK CONNECTION BADGE (listener only — see PoorConnectionBadge)
+          if (!widget.isHost)
+            ValueListenableBuilder<TelemetryData>(
+              valueListenable: _videoService.listenerTelemetryNotifier,
+              builder: (context, telemetry, _) {
+                if (!telemetry.isPoorConnection) return const SizedBox.shrink();
+                return const PoorConnectionBadge();
+              },
+            ),
 
           // UNIFIED LIVE CHAT STREAM OVERLAY
           StageChatOverlay(combinedStream: activeCombinedStream),

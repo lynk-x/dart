@@ -42,6 +42,8 @@ import 'package:lynk_x/presentation/shared/utils/permission_acks.dart';
 
 import 'package:lynk_x/presentation/features/forum/cubit/forum_audio_stream_cubit.dart';
 import 'package:lynk_x/presentation/features/forum/cubit/forum_audio_stream_state.dart';
+import 'package:lynk_x/presentation/features/forum/services/forum_audio_stream_service.dart'
+    show AudioCallTelemetry;
 import 'package:lynk_x/presentation/features/forum/widgets/welcome_banner.dart';
 import 'package:lynk_x/data/repositories/repository_providers.dart';
 import 'package:lynk_x/presentation/shared/utils/app_snackbars.dart';
@@ -445,10 +447,24 @@ class _ForumViewState extends State<ForumView> {
                                                       ForumAudioStreamCubit>();
                                                   final videoService =
                                                       ForumVideoStreamService();
-                                                  return ForumHeader(
+                                                  return ValueListenableBuilder<
+                                                      AudioCallTelemetry>(
+                                                    valueListenable: audioCubit
+                                                        .service
+                                                        .listenerTelemetryNotifier,
+                                                    builder: (context,
+                                                        audioTelemetry, _) {
+                                                      return ForumHeader(
                                                     isVideoStreamLive: isLive,
                                                     isAudioLive:
                                                         audioState.isLive,
+                                                    isWeakConnection: !isLive &&
+                                                        audioState.isLive &&
+                                                        audioState.role !=
+                                                            ForumHeaderRole
+                                                                .host &&
+                                                        audioTelemetry
+                                                            .isPoorConnection,
                                                     role: isLive &&
                                                             forumState
                                                                 .isOrganizer
@@ -824,6 +840,8 @@ class _ForumViewState extends State<ForumView> {
                                                         chatCubit
                                                             .setSearchQuery('');
                                                       }
+                                                    },
+                                                  );
                                                     },
                                                   );
                                                 },

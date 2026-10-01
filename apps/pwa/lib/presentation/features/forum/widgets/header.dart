@@ -52,6 +52,9 @@ class ForumHeader extends StatelessWidget {
   /// Callback triggered when the organizer long presses the left icon to initialize the live stream UI.
   final VoidCallback? onStartLiveStream;
 
+  /// See AudioSessionSlot.isWeakConnection.
+  final bool isWeakConnection;
+
   const ForumHeader({
     super.key,
     this.onSearch,
@@ -75,6 +78,7 @@ class ForumHeader extends StatelessWidget {
     this.getAudioLevel,
     this.onStartAudioStream,
     this.onStartLiveStream,
+    this.isWeakConnection = false,
   });
 
   @override
@@ -107,6 +111,7 @@ class ForumHeader extends StatelessWidget {
         isBroadcastMuted: isBroadcastMuted,
         onToggleBroadcastMute: onToggleBroadcastMute,
         onEndBroadcast: onEndBroadcast,
+        isWeakConnection: isWeakConnection,
       );
     } else {
       return SearchSlot(
@@ -212,6 +217,13 @@ class AudioSessionSlot extends StatelessWidget {
   final VoidCallback? onToggleBroadcastMute;
   final VoidCallback? onEndBroadcast;
 
+  /// A LISTENER's own receive-side connection is struggling — independent
+  /// of how clean the host's upload is (see ForumAudioStreamService
+  /// .listenerTelemetryNotifier / AudioCallTelemetry.isPoorConnection).
+  /// Never shown for the host — this is about what a specific listener is
+  /// experiencing, not a call-wide health signal.
+  final bool isWeakConnection;
+
   const AudioSessionSlot({
     super.key,
     required this.role,
@@ -220,6 +232,7 @@ class AudioSessionSlot extends StatelessWidget {
     this.isBroadcastMuted = false,
     this.onToggleBroadcastMute,
     this.onEndBroadcast,
+    this.isWeakConnection = false,
   });
 
   String _resolveCenterText() {
@@ -248,9 +261,13 @@ class AudioSessionSlot extends StatelessWidget {
     return Row(
       children: [
         const SizedBox(width: 8),
-        const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 6.0),
-          child: Icon(Icons.graphic_eq_rounded, color: Colors.black, size: 20),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 6.0),
+          child: Icon(
+            isWeakConnection ? Icons.signal_wifi_statusbar_connected_no_internet_4_rounded : Icons.graphic_eq_rounded,
+            color: isWeakConnection ? Colors.deepOrange : Colors.black,
+            size: 20,
+          ),
         ),
         const SizedBox(width: 8),
         Expanded(
