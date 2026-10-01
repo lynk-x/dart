@@ -238,82 +238,22 @@ class _UpdatesScrollView extends StatelessWidget {
 
                   if (message.isLiveSessionEvent) {
                     final isAudio = lowerMsg.contains('call');
-                    final isEnded = lowerMsg.contains('ended');
                     final hostName = message.sender.isNotEmpty
                         ? message.sender
                         : (message.message.contains(' ') ? message.message.split(' ').first : 'Host');
 
                     if (isAudio) {
-                      return BlocBuilder<ForumAudioStreamCubit, ForumAudioStreamState>(
-                        builder: (context, audioState) {
-                          JoinCardState cardState = JoinCardState.live;
-                          if (isEnded) {
-                            cardState = JoinCardState.ended;
-                          } else if (audioState.isLive) {
-                            cardState = JoinCardState.active;
-                          }
-
-                          final isActive = cardState == JoinCardState.active;
-
-                          return Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 8),
-                            child: JoinCard(
-                              type: JoinCardType.liveCall,
-                              state: cardState,
-                              title: message.message,
-                              subtitle: isEnded
-                                  ? 'Session finished'
-                                  : (isActive
-                                      ? (audioState.role == ForumHeaderRole.host
-                                          ? 'You\'re hosting — see controls above'
-                                          : 'You\'re in this call — see controls above')
-                                      : 'Tap to enter'),
-                              isMe: message.isMe,
-                              onAction: (isEnded || isActive)
-                                  ? null
-                                  : () {
-                                      context
-                                          .read<ForumAudioStreamCubit>()
-                                          .joinAudioStream(hostName: hostName);
-                                    },
-                            ),
-                          );
-                        },
+                      return _LiveCallJoinCard(
+                        title: message.message,
+                        hostName: hostName,
+                        isMe: message.isMe,
                       );
                     }
 
-                    return ValueListenableBuilder<bool>(
-                      valueListenable: ForumVideoStreamService().isLiveNotifier,
-                      builder: (context, isLive, _) {
-                        JoinCardState cardState = JoinCardState.live;
-                        if (isEnded) {
-                          cardState = JoinCardState.ended;
-                        } else if (isLive) {
-                          cardState = JoinCardState.active;
-                        }
-
-                        return Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 8),
-                          child: JoinCard(
-                            type: JoinCardType.liveStream,
-                            state: cardState,
-                            title: message.message,
-                            subtitle: isEnded
-                                ? 'Session finished'
-                                : (cardState == JoinCardState.active
-                                    ? 'Watching stream — Tap to expand'
-                                    : 'Tap to enter'),
-                            isMe: message.isMe,
-                            onAction: isEnded
-                                ? null
-                                : () {
-                                    ForumVideoStreamService().setLive(true);
-                                    ForumVideoStreamService().setMinimized(false);
-                                    MiniOverlayService().activateLiveStream(hostName: hostName);
-                                  },
-                          ),
-                        );
-                      },
+                    return _LiveStreamJoinCard(
+                      title: message.message,
+                      hostName: hostName,
+                      isMe: message.isMe,
                     );
                   }
 
@@ -367,6 +307,143 @@ class _UpdatesScrollView extends StatelessWidget {
           handle: NestedScrollView.sliverOverlapAbsorberHandleFor(context),
         ),
       ],
+    );
+  }
+}
+
+/// Join Card for a "started the live call" announcement message. Tracks the
+/// Cloudflare sessionId active while THIS card was showing as active, so it
+/// can distinguish "never joined, never will" (still show "Tap to enter")
+/// from "was live, that specific call has since ended" (show "Call Ended")
+/// once state.isLive goes false — audioState.isLive alone can't make that
+/// distinction, since it reverts to the same false value whether a call
+/// never started or already ended, and would otherwise make this card look
+/// joinable again after a real call concluded (see: forum live-call
+/// signaling investigation, "JoinCard not updating when host ends call").
+class _LiveCallJoinCard extends StatefulWidget {
+  final String title;
+  final String hostName;
+  final bool isMe;
+
+  const _LiveCallJoinCard({
+    required this.title,
+    required this.hostName,
+    required this.isMe,
+  });
+
+  @override
+  State<_LiveCallJoinCard> createState() => _LiveCallJoinCardState();
+}
+
+class _LiveCallJoinCardState extends State<_LiveCallJoinCard> {
+  String? _observedLiveSessionId;
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<ForumAudioStreamCubit, ForumAudioStreamState>(
+      builder: (context, audioState) {
+        if (audioState.isLive && audioState.sessionId != null) {
+          _observedLiveSessionId = audioState.sessionId;
+        }
+
+        final hasEnded = !audioState.isLive && _observedLiveSessionId != null;
+        JoinCardState cardState = JoinCardState.live;
+        if (hasEnded) {
+          cardState = JoinCardState.ended;
+        } else if (audioState.isLive) {
+          cardState = JoinCardState.active;
+        }
+
+        final isActive = cardState == JoinCardState.active;
+
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: JoinCard(
+            type: JoinCardType.liveCall,
+            state: cardState,
+            title: widget.title,
+            subtitle: hasEnded
+                ? 'Session finished'
+                : (isActive
+                    ? (audioState.role == ForumHeaderRole.host
+                        ? 'You\'re hosting — see controls above'
+                        : 'You\'re in this call — see controls above')
+                    : 'Tap to enter'),
+            isMe: widget.isMe,
+            onAction: (hasEnded || isActive)
+                ? null
+                : () {
+                    context.read<ForumAudioStreamCubit>().joinAudioStream(hostName: widget.hostName);
+                  },
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// Join Card for a "started the live stream" announcement message. Same
+/// session-comparison fix as [_LiveCallJoinCard] — tracks the Cloudflare
+/// sessionId active while showing as active, so it can show "Call Ended"
+/// once the stream that specific card announced has concluded, rather than
+/// reverting to a joinable-looking "Tap to enter".
+class _LiveStreamJoinCard extends StatefulWidget {
+  final String title;
+  final String hostName;
+  final bool isMe;
+
+  const _LiveStreamJoinCard({
+    required this.title,
+    required this.hostName,
+    required this.isMe,
+  });
+
+  @override
+  State<_LiveStreamJoinCard> createState() => _LiveStreamJoinCardState();
+}
+
+class _LiveStreamJoinCardState extends State<_LiveStreamJoinCard> {
+  String? _observedLiveSessionId;
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<bool>(
+      valueListenable: ForumVideoStreamService().isLiveNotifier,
+      builder: (context, isLive, _) {
+        if (isLive) {
+          _observedLiveSessionId = ForumVideoStreamService().cfSessionId;
+        }
+
+        final hasEnded = !isLive && _observedLiveSessionId != null;
+        JoinCardState cardState = JoinCardState.live;
+        if (hasEnded) {
+          cardState = JoinCardState.ended;
+        } else if (isLive) {
+          cardState = JoinCardState.active;
+        }
+
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: JoinCard(
+            type: JoinCardType.liveStream,
+            state: cardState,
+            title: widget.title,
+            subtitle: hasEnded
+                ? 'Session finished'
+                : (cardState == JoinCardState.active
+                    ? 'Watching stream — Tap to expand'
+                    : 'Tap to enter'),
+            isMe: widget.isMe,
+            onAction: hasEnded
+                ? null
+                : () {
+                    ForumVideoStreamService().setLive(true);
+                    ForumVideoStreamService().setMinimized(false);
+                    MiniOverlayService().activateLiveStream(hostName: widget.hostName);
+                  },
+          ),
+        );
+      },
     );
   }
 }

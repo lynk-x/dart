@@ -159,11 +159,14 @@ class ForumAudioStreamService {
 
   final Map<String, Map<String, dynamic>> _localConfigCache = {};
 
-  /// Fetches initial streaming_config for a forum on open
+  /// Fetches initial streaming_config for a forum on open. Reads through
+  /// api.v1_forums — the versioned,
+  /// read-only contract already exposes streaming_config.
   Future<Map<String, dynamic>?> fetchInitialStreamingConfig(String forumId) async {
     try {
       final data = await supabase
-          .from('forums')
+          .schema('api')
+          .from('v1_forums')
           .select('streaming_config')
           .eq('id', forumId)
           .maybeSingle();
@@ -304,11 +307,15 @@ class ForumAudioStreamService {
     return 'mock_cf_session_${DateTime.now().millisecondsSinceEpoch}';
   }
 
-  /// Inserts a new social.forum_call_summaries row when a host starts a
-  /// call — aggregate-only call history (no per-listener data, explicitly
-  /// descoped). Returns the new row's id so endCallSummary can close it;
-  /// failures are swallowed (not critical-path — the call itself already
-  /// started via updateForumStreamingConfig by the time this runs).
+  /// Opens a new social.forum_call_summaries row via the
+  /// api.start_forum_call_summary RPC when a host starts a call —
+  /// aggregate-only call history (no per-listener data, explicitly
+  /// descoped). [hostId] is accepted for API symmetry with
+  /// updateForumStreamingConfig's call sites, but the RPC derives the real
+  /// host from the authenticated session (auth.uid()), not this param.
+  /// Returns the new row's id so endCallSummary can close it; failures are
+  /// swallowed (not critical-path — the call itself already started via
+  /// updateForumStreamingConfig by the time this runs).
   Future<String?> startCallSummary({
     required String forumId,
     required DateTime forumCreatedAt,
@@ -316,36 +323,38 @@ class ForumAudioStreamService {
     String? sessionId,
   }) async {
     try {
-      final response = await supabase.from('forum_call_summaries').insert({
-        'forum_id': forumId,
-        'forum_created_at': forumCreatedAt.toIso8601String(),
-        'host_id': hostId,
-        'stream_type': 'audio',
-        'cf_session_id': sessionId,
-      }).select('id').single();
-      return response['id'] as String?;
+      final response = await supabase.schema('api').rpc('start_forum_call_summary', params: {
+        'p_forum_id': forumId,
+        'p_forum_created_at': forumCreatedAt.toIso8601String(),
+        'p_stream_type': 'audio',
+        'p_session_id': sessionId,
+      });
+      return response as String?;
     } catch (e) {
       debugPrint('[AudioStreamService] startCallSummary error: $e');
       return null;
     }
   }
 
-  /// Sets ended_at on the call summary row created by [startCallSummary].
-  /// No-op if [summaryId] is null (e.g. the insert itself failed) — the
-  /// call already ended either way; a missing summary row shouldn't block that.
+  /// Sets ended_at on the call summary row created by [startCallSummary],
+  /// via the api.end_forum_call_summary RPC. No-op if [summaryId] is null
+  /// (e.g. the insert itself failed) — the call already ended either way;
+  /// a missing summary row shouldn't block that.
   Future<void> endCallSummary(String? summaryId) async {
     if (summaryId == null) return;
     try {
-      await supabase
-          .from('forum_call_summaries')
-          .update({'ended_at': DateTime.now().toIso8601String()})
-          .eq('id', summaryId);
+      await supabase.schema('api').rpc('end_forum_call_summary', params: {
+        'p_summary_id': summaryId,
+      });
     } catch (e) {
       debugPrint('[AudioStreamService] endCallSummary error: $e');
     }
   }
 
-  /// Updates streaming_config JSONB on v1_forums table in Supabase
+  /// Updates streaming_config via the api.update_forum_streaming_config RPC
+  /// (not a raw UPDATE against the retired public.forums proxy — see
+  /// social.update_forum_streaming_config for the authorization check this
+  /// now enforces explicitly).
   Future<void> updateForumStreamingConfig({
     required String forumId,
     required bool isLive,
@@ -361,9 +370,13 @@ class ForumAudioStreamService {
       'allow_multi_speaker': true,
     };
     try {
-      await supabase.from('forums').update({
-        'streaming_config': _localConfigCache[forumId]
-      }).eq('id', forumId);
+      await supabase.schema('api').rpc('update_forum_streaming_config', params: {
+        'p_forum_id': forumId,
+        'p_is_live': isLive,
+        'p_stream_type': 'audio',
+        'p_session_id': sessionId,
+        'p_host_id': hostId,
+      });
     } catch (e) {
       debugPrint('[AudioStreamService] updateForumStreamingConfig error: $e');
       // Roll back the local cache so a later fetchInitialStreamingConfig()

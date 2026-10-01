@@ -493,11 +493,14 @@ class ForumVideoStreamService {
   /// call and a live video stream at once today (both write the same
   /// column; the header already treats isAudioLive/isVideoStreamLive as
   /// mutually exclusive for display), so sharing the column matches the
-  /// existing single-live-session-per-forum assumption rather than adding a new one.
+  /// existing single-live-session-per-forum assumption rather than adding a
+  /// new one. Reads through api.v1_forums (not the retired public.forums
+  /// proxy).
   Future<Map<String, dynamic>?> fetchInitialStreamingConfig(String forumId) async {
     try {
       final data = await Supabase.instance.client
-          .from('forums')
+          .schema('api')
+          .from('v1_forums')
           .select('streaming_config')
           .eq('id', forumId)
           .maybeSingle();
@@ -517,7 +520,8 @@ class ForumVideoStreamService {
     return _localConfigCache[forumId];
   }
 
-  /// Updates streaming_config JSONB on the forums table. Mirrors
+  /// Updates streaming_config via the api.update_forum_streaming_config RPC
+  /// (not a raw UPDATE against the retired public.forums proxy). Mirrors
   /// ForumAudioStreamService.updateForumStreamingConfig's shape/rollback
   /// behavior exactly, with stream_type: 'video'.
   Future<void> updateForumStreamingConfig({
@@ -535,9 +539,13 @@ class ForumVideoStreamService {
       'allow_multi_speaker': false,
     };
     try {
-      await Supabase.instance.client.from('forums').update({
-        'streaming_config': _localConfigCache[forumId]
-      }).eq('id', forumId);
+      await Supabase.instance.client.schema('api').rpc('update_forum_streaming_config', params: {
+        'p_forum_id': forumId,
+        'p_is_live': isLive,
+        'p_stream_type': 'video',
+        'p_session_id': sessionId,
+        'p_host_id': hostId,
+      });
     } catch (e) {
       debugPrint('[VideoStreamService] updateForumStreamingConfig error: $e');
       if (previousConfig != null) {
@@ -549,11 +557,13 @@ class ForumVideoStreamService {
     }
   }
 
-  /// Inserts a new social.forum_call_summaries row when a host starts a
-  /// live stream — aggregate-only call history, mirrors
-  /// ForumAudioStreamService.startCallSummary exactly with stream_type:
-  /// 'video'. Returns the new row's id so endCallSummary can close it;
-  /// failures are swallowed (not critical-path).
+  /// Opens a new social.forum_call_summaries row via the
+  /// api.start_forum_call_summary RPC when a host starts a live stream —
+  /// aggregate-only call history, mirrors ForumAudioStreamService
+  /// .startCallSummary exactly with stream_type: 'video'. [hostId] is
+  /// accepted for API symmetry but the RPC derives the real host from
+  /// auth.uid(), not this param. Returns the new row's id so
+  /// endCallSummary can close it; failures are swallowed (not critical-path).
   Future<String?> startCallSummary({
     required String forumId,
     required DateTime forumCreatedAt,
@@ -561,28 +571,27 @@ class ForumVideoStreamService {
     String? sessionId,
   }) async {
     try {
-      final response = await Supabase.instance.client.from('forum_call_summaries').insert({
-        'forum_id': forumId,
-        'forum_created_at': forumCreatedAt.toIso8601String(),
-        'host_id': hostId,
-        'stream_type': 'video',
-        'cf_session_id': sessionId,
-      }).select('id').single();
-      return response['id'] as String?;
+      final response = await Supabase.instance.client.schema('api').rpc('start_forum_call_summary', params: {
+        'p_forum_id': forumId,
+        'p_forum_created_at': forumCreatedAt.toIso8601String(),
+        'p_stream_type': 'video',
+        'p_session_id': sessionId,
+      });
+      return response as String?;
     } catch (e) {
       debugPrint('[VideoStreamService] startCallSummary error: $e');
       return null;
     }
   }
 
-  /// Sets ended_at on the call summary row created by [startCallSummary].
+  /// Sets ended_at on the call summary row created by [startCallSummary],
+  /// via the api.end_forum_call_summary RPC.
   Future<void> endCallSummary(String? summaryId) async {
     if (summaryId == null) return;
     try {
-      await Supabase.instance.client
-          .from('forum_call_summaries')
-          .update({'ended_at': DateTime.now().toIso8601String()})
-          .eq('id', summaryId);
+      await Supabase.instance.client.schema('api').rpc('end_forum_call_summary', params: {
+        'p_summary_id': summaryId,
+      });
     } catch (e) {
       debugPrint('[VideoStreamService] endCallSummary error: $e');
     }
