@@ -306,6 +306,10 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
 
       final sessionId = await service.createCloudflareSession(forumId);
 
+      if (sessionId != null) {
+        await service.publishCloudflareTracks(forumId, sessionId);
+      }
+
       await service.updateForumStreamingConfig(
         forumId: forumId,
         isLive: true,
@@ -424,16 +428,33 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
       final currentSpeakers = List<String>.from(state.activeSpeakerNames);
 
       if (nextMuted) {
-        service.stopLocalMicrophone();
+        // toggleMicEnabled (not stopLocalMicrophone) — if this is the host
+        // and the track is actively published to Cloudflare, this swaps
+        // the sender's track to null via replaceTrack() rather than
+        // stopping the local MediaStreamTrack outright, which would kill
+        // the Cloudflare publish for good (a later unmute's fresh track
+        // from startLocalMicrophone() is never reattached to the
+        // already-negotiated sender). No-op if nothing is published yet.
+        await service.toggleMicEnabled(false);
         currentSpeakers.remove(userName);
       } else {
-        final micGranted = await service.startLocalMicrophone();
-        if (!micGranted) {
-          emit(state.copyWith(
-            errorMessage: 'Microphone access is required to speak.',
-          ));
-          return;
+        // Only (re)acquire the mic if it isn't already captured — mute no
+        // longer stops the local track (see toggleMicEnabled above), so on
+        // a normal unmute it's still live and startLocalMicrophone() must
+        // NOT be called again here: that function stops-and-replaces
+        // whatever stream it's handed if one already exists, which would
+        // kill the very track toggleMicEnabled(true) is about to resume
+        // sending — turning this fix into the same bug one step later.
+        if (!service.hasLocalMicrophone) {
+          final micGranted = await service.startLocalMicrophone();
+          if (!micGranted) {
+            emit(state.copyWith(
+              errorMessage: 'Microphone access is required to speak.',
+            ));
+            return;
+          }
         }
+        await service.toggleMicEnabled(true);
         if (!currentSpeakers.contains(userName)) {
           currentSpeakers.add(userName);
         }

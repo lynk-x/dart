@@ -10,6 +10,10 @@ window.lynkAudioStreamHelper = {
   analyserDataArray: null,
   localAudioStream: null,
 
+  hasLocalMicrophone() {
+    return !!this.localAudioStream && this.localAudioStream.getAudioTracks().length > 0;
+  },
+
   getOrCreateAudioElement() {
     if (this.audioElement) return this.audioElement;
     let el = document.getElementById('lynk_live_audio_node');
@@ -74,6 +78,142 @@ window.lynkAudioStreamHelper = {
   _listenerReconnectTimer: null,
   _listenerParams: null,
   _listenerStopped: false,
+
+  // ─── Host publish (audio-only calls) ───
+  // This was previously entirely missing: startLocalMicrophone() only ever
+  // captured the mic for local analysis (mute toggle / amplitude meter),
+  // and createCloudflareSession() only created a session id — nothing ever
+  // published the host's mic track into it. Listeners' joinAsListener()
+  // pulled from a session no track was ever attached to, so audio calls
+  // showed zero Cloudflare Analytics data (no edge-function errors, since
+  // publish_track was simply never called) while livestreams — which do
+  // have this publish step via lynkVideoStreamHelper — worked correctly.
+  // Mirrors lynkVideoStreamHelper.publishCloudflareTracks, audio-only (no
+  // simulcast — one mono voice stream has no quality tiers to publish).
+  peerConnection: null,
+
+  async initCloudflarePeerConnection(appId, sessionId) {
+    this.cfAppId = appId;
+    this.cfSessionId = sessionId;
+    if (this.peerConnection) {
+      try { this.peerConnection.close(); } catch (_) {}
+    }
+    this.peerConnection = new RTCPeerConnection({
+      iceServers: [{ urls: 'stun:stun.cloudflare.com:3478' }]
+    });
+    return true;
+  },
+
+  // The RTCRtpSender for the published audio track — kept so
+  // toggleMicEnabled() can swap the track via replaceTrack() on mute/unmute
+  // instead of stopping the track outright, which would otherwise kill the
+  // Cloudflare publish permanently (see toggleMicEnabled's own comment).
+  audioSender: null,
+
+  async publishCloudflareTracks(appId, sessionId, edgeFunctionUrl, authToken, forumId) {
+    try {
+      if (!this.peerConnection) {
+        await this.initCloudflarePeerConnection(appId, sessionId);
+      }
+      if (!this.localAudioStream) return false;
+
+      const audioTrack = this.localAudioStream.getAudioTracks()[0];
+      if (!audioTrack) return false;
+
+      const transceiver = this.peerConnection.addTransceiver(audioTrack, { direction: 'sendonly' });
+      this.audioSender = transceiver.sender;
+
+      const offer = await this.peerConnection.createOffer();
+      await this.peerConnection.setLocalDescription(offer);
+
+      // transceiver.mid is null until setLocalDescription() has run — see
+      // the matching fix/comment in lynkVideoStreamHelper.publishCloudflareTracks.
+      const tracks = [{
+        location: 'local',
+        mid: transceiver.mid,
+        trackName: 'audio'
+      }];
+
+      if (!appId || !sessionId || appId === '' || sessionId.startsWith('mock_')) {
+        console.log('[AudioStreamHelper] Mock Cloudflare WebRTC SDP exchange simulated');
+        return true;
+      }
+
+      const res = await fetch(`${edgeFunctionUrl}/cloudflare-calls-session`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`
+        },
+        body: JSON.stringify({
+          action: 'publish_track',
+          forumId: forumId,
+          sessionId: sessionId,
+          sessionDescription: {
+            type: 'offer',
+            sdp: offer.sdp
+          },
+          tracks: tracks
+        })
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.sessionDescription && data.sessionDescription.sdp) {
+          await this.peerConnection.setRemoteDescription(new RTCSessionDescription(data.sessionDescription));
+          console.log('[AudioStreamHelper] Cloudflare Calls WebRTC stream published successfully');
+          return true;
+        }
+      } else {
+        console.warn('[AudioStreamHelper] publish_track request failed:', res.status);
+      }
+    } catch (e) {
+      console.warn('[AudioStreamHelper] Cloudflare Calls publish error:', e);
+    }
+    return false;
+  },
+
+  // Mutes/unmutes the host's published audio by swapping the sender's
+  // track via replaceTrack() — NOT by stopping the local track, which would
+  // kill the transceiver's send permanently (replaceTrack(null) still keeps
+  // the sender/transceiver alive, just silent; a later replaceTrack(track)
+  // resumes it on the SAME already-negotiated connection, no renegotiation
+  // or re-publish needed). Previously this called stopLocalMicrophone() on
+  // mute (which stops the MediaStreamTrack outright) and
+  // startLocalMicrophone() on unmute (which creates an unrelated NEW track
+  // that was never attached to audioSender) — so a single mute/unmute cycle
+  // during a real call silently ended the host's Cloudflare publish for
+  // good, with no error and no UI signal, since the local mute toggle still
+  // looked like it worked.
+  async toggleMicEnabled(enabled) {
+    if (!this.audioSender) return;
+    try {
+      if (!enabled) {
+        await this.audioSender.replaceTrack(null);
+      } else {
+        if (!this.localAudioStream) {
+          await this.startLocalMicrophone();
+        }
+        const track = this.localAudioStream && this.localAudioStream.getAudioTracks()[0];
+        if (track) {
+          await this.audioSender.replaceTrack(track);
+        }
+      }
+    } catch (e) {
+      console.warn('[AudioStreamHelper] toggleMicEnabled error:', e);
+    }
+  },
+
+  // Tears down the host's own publish-side peer connection. Does NOT touch
+  // localAudioStream itself (stopLocalMicrophone's job) — this only stops
+  // sending it to Cloudflare.
+  stopPublishing() {
+    if (this.peerConnection) {
+      try { this.peerConnection.close(); } catch (_) {}
+      this.peerConnection = null;
+    }
+    this.audioSender = null;
+  },
 
   initCloudflareListenerConnection() {
     if (this.listenerPeerConnection) {
@@ -378,6 +518,7 @@ window.lynkAudioStreamHelper = {
 
   clearMediaSession() {
     this.stopLocalMicrophone();
+    this.stopPublishing();
     this.releaseWakeLock();
     this.stopAudioAnalyser();
     if ('mediaSession' in navigator) {
@@ -491,6 +632,8 @@ window.lynkVideoStreamHelper = {
   videoElement: null,
   isMicMuted: false,
   isCameraDisabled: false,
+  audioSender: null,
+  videoSender: null,
 
   async startVideoStream(elementId, isFrontCamera = true) {
     try {
@@ -598,43 +741,56 @@ window.lynkVideoStreamHelper = {
     }
   },
 
+  // Mutes/unmutes via replaceTrack() on the published sender rather than
+  // stopping the local track outright — stopping it (the previous
+  // behavior) permanently killed the Cloudflare publish, since a freshly
+  // re-acquired track on unmute was added to this.videoStream but never
+  // reattached to the already-negotiated audioSender. See
+  // lynkAudioStreamHelper.toggleMicEnabled for the full rationale (same
+  // fix, mirrored here for video calls' audio track). Unlike that version,
+  // this one still has an audioSender to target only once
+  // publishCloudflareTracks() has actually run.
   async toggleMicEnabled(enabled) {
     this.isMicMuted = !enabled;
-    if (!enabled) {
-      // Stop audio tracks to ensure OS hardware microphone indicator light turns off completely
-      if (this.videoStream) {
-        const audioTracks = this.videoStream.getAudioTracks();
-        for (let i = 0; i < audioTracks.length; i++) {
-          audioTracks[i].stop();
-          this.videoStream.removeTrack(audioTracks[i]);
-        }
-      }
-      if (window.lynkAudioStreamHelper) {
-        window.lynkAudioStreamHelper.stopAudioAnalyser();
-      }
-    } else {
-      // Re-acquire microphone audio track when unmuted
-      try {
-        const audioConstraints = {
-          audio: {
-            echoCancellation: true,
-            noiseSuppression: true,
-            autoGainControl: true,
-            channelCount: 1,
-            sampleRate: 48000
-          }
-        };
-        const newStream = await navigator.mediaDevices.getUserMedia(audioConstraints);
-        const newAudioTrack = newStream.getAudioTracks()[0];
-        if (newAudioTrack && this.videoStream) {
-          this.videoStream.addTrack(newAudioTrack);
+    try {
+      if (!enabled) {
+        if (this.audioSender) {
+          await this.audioSender.replaceTrack(null);
         }
         if (window.lynkAudioStreamHelper) {
-          window.lynkAudioStreamHelper.setupAudioAnalyser(newStream);
+          window.lynkAudioStreamHelper.stopAudioAnalyser();
         }
-      } catch (e) {
-        console.warn('[VideoStreamHelper] re-enabling microphone failed:', e);
+      } else {
+        // The local track set up by startVideoStream() is still live (mute
+        // no longer stops it) — only (re)acquire a fresh one if it's
+        // genuinely missing.
+        const existing = this.videoStream && this.videoStream.getAudioTracks()[0];
+        let track = existing;
+        if (!track) {
+          const audioConstraints = {
+            audio: {
+              echoCancellation: true,
+              noiseSuppression: true,
+              autoGainControl: true,
+              channelCount: 1,
+              sampleRate: 48000
+            }
+          };
+          const newStream = await navigator.mediaDevices.getUserMedia(audioConstraints);
+          track = newStream.getAudioTracks()[0];
+          if (track && this.videoStream) {
+            this.videoStream.addTrack(track);
+          }
+          if (window.lynkAudioStreamHelper) {
+            window.lynkAudioStreamHelper.setupAudioAnalyser(newStream);
+          }
+        }
+        if (track && this.audioSender) {
+          await this.audioSender.replaceTrack(track);
+        }
       }
+    } catch (e) {
+      console.warn('[VideoStreamHelper] toggleMicEnabled error:', e);
     }
   },
 
@@ -850,19 +1006,6 @@ window.lynkVideoStreamHelper = {
     this.peerConnection = new RTCPeerConnection({
       iceServers: [{ urls: 'stun:stun.cloudflare.com:3478' }]
     });
-    // Publish-side connection state was previously unobserved — a
-    // successful tracks/new HTTP response only means Cloudflare accepted
-    // the SDP, not that ICE/DTLS actually established. Without this,
-    // "No data in Cloudflare Analytics despite no edge function errors" is
-    // undiagnosable from the client, since that exact symptom is what a
-    // silent ICE failure (e.g. a NAT/firewall STUN can't resolve) looks
-    // like — the HTTP layer succeeds, but media never actually flows.
-    this.peerConnection.oniceconnectionstatechange = () => {
-      console.log('[VideoStreamHelper] publish ICE state:', this.peerConnection.iceConnectionState);
-    };
-    this.peerConnection.onconnectionstatechange = () => {
-      console.log('[VideoStreamHelper] publish connection state:', this.peerConnection.connectionState);
-    };
     return true;
   },
 
@@ -899,9 +1042,11 @@ window.lynkVideoStreamHelper = {
             { rid: 'q', maxBitrate: 350_000, scaleResolutionDownBy: 4 }
           ]
         });
+        this.videoSender = videoTransceiver.sender;
       }
       if (audioTrack) {
         audioTransceiver = this.peerConnection.addTransceiver(audioTrack, { direction: 'sendonly' });
+        this.audioSender = audioTransceiver.sender;
       }
 
       const offer = await this.peerConnection.createOffer();
@@ -1045,6 +1190,8 @@ window.lynkVideoStreamHelper = {
       try { this.peerConnection.close(); } catch (_) {}
       this.peerConnection = null;
     }
+    this.audioSender = null;
+    this.videoSender = null;
     if (this.videoStream) {
       try {
         const tracks = this.videoStream.getTracks();
