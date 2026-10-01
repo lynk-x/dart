@@ -541,6 +541,14 @@ class _ForumViewState extends State<ForumView> {
                                                         audioCubit
                                                             .toggleBroadcastMute(),
                                                     onEndBroadcast: () {
+                                                      final name = forumState.userName.isNotEmpty
+                                                          ? forumState.userName
+                                                          : 'Host';
+                                                      // Read cubits before any awaited work below —
+                                                      // context shouldn't cross an async gap.
+                                                      final chatCubit = context.read<ForumChatCubit>();
+                                                      final updatesCubit = context.read<ForumUpdatesCubit>();
+
                                                       if (isLive) {
                                                         final videoService = ForumVideoStreamService();
                                                         final vfId = forumState.forumId;
@@ -569,9 +577,43 @@ class _ForumViewState extends State<ForumView> {
                                                         final vfSummaryId = videoService.callSummaryId;
                                                         videoService.callSummaryId = null;
                                                         unawaited(videoService.endCallSummary(vfSummaryId));
+
+                                                        // Mirrors the "started the live stream"
+                                                        // announcement posted on start — without
+                                                        // this, isLiveSessionEvent's "ended" text
+                                                        // check (updates_tab.dart) never has
+                                                        // anything to match, and the JoinCard
+                                                        // session-id comparison fix only covers
+                                                        // widgets that were mounted to witness the
+                                                        // live transition themselves.
+                                                        chatCubit.sendMessage(
+                                                          '$name ended the live stream',
+                                                          isOrganizer: forumState.isOrganizer,
+                                                          isPremium: forumState.isPremium,
+                                                          messageType: MessageType.systemChat,
+                                                        );
+                                                        updatesCubit.sendMessage(
+                                                          '$name ended the live stream',
+                                                          isOrganizer: forumState.isOrganizer,
+                                                          isPremium: forumState.isPremium,
+                                                          messageType: MessageType.systemAnnouncement,
+                                                        );
                                                       } else {
                                                         audioCubit
                                                             .endAudioStream();
+
+                                                        chatCubit.sendMessage(
+                                                          '$name ended the live call',
+                                                          isOrganizer: forumState.isOrganizer,
+                                                          isPremium: forumState.isPremium,
+                                                          messageType: MessageType.systemChat,
+                                                        );
+                                                        updatesCubit.sendMessage(
+                                                          '$name ended the live call',
+                                                          isOrganizer: forumState.isOrganizer,
+                                                          isPremium: forumState.isPremium,
+                                                          messageType: MessageType.systemAnnouncement,
+                                                        );
                                                       }
                                                     },
                                                     // Header start gestures
