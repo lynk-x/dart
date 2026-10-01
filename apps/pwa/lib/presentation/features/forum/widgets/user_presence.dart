@@ -44,14 +44,10 @@ class UserPresenceCard extends StatefulWidget {
 
   static const Map<String, String> _roleLabels = {
     'organizer': 'Organizer',
-    'moderator': 'Moderator',
-    'vip_member': 'VIP Member',
     'member': 'Member',
   };
 
   String get roleLabel => _roleLabels[roleId] ?? 'Member';
-
-  bool get isTargetModerator => isOrganizer ? false : roleId == 'moderator';
 
   @override
   State<UserPresenceCard> createState() => _UserPresenceCardState();
@@ -246,11 +242,8 @@ class _UserPresenceCardState extends State<UserPresenceCard> {
     final bool canScan = forumState.isOrganizer || forumState.isModerator;
 
     final bool targetIsOrganizer = widget.isOrganizer;
-    final bool targetIsModerator = widget.isTargetModerator;
-    final bool canMute =
-        !widget.isPrimary && !targetIsOrganizer && !targetIsModerator;
-    final bool canMakeAdmin =
-        !widget.isPrimary && !targetIsOrganizer && !targetIsModerator;
+    final bool canMute = !widget.isPrimary && !targetIsOrganizer;
+    final bool canMakeAdmin = !widget.isPrimary && !targetIsOrganizer;
     final bool canReport = !widget.isPrimary && !targetIsOrganizer;
 
     return ActionBar(

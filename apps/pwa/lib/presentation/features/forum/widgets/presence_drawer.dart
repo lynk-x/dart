@@ -239,15 +239,13 @@ class _PresenceDrawerState extends State<PresenceDrawer> {
     return merged;
   }
 
-  /// Lower sorts first: organizer, then moderator, then member/null.
+  /// Lower sorts first: organizer, then member/null.
   static int _rolePriority(String? roleId) {
     switch (roleId) {
       case 'organizer':
         return 0;
-      case 'moderator':
-        return 1;
       default:
-        return 2;
+        return 1;
     }
   }
 

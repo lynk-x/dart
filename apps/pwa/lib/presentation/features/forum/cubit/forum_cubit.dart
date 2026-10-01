@@ -89,7 +89,7 @@ class ForumCubit extends Cubit<ForumState> {
           emit(state.copyWith(
             isMuted: isMuted,
             hasMutedLiveChatsMedia: hasMutedLiveChatsMedia,
-            isModerator: roleId == 'moderator' || roleId == 'organizer',
+            isModerator: roleId == 'organizer',
             isOrganizer: roleId == 'organizer',
           ));
         }
@@ -192,7 +192,7 @@ class ForumCubit extends Cubit<ForumState> {
           hasMutedLiveChatsMedia =
               memberData['has_muted_live_chats_media'] == true;
           final role = memberData['role_id'] as String?;
-          isModerator = role == 'moderator' || role == 'organizer';
+          isModerator = role == 'organizer';
           isOrganizer = role == 'organizer';
         }
 
@@ -201,12 +201,12 @@ class ForumCubit extends Cubit<ForumState> {
             .toList(growable: false);
 
         // Flat shape — {id, user_name, avatar_url, is_premium, role_id,
-        // is_organizer, is_moderator} — matching what refreshMembers()
-        // actually puts into state.members (it unwraps the repository's
-        // {'user_profile': {...}} wrapper before emitting; downstream
-        // consumers like PresenceDrawer._buildMergedRoster and
-        // message_input.dart's @mention autocomplete both read top-level
-        // keys, not member['user_profile']['id']).
+        // is_organizer} — matching what refreshMembers() actually puts into
+        // state.members (it unwraps the repository's {'user_profile': {...}}
+        // wrapper before emitting; downstream consumers like
+        // PresenceDrawer._buildMergedRoster and message_input.dart's
+        // @mention autocomplete both read top-level keys, not
+        // member['user_profile']['id']).
         membersFromDb = membersData
             .map((e) => e as Map<String, dynamic>)
             .map((m) => {
@@ -216,7 +216,6 @@ class ForumCubit extends Cubit<ForumState> {
                   'is_premium': m['is_premium'],
                   'role_id': m['role_id'],
                   'is_organizer': m['role_id'] == 'organizer',
-                  'is_moderator': m['role_id'] == 'moderator',
                   'joined_at': m['joined_at'],
                 })
             .toList(growable: false);
