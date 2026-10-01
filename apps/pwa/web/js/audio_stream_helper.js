@@ -850,6 +850,19 @@ window.lynkVideoStreamHelper = {
     this.peerConnection = new RTCPeerConnection({
       iceServers: [{ urls: 'stun:stun.cloudflare.com:3478' }]
     });
+    // Publish-side connection state was previously unobserved — a
+    // successful tracks/new HTTP response only means Cloudflare accepted
+    // the SDP, not that ICE/DTLS actually established. Without this,
+    // "No data in Cloudflare Analytics despite no edge function errors" is
+    // undiagnosable from the client, since that exact symptom is what a
+    // silent ICE failure (e.g. a NAT/firewall STUN can't resolve) looks
+    // like — the HTTP layer succeeds, but media never actually flows.
+    this.peerConnection.oniceconnectionstatechange = () => {
+      console.log('[VideoStreamHelper] publish ICE state:', this.peerConnection.iceConnectionState);
+    };
+    this.peerConnection.onconnectionstatechange = () => {
+      console.log('[VideoStreamHelper] publish connection state:', this.peerConnection.connectionState);
+    };
     return true;
   },
 
