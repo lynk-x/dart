@@ -860,9 +860,11 @@ window.lynkVideoStreamHelper = {
       }
       if (!this.videoStream) return false;
 
-      const tracks = [];
       const videoTrack = this.videoStream.getVideoTracks()[0];
       const audioTrack = this.videoStream.getAudioTracks()[0];
+
+      let videoTransceiver = null;
+      let audioTransceiver = null;
 
       if (videoTrack) {
         // Simulcast: publish three independent encodings of the same track
@@ -876,7 +878,7 @@ window.lynkVideoStreamHelper = {
         // whichever rid it wants via setPreferredLayers at pull time.
         // scaleResolutionDownBy rungs (1x/2x/4x) follow the standard
         // f(ull)/h(alf)/q(uarter) simulcast naming convention.
-        const transceiver = this.peerConnection.addTransceiver(videoTrack, {
+        videoTransceiver = this.peerConnection.addTransceiver(videoTrack, {
           direction: 'sendonly',
           sendEncodings: [
             { rid: 'f', maxBitrate: 2_500_000 },
@@ -884,23 +886,36 @@ window.lynkVideoStreamHelper = {
             { rid: 'q', maxBitrate: 350_000, scaleResolutionDownBy: 4 }
           ]
         });
-        tracks.push({
-          location: 'local',
-          mid: transceiver.mid,
-          trackName: 'video'
-        });
       }
       if (audioTrack) {
-        const transceiver = this.peerConnection.addTransceiver(audioTrack, { direction: 'sendonly' });
-        tracks.push({
-          location: 'local',
-          mid: transceiver.mid,
-          trackName: 'audio'
-        });
+        audioTransceiver = this.peerConnection.addTransceiver(audioTrack, { direction: 'sendonly' });
       }
 
       const offer = await this.peerConnection.createOffer();
       await this.peerConnection.setLocalDescription(offer);
+
+      // transceiver.mid is null until a local description has been set
+      // (WebRTC spec) — addTransceiver() alone never assigns it. Reading it
+      // before setLocalDescription() (as this used to) sent mid: null for
+      // every track, which Cloudflare's tracks/new rejected with
+      // decoding_error "Body JSON validation error: 0,1" (both array
+      // indices failing the same way, since both were null for the same
+      // reason). Build the tracks array here, after mid is actually set.
+      const tracks = [];
+      if (videoTransceiver) {
+        tracks.push({
+          location: 'local',
+          mid: videoTransceiver.mid,
+          trackName: 'video'
+        });
+      }
+      if (audioTransceiver) {
+        tracks.push({
+          location: 'local',
+          mid: audioTransceiver.mid,
+          trackName: 'audio'
+        });
+      }
 
       if (!appId || !sessionId || appId === '' || sessionId.startsWith('mock_')) {
         console.log('[VideoStreamHelper] Mock Cloudflare WebRTC SDP exchange simulated');
