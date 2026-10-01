@@ -5,6 +5,7 @@ import 'package:lynk_x/presentation/features/forum/cubit/forum_cubit.dart';
 import 'package:lynk_x/presentation/features/forum/cubit/forum_state.dart';
 import 'package:lynk_x/presentation/features/forum/cubit/forum_updates_cubit.dart';
 import 'package:lynk_x/presentation/features/forum/cubit/forum_updates_state.dart';
+import 'package:lynk_x/presentation/features/forum/models/forum_model.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/message_input.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/input_accessory_bar.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/disabled_state_bar.dart';
@@ -182,6 +183,29 @@ class _UpdatesTabState extends State<UpdatesTab>
 /// as a single, independently-keyed subtree (AnimatedSwitcher needs its
 /// child to be one widget, not a sliver list spliced into an outer
 /// CustomScrollView).
+/// Scans for a matching "ended the live call/stream" message posted after
+/// [startedAt] — messages[0] is newest (prepended on send), so a match can
+/// only be at an index LOWER than [startedAtIndex]. isAudio distinguishes
+/// "call" vs "stream" so a call's start doesn't match a stream's end and
+/// vice versa (both "started the live call" and "ended the live call"
+/// contain 'call'; same for 'stream').
+bool _hasLaterEndedMessage(
+  List<ChatMessage> messages, {
+  required int startedAtIndex,
+  required bool isAudio,
+  required DateTime startedAt,
+}) {
+  for (var i = 0; i < startedAtIndex; i++) {
+    final candidate = messages[i];
+    if (!candidate.isLiveSessionEvent) continue;
+    final lower = candidate.message.toLowerCase();
+    if (!lower.contains('ended')) continue;
+    if (lower.contains('call') != isAudio) continue;
+    if (candidate.createdAt.isAfter(startedAt)) return true;
+  }
+  return false;
+}
+
 class _UpdatesScrollView extends StatelessWidget {
   final ScrollController scrollController;
   final ForumUpdatesState updatesState;
@@ -236,17 +260,25 @@ class _UpdatesScrollView extends StatelessWidget {
                   final message = updatesState.messages[index];
                   final lowerMsg = message.message.toLowerCase();
 
-                  if (message.isLiveSessionEvent) {
+                  if (message.isLiveSessionEvent && !lowerMsg.contains('ended')) {
                     final isAudio = lowerMsg.contains('call');
                     final hostName = message.sender.isNotEmpty
                         ? message.sender
                         : (message.message.contains(' ') ? message.message.split(' ').first : 'Host');
+
+                    final hasEndedMessage = _hasLaterEndedMessage(
+                      updatesState.messages,
+                      startedAtIndex: index,
+                      isAudio: isAudio,
+                      startedAt: message.createdAt,
+                    );
 
                     if (isAudio) {
                       return _LiveCallJoinCard(
                         title: message.message,
                         hostName: hostName,
                         isMe: message.isMe,
+                        hasEndedMessage: hasEndedMessage,
                       );
                     }
 
@@ -254,6 +286,7 @@ class _UpdatesScrollView extends StatelessWidget {
                       title: message.message,
                       hostName: hostName,
                       isMe: message.isMe,
+                      hasEndedMessage: hasEndedMessage,
                     );
                   }
 
@@ -311,24 +344,32 @@ class _UpdatesScrollView extends StatelessWidget {
   }
 }
 
-/// Join Card for a "started the live call" announcement message. Tracks the
-/// Cloudflare sessionId active while THIS card was showing as active, so it
-/// can distinguish "never joined, never will" (still show "Tap to enter")
-/// from "was live, that specific call has since ended" (show "Call Ended")
-/// once state.isLive goes false — audioState.isLive alone can't make that
-/// distinction, since it reverts to the same false value whether a call
-/// never started or already ended, and would otherwise make this card look
-/// joinable again after a real call concluded (see: forum live-call
-/// signaling investigation, "JoinCard not updating when host ends call").
+/// Join Card for a "started the live call" announcement message. Combines
+/// two signals so both a live-witnessed end AND an already-concluded call
+/// from before this card ever mounted resolve correctly:
+/// 1. [hasEndedMessage] — a durable check: did a later "ended the live
+///    call" message get posted for this call? Covers the backlog case
+///    (opening the forum long after a call both started and ended).
+/// 2. The in-memory Cloudflare sessionId this card observed while live —
+///    covers a call ending while this card is actually mounted and
+///    watching, which is faster than waiting on the "ended" message to
+///    arrive over the realtime/chat pipeline.
+/// Either signal alone was insufficient: audioState.isLive reverts to the
+/// same false value whether a call never started or already ended, so
+/// without this the card would look joinable again after a real call
+/// concluded (see: forum live-call signaling investigation, "JoinCard not
+/// updating when host ends call").
 class _LiveCallJoinCard extends StatefulWidget {
   final String title;
   final String hostName;
   final bool isMe;
+  final bool hasEndedMessage;
 
   const _LiveCallJoinCard({
     required this.title,
     required this.hostName,
     required this.isMe,
+    required this.hasEndedMessage,
   });
 
   @override
@@ -346,7 +387,8 @@ class _LiveCallJoinCardState extends State<_LiveCallJoinCard> {
           _observedLiveSessionId = audioState.sessionId;
         }
 
-        final hasEnded = !audioState.isLive && _observedLiveSessionId != null;
+        final hasEnded = widget.hasEndedMessage ||
+            (!audioState.isLive && _observedLiveSessionId != null);
         JoinCardState cardState = JoinCardState.live;
         if (hasEnded) {
           cardState = JoinCardState.ended;
@@ -383,19 +425,22 @@ class _LiveCallJoinCardState extends State<_LiveCallJoinCard> {
 }
 
 /// Join Card for a "started the live stream" announcement message. Same
-/// session-comparison fix as [_LiveCallJoinCard] — tracks the Cloudflare
-/// sessionId active while showing as active, so it can show "Call Ended"
-/// once the stream that specific card announced has concluded, rather than
-/// reverting to a joinable-looking "Tap to enter".
+/// two-signal fix as [_LiveCallJoinCard] — combines [hasEndedMessage] (the
+/// durable backlog check) with the in-memory Cloudflare sessionId observed
+/// while live, so it can show "Call Ended" whether the stream ended while
+/// this card was mounted and watching, or had already concluded before the
+/// card ever mounted.
 class _LiveStreamJoinCard extends StatefulWidget {
   final String title;
   final String hostName;
   final bool isMe;
+  final bool hasEndedMessage;
 
   const _LiveStreamJoinCard({
     required this.title,
     required this.hostName,
     required this.isMe,
+    required this.hasEndedMessage,
   });
 
   @override
@@ -414,7 +459,8 @@ class _LiveStreamJoinCardState extends State<_LiveStreamJoinCard> {
           _observedLiveSessionId = ForumVideoStreamService().cfSessionId;
         }
 
-        final hasEnded = !isLive && _observedLiveSessionId != null;
+        final hasEnded = widget.hasEndedMessage ||
+            (!isLive && _observedLiveSessionId != null);
         JoinCardState cardState = JoinCardState.live;
         if (hasEnded) {
           cardState = JoinCardState.ended;
