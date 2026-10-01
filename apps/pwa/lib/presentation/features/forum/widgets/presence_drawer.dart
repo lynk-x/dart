@@ -440,6 +440,7 @@ class _PresenceDrawerState extends State<PresenceDrawer> {
                 if (val == null) return;
                 setState(() => _selectedCamera = val);
                 if (videoDevices.isEmpty) return;
+                if (!ForumVideoStreamService().isLiveNotifier.value) return;
                 final ok = await MediaDeviceManager().switchCameraDevice(
                   ForumVideoStage.elementId,
                   val,
@@ -459,6 +460,13 @@ class _PresenceDrawerState extends State<PresenceDrawer> {
                 if (val == null) return;
                 setState(() => _selectedAudioInput = val);
                 if (audioInputDevices.isEmpty) return;
+                // Same guard as camera — only switch while a video or
+                // audio call is actually live.
+                final audioLive = _audioCubit?.state.isLive == true;
+                if (!ForumVideoStreamService().isLiveNotifier.value &&
+                    !audioLive) {
+                  return;
+                }
                 final ok = await MediaDeviceManager().switchAudioDevice(val);
                 if (!context.mounted) return;
                 if (!ok) {
@@ -475,6 +483,11 @@ class _PresenceDrawerState extends State<PresenceDrawer> {
                 if (val == null) return;
                 setState(() => _selectedAudioOutput = val);
                 if (audioOutputDevices.isEmpty) return;
+                final audioLive = _audioCubit?.state.isLive == true;
+                if (!ForumVideoStreamService().isLiveNotifier.value &&
+                    !audioLive) {
+                  return;
+                }
                 final ok = await MediaDeviceManager().switchAudioOutputDevice(
                   ForumVideoStage.elementId,
                   val,

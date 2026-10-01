@@ -289,6 +289,9 @@ class _UpdatesScrollView extends StatelessWidget {
                       hasEndedMessage: hasEndedMessage,
                     );
                   }
+                  if (message.isLiveSessionEvent && lowerMsg.contains('ended')) {
+                    return const SizedBox.shrink();
+                  }
 
                   final bubble = RepaintBoundary(
                     key: ValueKey(message.id),
