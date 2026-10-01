@@ -13,6 +13,12 @@ external JSPromise<JSBoolean> _jsStartLocalMicrophone();
 @JS('window.lynkAudioStreamHelper.stopLocalMicrophone')
 external void _jsStopLocalMicrophone();
 
+@JS('window.lynkAudioStreamHelper.toggleMicEnabled')
+external JSPromise<JSAny?> _jsToggleMicEnabled(JSBoolean enabled);
+
+@JS('window.lynkAudioStreamHelper.hasLocalMicrophone')
+external JSBoolean _jsHasLocalMicrophone();
+
 @JS('window.lynkAudioStreamHelper.requestWakeLock')
 external JSPromise<JSAny?> _jsRequestWakeLock();
 
@@ -43,6 +49,15 @@ external void _jsStopListening();
 @JS('window.lynkAudioStreamHelper.getListenerAudioTelemetryStats')
 external JSPromise<JSString> _jsGetListenerAudioTelemetryStats();
 
+@JS('window.lynkAudioStreamHelper.publishCloudflareTracks')
+external JSPromise<JSBoolean> _jsPublishCloudflareTracks(
+  JSString appId,
+  JSString sessionId,
+  JSString edgeFunctionUrl,
+  JSString authToken,
+  JSString forumId,
+);
+
 /// Receive-side quality for a listener's own audio connection — see
 /// ForumAudioStreamService.listenerTelemetryNotifier.
 class AudioCallTelemetry {
@@ -70,6 +85,10 @@ class ForumAudioStreamService {
 
   RealtimeChannel? _channel;
   JSFunction? _listenerLostListener;
+
+  /// Set by createCloudflareSession() before publishCloudflareTracks() needs
+  /// it — mirrors ForumVideoStreamService._cfAppId.
+  String? _cfAppId;
 
   /// Receive-side quality for THIS listener's own connection to the call —
   /// independent of how clean the host's own upload/network is.
@@ -127,6 +146,35 @@ class ForumAudioStreamService {
       _jsStopLocalMicrophone();
     } catch (e) {
       debugPrint('[AudioStreamService] stopLocalMicrophone error: $e');
+    }
+  }
+
+  /// Mutes/unmutes the host's PUBLISHED audio (if currently publishing) by
+  /// swapping the Cloudflare sender's track via replaceTrack(), instead of
+  /// stopping/recreating the local MediaStreamTrack — the latter would kill
+  /// the transceiver's send permanently on the next mute, since a freshly
+  /// recreated track from startLocalMicrophone() is never reattached to the
+  /// already-negotiated sender. No-op (safe to call) if nothing is
+  /// currently being published, e.g. before publishCloudflareTracks() has
+  /// run or in a mock/no-op session.
+  Future<void> toggleMicEnabled(bool enabled) async {
+    if (!kIsWeb) return;
+    try {
+      await _jsToggleMicEnabled(enabled.toJS).toDart;
+    } catch (e) {
+      debugPrint('[AudioStreamService] toggleMicEnabled error: $e');
+    }
+  }
+
+  /// Whether a local microphone track is currently captured and live — used
+  /// to avoid re-acquiring (and thereby destroying + replacing) the mic on
+  /// an ordinary unmute, now that mute no longer stops the track outright.
+  bool get hasLocalMicrophone {
+    if (!kIsWeb) return false;
+    try {
+      return _jsHasLocalMicrophone().toDart;
+    } catch (e) {
+      return false;
     }
   }
 
@@ -348,6 +396,7 @@ class ForumAudioStreamService {
       );
 
       if (response.status == 200) {
+        _cfAppId = response.data?['appId'] as String?;
         return response.data?['sessionId'] as String?;
       }
       debugPrint('[AudioStreamService] createCloudflareSession returned status ${response.status}');
@@ -358,6 +407,30 @@ class ForumAudioStreamService {
     // unreachable (e.g. local dev without `supabase functions serve`) — not
     // when credentials are missing, since credentials no longer live here.
     return 'mock_cf_session_${DateTime.now().millisecondsSinceEpoch}';
+  }
+
+  /// Publishes the host's local microphone track to Cloudflare Calls SFU.
+  /// Must be called after startLocalMicrophone() (needs a captured track)
+  /// and createCloudflareSession() (needs [_cfAppId]/a real session id) —
+  /// this was previously missing entirely, so audio-only calls created a
+  /// Cloudflare session but never actually sent any media to it.
+  Future<bool> publishCloudflareTracks(String forumId, String sessionId) async {
+    if (!kIsWeb) return true;
+    try {
+      final session = supabase.auth.currentSession;
+      const supabaseUrl = String.fromEnvironment('SUPABASE_URL');
+      final res = await _jsPublishCloudflareTracks(
+        (_cfAppId ?? '').toJS,
+        sessionId.toJS,
+        '$supabaseUrl/functions/v1'.toJS,
+        (session?.accessToken ?? '').toJS,
+        forumId.toJS,
+      ).toDart;
+      return res.toDart;
+    } catch (e) {
+      debugPrint('[AudioStreamService] publishCloudflareTracks error: $e');
+      return false;
+    }
   }
 
   /// Opens a new social.forum_call_summaries row via the
