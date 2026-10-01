@@ -209,6 +209,45 @@ window.lynkAudioStreamHelper = {
     }
   },
 
+  _lastListenerAudioStatsTimestamp: 0,
+
+  // Receive-side quality for a listener's own connection — audio has no
+  // simulcast layers to report (one mono voice stream, not tiered), but
+  // packetLossPercent/jitter/rttMs are still the real signal for "is this
+  // call breaking up for me specifically," independent of how clean the
+  // host's own upload is.
+  async getListenerAudioTelemetryStats() {
+    let rttMs = 0;
+    let packetLossPercent = '0.0';
+    let jitterMs = 0;
+
+    if (!this.listenerPeerConnection) {
+      return JSON.stringify({ rttMs, packetLossPercent, jitterMs, connected: false });
+    }
+
+    try {
+      const stats = await this.listenerPeerConnection.getStats();
+      stats.forEach(report => {
+        if (report.type === 'inbound-rtp' && report.kind === 'audio') {
+          if (report.jitter !== undefined) jitterMs = Math.round(report.jitter * 1000);
+          if (report.packetsLost !== undefined && report.packetsReceived !== undefined) {
+            const total = report.packetsLost + report.packetsReceived;
+            if (total > 0) {
+              packetLossPercent = ((report.packetsLost / total) * 100).toFixed(1);
+            }
+          }
+        }
+        if (report.type === 'candidate-pair' && report.state === 'succeeded' && report.currentRoundTripTime) {
+          rttMs = Math.round(report.currentRoundTripTime * 1000);
+        }
+      });
+    } catch (e) {
+      console.warn('[AudioStreamHelper] getListenerAudioTelemetryStats error:', e);
+    }
+
+    return JSON.stringify({ rttMs, packetLossPercent, jitterMs, connected: true });
+  },
+
   setBroadcastMuted(isMuted) {
     const el = this.getOrCreateAudioElement();
     el.muted = !!isMuted;
@@ -826,7 +865,25 @@ window.lynkVideoStreamHelper = {
       const audioTrack = this.videoStream.getAudioTracks()[0];
 
       if (videoTrack) {
-        const transceiver = this.peerConnection.addTransceiver(videoTrack, { direction: 'sendonly' });
+        // Simulcast: publish three independent encodings of the same track
+        // instead of one. Without this every listener gets the host's full
+        // resolution/bitrate regardless of their own device or network —
+        // Cloudflare's SFU can only forward what was actually published, it
+        // can't transcode a single stream down. The browser encodes all
+        // three layers from this one getUserMedia track; Cloudflare reads
+        // the rid layers out of the SDP this addTransceiver call produces
+        // (no separate signaling needed) and lets each subscriber request
+        // whichever rid it wants via setPreferredLayers at pull time.
+        // scaleResolutionDownBy rungs (1x/2x/4x) follow the standard
+        // f(ull)/h(alf)/q(uarter) simulcast naming convention.
+        const transceiver = this.peerConnection.addTransceiver(videoTrack, {
+          direction: 'sendonly',
+          sendEncodings: [
+            { rid: 'f', maxBitrate: 2_500_000 },
+            { rid: 'h', maxBitrate: 1_000_000, scaleResolutionDownBy: 2 },
+            { rid: 'q', maxBitrate: 350_000, scaleResolutionDownBy: 4 }
+          ]
+        });
         tracks.push({
           location: 'local',
           mid: transceiver.mid,
@@ -1104,5 +1161,60 @@ window.lynkVideoStreamHelper = {
       this.listenerElement.srcObject = null;
       this.listenerElement = null;
     }
+  },
+
+  _lastListenerBytesReceived: 0,
+  _lastListenerStatsTimestamp: 0,
+
+  // Receive-side counterpart to getTelemetryStats() (which only reports the
+  // HOST's own outgoing connection). This is what actually tells a listener
+  // whether their own link is struggling — necessary now that publishing is
+  // simulcast (3 layers): Cloudflare's SFU picks which layer to forward per
+  // receiver, so a listener's experienced quality can differ from the
+  // host's regardless of what the host is sending. Surfaces which
+  // resolution is actually arriving so the UI can show it, not just infer
+  // it from the host's own stats.
+  async getListenerTelemetryStats() {
+    let width = 0, height = 0, fps = 0, rttMs = 0;
+    let bitrateMbps = '0.0', packetLossPercent = '0.0';
+
+    if (!this.listenerPeerConnection) {
+      return JSON.stringify({ width, height, fps, rttMs, bitrateMbps, packetLossPercent, connected: false });
+    }
+
+    try {
+      const stats = await this.listenerPeerConnection.getStats();
+      const now = performance.now();
+      stats.forEach(report => {
+        if (report.type === 'inbound-rtp' && report.kind === 'video') {
+          if (report.frameWidth) width = report.frameWidth;
+          if (report.frameHeight) height = report.frameHeight;
+          if (report.framesPerSecond) fps = Math.round(report.framesPerSecond);
+          if (this._lastListenerBytesReceived > 0 && this._lastListenerStatsTimestamp > 0) {
+            const bytesDelta = report.bytesReceived - this._lastListenerBytesReceived;
+            const timeDeltaMs = now - this._lastListenerStatsTimestamp;
+            if (timeDeltaMs > 0) {
+              const bps = (bytesDelta * 8) / (timeDeltaMs / 1000);
+              bitrateMbps = (bps / 1000000).toFixed(1);
+            }
+          }
+          this._lastListenerBytesReceived = report.bytesReceived;
+          this._lastListenerStatsTimestamp = now;
+          if (report.packetsLost !== undefined && report.packetsReceived !== undefined) {
+            const total = report.packetsLost + report.packetsReceived;
+            if (total > 0) {
+              packetLossPercent = ((report.packetsLost / total) * 100).toFixed(1);
+            }
+          }
+        }
+        if (report.type === 'candidate-pair' && report.state === 'succeeded' && report.currentRoundTripTime) {
+          rttMs = Math.round(report.currentRoundTripTime * 1000);
+        }
+      });
+    } catch (e) {
+      console.warn('[VideoStreamHelper] getListenerTelemetryStats error:', e);
+    }
+
+    return JSON.stringify({ width, height, fps, rttMs, bitrateMbps, packetLossPercent, connected: true });
   }
 };

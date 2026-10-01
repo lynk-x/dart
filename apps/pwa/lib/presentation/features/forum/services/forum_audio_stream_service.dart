@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:js_interop';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -39,11 +40,41 @@ external JSPromise<JSBoolean> _jsJoinAsListener(
 @JS('window.lynkAudioStreamHelper.stopListening')
 external void _jsStopListening();
 
+@JS('window.lynkAudioStreamHelper.getListenerAudioTelemetryStats')
+external JSPromise<JSString> _jsGetListenerAudioTelemetryStats();
+
+/// Receive-side quality for a listener's own audio connection — see
+/// ForumAudioStreamService.listenerTelemetryNotifier.
+class AudioCallTelemetry {
+  final int rttMs;
+  final String packetLossPercent;
+  final int jitterMs;
+
+  const AudioCallTelemetry({
+    this.rttMs = 0,
+    this.packetLossPercent = '0.0',
+    this.jitterMs = 0,
+  });
+
+  /// Audio tolerates more jitter/loss than video before it's actually
+  /// audible as choppy — thresholds are looser than TelemetryData
+  /// .isPoorConnection's video-tuned 5%/250ms.
+  bool get isPoorConnection {
+    final loss = double.tryParse(packetLossPercent) ?? 0.0;
+    return loss >= 8.0 || rttMs >= 400 || jitterMs >= 100;
+  }
+}
+
 class ForumAudioStreamService {
   final SupabaseClient supabase;
 
   RealtimeChannel? _channel;
   JSFunction? _listenerLostListener;
+
+  /// Receive-side quality for THIS listener's own connection to the call —
+  /// independent of how clean the host's own upload/network is.
+  final ValueNotifier<AudioCallTelemetry> listenerTelemetryNotifier =
+      ValueNotifier<AudioCallTelemetry>(const AudioCallTelemetry());
 
   ForumAudioStreamService({
     SupabaseClient? supabase,
@@ -280,6 +311,28 @@ class ForumAudioStreamService {
       _jsStopListening();
     } catch (e) {
       debugPrint('[AudioStreamService] unsubscribeFromRemoteAudio error: $e');
+    }
+  }
+
+  /// Fetches receive-side WebRTC telemetry for a listener's own audio
+  /// connection and updates [listenerTelemetryNotifier].
+  Future<AudioCallTelemetry> fetchListenerTelemetryStats() async {
+    if (!kIsWeb) return listenerTelemetryNotifier.value;
+    try {
+      final rawJson = await _jsGetListenerAudioTelemetryStats().toDart;
+      final data = jsonDecode(rawJson.toDart) as Map<String, dynamic>;
+      if (data['connected'] != true) return listenerTelemetryNotifier.value;
+
+      final telemetry = AudioCallTelemetry(
+        rttMs: (data['rttMs'] as num?)?.toInt() ?? 0,
+        packetLossPercent: (data['packetLossPercent'] as String?) ?? '0.0',
+        jitterMs: (data['jitterMs'] as num?)?.toInt() ?? 0,
+      );
+      listenerTelemetryNotifier.value = telemetry;
+      return telemetry;
+    } catch (e) {
+      debugPrint('[AudioStreamService] fetchListenerTelemetryStats error: $e');
+      return listenerTelemetryNotifier.value;
     }
   }
 

@@ -374,3 +374,46 @@ class LowBandwidthFallbackOverlay extends StatelessWidget {
     );
   }
 }
+
+/// Non-blocking badge for a LISTENER's own degraded connection — unlike
+/// [LowBandwidthFallbackOverlay] (host-side, replaces the video entirely
+/// because the HOST's own upload is bad for everyone), a listener is still
+/// receiving something (Cloudflare's SFU may already be forwarding them a
+/// lower simulcast layer); this just surfaces that their own experienced
+/// quality is poor, since fetchListenerTelemetryStats has no verified way
+/// to request a different layer from here.
+class PoorConnectionBadge extends StatelessWidget {
+  const PoorConnectionBadge({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned(
+      top: 12,
+      left: 12,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: Colors.amber.withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: Colors.amber.withValues(alpha: 0.4)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.signal_wifi_statusbar_connected_no_internet_4_rounded,
+                size: 14, color: Colors.amber),
+            const SizedBox(width: 4),
+            Text(
+              'Weak connection',
+              style: AppTypography.interTight(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: Colors.amber,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

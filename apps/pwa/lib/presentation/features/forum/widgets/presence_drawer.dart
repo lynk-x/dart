@@ -9,6 +9,8 @@ import '../services/stream_service.dart';
 import '../services/participant_service.dart';
 import 'skeletons.dart';
 import 'user_presence.dart';
+import 'stream_stage.dart' show ForumVideoStage;
+import 'package:lynk_x/presentation/shared/utils/app_snackbars.dart';
 
 /// The end-drawer component for the Forum screen.
 ///
@@ -434,8 +436,18 @@ class _PresenceDrawerState extends State<PresenceDrawer> {
               icon: Icons.videocam_rounded,
               value: _selectedCamera,
               items: cameraItems,
-              onChanged: (val) {
-                if (val != null) setState(() => _selectedCamera = val);
+              onChanged: (val) async {
+                if (val == null) return;
+                setState(() => _selectedCamera = val);
+                if (videoDevices.isEmpty) return;
+                final ok = await MediaDeviceManager().switchCameraDevice(
+                  ForumVideoStage.elementId,
+                  val,
+                );
+                if (!context.mounted) return;
+                if (!ok) {
+                  AppSnackBars.showError(context, 'Could not switch camera.');
+                }
               },
             ),
             _buildDropdownSection(
@@ -443,8 +455,15 @@ class _PresenceDrawerState extends State<PresenceDrawer> {
               icon: Icons.mic_rounded,
               value: _selectedAudioInput,
               items: audioInputItems,
-              onChanged: (val) {
-                if (val != null) setState(() => _selectedAudioInput = val);
+              onChanged: (val) async {
+                if (val == null) return;
+                setState(() => _selectedAudioInput = val);
+                if (audioInputDevices.isEmpty) return;
+                final ok = await MediaDeviceManager().switchAudioDevice(val);
+                if (!context.mounted) return;
+                if (!ok) {
+                  AppSnackBars.showError(context, 'Could not switch microphone.');
+                }
               },
             ),
             _buildDropdownSection(
@@ -452,8 +471,18 @@ class _PresenceDrawerState extends State<PresenceDrawer> {
               icon: Icons.volume_up_rounded,
               value: _selectedAudioOutput,
               items: audioOutputItems,
-              onChanged: (val) {
-                if (val != null) setState(() => _selectedAudioOutput = val);
+              onChanged: (val) async {
+                if (val == null) return;
+                setState(() => _selectedAudioOutput = val);
+                if (audioOutputDevices.isEmpty) return;
+                final ok = await MediaDeviceManager().switchAudioOutputDevice(
+                  ForumVideoStage.elementId,
+                  val,
+                );
+                if (!context.mounted) return;
+                if (!ok) {
+                  AppSnackBars.showError(context, 'Could not switch audio output.');
+                }
               },
             ),
             _buildDropdownSection(
@@ -462,7 +491,18 @@ class _PresenceDrawerState extends State<PresenceDrawer> {
               value: _streamQuality,
               items: qualityItems,
               onChanged: (val) {
-                if (val != null) setState(() => _streamQuality = val);
+                if (val == null) return;
+                setState(() => _streamQuality = val);
+                final quality = switch (val) {
+                  '1080p Full HD' => '1080p',
+                  '720p HD (Data Saver)' => '720p',
+                  '480p SD' => '480p',
+                  _ => '720p',
+                };
+                ForumVideoStreamService().setStreamQuality(
+                  ForumVideoStage.elementId,
+                  quality,
+                );
               },
             ),
             const SizedBox(height: 16),

@@ -39,6 +39,32 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
         errorMessage: 'Lost connection to the live call. Tap to rejoin.',
       ));
     });
+
+    // React to isLive/role transitions from ANY of the several emit sites
+    // (start_stream, initial sync, joinAudioStream, end_stream) rather than
+    // threading timer start/stop calls through each one individually.
+    _telemetrySub = stream.listen((s) {
+      if (s.isLive && s.role != ForumHeaderRole.host) {
+        _startTelemetryPolling();
+      } else {
+        _stopTelemetryPolling();
+      }
+    });
+  }
+
+  Timer? _telemetryTimer;
+  StreamSubscription<ForumAudioStreamState>? _telemetrySub;
+
+  void _startTelemetryPolling() {
+    if (_telemetryTimer != null) return;
+    _telemetryTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+      service.fetchListenerTelemetryStats();
+    });
+  }
+
+  void _stopTelemetryPolling() {
+    _telemetryTimer?.cancel();
+    _telemetryTimer = null;
   }
 
   void updateUserName(String newName) {
@@ -442,6 +468,8 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
   @override
   Future<void> close() async {
     _reconnectTimer?.cancel();
+    _telemetrySub?.cancel();
+    _stopTelemetryPolling();
     service.removeListenerLostCallback();
     service.stopLocalMicrophone();
     if (state.role != ForumHeaderRole.host) {
