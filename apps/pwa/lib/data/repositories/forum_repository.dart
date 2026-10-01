@@ -298,9 +298,10 @@ class ForumRepository {
   /// linked event's starts_at/ends_at in one place — previously duplicated
   /// inline across two branches in ForumSessionsCubit.loadSessions().
   ///
-  /// Reads go through public.forums/public.events (unqualified schema) —
-  /// the PostgREST-facing security_invoker proxy views, per this backend's
-  /// "frontends never query domain tables directly" convention. Only the
+  /// Forum reads go through api.v1_forums (the versioned, read-only
+  /// contract) — public.forums (the old unversioned pass-through proxy with
+  /// full CRUD grants) was retired; see 12_api/views/00_public_proxies.sql.
+  /// public.events is a separate, still-live proxy, untouched here. Only the
   /// CDC subscription below (subscribeToSessionChanges) targets the real
   /// social.forum_sessions table directly, since Realtime CDC listens on
   /// physical tables, not views.
@@ -313,13 +314,15 @@ class ForumRepository {
         forumReference != null &&
         forumReference.isNotEmpty) {
       forumRes = await _client
-          .from('forums')
+          .schema('api')
+          .from('v1_forums')
           .select('id, created_at, event_id, event_created_at')
           .eq('reference', forumReference)
           .maybeSingle();
     } else if (forumId != null && forumId.isNotEmpty) {
       forumRes = await _client
-          .from('forums')
+          .schema('api')
+          .from('v1_forums')
           .select('id, created_at, event_id, event_created_at')
           .eq('id', forumId)
           .maybeSingle();
@@ -365,9 +368,11 @@ class ForumRepository {
     );
   }
 
+  /// Reads through api.v1_forum_sessions (not the retired public.forum_sessions proxy).
   Future<List<SessionModel>> getSessions(String forumId) async {
     final response = await _client
-        .from('forum_sessions')
+        .schema('api')
+        .from('v1_forum_sessions')
         .select()
         .eq('forum_id', forumId)
         .order('starts_at', ascending: true);
@@ -377,40 +382,46 @@ class ForumRepository {
         .toList();
   }
 
+  /// Writes via the api.add_forum_session RPC (not a raw INSERT against the
+  /// retired public.forum_sessions proxy) — see
+  /// social.add_forum_session for the organizer/moderator check this enforces.
   Future<SessionModel> addSession(SessionModel session, String forumId, DateTime? forumCreatedAt) async {
     final payload = session.toMap()..remove('id');
-    payload['forum_id'] = forumId;
-    payload['forum_created_at'] = forumCreatedAt?.toIso8601String();
 
-    final response = await _client
-        .from('forum_sessions')
-        .insert(payload)
-        .select()
-        .single();
+    final response = await _client.schema('api').rpc('add_forum_session', params: {
+      'p_forum_id': forumId,
+      'p_forum_created_at': forumCreatedAt?.toIso8601String(),
+      'p_starts_at': payload['starts_at'],
+      'p_ends_at': payload['ends_at'],
+      'p_info': payload['info'] ?? {},
+      'p_sort_order': payload['sort_order'] ?? 0,
+    }).single();
 
     return SessionModel.fromMap(response);
   }
 
+  /// Writes via the api.update_forum_session RPC (not a raw UPDATE against
+  /// the retired public.forum_sessions proxy).
   Future<SessionModel> updateSession(SessionModel session, String forumId, DateTime? forumCreatedAt) async {
     final payload = session.toMap();
-    payload['forum_id'] = forumId;
-    payload['forum_created_at'] = forumCreatedAt?.toIso8601String();
 
-    final response = await _client
-        .from('forum_sessions')
-        .update(payload)
-        .eq('id', session.id)
-        .select()
-        .single();
+    final response = await _client.schema('api').rpc('update_forum_session', params: {
+      'p_session_id': session.id,
+      'p_starts_at': payload['starts_at'],
+      'p_ends_at': payload['ends_at'],
+      'p_info': payload['info'],
+      'p_sort_order': payload['sort_order'],
+    }).single();
 
     return SessionModel.fromMap(response);
   }
 
+  /// Writes via the api.delete_forum_session RPC (not a raw DELETE against
+  /// the retired public.forum_sessions proxy).
   Future<void> deleteSession(String sessionId) async {
-    await _client
-        .from('forum_sessions')
-        .delete()
-        .eq('id', sessionId);
+    await _client.schema('api').rpc('delete_forum_session', params: {
+      'p_session_id': sessionId,
+    });
   }
 
   // ── Broadcast / Presence channels ────────────────────────────────────────
