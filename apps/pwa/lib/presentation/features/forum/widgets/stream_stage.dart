@@ -13,6 +13,7 @@ import '../cubit/forum_chat_cubit.dart';
 import '../cubit/forum_presence_cubit.dart';
 import '../cubit/forum_updates_cubit.dart';
 import '../models/forum_model.dart';
+import '../models/call_participant.dart';
 import '../services/stream_service.dart';
 import 'message_input.dart';
 import 'speaker_tag.dart';
@@ -50,6 +51,26 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
   static const String _viewType = 'lynk-video-stage-view';
   static bool _viewRegistered = false;
   static web.HTMLVideoElement? _sharedVideoElement;
+
+  // Fixed pool of pre-registered platform-view slots for co-hosts' video
+  // tiles — matches GridStageOverlay's own existing clamp(1, 4) (the
+  // default infra.system_config 'community'.max_call_speakers). Flutter
+  // web view factories are meant to be registered upfront, not
+  // dynamically per-userId at runtime; userIds aren't known ahead of time
+  // but the cap is, so a fixed slot pool is allocated/reused instead — see
+  // lynkVideoStreamHelper's _participantIdToSlotElementId comment for the
+  // JS side of this same reasoning.
+  static const int _maxParticipantSlots = 4;
+  static const List<String> _participantSlotViewTypes = [
+    'lynk-video-participant-slot-0',
+    'lynk-video-participant-slot-1',
+    'lynk-video-participant-slot-2',
+    'lynk-video-participant-slot-3',
+  ];
+  static bool _participantSlotsRegistered = false;
+  static final List<web.HTMLVideoElement> _participantSlotElements = [];
+  // userId -> slot index, allocated as participants join, freed as they leave.
+  final Map<String, int> _participantSlotAssignment = {};
 
   web.HTMLVideoElement? _videoElement;
 
@@ -159,6 +180,25 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
         _viewRegistered = true;
       }
       _videoElement = _sharedVideoElement;
+
+      if (!_participantSlotsRegistered) {
+        for (final viewType in _participantSlotViewTypes) {
+          final el = web.HTMLVideoElement()
+            ..id = viewType
+            ..style.width = '100%'
+            ..style.height = '100%'
+            ..style.objectFit = 'cover';
+          el.setAttribute('playsinline', 'true');
+          el.setAttribute('autoplay', 'true');
+          el.muted = true; // video tiles are silent — audio comes from the separate per-participant <audio> element
+          _participantSlotElements.add(el);
+          ui_web.platformViewRegistry.registerViewFactory(
+            viewType,
+            (int viewId) => el,
+          );
+        }
+        _participantSlotsRegistered = true;
+      }
     }
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -349,7 +389,8 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
   }
 
   /// Fetches the persisted streaming_config for this forum and, if a live
-  /// video session exists with a different host, pulls its track down.
+  /// video session exists with a different host, pulls its track down and
+  /// bootstraps the speaker registry (any co-hosts already in the call).
   /// Mirrors ForumAudioStreamCubit's initial-sync pattern — the Join Card
   /// that led here has no sessionId of its own to pass in.
   Future<void> _subscribeToHostStream() async {
@@ -361,7 +402,14 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
       if (!mounted || config == null || config['is_live'] != true) return;
 
       final sessionId = config['cf_session_id'] as String?;
+      final callSummaryId = config['call_summary_id'] as String?;
       if (sessionId == null) return;
+
+      final callParticipants = callSummaryId != null
+          ? await _videoService.fetchCallParticipants(callSummaryId)
+          : <String, CallParticipant>{};
+      _videoService.participantsNotifier.value = callParticipants;
+      if (!mounted) return;
 
       final success = await _videoService.subscribeToRemoteVideo(
         elementId: _elementId,
@@ -371,20 +419,134 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
       if (mounted && !success) {
         AppSnackBars.showInfo(context, 'Could not connect to the live stream — check your connection.');
       }
+      if (!mounted || !success) return;
+
+      // Establishes the SEPARATE audio listener connection (video calls
+      // publish video and audio as two distinct Cloudflare tracks) — see
+      // ForumVideoStreamService.subscribeToHostAudioForVideoCall's comment
+      // for why this previously never happened at all for video calls.
+      // The host's own registry entry (if the registry fetch above found
+      // one — it may not have resolved yet right at call start) gives the
+      // real trackName; falls back to the literal 'audio' default
+      // publishCloudflareTracks uses when trackBaseName is empty.
+      final hostParticipant = callParticipants.values.cast<CallParticipant?>().firstWhere(
+            (s) => s?.cfSessionId == sessionId,
+            orElse: () => null,
+          );
+      final hostAudioTrackName =
+          hostParticipant != null ? '${hostParticipant.trackName}:audio' : 'audio';
+      await _videoService.subscribeToHostAudioForVideoCall(
+        forumId: forumId,
+        hostSessionId: sessionId,
+        remoteTrackName: hostAudioTrackName,
+      );
+      if (!mounted) return;
+
+      // Pull any co-hosts already in the call (opening the forum well
+      // after it started, or joining mid-call) — mirrors
+      // ForumAudioStreamCubit._pullAllParticipantTracks.
+      for (final participant in callParticipants.values) {
+        if (participant.cfSessionId == sessionId) continue; // the host's own track, just pulled above
+        await _pullParticipantMedia(participant);
+      }
     } catch (e) {
       debugPrint('[ForumVideoStage] _subscribeToHostStream error: $e');
     }
   }
 
-  /// Handles a video_stream_event broadcast — currently only
-  /// 'session_changed', fired by the host's own _reconnectVideoPublish
-  /// after its Cloudflare connection was replaced following a network
-  /// drop. Listener-only: the host ignores its own broadcast (it's already
-  /// on the new session by the time this fires for anyone else).
+  /// Pulls both the video AND audio tracks for one co-host — a video call
+  /// publishes them as two separate Cloudflare tracks
+  /// (trackName:video/trackName:audio, see publishCloudflareTracks), so a
+  /// listener needs two separate add_remote_track pulls, routed to two
+  /// different places: video into this participant's slot element, audio
+  /// into their own <audio> element (both via ForumVideoStreamService,
+  /// which bridges to lynkAudioStreamHelper directly for the audio half —
+  /// see addParticipantAudioTrack's comment).
+  Future<void> _pullParticipantMedia(CallParticipant participant) async {
+    final forumId = widget.forumId;
+    if (forumId == null || forumId.isEmpty) return;
+
+    final slotElementId = _allocateParticipantSlot(participant.userId);
+    if (slotElementId != null) {
+      await _videoService.addParticipantVideoTrack(
+        forumId: forumId,
+        participantUserId: participant.userId,
+        slotElementId: slotElementId,
+        remoteSessionId: participant.cfSessionId,
+        remoteTrackName: '${participant.trackName}:video',
+      );
+    }
+
+    await _videoService.addParticipantAudioTrack(
+      forumId: forumId,
+      participantUserId: participant.userId,
+      remoteSessionId: participant.cfSessionId,
+      remoteTrackName: '${participant.trackName}:audio',
+    );
+  }
+
+  /// Assigns the next free slot to [userId], or returns the slot it
+  /// already holds. Null if every slot is taken (shouldn't happen in
+  /// practice — the speaker cap matches _maxParticipantSlots — but a late/
+  /// duplicate event is handled gracefully rather than crashing).
+  String? _allocateParticipantSlot(String userId) {
+    final existing = _participantSlotAssignment[userId];
+    if (existing != null) return _participantSlotViewTypes[existing];
+
+    final taken = _participantSlotAssignment.values.toSet();
+    for (var i = 0; i < _maxParticipantSlots; i++) {
+      if (!taken.contains(i)) {
+        _participantSlotAssignment[userId] = i;
+        return _participantSlotViewTypes[i];
+      }
+    }
+    debugPrint('[ForumVideoStage] No free participant slot for $userId — at capacity ($_maxParticipantSlots)');
+    return null;
+  }
+
+  void _freeParticipantSlot(String userId) {
+    _participantSlotAssignment.remove(userId);
+  }
+
+  /// Handles a video_stream_event broadcast: 'session_changed' (host's own
+  /// _reconnectVideoPublish after its Cloudflare connection was replaced
+  /// following a network drop — listener-only, the host is already on the
+  /// new session by the time this fires for anyone else) or
+  /// 'participant_joined'/'participant_left' (registry changes — kept
+  /// current for everyone, host included, since the grid UI reads
+  /// participantsNotifier regardless of role; track pull/teardown is
+  /// listener-only, same reasoning as ForumAudioStreamCubit's audio
+  /// equivalent).
   void _handleVideoBroadcastEvent(Map<String, dynamic> payload) {
-    if (widget.isHost) return;
     final action = payload['action'] as String?;
-    if (action != 'session_changed') return;
+
+    if (action == 'participant_joined') {
+      final participant = CallParticipant.fromJson(payload);
+      if (participant.userId.isEmpty || participant.userId == Supabase.instance.client.auth.currentUser?.id) return;
+      final updated = Map<String, CallParticipant>.from(_videoService.participantsNotifier.value);
+      updated[participant.userId] = participant;
+      _videoService.participantsNotifier.value = updated;
+
+      if (!widget.isHost) {
+        unawaited(_pullParticipantMedia(participant));
+      }
+      return;
+    }
+
+    if (action == 'participant_left') {
+      final leftUserId = payload['userId'] as String?;
+      if (leftUserId == null) return;
+      final updated = Map<String, CallParticipant>.from(_videoService.participantsNotifier.value)
+        ..remove(leftUserId);
+      _videoService.participantsNotifier.value = updated;
+
+      _videoService.removeParticipantVideoTrack(leftUserId);
+      _videoService.removeParticipantAudioTrack(leftUserId);
+      _freeParticipantSlot(leftUserId);
+      return;
+    }
+
+    if (widget.isHost || action != 'session_changed') return;
 
     final newSessionId = payload['sessionId'] as String?;
     final forumId = widget.forumId;
@@ -408,7 +570,9 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
   /// failure/disconnect. Per Cloudflare's own guidance there is no
   /// supported same-session recovery for a publisher, so this replaces the
   /// connection entirely: a NEW Cloudflare session, republished tracks,
-  /// the new session id persisted to streaming_config, and a
+  /// the new session id persisted to BOTH streaming_config and this host's
+  /// own forum_call_participants row (now the source of truth every
+  /// participant, including the host, actually lives in), and a
   /// 'session_changed' broadcast so already-joined listeners re-pull
   /// against the new session (see _handleVideoBroadcastEvent). Mirrors
   /// ForumAudioStreamCubit._reconnectPublish exactly — video just has no
@@ -425,20 +589,42 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
       final newSessionId = await _videoService.createCloudflareSession(forumId);
       if (!mounted || newSessionId == null) return;
 
+      final userId = Supabase.instance.client.auth.currentUser?.id;
+
       final published = await _videoService.publishCloudflareStream(
         customSessionId: newSessionId,
         forceReconnect: true,
+        trackBaseName: userId ?? '',
       );
       if (!mounted || !published) return;
 
-      final userId = Supabase.instance.client.auth.currentUser?.id;
+      final callSummaryId = _videoService.callSummaryId;
       await _videoService.updateForumStreamingConfig(
         forumId: forumId,
         isLive: true,
         sessionId: newSessionId,
         hostId: userId,
+        callSummaryId: callSummaryId,
       );
+      if (callSummaryId != null && userId != null) {
+        await _videoService.updateParticipantSession(
+          callSummaryId: callSummaryId,
+          cfSessionId: newSessionId,
+          trackName: userId,
+        );
+      }
       if (!mounted) return;
+
+      if (userId != null) {
+        final updated = Map<String, CallParticipant>.from(_videoService.participantsNotifier.value);
+        updated[userId] = CallParticipant(
+          userId: userId,
+          userName: widget.hostName,
+          cfSessionId: newSessionId,
+          trackName: userId,
+        );
+        _videoService.participantsNotifier.value = updated;
+      }
 
       await _videoService.broadcastVideoEvent(
         action: 'session_changed',
@@ -611,6 +797,10 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
                                 isCameraOn: _isCameraOn,
                                 isMicMuted: _isMicMuted,
                                 viewType: _viewType,
+                                participantSlotViewType: (userId) {
+                                  final slot = _participantSlotAssignment[userId];
+                                  return slot != null ? _participantSlotViewTypes[slot] : null;
+                                },
                               ),
 
                             if (layoutMode == StageLayoutMode.presentation)

@@ -3,6 +3,7 @@ import 'dart:js_interop';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:web/web.dart' as web;
+import '../models/call_participant.dart';
 import 'mini_overlay_service.dart';
 import 'media_device_manager.dart';
 export 'media_device_manager.dart';
@@ -37,6 +38,45 @@ external JSPromise<JSAny?> _jsRequestWakeLock();
 @JS('window.lynkAudioStreamHelper.releaseWakeLock')
 external JSPromise<JSAny?> _jsReleaseWakeLock();
 
+// A video call's co-host audio pull goes through lynkAudioStreamHelper
+// directly (same bridging pattern as getAudioLevel/requestWakeLock above),
+// not through a separate ForumAudioStreamService instance — audio
+// playback for ANY call (audio-only or video) is that JS helper's
+// responsibility; ForumVideoStreamService only owns video.
+@JS('window.lynkAudioStreamHelper.addParticipantTrack')
+external JSPromise<JSBoolean> _jsAddAudioParticipantTrack(
+  JSString edgeFunctionUrl,
+  JSString authToken,
+  JSString forumId,
+  JSString participantUserId,
+  JSString remoteSessionId,
+  JSString remoteTrackName,
+);
+
+@JS('window.lynkAudioStreamHelper.removeParticipantTrack')
+external void _jsRemoveAudioParticipantTrack(JSString participantUserId);
+
+// Establishes the audio listener connection for a video call — previously
+// this never existed at all: lynkVideoStreamHelper's recvonly transceiver
+// is video-only, and nothing ever called lynkAudioStreamHelper
+// .joinAsListener from the video call path, so a video call's host audio
+// track (published alongside video — see publishCloudflareTracks) was
+// never actually pulled by anyone. addParticipantAudioTrack (co-host audio,
+// above) requires this connection to already exist, the same way
+// lynkAudioStreamHelper.addParticipantTrack requires its own joinAsListener
+// to have run first for an audio-only call.
+@JS('window.lynkAudioStreamHelper.joinAsListener')
+external JSPromise<JSBoolean> _jsJoinAudioListenerForVideoCall(
+  JSString edgeFunctionUrl,
+  JSString authToken,
+  JSString forumId,
+  JSString remoteSessionId,
+  JSString remoteTrackName,
+);
+
+@JS('window.lynkAudioStreamHelper.stopListening')
+external void _jsStopListeningAudioForVideoCall();
+
 @JS('window.lynkVideoStreamHelper.publishCloudflareTracks')
 external JSPromise<JSBoolean> _jsPublishCloudflareTracks(
   JSString appId,
@@ -45,6 +85,7 @@ external JSPromise<JSBoolean> _jsPublishCloudflareTracks(
   JSString authToken,
   JSString forumId,
   JSBoolean forceReconnect,
+  JSString trackBaseName,
 );
 
 @JS('window.lynkVideoStreamHelper.joinAsVideoListener')
@@ -59,6 +100,20 @@ external JSPromise<JSBoolean> _jsJoinAsVideoListener(
 
 @JS('window.lynkVideoStreamHelper.stopListeningVideo')
 external void _jsStopListeningVideo();
+
+@JS('window.lynkVideoStreamHelper.addParticipantVideoTrack')
+external JSPromise<JSBoolean> _jsAddParticipantVideoTrack(
+  JSString edgeFunctionUrl,
+  JSString authToken,
+  JSString forumId,
+  JSString participantUserId,
+  JSString slotElementId,
+  JSString remoteSessionId,
+  JSString remoteTrackName,
+);
+
+@JS('window.lynkVideoStreamHelper.removeParticipantVideoTrack')
+external void _jsRemoveParticipantVideoTrack(JSString participantUserId);
 
 @JS('window.lynkVideoStreamHelper.getTelemetryStats')
 external JSPromise<JSString> _jsGetTelemetryStats();
@@ -284,6 +339,16 @@ class ForumVideoStreamService {
 
   final ValueNotifier<List<StreamParticipant>> activeParticipantsNotifier =
       ValueNotifier<List<StreamParticipant>>([]);
+
+  /// Active call participants, keyed by userId — the source of truth for
+  /// who is actually publishing a track right now. Unlike
+  /// [activeParticipantsNotifier] (forum presence, i.e. who's online —
+  /// see syncWithPresenceUsers), this is sourced from
+  /// social.forum_call_participants and only ever contains real participants.
+  /// No cubit owns video call state (see ForumVideoStage), so this lives
+  /// here the same way the other call-state notifiers already do.
+  final ValueNotifier<Map<String, CallParticipant>> participantsNotifier =
+      ValueNotifier<Map<String, CallParticipant>>({});
 
   final ValueNotifier<String> stageSpeakerIdNotifier =
       ValueNotifier<String>('');
@@ -647,11 +712,19 @@ class ForumVideoStreamService {
   /// (not a raw UPDATE against the retired public.forums proxy). Mirrors
   /// ForumAudioStreamService.updateForumStreamingConfig's shape/rollback
   /// behavior exactly, with stream_type: 'video'.
+  /// [callSummaryId] (new): lets any client discover the active call's id
+  /// to call joinAsCallParticipant/inviteCallParticipant/leaveCallParticipant — see the
+  /// matching change on ForumAudioStreamService for the full rationale.
+  /// allow_multi_speaker is now true for video too, now that the host
+  /// claims their own slot through the same forum_call_participants
+  /// registry a co-host would — this was previously hardcoded false from
+  /// when video was single-publisher-only.
   Future<void> updateForumStreamingConfig({
     required String forumId,
     required bool isLive,
     String? sessionId,
     String? hostId,
+    String? callSummaryId,
   }) async {
     final previousConfig = _localConfigCache[forumId];
     _localConfigCache[forumId] = {
@@ -659,7 +732,8 @@ class ForumVideoStreamService {
       'stream_type': 'video',
       'cf_session_id': sessionId,
       'active_host_id': hostId,
-      'allow_multi_speaker': false,
+      'allow_multi_speaker': true,
+      'call_summary_id': callSummaryId,
     };
     try {
       await Supabase.instance.client.schema('api').rpc('update_forum_streaming_config', params: {
@@ -668,6 +742,7 @@ class ForumVideoStreamService {
         'p_stream_type': 'video',
         'p_session_id': sessionId,
         'p_host_id': hostId,
+        'p_call_summary_id': callSummaryId,
       });
     } catch (e) {
       debugPrint('[VideoStreamService] updateForumStreamingConfig error: $e');
@@ -720,6 +795,126 @@ class ForumVideoStreamService {
     }
   }
 
+  /// Claims a speaking slot in social.forum_call_participants for the
+  /// calling user — the single source of truth for every active participant
+  /// in a call, including the ORIGINAL HOST, who calls this the same way a
+  /// self-joining co-host does. Returns the new participant row's id, or
+  /// null on failure (cap reached, call ended, not an organizer).
+  Future<String?> joinAsCallParticipant({
+    required String forumId,
+    required String callSummaryId,
+    required String cfSessionId,
+    required String trackName,
+  }) async {
+    try {
+      final response = await Supabase.instance.client.schema('api').rpc('join_as_call_participant', params: {
+        'p_forum_id': forumId,
+        'p_call_summary_id': callSummaryId,
+        'p_cf_session_id': cfSessionId,
+        'p_track_name': trackName,
+      });
+      return response as String?;
+    } catch (e) {
+      debugPrint('[VideoStreamService] joinAsCallParticipant error: $e');
+      return null;
+    }
+  }
+
+  /// Host/organizer-only — grants [targetUserId] a speaking slot without
+  /// requiring them to hold the organizer role themselves.
+  Future<String?> inviteCallParticipant({
+    required String forumId,
+    required String callSummaryId,
+    required String targetUserId,
+    required String cfSessionId,
+    required String trackName,
+  }) async {
+    try {
+      final response = await Supabase.instance.client.schema('api').rpc('invite_call_participant', params: {
+        'p_forum_id': forumId,
+        'p_call_summary_id': callSummaryId,
+        'p_user_id': targetUserId,
+        'p_cf_session_id': cfSessionId,
+        'p_track_name': trackName,
+      });
+      return response as String?;
+    } catch (e) {
+      debugPrint('[VideoStreamService] inviteCallParticipant error: $e');
+      return null;
+    }
+  }
+
+  /// Self-serve — voluntarily leaves the calling user's own speaking slot.
+  Future<void> leaveCallParticipant(String callSummaryId) async {
+    try {
+      await Supabase.instance.client.schema('api').rpc('leave_call_participant', params: {
+        'p_call_summary_id': callSummaryId,
+      });
+    } catch (e) {
+      debugPrint('[VideoStreamService] leaveCallParticipant error: $e');
+    }
+  }
+
+  /// Host/organizer-only — forcibly ends another participant's speaking
+  /// slot.
+  Future<void> removeCallParticipant({
+    required String forumId,
+    required String callSummaryId,
+    required String targetUserId,
+  }) async {
+    try {
+      await Supabase.instance.client.schema('api').rpc('remove_call_participant', params: {
+        'p_forum_id': forumId,
+        'p_call_summary_id': callSummaryId,
+        'p_user_id': targetUserId,
+      });
+    } catch (e) {
+      debugPrint('[VideoStreamService] removeCallParticipant error: $e');
+    }
+  }
+
+  /// Self-serve — updates the calling user's OWN active participant row
+  /// with a new Cloudflare address, after their publish connection was
+  /// replaced (see _reconnectVideoPublish in ForumVideoStage).
+  Future<void> updateParticipantSession({
+    required String callSummaryId,
+    required String cfSessionId,
+    required String trackName,
+  }) async {
+    try {
+      await Supabase.instance.client.schema('api').rpc('update_participant_session', params: {
+        'p_call_summary_id': callSummaryId,
+        'p_cf_session_id': cfSessionId,
+        'p_track_name': trackName,
+      });
+    } catch (e) {
+      debugPrint('[VideoStreamService] updateParticipantSession error: $e');
+    }
+  }
+
+  /// Fetches the current active-speaker roster via api.v1_forum_call_participants
+  /// — the bootstrap a listener/newly-joining client reconciles against
+  /// before applying incremental participant_joined/participant_left
+  /// broadcast events.
+  Future<Map<String, CallParticipant>> fetchCallParticipants(String callSummaryId) async {
+    try {
+      final rows = await Supabase.instance.client
+          .schema('api')
+          .from('v1_forum_call_participants')
+          .select('user_id, user_name, full_name, cf_session_id, track_name')
+          .eq('call_summary_id', callSummaryId);
+      final participants = <String, CallParticipant>{};
+      for (final row in rows) {
+        final participant = CallParticipant.fromJson(row);
+        if (participant.userId.isNotEmpty) participants[participant.userId] = participant;
+      }
+      return participants;
+    } catch (e) {
+      debugPrint('[VideoStreamService] fetchCallParticipants error: $e');
+      return {};
+    }
+  }
+
   /// Creates a new Cloudflare Calls WebRTC session via the cloudflare-calls-session
   /// Edge Function. The Cloudflare app secret is held server-side only — this
   /// never talks to rtc.live.cloudflare.com directly for session creation.
@@ -739,11 +934,7 @@ class ForumVideoStreamService {
     } catch (e) {
       debugPrint('[VideoStreamService] createCloudflareSession error: $e');
     }
-    // Falls back to a mock session only when the Edge Function itself is
-    // unreachable — not when credentials are missing, since credentials no
-    // longer live here.
-    cfSessionId = 'mock_cf_session_${DateTime.now().millisecondsSinceEpoch}';
-    return cfSessionId;
+    return null;
   }
 
   /// Joins an already-live host's video session as a listener in a single
@@ -779,8 +970,128 @@ class ForumVideoStreamService {
     }
   }
 
+  /// Adds a co-host's VIDEO track to the EXISTING listener connection —
+  /// must be called after subscribeToRemoteVideo has already established a
+  /// connection (pulling the host's track). [slotElementId] is one of a
+  /// small fixed pool of pre-registered platform-view DOM element ids —
+  /// see lynkVideoStreamHelper's _participantIdToSlotElementId comment for
+  /// why slots instead of per-userId dynamic registration.
+  Future<bool> addParticipantVideoTrack({
+    required String forumId,
+    required String participantUserId,
+    required String slotElementId,
+    required String remoteSessionId,
+    required String remoteTrackName,
+  }) async {
+    if (!kIsWeb) return false;
+    try {
+      final session = Supabase.instance.client.auth.currentSession;
+      const supabaseUrl = String.fromEnvironment('SUPABASE_URL');
+      final res = await _jsAddParticipantVideoTrack(
+        '$supabaseUrl/functions/v1'.toJS,
+        (session?.accessToken ?? '').toJS,
+        forumId.toJS,
+        participantUserId.toJS,
+        slotElementId.toJS,
+        remoteSessionId.toJS,
+        remoteTrackName.toJS,
+      ).toDart;
+      return res.toDart;
+    } catch (e) {
+      debugPrint('[VideoStreamService] addParticipantVideoTrack error: $e');
+      return false;
+    }
+  }
+
+  /// Stops rendering a specific co-host's video — frees their slot
+  /// element. Safe to call even if that participant's track was never added.
+  void removeParticipantVideoTrack(String participantUserId) {
+    if (!kIsWeb) return;
+    try {
+      _jsRemoveParticipantVideoTrack(participantUserId.toJS);
+    } catch (e) {
+      debugPrint('[VideoStreamService] removeParticipantVideoTrack error: $e');
+    }
+  }
+
+  /// Adds a co-host's AUDIO track (video calls publish video and audio as
+  /// two separate Cloudflare tracks) — bridges directly to
+  /// lynkAudioStreamHelper, same pattern as getAudioLevel/requestWakeLock
+  /// above. Must be called after the listener connection already exists
+  /// (subscribeToRemoteVideo's audio-call counterpart,
+  /// ForumAudioStreamService.subscribeToRemoteAudio, isn't used by video
+  /// calls — audio playback is still lynkAudioStreamHelper's job
+  /// regardless of call type).
+  Future<bool> addParticipantAudioTrack({
+    required String forumId,
+    required String participantUserId,
+    required String remoteSessionId,
+    required String remoteTrackName,
+  }) async {
+    if (!kIsWeb) return false;
+    try {
+      final session = Supabase.instance.client.auth.currentSession;
+      const supabaseUrl = String.fromEnvironment('SUPABASE_URL');
+      final res = await _jsAddAudioParticipantTrack(
+        '$supabaseUrl/functions/v1'.toJS,
+        (session?.accessToken ?? '').toJS,
+        forumId.toJS,
+        participantUserId.toJS,
+        remoteSessionId.toJS,
+        remoteTrackName.toJS,
+      ).toDart;
+      return res.toDart;
+    } catch (e) {
+      debugPrint('[VideoStreamService] addParticipantAudioTrack error: $e');
+      return false;
+    }
+  }
+
+  void removeParticipantAudioTrack(String participantUserId) {
+    if (!kIsWeb) return;
+    try {
+      _jsRemoveAudioParticipantTrack(participantUserId.toJS);
+    } catch (e) {
+      debugPrint('[VideoStreamService] removeParticipantAudioTrack error: $e');
+    }
+  }
+
+  /// Establishes the audio listener connection for a video call, pulling
+  /// the HOST's audio track — must be called once, before any
+  /// addParticipantAudioTrack call for a co-host (which only adds to an
+  /// already-existing connection). See
+  /// _jsJoinAudioListenerForVideoCall's comment for why this didn't exist
+  /// at all before this change (a pre-existing gap, not new behavior being
+  /// changed).
+  Future<bool> subscribeToHostAudioForVideoCall({
+    required String forumId,
+    required String hostSessionId,
+    required String remoteTrackName,
+  }) async {
+    if (!kIsWeb) return false;
+    try {
+      final session = Supabase.instance.client.auth.currentSession;
+      const supabaseUrl = String.fromEnvironment('SUPABASE_URL');
+      final res = await _jsJoinAudioListenerForVideoCall(
+        '$supabaseUrl/functions/v1'.toJS,
+        (session?.accessToken ?? '').toJS,
+        forumId.toJS,
+        hostSessionId.toJS,
+        remoteTrackName.toJS,
+      ).toDart;
+      return res.toDart;
+    } catch (e) {
+      debugPrint('[VideoStreamService] subscribeToHostAudioForVideoCall error: $e');
+      return false;
+    }
+  }
+
   /// Tears down the listener-side peer connection and stops playback of the
-  /// remote host's video. Safe to call even if never subscribed.
+  /// remote host's video. Safe to call even if never subscribed. Also
+  /// tears down the SEPARATE audio listener connection
+  /// subscribeToHostAudioForVideoCall established, if any — a video call's
+  /// video and audio pulls are two independent connections (different JS
+  /// helpers), so one teardown call doesn't imply the other.
   void unsubscribeFromRemoteVideo() {
     if (!kIsWeb) return;
     try {
@@ -788,16 +1099,32 @@ class ForumVideoStreamService {
     } catch (e) {
       debugPrint('[VideoStreamService] unsubscribeFromRemoteVideo error: $e');
     }
+    try {
+      _jsStopListeningAudioForVideoCall();
+    } catch (e) {
+      debugPrint('[VideoStreamService] unsubscribeFromRemoteVideo (audio) error: $e');
+    }
   }
 
   /// Publishes local video & audio WebRTC tracks to Cloudflare Calls SFU.
   /// No-op if tracks for the current [cfSessionId] are already published.
+  /// [trackBaseName] defaults to '' (today's single-publisher behavior,
+  /// producing the unchanged literal track names 'video'/'audio'). Multi-
+  /// speaker calls pass the speaker's own user id instead — see
+  /// social.forum_call_participants.track_name and the matching comment on
+  /// lynkVideoStreamHelper.publishCloudflareTracks for why one session
+  /// still needs its video/audio tracks suffixed apart.
   Future<bool> publishCloudflareStream({
     String? customSessionId,
     bool forceReconnect = false,
+    String trackBaseName = '',
   }) async {
     if (!kIsWeb) return true;
-    final targetSessionId = customSessionId ?? cfSessionId ?? 'mock_cf_session';
+    final targetSessionId = customSessionId ?? cfSessionId;
+    if (targetSessionId == null) {
+      debugPrint('[VideoStreamService] publishCloudflareStream: no Cloudflare session — call createCloudflareSession first');
+      return false;
+    }
     // Skip re-publishing if already live on the same session.
     if (_isPublished && customSessionId == null && !forceReconnect) return true;
     try {
@@ -810,6 +1137,7 @@ class ForumVideoStreamService {
         (session?.accessToken ?? '').toJS,
         forumId.toJS,
         forceReconnect.toJS,
+        trackBaseName.toJS,
       ).toDart;
       _isPublished = res.toDart;
       return _isPublished;
@@ -847,7 +1175,12 @@ class ForumVideoStreamService {
       _isPublished = false;
       final res = await _jsStartVideoStream(elementId.toJS, isFrontCamera.toJS).toDart;
       if (res.toDart) {
-        publishCloudflareStream();
+        // trackBaseName = the publisher's own user id, so this video call's
+        // Cloudflare tracks are addressed per-speaker like every other
+        // publish path (audio calls, co-hosts) — see
+        // social.forum_call_participants.track_name.
+        final selfId = Supabase.instance.client.auth.currentUser?.id ?? '';
+        publishCloudflareStream(trackBaseName: selfId);
       }
       return res.toDart;
     } catch (e) {

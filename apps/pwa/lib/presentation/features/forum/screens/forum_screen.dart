@@ -21,9 +21,11 @@ import 'package:lynk_x/presentation/features/forum/cubit/forum_presence_cubit.da
 import 'package:lynk_x/presentation/features/forum/cubit/forum_media_cubit.dart';
 import 'package:lynk_x/presentation/features/forum/cubit/forum_media_state.dart';
 import 'package:lynk_x/presentation/features/forum/models/forum_model.dart';
+import 'package:lynk_x/presentation/features/forum/models/call_participant.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/ad_carousel.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/header.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/stream_stage.dart';
+import 'package:lynk_x/presentation/features/forum/widgets/speaker_invite_dialog.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/mini_overlay.dart';
 import 'package:lynk_x/presentation/features/forum/services/stream_service.dart';
 import 'package:lynk_x/presentation/features/forum/services/mini_overlay_service.dart';
@@ -253,6 +255,13 @@ class _ForumViewState extends State<ForumView> {
           listener: (context, state) {
             AppSnackBars.showError(context, state.errorMessage!);
             context.read<ForumAudioStreamCubit>().clearAudioStreamError();
+          },
+        ),
+        BlocListener<ForumAudioStreamCubit, ForumAudioStreamState>(
+          listenWhen: (p, c) =>
+              p.pendingInviteFromHostName == null && c.pendingInviteFromHostName != null,
+          listener: (context, state) {
+            showSpeakerInviteDialog(context, state.pendingInviteFromHostName!);
           },
         ),
       ],
@@ -679,24 +688,66 @@ class _ForumViewState extends State<ForumView> {
 
                                                           if (vfId != null && vfId.isNotEmpty) {
                                                             final sessionId = await videoService.createCloudflareSession(vfId);
+                                                            if (sessionId == null) {
+                                                              videoService.setLive(false);
+                                                              MiniOverlayService().endPipSession();
+                                                              if (mounted && context.mounted) {
+                                                                AppSnackBars.showError(context, 'Could not start your Cloudflare session — please try again.');
+                                                              }
+                                                              return;
+                                                            }
+
+                                                            // Call-summary row must exist BEFORE
+                                                            // joinAsCallParticipant (needs its id) and
+                                                            // before updateForumStreamingConfig (which
+                                                            // now carries it, so any later client can
+                                                            // discover it) — see ForumAudioStreamCubit
+                                                            // .startAudioStream for the matching audio
+                                                            // reordering and full rationale.
+                                                            String? callSummaryId;
+                                                            final vfCreatedAt = forumState.forumCreatedAt;
+                                                            if (vfCreatedAt != null) {
+                                                              callSummaryId = await videoService.startCallSummary(
+                                                                forumId: vfId,
+                                                                forumCreatedAt: vfCreatedAt,
+                                                                hostId: cubit.userId,
+                                                                sessionId: sessionId,
+                                                              );
+                                                              videoService.callSummaryId = callSummaryId;
+                                                            }
+
+                                                            // The host claims their own speaker slot
+                                                            // the same way a co-host does — see
+                                                            // social.join_as_call_participant's doc
+                                                            // comment for why there is no separate
+                                                            // host-registration path.
+                                                            if (callSummaryId != null) {
+                                                              await videoService.joinAsCallParticipant(
+                                                                forumId: vfId,
+                                                                callSummaryId: callSummaryId,
+                                                                cfSessionId: sessionId,
+                                                                trackName: cubit.userId,
+                                                              );
+                                                              videoService.participantsNotifier.value = {
+                                                                cubit.userId: CallParticipant(
+                                                                  userId: cubit.userId,
+                                                                  userName: name,
+                                                                  cfSessionId: sessionId,
+                                                                  trackName: cubit.userId,
+                                                                ),
+                                                              };
+                                                            }
+
                                                             try {
                                                               await videoService.updateForumStreamingConfig(
                                                                 forumId: vfId,
                                                                 isLive: true,
                                                                 sessionId: sessionId,
                                                                 hostId: cubit.userId,
+                                                                callSummaryId: callSummaryId,
                                                               );
                                                             } catch (e) {
                                                               debugPrint('[ForumScreen] video updateForumStreamingConfig failed: $e');
-                                                            }
-                                                            final vfCreatedAt = forumState.forumCreatedAt;
-                                                            if (vfCreatedAt != null) {
-                                                              videoService.callSummaryId = await videoService.startCallSummary(
-                                                                forumId: vfId,
-                                                                forumCreatedAt: vfCreatedAt,
-                                                                hostId: cubit.userId,
-                                                                sessionId: sessionId,
-                                                              );
                                                             }
                                                           }
 

@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:lynk_core/core.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../models/call_participant.dart';
 import '../../services/stream_service.dart';
 import 'soundwave_widget.dart';
 
@@ -13,6 +15,7 @@ class GridStageOverlay extends StatelessWidget {
   final bool isCameraOn;
   final bool isMicMuted;
   final String viewType;
+  final String? Function(String userId) participantSlotViewType;
 
   const GridStageOverlay({
     super.key,
@@ -20,6 +23,7 @@ class GridStageOverlay extends StatelessWidget {
     required this.audioLevelNotifier,
     required this.isCameraOn,
     required this.isMicMuted,
+    required this.participantSlotViewType,
     this.viewType = 'lynk-video-stage-view',
   });
 
@@ -28,9 +32,35 @@ class GridStageOverlay extends StatelessWidget {
     return ValueListenableBuilder<bool>(
       valueListenable: videoService.isLowBandwidthNotifier,
       builder: (context, isLowBandwidth, _) {
-        return ValueListenableBuilder<List<StreamParticipant>>(
-          valueListenable: videoService.activeParticipantsNotifier,
-          builder: (context, participants, _) {
+        // Previously sourced from activeParticipantsNotifier (forum
+        // PRESENCE — anyone online), which meant this grid tiled up to 4
+        // arbitrary online members, not actual participants, and the
+        // isHostTile video-mount check only ever worked by accident for
+        // whichever host happened to land in that list. participantsNotifier
+        // (social.forum_call_participants) is the real registry of who is
+        // actually publishing a track.
+        return ValueListenableBuilder<Map<String, CallParticipant>>(
+          valueListenable: videoService.participantsNotifier,
+          builder: (context, callParticipants, _) {
+            final selfId = Supabase.instance.client.auth.currentUser?.id;
+            // A co-host's real camera on/off state isn't tracked anywhere
+            // in the registry (CallParticipant carries no such field) — the
+            // best available signal is whether their video track actually
+            // has a slot assigned (participantSlotViewType != null), which
+            // only happens once addParticipantVideoTrack has successfully
+            // pulled it. Mic state is similarly untracked, so stays
+            // conservatively muted-looking (true) until per-speaker mute
+            // state exists.
+            final participants = callParticipants.values
+                .map((s) => StreamParticipant(
+                      id: s.userId,
+                      name: s.userName,
+                      role: s.userId == selfId ? 'You' : 'Speaker',
+                      isHost: s.userId == selfId,
+                      isCameraOn: s.userId == selfId ? isCameraOn : participantSlotViewType(s.userId) != null,
+                      isMicMuted: s.userId == selfId ? isMicMuted : true,
+                    ))
+                .toList(growable: false);
             final count = participants.isEmpty ? 1 : participants.length.clamp(1, 4);
             final list = participants.isEmpty
                 ? [
@@ -87,6 +117,16 @@ class GridStageOverlay extends StatelessWidget {
                         final tileCamOn = isHostTile ? isCameraOn : p.isCameraOn;
                         final tileMicMuted = isHostTile ? isMicMuted : p.isMicMuted;
                         final isSpeakingNow = !tileMicMuted && (p.isSpeaking || audioLevelNotifier.value > 0.05);
+                        // Previously only the LOCAL viewer's own tile ever
+                        // showed real video — every other tile fell back to
+                        // the avatar placeholder unconditionally, since
+                        // there was no per-speaker video element to mount.
+                        // Now a co-host's slot (assigned by ForumVideoStage
+                        // as their track is pulled) resolves to one of the
+                        // fixed pre-registered slot view types.
+                        final coHostSlotViewType =
+                            isHostTile ? null : participantSlotViewType(p.id);
+                        final hasRealVideo = isHostTile || coHostSlotViewType != null;
 
                         return ClipRRect(
                           borderRadius: BorderRadius.circular(12),
@@ -101,13 +141,14 @@ class GridStageOverlay extends StatelessWidget {
                             ),
                             child: Stack(
                               children: [
-                                // Mount actual Web Video Stream exclusively inside host's grid tile when not in low-bandwidth mode
-                                if (isHostTile && tileCamOn && kIsWeb && !isLowBandwidth)
+                                if (hasRealVideo && tileCamOn && kIsWeb && !isLowBandwidth)
                                   Positioned.fill(
-                                    child: HtmlElementView(viewType: viewType),
+                                    child: HtmlElementView(
+                                      viewType: isHostTile ? viewType : coHostSlotViewType!,
+                                    ),
                                   ),
 
-                                if (!tileCamOn || isLowBandwidth)
+                                if (!hasRealVideo || !tileCamOn || isLowBandwidth)
                                   Center(
                                     child: Column(
                                       mainAxisSize: MainAxisSize.min,
