@@ -91,17 +91,58 @@ window.lynkAudioStreamHelper = {
   // Mirrors lynkVideoStreamHelper.publishCloudflareTracks, audio-only (no
   // simulcast — one mono voice stream has no quality tiers to publish).
   peerConnection: null,
+  _publishReconnectAttempts: 0,
+  _publishStopped: true,
 
+  // Cloudflare's own docs say to replace the connection (new session) on a
+  // publish failure rather than ICE-restart the same one — there is no
+  // documented same-session recovery for a publisher — so detecting
+  // failure here only dispatches an event; it cannot fix itself the way
+  // the listener side's _scheduleListenerReconnect does. Creating a new
+  // Cloudflare session, re-publishing, persisting the new session id to
+  // streaming_config, and telling listeners to rejoin all require a
+  // Supabase-authenticated call this JS layer can't make on its own — that
+  // sequence lives in ForumAudioStreamCubit, driven by this event.
   async initCloudflarePeerConnection(appId, sessionId) {
     this.cfAppId = appId;
     this.cfSessionId = sessionId;
+    this._publishStopped = false;
     if (this.peerConnection) {
       try { this.peerConnection.close(); } catch (_) {}
     }
     this.peerConnection = new RTCPeerConnection({
       iceServers: [{ urls: 'stun:stun.cloudflare.com:3478' }]
     });
+    this.peerConnection.oniceconnectionstatechange = () => {
+      const state = this.peerConnection && this.peerConnection.iceConnectionState;
+      if ((state === 'failed' || state === 'disconnected') && !this._publishStopped) {
+        this._schedulePublishReconnectNotice();
+      }
+    };
     return true;
+  },
+
+  // Bounded — same 3-attempt shape as the listener side, but this only
+  // notifies Dart once per attempt (with backoff) rather than retrying
+  // itself; the Dart-driven reconnect sequence calls
+  // initCloudflarePeerConnection() again on success, which resets
+  // _publishReconnectAttempts back to 0 implicitly via a fresh
+  // publishCloudflareTracks() call path (see stopPublishing()).
+  _schedulePublishReconnectNotice() {
+    if (this._publishReconnectTimer) return;
+    if (this._publishReconnectAttempts >= 3) {
+      console.warn('[AudioStreamHelper] Publish reconnect gave up after 3 attempts');
+      window.dispatchEvent(new CustomEvent('lynkAudioPublishLost'));
+      return;
+    }
+    const attempt = this._publishReconnectAttempts;
+    this._publishReconnectAttempts++;
+    const delayMs = 1000 * Math.pow(2, attempt);
+    this._publishReconnectTimer = setTimeout(() => {
+      this._publishReconnectTimer = null;
+      if (this._publishStopped) return;
+      window.dispatchEvent(new CustomEvent('lynkAudioPublishNeedsReconnect'));
+    }, delayMs);
   },
 
   // The RTCRtpSender for the published audio track — kept so
@@ -110,11 +151,19 @@ window.lynkAudioStreamHelper = {
   // Cloudflare publish permanently (see toggleMicEnabled's own comment).
   audioSender: null,
 
-  async publishCloudflareTracks(appId, sessionId, edgeFunctionUrl, authToken, forumId) {
+  // forceReconnect: true always tears down and recreates the peer
+  // connection first, even if one already exists — needed by the
+  // publish-reconnect flow, since a failed/disconnected peerConnection is
+  // still non-null (ICE failure doesn't null it out), so the normal
+  // "only init if missing" guard below would otherwise try to reuse a
+  // dead connection instead of replacing it (matches Cloudflare's own
+  // guidance: replace the connection, don't ICE-restart the same one).
+  async publishCloudflareTracks(appId, sessionId, edgeFunctionUrl, authToken, forumId, forceReconnect = false) {
     try {
-      if (!this.peerConnection) {
+      if (!this.peerConnection || forceReconnect) {
         await this.initCloudflarePeerConnection(appId, sessionId);
       }
+      this._publishReconnectAttempts = 0;
       if (!this.localAudioStream) return false;
 
       const audioTrack = this.localAudioStream.getAudioTracks()[0];
@@ -208,6 +257,12 @@ window.lynkAudioStreamHelper = {
   // localAudioStream itself (stopLocalMicrophone's job) — this only stops
   // sending it to Cloudflare.
   stopPublishing() {
+    this._publishStopped = true;
+    this._publishReconnectAttempts = 0;
+    if (this._publishReconnectTimer) {
+      clearTimeout(this._publishReconnectTimer);
+      this._publishReconnectTimer = null;
+    }
     if (this.peerConnection) {
       try { this.peerConnection.close(); } catch (_) {}
       this.peerConnection = null;
@@ -996,24 +1051,59 @@ window.lynkVideoStreamHelper = {
   peerConnection: null,
   cfSessionId: null,
   cfAppId: null,
+  _publishReconnectAttempts: 0,
+  _publishStopped: true,
 
+  // See lynkAudioStreamHelper's identical method for the full rationale —
+  // Cloudflare's own guidance is to replace the connection (a NEW session)
+  // rather than ICE-restart this one, which needs a Supabase-authenticated
+  // call this JS layer can't make; this only dispatches an event, the
+  // actual reconnect sequence runs in ForumVideoStage (stream_stage.dart).
   async initCloudflarePeerConnection(appId, sessionId) {
     this.cfAppId = appId;
     this.cfSessionId = sessionId;
+    this._publishStopped = false;
     if (this.peerConnection) {
       try { this.peerConnection.close(); } catch (_) {}
     }
     this.peerConnection = new RTCPeerConnection({
       iceServers: [{ urls: 'stun:stun.cloudflare.com:3478' }]
     });
+    this.peerConnection.oniceconnectionstatechange = () => {
+      const state = this.peerConnection && this.peerConnection.iceConnectionState;
+      if ((state === 'failed' || state === 'disconnected') && !this._publishStopped) {
+        this._schedulePublishReconnectNotice();
+      }
+    };
     return true;
   },
 
-  async publishCloudflareTracks(appId, sessionId, edgeFunctionUrl, authToken, forumId) {
+  _schedulePublishReconnectNotice() {
+    if (this._publishReconnectTimer) return;
+    if (this._publishReconnectAttempts >= 3) {
+      console.warn('[VideoStreamHelper] Publish reconnect gave up after 3 attempts');
+      window.dispatchEvent(new CustomEvent('lynkVideoPublishLost'));
+      return;
+    }
+    const attempt = this._publishReconnectAttempts;
+    this._publishReconnectAttempts++;
+    const delayMs = 1000 * Math.pow(2, attempt);
+    this._publishReconnectTimer = setTimeout(() => {
+      this._publishReconnectTimer = null;
+      if (this._publishStopped) return;
+      window.dispatchEvent(new CustomEvent('lynkVideoPublishNeedsReconnect'));
+    }, delayMs);
+  },
+
+  // forceReconnect: see lynkAudioStreamHelper.publishCloudflareTracks for
+  // why this is needed (a failed peerConnection is still non-null, so the
+  // default guard below would otherwise try to reuse a dead connection).
+  async publishCloudflareTracks(appId, sessionId, edgeFunctionUrl, authToken, forumId, forceReconnect = false) {
     try {
-      if (!this.peerConnection) {
+      if (!this.peerConnection || forceReconnect) {
         await this.initCloudflarePeerConnection(appId, sessionId);
       }
+      this._publishReconnectAttempts = 0;
       if (!this.videoStream) return false;
 
       const videoTrack = this.videoStream.getVideoTracks()[0];
@@ -1186,6 +1276,12 @@ window.lynkVideoStreamHelper = {
   },
 
   stopVideoStream() {
+    this._publishStopped = true;
+    this._publishReconnectAttempts = 0;
+    if (this._publishReconnectTimer) {
+      clearTimeout(this._publishReconnectTimer);
+      this._publishReconnectTimer = null;
+    }
     if (this.peerConnection) {
       try { this.peerConnection.close(); } catch (_) {}
       this.peerConnection = null;

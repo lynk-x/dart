@@ -4,6 +4,7 @@ import 'dart:ui_web' as ui_web;
 import 'package:flutter/foundation.dart' show kIsWeb, listEquals;
 import 'package:flutter/material.dart';
 import 'package:lynk_core/core.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:web/web.dart' as web;
 
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -112,6 +113,32 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
             AppSnackBars.showInfo(context, 'Lost connection to the live stream.');
           }
         });
+      } else {
+        // Host-side counterpart: JS detected the publish connection failed.
+        // Unlike the listener side, JS can't recover this itself —
+        // Cloudflare's own guidance is to replace the connection (a NEW
+        // session), which needs a Supabase-authenticated session-create
+        // call, so the reconnect sequence runs here.
+        _videoService.onPublishNeedsReconnect(() {
+          unawaited(_reconnectVideoPublish());
+        });
+        _videoService.onPublishLost(() {
+          if (mounted) {
+            AppSnackBars.showInfo(context, 'Lost connection to your live stream. Please end and restart it.');
+          }
+        });
+      }
+
+      final fId = widget.forumId;
+      if (fId != null && fId.isNotEmpty) {
+        // Previously video had no realtime signaling at all — listeners
+        // only ever fetched streaming_config once, on screen open, so
+        // there was no way to tell an already-joined listener the host's
+        // Cloudflare session changed (e.g. after a publish reconnect).
+        _videoService.subscribeToVideoBroadcast(
+          forumId: fId,
+          onEvent: _handleVideoBroadcastEvent,
+        );
       }
 
       if (!_viewRegistered) {
@@ -349,6 +376,82 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
     }
   }
 
+  /// Handles a video_stream_event broadcast — currently only
+  /// 'session_changed', fired by the host's own _reconnectVideoPublish
+  /// after its Cloudflare connection was replaced following a network
+  /// drop. Listener-only: the host ignores its own broadcast (it's already
+  /// on the new session by the time this fires for anyone else).
+  void _handleVideoBroadcastEvent(Map<String, dynamic> payload) {
+    if (widget.isHost) return;
+    final action = payload['action'] as String?;
+    if (action != 'session_changed') return;
+
+    final newSessionId = payload['sessionId'] as String?;
+    final forumId = widget.forumId;
+    if (newSessionId == null || forumId == null || forumId.isEmpty) return;
+
+    unawaited(() async {
+      final success = await _videoService.subscribeToRemoteVideo(
+        elementId: _elementId,
+        forumId: forumId,
+        hostSessionId: newSessionId,
+      );
+      if (mounted && !success) {
+        AppSnackBars.showInfo(context, 'Could not reconnect to the live stream — check your connection.');
+      }
+    }());
+  }
+
+  bool _isReconnectingVideoPublish = false;
+
+  /// Recovers the host's publish connection after the JS layer detects ICE
+  /// failure/disconnect. Per Cloudflare's own guidance there is no
+  /// supported same-session recovery for a publisher, so this replaces the
+  /// connection entirely: a NEW Cloudflare session, republished tracks,
+  /// the new session id persisted to streaming_config, and a
+  /// 'session_changed' broadcast so already-joined listeners re-pull
+  /// against the new session (see _handleVideoBroadcastEvent). Mirrors
+  /// ForumAudioStreamCubit._reconnectPublish exactly — video just has no
+  /// cubit of its own, so this lives on the stage widget's state instead.
+  Future<void> _reconnectVideoPublish() async {
+    if (_isReconnectingVideoPublish || !_videoService.isLiveNotifier.value) {
+      return;
+    }
+    final forumId = widget.forumId;
+    if (forumId == null || forumId.isEmpty) return;
+
+    _isReconnectingVideoPublish = true;
+    try {
+      final newSessionId = await _videoService.createCloudflareSession(forumId);
+      if (!mounted || newSessionId == null) return;
+
+      final published = await _videoService.publishCloudflareStream(
+        customSessionId: newSessionId,
+        forceReconnect: true,
+      );
+      if (!mounted || !published) return;
+
+      final userId = Supabase.instance.client.auth.currentUser?.id;
+      await _videoService.updateForumStreamingConfig(
+        forumId: forumId,
+        isLive: true,
+        sessionId: newSessionId,
+        hostId: userId,
+      );
+      if (!mounted) return;
+
+      await _videoService.broadcastVideoEvent(
+        action: 'session_changed',
+        sessionId: newSessionId,
+        hostId: userId,
+      );
+    } catch (e) {
+      debugPrint('[ForumVideoStage] _reconnectVideoPublish error: $e');
+    } finally {
+      _isReconnectingVideoPublish = false;
+    }
+  }
+
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
@@ -357,6 +460,8 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
     }
     if (!widget.isHost) {
       _videoService.removeListenerLostCallback();
+    } else {
+      _videoService.removePublishReconnectCallbacks();
     }
     _audioLevelTimer?.cancel();
     _durationTimer?.cancel();
@@ -371,6 +476,7 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
         _videoService.unsubscribeFromRemoteVideo();
         _videoService.setLive(false);
       }
+      unawaited(_videoService.unsubscribeVideoBroadcast());
       if (kIsWeb && _videoElement != null) {
         _videoElement!.srcObject = null;
       }
