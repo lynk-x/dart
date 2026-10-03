@@ -56,6 +56,7 @@ external JSPromise<JSBoolean> _jsPublishCloudflareTracks(
   JSString edgeFunctionUrl,
   JSString authToken,
   JSString forumId,
+  JSBoolean forceReconnect,
 );
 
 /// Receive-side quality for a listener's own audio connection — see
@@ -85,6 +86,8 @@ class ForumAudioStreamService {
 
   RealtimeChannel? _channel;
   JSFunction? _listenerLostListener;
+  JSFunction? _publishNeedsReconnectListener;
+  JSFunction? _publishLostListener;
 
   /// Set by createCloudflareSession() before publishCloudflareTracks() needs
   /// it — mirrors ForumVideoStreamService._cfAppId.
@@ -115,6 +118,43 @@ class ForumAudioStreamService {
     if (!kIsWeb || _listenerLostListener == null) return;
     web.window.removeEventListener('lynkAudioListenerLost', _listenerLostListener);
     _listenerLostListener = null;
+  }
+
+  /// Registers [onNeedsReconnect] to fire each time the JS layer's publish
+  /// side detects its Cloudflare connection has failed/disconnected and
+  /// wants to retry (bounded at 3 attempts, with backoff already applied
+  /// JS-side before this fires) — see audio_stream_helper.js's
+  /// _schedulePublishReconnectNotice. The JS layer can't recover this
+  /// itself: Cloudflare's own guidance is to replace the connection (a NEW
+  /// session), which requires a Supabase-authenticated session-creation
+  /// call only Dart can make, plus persisting the new session id and
+  /// telling listeners to rejoin — all driven from here, not JS.
+  void onPublishNeedsReconnect(void Function() onNeedsReconnect) {
+    if (!kIsWeb) return;
+    removePublishReconnectCallbacks();
+    _publishNeedsReconnectListener = ((web.Event event) => onNeedsReconnect()).toJS;
+    web.window.addEventListener('lynkAudioPublishNeedsReconnect', _publishNeedsReconnectListener);
+  }
+
+  /// Registers [onLost] to fire once the JS layer's publish-reconnect
+  /// attempts are exhausted (3 attempts) — the host's call could not be
+  /// restored and the UI should tell them to end/restart it manually.
+  void onPublishLost(void Function() onLost) {
+    if (!kIsWeb) return;
+    _publishLostListener = ((web.Event event) => onLost()).toJS;
+    web.window.addEventListener('lynkAudioPublishLost', _publishLostListener);
+  }
+
+  void removePublishReconnectCallbacks() {
+    if (!kIsWeb) return;
+    if (_publishNeedsReconnectListener != null) {
+      web.window.removeEventListener('lynkAudioPublishNeedsReconnect', _publishNeedsReconnectListener);
+      _publishNeedsReconnectListener = null;
+    }
+    if (_publishLostListener != null) {
+      web.window.removeEventListener('lynkAudioPublishLost', _publishLostListener);
+      _publishLostListener = null;
+    }
   }
 
   /// Controls HTML5 audio element broadcast mute state on Web
@@ -414,7 +454,11 @@ class ForumAudioStreamService {
   /// and createCloudflareSession() (needs [_cfAppId]/a real session id) —
   /// this was previously missing entirely, so audio-only calls created a
   /// Cloudflare session but never actually sent any media to it.
-  Future<bool> publishCloudflareTracks(String forumId, String sessionId) async {
+  Future<bool> publishCloudflareTracks(
+    String forumId,
+    String sessionId, {
+    bool forceReconnect = false,
+  }) async {
     if (!kIsWeb) return true;
     try {
       final session = supabase.auth.currentSession;
@@ -425,6 +469,7 @@ class ForumAudioStreamService {
         '$supabaseUrl/functions/v1'.toJS,
         (session?.accessToken ?? '').toJS,
         forumId.toJS,
+        forceReconnect.toJS,
       ).toDart;
       return res.toDart;
     } catch (e) {

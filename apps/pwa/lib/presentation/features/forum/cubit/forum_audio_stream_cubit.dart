@@ -40,6 +40,22 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
       ));
     });
 
+    // Host-side counterpart: the JS publish connection detected ICE
+    // failure/disconnect. Unlike the listener side, JS can't recover this
+    // itself — Cloudflare's own guidance is to replace the connection
+    // (a NEW session), which needs a Supabase-authenticated session-create
+    // call, so the actual reconnect sequence runs here, not in JS.
+    service.onPublishNeedsReconnect(() {
+      if (isClosed || state.role != ForumHeaderRole.host) return;
+      unawaited(_reconnectPublish());
+    });
+    service.onPublishLost(() {
+      if (isClosed || state.role != ForumHeaderRole.host) return;
+      emit(state.copyWith(
+        errorMessage: 'Lost connection to your live call. Please end and restart it.',
+      ));
+    });
+
     // React to isLive/role transitions from ANY of the several emit sites
     // (start_stream, initial sync, joinAudioStream, end_stream) rather than
     // threading timer start/stop calls through each one individually.
@@ -486,12 +502,64 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
     ));
   }
 
+  bool _isReconnectingPublish = false;
+
+  /// Recovers the host's publish connection after the JS layer detects
+  /// ICE failure/disconnect (see service.onPublishNeedsReconnect). Per
+  /// Cloudflare's own guidance there is no supported same-session recovery
+  /// for a publisher, so this replaces the connection entirely: a NEW
+  /// Cloudflare session, republished tracks, the new session id persisted
+  /// to streaming_config, and a 'start_stream' broadcast carrying it — the
+  /// same broadcast _handleAudioEvent's 'start_stream' case already
+  /// unconditionally re-subscribes a listener against, so every connected
+  /// listener rejoins automatically with no change needed on their side.
+  Future<void> _reconnectPublish() async {
+    if (_isReconnectingPublish || !state.isLive || state.role != ForumHeaderRole.host) {
+      return;
+    }
+    _isReconnectingPublish = true;
+    try {
+      final newSessionId = await service.createCloudflareSession(forumId);
+      if (isClosed || newSessionId == null) return;
+
+      final published = await service.publishCloudflareTracks(
+        forumId,
+        newSessionId,
+        forceReconnect: true,
+      );
+      if (isClosed || !published) return;
+
+      await service.updateForumStreamingConfig(
+        forumId: forumId,
+        isLive: true,
+        sessionId: newSessionId,
+        hostId: userId,
+      );
+      if (isClosed) return;
+
+      emit(state.copyWith(sessionId: newSessionId));
+
+      await service.broadcastAudioEvent(
+        action: 'start_stream',
+        sessionId: newSessionId,
+        hostId: userId,
+        activeSpeakers: state.activeSpeakerNames,
+        extraData: {'hostName': userName},
+      );
+    } catch (e) {
+      debugPrint('[ForumAudioStreamCubit] _reconnectPublish error: $e');
+    } finally {
+      _isReconnectingPublish = false;
+    }
+  }
+
   @override
   Future<void> close() async {
     _reconnectTimer?.cancel();
     _telemetrySub?.cancel();
     _stopTelemetryPolling();
     service.removeListenerLostCallback();
+    service.removePublishReconnectCallbacks();
     service.stopLocalMicrophone();
     if (state.role != ForumHeaderRole.host) {
       service.unsubscribeFromRemoteAudio();

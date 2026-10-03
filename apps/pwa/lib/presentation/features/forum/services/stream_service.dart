@@ -44,6 +44,7 @@ external JSPromise<JSBoolean> _jsPublishCloudflareTracks(
   JSString edgeFunctionUrl,
   JSString authToken,
   JSString forumId,
+  JSBoolean forceReconnect,
 );
 
 @JS('window.lynkVideoStreamHelper.joinAsVideoListener')
@@ -162,6 +163,8 @@ class ForumVideoStreamService {
   ForumVideoStreamService._internal();
 
   JSFunction? _listenerLostListener;
+  JSFunction? _publishNeedsReconnectListener;
+  JSFunction? _publishLostListener;
 
   /// Registers [onLost] to fire when the JS layer's listener-side retry
   /// (see audio_stream_helper.js's _scheduleListenerReconnect, video block)
@@ -179,6 +182,88 @@ class ForumVideoStreamService {
     if (!kIsWeb || _listenerLostListener == null) return;
     web.window.removeEventListener('lynkVideoListenerLost', _listenerLostListener);
     _listenerLostListener = null;
+  }
+
+  /// Registers [onNeedsReconnect] to fire each time the JS layer's publish
+  /// side detects its Cloudflare connection has failed/disconnected — see
+  /// ForumAudioStreamService.onPublishNeedsReconnect for the full
+  /// rationale (same mechanism, video's publish connection).
+  void onPublishNeedsReconnect(void Function() onNeedsReconnect) {
+    if (!kIsWeb) return;
+    removePublishReconnectCallbacks();
+    _publishNeedsReconnectListener = ((web.Event event) => onNeedsReconnect()).toJS;
+    web.window.addEventListener('lynkVideoPublishNeedsReconnect', _publishNeedsReconnectListener);
+  }
+
+  /// Registers [onLost] to fire once the JS layer's publish-reconnect
+  /// attempts are exhausted (3 attempts).
+  void onPublishLost(void Function() onLost) {
+    if (!kIsWeb) return;
+    _publishLostListener = ((web.Event event) => onLost()).toJS;
+    web.window.addEventListener('lynkVideoPublishLost', _publishLostListener);
+  }
+
+  void removePublishReconnectCallbacks() {
+    if (!kIsWeb) return;
+    if (_publishNeedsReconnectListener != null) {
+      web.window.removeEventListener('lynkVideoPublishNeedsReconnect', _publishNeedsReconnectListener);
+      _publishNeedsReconnectListener = null;
+    }
+    if (_publishLostListener != null) {
+      web.window.removeEventListener('lynkVideoPublishLost', _publishLostListener);
+      _publishLostListener = null;
+    }
+  }
+
+  RealtimeChannel? _videoChannel;
+
+  /// Realtime broadcast channel for video stream lifecycle events —
+  /// previously video had NO signaling channel at all (listeners only
+  /// ever pulled streaming_config once, on screen open), which meant there
+  /// was no way to tell an already-joined listener that the host's
+  /// Cloudflare session changed (e.g. after a publish reconnect). Mirrors
+  /// ForumAudioStreamService.subscribeToAudioBroadcast exactly, one
+  /// separate channel so a busy audio call elsewhere in the same forum
+  /// doesn't cross-fire video listeners or vice versa.
+  RealtimeChannel subscribeToVideoBroadcast({
+    required String forumId,
+    required void Function(Map<String, dynamic> payload) onEvent,
+  }) {
+    _videoChannel?.unsubscribe();
+    _videoChannel = Supabase.instance.client.channel('forum_video:$forumId');
+
+    _videoChannel!.onBroadcast(
+      event: 'video_stream_event',
+      callback: (payload) {
+        onEvent(payload);
+      },
+    ).subscribe();
+
+    return _videoChannel!;
+  }
+
+  Future<void> broadcastVideoEvent({
+    required String action,
+    String? sessionId,
+    String? hostId,
+    Map<String, dynamic>? extraData,
+  }) async {
+    if (_videoChannel == null) return;
+    await _videoChannel!.sendBroadcastMessage(
+      event: 'video_stream_event',
+      payload: {
+        'action': action,
+        if (sessionId != null) 'sessionId': sessionId,
+        if (hostId != null) 'hostId': hostId,
+        if (extraData != null) ...extraData,
+        'timestamp': DateTime.now().millisecondsSinceEpoch,
+      },
+    );
+  }
+
+  Future<void> unsubscribeVideoBroadcast() async {
+    await _videoChannel?.unsubscribe();
+    _videoChannel = null;
   }
 
   final ValueNotifier<bool> isMinimizedNotifier = ValueNotifier<bool>(false);
@@ -707,11 +792,14 @@ class ForumVideoStreamService {
 
   /// Publishes local video & audio WebRTC tracks to Cloudflare Calls SFU.
   /// No-op if tracks for the current [cfSessionId] are already published.
-  Future<bool> publishCloudflareStream({String? customSessionId}) async {
+  Future<bool> publishCloudflareStream({
+    String? customSessionId,
+    bool forceReconnect = false,
+  }) async {
     if (!kIsWeb) return true;
     final targetSessionId = customSessionId ?? cfSessionId ?? 'mock_cf_session';
     // Skip re-publishing if already live on the same session.
-    if (_isPublished && customSessionId == null) return true;
+    if (_isPublished && customSessionId == null && !forceReconnect) return true;
     try {
       final session = Supabase.instance.client.auth.currentSession;
       const supabaseUrl = String.fromEnvironment('SUPABASE_URL');
@@ -721,6 +809,7 @@ class ForumVideoStreamService {
         '$supabaseUrl/functions/v1'.toJS,
         (session?.accessToken ?? '').toJS,
         forumId.toJS,
+        forceReconnect.toJS,
       ).toDart;
       _isPublished = res.toDart;
       return _isPublished;
@@ -747,6 +836,15 @@ class ForumVideoStreamService {
   Future<bool> startVideoStream(String elementId, {bool isFrontCamera = true}) async {
     if (!kIsWeb) return true;
     try {
+      // The JS side unconditionally tears down any existing publish
+      // connection/senders before re-acquiring media (needed for camera
+      // flips and re-entering after screen share) — but that teardown
+      // happens inside JS's own stopVideoStream(), not through this Dart
+      // wrapper, so _isPublished was going stale: still true from the
+      // FIRST publish, which made publishCloudflareStream()'s "already
+      // published" guard skip republishing entirely after every camera
+      // flip, silently leaving the new tracks never sent to Cloudflare.
+      _isPublished = false;
       final res = await _jsStartVideoStream(elementId.toJS, isFrontCamera.toJS).toDart;
       if (res.toDart) {
         publishCloudflareStream();
