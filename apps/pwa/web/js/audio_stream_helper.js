@@ -73,7 +73,42 @@ window.lynkAudioStreamHelper = {
     this.setupAudioAnalyser(stream);
   },
 
+  // One <audio> element per remote participant — binding every pulled
+  // stream to the single shared element (bindRemoteStream, still used for
+  // the single-speaker host pull) would make each new stream silently
+  // replace the previous one's srcObject, so only the most recently
+  // joined participant would ever actually be heard. Keyed by userId so a
+  // given participant's element can be found again on participant_left
+  // teardown.
+  _remoteParticipantElements: {},
+
+  bindRemoteParticipantStream(userId, stream) {
+    let el = this._remoteParticipantElements[userId];
+    if (!el) {
+      el = document.createElement('audio');
+      el.id = `lynk_live_audio_node_${userId}`;
+      el.autoplay = true;
+      el.style.display = 'none';
+      el.setAttribute('playsinline', 'true');
+      document.body.appendChild(el);
+      this._remoteParticipantElements[userId] = el;
+    }
+    el.srcObject = stream;
+    el.muted = false;
+    el.play().catch(e => console.warn('[AudioStreamHelper] Participant auto-play prevented:', e));
+  },
+
+  unbindRemoteParticipantStream(userId) {
+    const el = this._remoteParticipantElements[userId];
+    if (!el) return;
+    el.pause();
+    el.srcObject = null;
+    el.remove();
+    delete this._remoteParticipantElements[userId];
+  },
+
   listenerPeerConnection: null,
+  cfListenerSessionId: null,
   _listenerReconnectAttempts: 0,
   _listenerReconnectTimer: null,
   _listenerParams: null,
@@ -158,7 +193,13 @@ window.lynkAudioStreamHelper = {
   // "only init if missing" guard below would otherwise try to reuse a
   // dead connection instead of replacing it (matches Cloudflare's own
   // guidance: replace the connection, don't ICE-restart the same one).
-  async publishCloudflareTracks(appId, sessionId, edgeFunctionUrl, authToken, forumId, forceReconnect = false) {
+  //
+  // trackName: defaults to 'audio' (today's single-publisher behavior,
+  // unchanged for existing callers) — multi-speaker calls pass the
+  // speaker's own user id instead, so Cloudflare's (sessionId, trackName)
+  // pair uniquely addresses this specific speaker's track, not just "the
+  // call's audio." See social.forum_call_participants.track_name.
+  async publishCloudflareTracks(appId, sessionId, edgeFunctionUrl, authToken, forumId, forceReconnect = false, trackName = 'audio') {
     try {
       if (!this.peerConnection || forceReconnect) {
         await this.initCloudflarePeerConnection(appId, sessionId);
@@ -180,12 +221,12 @@ window.lynkAudioStreamHelper = {
       const tracks = [{
         location: 'local',
         mid: transceiver.mid,
-        trackName: 'audio'
+        trackName: trackName
       }];
 
-      if (!appId || !sessionId || appId === '' || sessionId.startsWith('mock_')) {
-        console.log('[AudioStreamHelper] Mock Cloudflare WebRTC SDP exchange simulated');
-        return true;
+      if (!appId || !sessionId) {
+        console.warn('[AudioStreamHelper] publishCloudflareTracks: missing appId/sessionId');
+        return false;
       }
 
       const res = await fetch(`${edgeFunctionUrl}/cloudflare-calls-session`, {
@@ -270,15 +311,32 @@ window.lynkAudioStreamHelper = {
     this.audioSender = null;
   },
 
+  // Maps a transceiver's mid to the participant userId it was requested
+  // for — populated by addParticipantTrack() (and the single-speaker
+  // joinAsListener path, keyed 'host') from the mid Cloudflare's
+  // tracks/new response returns for each requested track, so ontrack
+  // (which only ever gets a bare transceiver.mid, no participant
+  // identity) can route each incoming stream to that participant's own
+  // <audio> element instead of all of them colliding on one shared
+  // element.
+  _midToParticipantId: {},
+
   initCloudflareListenerConnection() {
     if (this.listenerPeerConnection) {
       try { this.listenerPeerConnection.close(); } catch (_) {}
     }
+    this._midToParticipantId = {};
     this.listenerPeerConnection = new RTCPeerConnection({
       iceServers: [{ urls: 'stun:stun.cloudflare.com:3478' }]
     });
     this.listenerPeerConnection.ontrack = (event) => {
-      if (event.streams && event.streams[0]) {
+      if (!event.streams || !event.streams[0]) return;
+      const mid = event.transceiver && event.transceiver.mid;
+      const participantId = mid != null ? this._midToParticipantId[mid] : null;
+      if (participantId && participantId !== 'host') {
+        this.bindRemoteParticipantStream(participantId, event.streams[0]);
+      } else {
+        // Single-speaker path (today's host-only call) — unchanged.
         this.bindRemoteStream(event.streams[0]);
       }
     };
@@ -342,12 +400,6 @@ window.lynkAudioStreamHelper = {
       const offer = await this.listenerPeerConnection.createOffer();
       await this.listenerPeerConnection.setLocalDescription(offer);
 
-      if (remoteSessionId.startsWith('mock_')) {
-        console.log('[AudioStreamHelper] Mock Cloudflare remote track pull simulated');
-        this._listenerReconnectAttempts = 0;
-        return true;
-      }
-
       const res = await fetch(`${edgeFunctionUrl}/cloudflare-calls-session`, {
         method: 'POST',
         headers: {
@@ -370,6 +422,9 @@ window.lynkAudioStreamHelper = {
         const data = await res.json();
         if (data.sessionDescription && data.sessionDescription.sdp) {
           await this.listenerPeerConnection.setRemoteDescription(new RTCSessionDescription(data.sessionDescription));
+          // Needed by addParticipantTrack() to add further co-hosts' tracks to
+          // this same connection later.
+          this.cfListenerSessionId = data.listenerSessionId;
           console.log('[AudioStreamHelper] Joined as listener successfully');
           this._listenerReconnectAttempts = 0;
           return true;
@@ -383,6 +438,108 @@ window.lynkAudioStreamHelper = {
     return false;
   },
 
+  // Adds a co-host's track to the EXISTING listener connection (does not
+  // touch whatever is already flowing) — the multi-speaker counterpart to
+  // joinAsListener, which always creates a fresh connection and is only
+  // for the first (host) track. Requires listenerPeerConnection to
+  // already exist (call joinAsListener first for the host's own track).
+  // Per Cloudflare's docs this needs a two-step exchange, NOT the
+  // offer-first flow pull_remote_track/join_as_listener use: the server
+  // returns a fresh OFFER (requiresImmediateRenegotiation), which this
+  // answers via a separate renegotiate_listener call — verified against
+  // Cloudflare's own OpenAPI schema rather than assumed.
+  async addParticipantTrack(edgeFunctionUrl, authToken, forumId, participantUserId, remoteSessionId, remoteTrackName) {
+    if (!this.listenerPeerConnection) {
+      console.warn('[AudioStreamHelper] addParticipantTrack: no existing listener connection — call joinAsListener first');
+      return false;
+    }
+
+    try {
+      const res = await fetch(`${edgeFunctionUrl}/cloudflare-calls-session`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`
+        },
+        body: JSON.stringify({
+          action: 'add_remote_track',
+          forumId: forumId,
+          listenerSessionId: this.cfListenerSessionId,
+          remoteSessionId: remoteSessionId,
+          remoteTrackName: remoteTrackName
+        })
+      });
+
+      if (!res.ok) {
+        console.warn('[AudioStreamHelper] add_remote_track request failed:', res.status);
+        return false;
+      }
+
+      const data = await res.json();
+      if (!data.sessionDescription || !data.sessionDescription.sdp) {
+        console.warn('[AudioStreamHelper] add_remote_track: no offer in response');
+        return false;
+      }
+
+      // The new track's mid — recorded BEFORE setRemoteDescription so
+      // ontrack (which can fire synchronously during setRemoteDescription)
+      // already has it available for routing.
+      const newTrackInfo = (data.tracks || []).find(t => t.trackName === remoteTrackName);
+      if (newTrackInfo && newTrackInfo.mid != null) {
+        this._midToParticipantId[newTrackInfo.mid] = participantUserId;
+      }
+
+      await this.listenerPeerConnection.setRemoteDescription(new RTCSessionDescription(data.sessionDescription));
+      const answer = await this.listenerPeerConnection.createAnswer();
+      await this.listenerPeerConnection.setLocalDescription(answer);
+
+      const renegRes = await fetch(`${edgeFunctionUrl}/cloudflare-calls-session`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`
+        },
+        body: JSON.stringify({
+          action: 'renegotiate_listener',
+          forumId: forumId,
+          listenerSessionId: this.cfListenerSessionId,
+          sessionDescription: {
+            type: 'answer',
+            sdp: answer.sdp
+          }
+        })
+      });
+
+      if (!renegRes.ok) {
+        console.warn('[AudioStreamHelper] renegotiate_listener request failed:', renegRes.status);
+        return false;
+      }
+
+      console.log('[AudioStreamHelper] Added participant track successfully:', participantUserId);
+      return true;
+    } catch (e) {
+      console.warn('[AudioStreamHelper] addParticipantTrack error:', e);
+      return false;
+    }
+  },
+
+  // Removes a co-host's track — stops hearing them, detaches their
+  // <audio> element, and clears their mid mapping. Does NOT renegotiate
+  // the connection or notify Cloudflare: the transceiver is simply left
+  // in place receiving a track that stops arriving once the participant's
+  // own publish ends (Cloudflare tears down the publisher-side track,
+  // which naturally stops delivery here) — matching the existing mute
+  // pattern (replaceTrack(null)) of leaving connections alone rather than
+  // renegotiating for every state change.
+  removeParticipantTrack(participantUserId) {
+    this.unbindRemoteParticipantStream(participantUserId);
+    for (const mid of Object.keys(this._midToParticipantId)) {
+      if (this._midToParticipantId[mid] === participantUserId) {
+        delete this._midToParticipantId[mid];
+      }
+    }
+  },
+
   // Tears down the listener-side peer connection and detaches the remote
   // stream from the audio element. Does NOT touch localAudioStream (the
   // listener's own mic, if they're also speaking) — that's stopLocalMicrophone's job.
@@ -390,6 +547,8 @@ window.lynkAudioStreamHelper = {
     this._listenerStopped = true;
     this._listenerParams = null;
     this._listenerReconnectAttempts = 0;
+    this.cfListenerSessionId = null;
+    this._midToParticipantId = {};
     if (this._listenerReconnectTimer) {
       clearTimeout(this._listenerReconnectTimer);
       this._listenerReconnectTimer = null;
@@ -401,6 +560,9 @@ window.lynkAudioStreamHelper = {
     if (this.audioElement) {
       this.audioElement.pause();
       this.audioElement.srcObject = null;
+    }
+    for (const userId of Object.keys(this._remoteParticipantElements)) {
+      this.unbindRemoteParticipantStream(userId);
     }
   },
 
@@ -1098,13 +1260,24 @@ window.lynkVideoStreamHelper = {
   // forceReconnect: see lynkAudioStreamHelper.publishCloudflareTracks for
   // why this is needed (a failed peerConnection is still non-null, so the
   // default guard below would otherwise try to reuse a dead connection).
-  async publishCloudflareTracks(appId, sessionId, edgeFunctionUrl, authToken, forumId, forceReconnect = false) {
+  //
+  // trackBaseName: defaults to '' (today's single-publisher behavior,
+  // producing the unchanged literal track names 'video'/'audio') —
+  // multi-speaker calls pass the speaker's own user id instead, suffixed
+  // below, since one Cloudflare session still needs its video and audio
+  // tracks named distinctly from each other even once the session itself
+  // is already scoped to one speaker. See
+  // social.forum_call_participants.track_name.
+  async publishCloudflareTracks(appId, sessionId, edgeFunctionUrl, authToken, forumId, forceReconnect = false, trackBaseName = '') {
     try {
       if (!this.peerConnection || forceReconnect) {
         await this.initCloudflarePeerConnection(appId, sessionId);
       }
       this._publishReconnectAttempts = 0;
       if (!this.videoStream) return false;
+
+      const videoTrackName = trackBaseName ? `${trackBaseName}:video` : 'video';
+      const audioTrackName = trackBaseName ? `${trackBaseName}:audio` : 'audio';
 
       const videoTrack = this.videoStream.getVideoTracks()[0];
       const audioTrack = this.videoStream.getAudioTracks()[0];
@@ -1154,20 +1327,20 @@ window.lynkVideoStreamHelper = {
         tracks.push({
           location: 'local',
           mid: videoTransceiver.mid,
-          trackName: 'video'
+          trackName: videoTrackName
         });
       }
       if (audioTransceiver) {
         tracks.push({
           location: 'local',
           mid: audioTransceiver.mid,
-          trackName: 'audio'
+          trackName: audioTrackName
         });
       }
 
-      if (!appId || !sessionId || appId === '' || sessionId.startsWith('mock_')) {
-        console.log('[VideoStreamHelper] Mock Cloudflare WebRTC SDP exchange simulated');
-        return true;
+      if (!appId || !sessionId) {
+        console.warn('[VideoStreamHelper] publishCloudflareTracks: missing appId/sessionId');
+        return false;
       }
 
       const res = await fetch(`${edgeFunctionUrl}/cloudflare-calls-session`, {
@@ -1304,21 +1477,52 @@ window.lynkVideoStreamHelper = {
 
   listenerPeerConnection: null,
   listenerElement: null,
+  cfListenerSessionId: null,
   _listenerReconnectAttempts: 0,
   _listenerReconnectTimer: null,
   _listenerParams: null,
   _listenerStopped: false,
 
+  // mid -> participant userId, mirrors
+  // lynkAudioStreamHelper._midToParticipantId — see that field's comment
+  // for the full rationale (ontrack only ever gets a bare transceiver.mid,
+  // not participant identity).
+  _videoMidToParticipantId: {},
+  // participant userId -> the pre-registered Flutter platform-view
+  // element id it's currently bound to (one of a small fixed pool of slot
+  // elements — Dart registers these once via registerViewFactory at
+  // startup, since Flutter web view factories are meant to be registered
+  // upfront, not dynamically per-userId at runtime; userIds aren't known
+  // ahead of time but the speaker cap is, so slots are allocated/reused
+  // instead).
+  _participantIdToSlotElementId: {},
+
   initCloudflareVideoListenerConnection(elementId) {
     if (this.listenerPeerConnection) {
       try { this.listenerPeerConnection.close(); } catch (_) {}
     }
+    this._videoMidToParticipantId = {};
     this.listenerElement = document.getElementById(elementId) || null;
     this.listenerPeerConnection = new RTCPeerConnection({
       iceServers: [{ urls: 'stun:stun.cloudflare.com:3478' }]
     });
     this.listenerPeerConnection.ontrack = (event) => {
-      if (event.streams && event.streams[0] && this.listenerElement) {
+      if (!event.streams || !event.streams[0]) return;
+      const mid = event.transceiver && event.transceiver.mid;
+      const participantId = mid != null ? this._videoMidToParticipantId[mid] : null;
+      if (participantId && participantId !== 'host') {
+        const slotElementId = this._participantIdToSlotElementId[participantId];
+        const slotEl = slotElementId ? document.getElementById(slotElementId) : null;
+        if (slotEl) {
+          slotEl.srcObject = event.streams[0];
+          slotEl.muted = true; // video grid tiles are silent — audio comes from the separate per-participant <audio> element
+          slotEl.style.objectFit = 'cover';
+          slotEl.play().catch(e => console.warn('[VideoStreamHelper] participant video play failed:', e));
+        }
+        return;
+      }
+      // Single-speaker path (today's host-only call) — unchanged.
+      if (this.listenerElement) {
         this.listenerElement.srcObject = event.streams[0];
         this.listenerElement.muted = false;
         this.listenerElement.style.objectFit = 'cover';
@@ -1374,12 +1578,6 @@ window.lynkVideoStreamHelper = {
       const offer = await this.listenerPeerConnection.createOffer();
       await this.listenerPeerConnection.setLocalDescription(offer);
 
-      if (remoteSessionId.startsWith('mock_')) {
-        console.log('[VideoStreamHelper] Mock Cloudflare remote video track pull simulated');
-        this._listenerReconnectAttempts = 0;
-        return true;
-      }
-
       const res = await fetch(`${edgeFunctionUrl}/cloudflare-calls-session`, {
         method: 'POST',
         headers: {
@@ -1402,6 +1600,9 @@ window.lynkVideoStreamHelper = {
         const data = await res.json();
         if (data.sessionDescription && data.sessionDescription.sdp) {
           await this.listenerPeerConnection.setRemoteDescription(new RTCSessionDescription(data.sessionDescription));
+          // Needed by addParticipantVideoTrack() to add further co-hosts'
+          // video tracks to this same connection later.
+          this.cfListenerSessionId = data.listenerSessionId;
           console.log('[VideoStreamHelper] Joined as video listener successfully');
           this._listenerReconnectAttempts = 0;
           return true;
@@ -1415,10 +1616,121 @@ window.lynkVideoStreamHelper = {
     return false;
   },
 
+  // Adds a co-host's VIDEO track to the EXISTING listener connection (does
+  // not touch whatever is already flowing) — the multi-speaker counterpart
+  // to joinAsVideoListener, which always creates a fresh connection and is
+  // only for the first (host) track. Requires listenerPeerConnection to
+  // already exist (call joinAsVideoListener first for the host's own
+  // track). Binds into slotElementId, one of a small fixed pool of
+  // pre-registered platform-view elements — see
+  // _participantIdToSlotElementId's comment for why slots instead of per-
+  // userId dynamic registration. Mirrors
+  // lynkAudioStreamHelper.addParticipantTrack's two-step (server-offer,
+  // client-answer) exchange exactly — see that method's comment for the
+  // Cloudflare mechanics, verified against their own OpenAPI schema.
+  async addParticipantVideoTrack(edgeFunctionUrl, authToken, forumId, participantUserId, slotElementId, remoteSessionId, remoteTrackName) {
+    if (!this.listenerPeerConnection) {
+      console.warn('[VideoStreamHelper] addParticipantVideoTrack: no existing listener connection — call joinAsVideoListener first');
+      return false;
+    }
+
+    this._participantIdToSlotElementId[participantUserId] = slotElementId;
+
+    try {
+      const res = await fetch(`${edgeFunctionUrl}/cloudflare-calls-session`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`
+        },
+        body: JSON.stringify({
+          action: 'add_remote_track',
+          forumId: forumId,
+          listenerSessionId: this.cfListenerSessionId,
+          remoteSessionId: remoteSessionId,
+          remoteTrackName: remoteTrackName
+        })
+      });
+
+      if (!res.ok) {
+        console.warn('[VideoStreamHelper] add_remote_track request failed:', res.status);
+        return false;
+      }
+
+      const data = await res.json();
+      if (!data.sessionDescription || !data.sessionDescription.sdp) {
+        console.warn('[VideoStreamHelper] add_remote_track: no offer in response');
+        return false;
+      }
+
+      const newTrackInfo = (data.tracks || []).find(t => t.trackName === remoteTrackName);
+      if (newTrackInfo && newTrackInfo.mid != null) {
+        this._videoMidToParticipantId[newTrackInfo.mid] = participantUserId;
+      }
+
+      await this.listenerPeerConnection.setRemoteDescription(new RTCSessionDescription(data.sessionDescription));
+      const answer = await this.listenerPeerConnection.createAnswer();
+      await this.listenerPeerConnection.setLocalDescription(answer);
+
+      const renegRes = await fetch(`${edgeFunctionUrl}/cloudflare-calls-session`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`
+        },
+        body: JSON.stringify({
+          action: 'renegotiate_listener',
+          forumId: forumId,
+          listenerSessionId: this.cfListenerSessionId,
+          sessionDescription: {
+            type: 'answer',
+            sdp: answer.sdp
+          }
+        })
+      });
+
+      if (!renegRes.ok) {
+        console.warn('[VideoStreamHelper] renegotiate_listener request failed:', renegRes.status);
+        return false;
+      }
+
+      console.log('[VideoStreamHelper] Added participant video track successfully:', participantUserId);
+      return true;
+    } catch (e) {
+      console.warn('[VideoStreamHelper] addParticipantVideoTrack error:', e);
+      return false;
+    }
+  },
+
+  // Frees a participant's slot element and mid mapping — does NOT
+  // renegotiate or notify Cloudflare, same reasoning as
+  // lynkAudioStreamHelper.removeParticipantTrack.
+  removeParticipantVideoTrack(participantUserId) {
+    const slotElementId = this._participantIdToSlotElementId[participantUserId];
+    if (slotElementId) {
+      const slotEl = document.getElementById(slotElementId);
+      if (slotEl) {
+        slotEl.pause();
+        slotEl.srcObject = null;
+      }
+      delete this._participantIdToSlotElementId[participantUserId];
+    }
+    for (const mid of Object.keys(this._videoMidToParticipantId)) {
+      if (this._videoMidToParticipantId[mid] === participantUserId) {
+        delete this._videoMidToParticipantId[mid];
+      }
+    }
+  },
+
   stopListeningVideo() {
     this._listenerStopped = true;
     this._listenerParams = null;
     this._listenerReconnectAttempts = 0;
+    this.cfListenerSessionId = null;
+    this._videoMidToParticipantId = {};
+    for (const participantId of Object.keys(this._participantIdToSlotElementId)) {
+      this.removeParticipantVideoTrack(participantId);
+    }
     if (this._listenerReconnectTimer) {
       clearTimeout(this._listenerReconnectTimer);
       this._listenerReconnectTimer = null;

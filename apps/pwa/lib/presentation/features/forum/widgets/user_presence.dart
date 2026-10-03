@@ -24,6 +24,26 @@ class UserPresenceCard extends StatefulWidget {
   final ValueChanged<String>? onToggleMic;
   final ValueChanged<String>? onToggleCamera;
 
+  /// Whether a live audio call is currently active in this forum — gates
+  /// both "Join as Co-host" (self) and "Invite to Speak" (others), since
+  /// neither makes sense with no call to join.
+  final bool isAudioCallLive;
+
+  /// Whether this card's user already holds a speaking slot in the active
+  /// call (social.forum_call_participants) — suppresses the join/invite
+  /// actions for someone who's already speaking.
+  final bool isSpeaking;
+
+  /// Self-serve: the viewer (an organizer) joins the active call as a
+  /// co-host. Only ever called with widget.isPrimary — see
+  /// ForumAudioStreamCubit.joinAsCoHost.
+  final VoidCallback? onJoinAsCoHost;
+
+  /// Host/organizer-only: invites this card's user (a non-organizer
+  /// member) to speak. See social.invite_speaker's organizer-only gate
+  /// and shared cap check with join_as_call_participant.
+  final ValueChanged<String>? onInviteToSpeak;
+
   const UserPresenceCard({
     super.key,
     required this.userId,
@@ -40,6 +60,10 @@ class UserPresenceCard extends StatefulWidget {
     this.isCameraOn,
     this.onToggleMic,
     this.onToggleCamera,
+    this.isAudioCallLive = false,
+    this.isSpeaking = false,
+    this.onJoinAsCoHost,
+    this.onInviteToSpeak,
   });
 
   static const Map<String, String> _roleLabels = {
@@ -300,6 +324,19 @@ class _UserPresenceCardState extends State<UserPresenceCard> {
               },
               color: context.accentColor,
             ),
+          // Self-serve: organizer status is eligibility to join as
+          // co-host, not an automatic grant — this is the entry point.
+          // Hidden once already speaking (widget.isSpeaking) since the
+          // action wouldn't make sense to repeat.
+          if (widget.isOrganizer && widget.isAudioCallLive && !widget.isSpeaking)
+            ActionBarItem(
+              label: 'Join as Co-host',
+              onTap: () {
+                _toggleActions();
+                widget.onJoinAsCoHost?.call();
+              },
+              color: context.accentColor,
+            ),
         ],
         if (!widget.isPrimary)
           ActionBarItem(
@@ -328,6 +365,22 @@ class _UserPresenceCardState extends State<UserPresenceCard> {
                 AppSnackBars.showError(
                     context, 'Could not make ${widget.username} an admin.');
               }
+            },
+            color: context.accentColor,
+          ),
+        // Host/organizer invites a non-organizer member directly — the
+        // counterpart to self-serve Join as Co-host above, for members
+        // who aren't eligible to self-join. See social.invite_speaker.
+        if (forumState.isOrganizer &&
+            widget.isAudioCallLive &&
+            !widget.isPrimary &&
+            !targetIsOrganizer &&
+            !widget.isSpeaking)
+          ActionBarItem(
+            label: 'Invite to Speak',
+            onTap: () {
+              _toggleActions();
+              widget.onInviteToSpeak?.call(widget.userId);
             },
             color: context.accentColor,
           ),

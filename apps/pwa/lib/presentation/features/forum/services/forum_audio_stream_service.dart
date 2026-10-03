@@ -3,6 +3,7 @@ import 'dart:js_interop';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:web/web.dart' as web;
+import '../models/call_participant.dart';
 
 @JS('window.lynkAudioStreamHelper.setupMediaSession')
 external void _jsSetupMediaSession(JSString title, JSString artist, JSString artworkUrl);
@@ -46,6 +47,19 @@ external JSPromise<JSBoolean> _jsJoinAsListener(
 @JS('window.lynkAudioStreamHelper.stopListening')
 external void _jsStopListening();
 
+@JS('window.lynkAudioStreamHelper.addParticipantTrack')
+external JSPromise<JSBoolean> _jsAddParticipantTrack(
+  JSString edgeFunctionUrl,
+  JSString authToken,
+  JSString forumId,
+  JSString participantUserId,
+  JSString remoteSessionId,
+  JSString remoteTrackName,
+);
+
+@JS('window.lynkAudioStreamHelper.removeParticipantTrack')
+external void _jsRemoveParticipantTrack(JSString participantUserId);
+
 @JS('window.lynkAudioStreamHelper.getListenerAudioTelemetryStats')
 external JSPromise<JSString> _jsGetListenerAudioTelemetryStats();
 
@@ -57,6 +71,7 @@ external JSPromise<JSBoolean> _jsPublishCloudflareTracks(
   JSString authToken,
   JSString forumId,
   JSBoolean forceReconnect,
+  JSString trackName,
 );
 
 /// Receive-side quality for a listener's own audio connection — see
@@ -196,7 +211,7 @@ class ForumAudioStreamService {
   /// recreated track from startLocalMicrophone() is never reattached to the
   /// already-negotiated sender. No-op (safe to call) if nothing is
   /// currently being published, e.g. before publishCloudflareTracks() has
-  /// run or in a mock/no-op session.
+  /// run.
   Future<void> toggleMicEnabled(bool enabled) async {
     if (!kIsWeb) return;
     try {
@@ -329,7 +344,6 @@ class ForumAudioStreamService {
     required String action,
     String? sessionId,
     String? hostId,
-    List<String>? activeSpeakers,
     Map<String, dynamic>? extraData,
   }) async {
     if (_channel == null) return;
@@ -340,7 +354,6 @@ class ForumAudioStreamService {
         'action': action,
         if (sessionId != null) 'sessionId': sessionId,
         if (hostId != null) 'hostId': hostId,
-        if (activeSpeakers != null) 'activeSpeakers': activeSpeakers,
         if (extraData != null) ...extraData,
         'timestamp': DateTime.now().millisecondsSinceEpoch,
       },
@@ -388,6 +401,49 @@ class ForumAudioStreamService {
     } catch (e) {
       debugPrint('[AudioStreamService] subscribeToRemoteAudio error: $e');
       return false;
+    }
+  }
+
+  /// Adds a co-host's track to the EXISTING listener connection — must be
+  /// called after subscribeToRemoteAudio has already established a
+  /// connection (pulling the host's track). The multi-speaker counterpart;
+  /// does not disturb whatever is already flowing. See
+  /// lynkAudioStreamHelper.addParticipantTrack for why this needs a
+  /// different (server-offer, client-answer) exchange than the
+  /// single-speaker pull.
+  Future<bool> addParticipantTrack({
+    required String forumId,
+    required String participantUserId,
+    required String remoteSessionId,
+    required String remoteTrackName,
+  }) async {
+    if (!kIsWeb) return false;
+    try {
+      final session = Supabase.instance.client.auth.currentSession;
+      const supabaseUrl = String.fromEnvironment('SUPABASE_URL');
+      final res = await _jsAddParticipantTrack(
+        '$supabaseUrl/functions/v1'.toJS,
+        (session?.accessToken ?? '').toJS,
+        forumId.toJS,
+        participantUserId.toJS,
+        remoteSessionId.toJS,
+        remoteTrackName.toJS,
+      ).toDart;
+      return res.toDart;
+    } catch (e) {
+      debugPrint('[AudioStreamService] addParticipantTrack error: $e');
+      return false;
+    }
+  }
+
+  /// Stops hearing a specific co-host — detaches their own <audio>
+  /// element. Safe to call even if that participant's track was never added.
+  void removeParticipantTrack(String participantUserId) {
+    if (!kIsWeb) return;
+    try {
+      _jsRemoveParticipantTrack(participantUserId.toJS);
+    } catch (e) {
+      debugPrint('[AudioStreamService] removeParticipantTrack error: $e');
     }
   }
 
@@ -443,10 +499,7 @@ class ForumAudioStreamService {
     } catch (e) {
       debugPrint('[AudioStreamService] createCloudflareSession error: $e');
     }
-    // Falls back to a mock session only when the Edge Function itself is
-    // unreachable (e.g. local dev without `supabase functions serve`) — not
-    // when credentials are missing, since credentials no longer live here.
-    return 'mock_cf_session_${DateTime.now().millisecondsSinceEpoch}';
+    return null;
   }
 
   /// Publishes the host's local microphone track to Cloudflare Calls SFU.
@@ -454,10 +507,15 @@ class ForumAudioStreamService {
   /// and createCloudflareSession() (needs [_cfAppId]/a real session id) —
   /// this was previously missing entirely, so audio-only calls created a
   /// Cloudflare session but never actually sent any media to it.
+  /// [trackName] defaults to 'audio' (today's single-publisher behavior).
+  /// Multi-speaker calls pass the speaker's own user id instead, so
+  /// Cloudflare's (sessionId, trackName) pair addresses this specific
+  /// speaker's track — see social.forum_call_participants.track_name.
   Future<bool> publishCloudflareTracks(
     String forumId,
     String sessionId, {
     bool forceReconnect = false,
+    String trackName = 'audio',
   }) async {
     if (!kIsWeb) return true;
     try {
@@ -470,6 +528,7 @@ class ForumAudioStreamService {
         (session?.accessToken ?? '').toJS,
         forumId.toJS,
         forceReconnect.toJS,
+        trackName.toJS,
       ).toDart;
       return res.toDart;
     } catch (e) {
@@ -510,7 +569,10 @@ class ForumAudioStreamService {
   /// Sets ended_at on the call summary row created by [startCallSummary],
   /// via the api.end_forum_call_summary RPC. No-op if [summaryId] is null
   /// (e.g. the insert itself failed) — the call already ended either way;
-  /// a missing summary row shouldn't block that.
+  /// a missing summary row shouldn't block that. Server-side this also
+  /// force-closes every still-open social.forum_call_participants row for
+  /// the call (see that RPC's own comment) — no separate client-side
+  /// cleanup of co-hosts/the host's own registry row is needed here.
   Future<void> endCallSummary(String? summaryId) async {
     if (summaryId == null) return;
     try {
@@ -519,6 +581,128 @@ class ForumAudioStreamService {
       });
     } catch (e) {
       debugPrint('[AudioStreamService] endCallSummary error: $e');
+    }
+  }
+
+  /// Claims a speaking slot in social.forum_call_participants for the
+  /// calling user — the single source of truth for every active participant
+  /// in a call, including the ORIGINAL HOST, who calls this the same way a
+  /// self-joining co-host does. Returns the new participant row's id, or
+  /// null on failure (cap reached, call ended, not an organizer).
+  Future<String?> joinAsCallParticipant({
+    required String forumId,
+    required String callSummaryId,
+    required String cfSessionId,
+    required String trackName,
+  }) async {
+    try {
+      final response = await supabase.schema('api').rpc('join_as_call_participant', params: {
+        'p_forum_id': forumId,
+        'p_call_summary_id': callSummaryId,
+        'p_cf_session_id': cfSessionId,
+        'p_track_name': trackName,
+      });
+      return response as String?;
+    } catch (e) {
+      debugPrint('[AudioStreamService] joinAsCallParticipant error: $e');
+      return null;
+    }
+  }
+
+  /// Host/organizer-only — grants [targetUserId] a speaking slot without
+  /// requiring them to hold the organizer role themselves.
+  Future<String?> inviteCallParticipant({
+    required String forumId,
+    required String callSummaryId,
+    required String targetUserId,
+    required String cfSessionId,
+    required String trackName,
+  }) async {
+    try {
+      final response = await supabase.schema('api').rpc('invite_call_participant', params: {
+        'p_forum_id': forumId,
+        'p_call_summary_id': callSummaryId,
+        'p_user_id': targetUserId,
+        'p_cf_session_id': cfSessionId,
+        'p_track_name': trackName,
+      });
+      return response as String?;
+    } catch (e) {
+      debugPrint('[AudioStreamService] inviteCallParticipant error: $e');
+      return null;
+    }
+  }
+
+  /// Self-serve — voluntarily leaves the calling user's own speaking slot.
+  Future<void> leaveCallParticipant(String callSummaryId) async {
+    try {
+      await supabase.schema('api').rpc('leave_call_participant', params: {
+        'p_call_summary_id': callSummaryId,
+      });
+    } catch (e) {
+      debugPrint('[AudioStreamService] leaveCallParticipant error: $e');
+    }
+  }
+
+  /// Host/organizer-only — forcibly ends another participant's speaking
+  /// slot.
+  Future<void> removeCallParticipant({
+    required String forumId,
+    required String callSummaryId,
+    required String targetUserId,
+  }) async {
+    try {
+      await supabase.schema('api').rpc('remove_call_participant', params: {
+        'p_forum_id': forumId,
+        'p_call_summary_id': callSummaryId,
+        'p_user_id': targetUserId,
+      });
+    } catch (e) {
+      debugPrint('[AudioStreamService] removeCallParticipant error: $e');
+    }
+  }
+
+  /// Self-serve — updates the calling user's OWN active participant row
+  /// with a new Cloudflare address, after their publish connection was
+  /// replaced (see _reconnectPublish in ForumAudioStreamCubit — Cloudflare's
+  /// guidance is to replace the connection, not ICE-restart it, so the
+  /// registry needs the new session id too, not just streaming_config).
+  Future<void> updateParticipantSession({
+    required String callSummaryId,
+    required String cfSessionId,
+    required String trackName,
+  }) async {
+    try {
+      await supabase.schema('api').rpc('update_participant_session', params: {
+        'p_call_summary_id': callSummaryId,
+        'p_cf_session_id': cfSessionId,
+        'p_track_name': trackName,
+      });
+    } catch (e) {
+      debugPrint('[AudioStreamService] updateParticipantSession error: $e');
+    }
+  }
+
+  /// Fetches the current active-speaker roster via api.v1_forum_call_participants
+  /// — the bootstrap a listener/newly-joining client reconciles against
+  /// before applying incremental participant_joined/participant_left
+  /// broadcast events (see ForumAudioStreamCubit's registry handling).
+  Future<Map<String, CallParticipant>> fetchCallParticipants(String callSummaryId) async {
+    try {
+      final rows = await supabase
+          .schema('api')
+          .from('v1_forum_call_participants')
+          .select('user_id, user_name, full_name, cf_session_id, track_name')
+          .eq('call_summary_id', callSummaryId);
+      final participants = <String, CallParticipant>{};
+      for (final row in rows) {
+        final participant = CallParticipant.fromJson(row);
+        if (participant.userId.isNotEmpty) participants[participant.userId] = participant;
+      }
+      return participants;
+    } catch (e) {
+      debugPrint('[AudioStreamService] fetchCallParticipants error: $e');
+      return {};
     }
   }
 
@@ -531,6 +715,7 @@ class ForumAudioStreamService {
     required bool isLive,
     String? sessionId,
     String? hostId,
+    String? callSummaryId,
   }) async {
     final previousConfig = _localConfigCache[forumId];
     _localConfigCache[forumId] = {
@@ -539,6 +724,7 @@ class ForumAudioStreamService {
       'cf_session_id': sessionId,
       'active_host_id': hostId,
       'allow_multi_speaker': true,
+      'call_summary_id': callSummaryId,
     };
     try {
       await supabase.schema('api').rpc('update_forum_streaming_config', params: {
@@ -547,6 +733,7 @@ class ForumAudioStreamService {
         'p_stream_type': 'audio',
         'p_session_id': sessionId,
         'p_host_id': hostId,
+        'p_call_summary_id': callSummaryId,
       });
     } catch (e) {
       debugPrint('[AudioStreamService] updateForumStreamingConfig error: $e');

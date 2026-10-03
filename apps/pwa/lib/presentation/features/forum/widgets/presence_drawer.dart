@@ -688,6 +688,18 @@ class ParticipantList extends StatelessWidget {
                             isPrimary: isSelf,
                             isMicMuted: mediaState.isMicMuted,
                             isCameraOn: isStreamActive ? mediaState.isCameraOn : null,
+                            isAudioCallLive: isAudioLive,
+                            isSpeaking: audioCubit?.state.participants.containsKey(userId) ?? false,
+                            onJoinAsCoHost: isSelf
+                                ? () async {
+                                    final success = await audioCubit?.joinAsCoHost();
+                                    if (success != true && context.mounted) {
+                                      AppSnackBars.showError(
+                                          context, 'Could not join as a speaker — check the call isn\'t full.');
+                                    }
+                                  }
+                                : null,
+                            onInviteToSpeak: (id) => audioCubit?.inviteSpeaker(id),
                             onToggleMic: (id) {
                               StreamParticipantService().toggleMic(
                                 userId: id,
