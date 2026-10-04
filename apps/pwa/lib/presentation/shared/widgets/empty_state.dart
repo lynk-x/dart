@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:lynk_core/core.dart';
 
+/// Shared centered placeholder for empty lists — a message with an
+/// optional call-to-action button.
 class EmptyState extends StatelessWidget {
   final String message;
   final String? actionLabel;

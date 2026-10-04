@@ -5,6 +5,8 @@ import 'package:flutter/foundation.dart';
 import 'package:lynk_x/data/repositories/forum_repository.dart';
 import 'forum_presence_state.dart';
 
+/// Tracks and mirrors who's currently online in a forum via a Supabase
+/// Realtime presence channel.
 class ForumPresenceCubit extends Cubit<ForumPresenceState> {
   final String forumId;
   final String userId;

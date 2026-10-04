@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:lynk_core/core.dart';
 
+/// Shared, consistently-styled snackbar helpers (success/error/info) so
+/// feedback across the app doesn't each hand-roll its own SnackBar.
 class AppSnackBars {
   static void showSuccess(BuildContext context, String message) {
     _show(context, message, Icons.check_circle_outline, context.accentColor);

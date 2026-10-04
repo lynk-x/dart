@@ -12,6 +12,10 @@ import 'package:lynk_x/core/utils/i_embedding_service.dart';
 import 'base_message_cubit.dart';
 import 'forum_chat_state.dart';
 
+/// Owns the forum's live chat tab — message list, pagination, typing
+/// indicator, and optimistic send via [SyncManager]. Extends
+/// [BaseMessageCubit] for the realtime/reconciliation machinery shared
+/// with [ForumUpdatesCubit].
 class ForumChatCubit extends BaseMessageCubit<ForumChatState> {
   final ForumRepository _repo;
   final IEmbeddingService _embeddingService;

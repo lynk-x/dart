@@ -9,6 +9,10 @@ import '../services/mini_overlay_service.dart';
 import '../widgets/header.dart';
 import 'forum_audio_stream_state.dart';
 
+/// Owns live audio-call state for one forum — mic/session lifecycle,
+/// participant registry, and publish/listener reconnection. Each
+/// participant (host or co-host) runs its own instance against an
+/// independent Cloudflare publish connection; see [_isPublishingRole].
 class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
   final ForumAudioStreamService service;
   final String forumId;
@@ -17,13 +21,9 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
   String userName;
   final bool isOrganizer;
 
-  /// Id of the social.forum_call_summaries row for the call this cubit is
-  /// currently hosting — set by startAudioStream(), consumed by
-  /// endAudioStream() to close it out and by _reconnectPublish() (needs it
-  /// to update this host's own forum_call_participants row). Null when not
-  /// hosting, or when the insert itself failed (call-summary writes are
-  /// best-effort, not critical-path — see
-  /// ForumAudioStreamService.startCallSummary).
+  /// Id of the social.forum_call_summaries row this cubit is hosting. Null
+  /// when not hosting, or when the insert failed (best-effort, not
+  /// critical-path — see ForumAudioStreamService.startCallSummary).
   String? _callSummaryId;
 
   ForumAudioStreamCubit({
@@ -35,8 +35,7 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
     this.isOrganizer = false,
   }) : super(const ForumAudioStreamState()) {
     // Fires when the JS layer's bounded reconnect (3 attempts) for a
-    // dropped listener connection gives up — surfaces it the same way
-    // every other audio-stream failure reaches the user, via errorMessage.
+    // dropped listener connection gives up.
     service.onRemoteAudioListenerLost(() {
       if (isClosed || state.role == ForumHeaderRole.host) return;
       emit(state.copyWith(
@@ -44,16 +43,9 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
       ));
     });
 
-    // Publish-side counterpart: the JS publish connection detected ICE
-    // failure/disconnect. Unlike the listener side, JS can't recover this
-    // itself — Cloudflare's own guidance is to replace the connection
-    // (a NEW session), which needs a Supabase-authenticated session-create
-    // call, so the actual reconnect sequence runs here, not in JS. This
-    // fires for whichever role is currently publishing through THIS
-    // cubit instance's own peer connection — the host and every co-host
-    // each run their own ForumAudioStreamCubit, so "is this cubit
-    // currently publishing" is "host OR speaker", not host-only (a
-    // co-host's dropped connection used to be silently ignored here).
+    // Publish-side counterpart: JS detected ICE failure/disconnect but
+    // can't recover it itself — Cloudflare requires a new session, which
+    // needs an authenticated create call, so the reconnect runs here.
     service.onPublishNeedsReconnect(() {
       if (isClosed || !_isPublishingRole) return;
       unawaited(_reconnectPublish());
@@ -98,9 +90,8 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
     userName = newName;
   }
 
-  /// Clears a one-shot error message after it's been shown to the user, so
-  /// an identical subsequent failure (e.g. denying mic permission twice)
-  /// still registers as a state change for listeners keyed on errorMessage.
+  /// Clears a one-shot error message after it's been shown, so an identical
+  /// subsequent failure still registers as a state change.
   void clearAudioStreamError() {
     if (state.errorMessage == null) return;
     emit(state.copyWith(errorMessage: null));
@@ -123,11 +114,8 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
             status == RealtimeSubscribeStatus.timedOut) {
           if (!state.isLive) return;
 
-          // Hosts lose their ability to broadcast start/end/participant
-          // events over this channel just like listeners lose their
-          // ability to receive them — a disconnected host silently stops
-          // notifying anyone the call ended, so this can't be
-          // listener-only.
+          // Not listener-only: a disconnected host also loses the ability
+          // to broadcast start/end/participant events over this channel.
           if (state.role != ForumHeaderRole.host) {
             service.unsubscribeFromRemoteAudio();
           }
@@ -164,14 +152,12 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
 
           MiniOverlayService().activateLiveCall(hostName: isHost ? userName : 'Host');
 
-          // Every client's cubit — not just the host's — needs this to
-          // support joinAsCoHost()/leaveCoHost(), which target the active
-          // call's participant registry regardless of who's viewing.
+          // Every client's cubit needs this to support
+          // joinAsCoHost()/leaveCoHost(), not just the host's.
           _callSummaryId = callSummaryId;
 
-          // Bootstrap the participant registry — co-hosts beyond the one
-          // this client might already know about (e.g. opening the forum
-          // well after the call started and others have since joined).
+          // Bootstrap the registry — picks up co-hosts who joined before
+          // this client opened the forum.
           final participants = callSummaryId != null
               ? await service.fetchCallParticipants(callSummaryId)
               : <String, CallParticipant>{};
@@ -186,18 +172,13 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
             isBroadcastMuted: false,
           ));
 
-          // Local join feedback — this whole branch only runs while
-          // state.isLive was false (the enclosing `if (!state.isLive)`
-          // above), so it's always a genuine discovery: opening the forum
-          // (or reopening the app) to find a call already in progress,
-          // for host and listener alike.
+          // Always a genuine discovery here (branch only runs while
+          // state.isLive was false): opening the forum to find a call
+          // already in progress.
           unawaited(CallSoundService.playJoin());
 
-          // The host's own publish flow already owns their peer connection
-          // (startAudioStream); only a listener needs to pull the host's
-          // track down. sessionId can be null here only if the host wrote
-          // streaming_config before session creation resolved — nothing to
-          // subscribe to yet in that case.
+          // Only a listener needs to pull the host's track down; the host's
+          // own publish flow (startAudioStream) already owns its connection.
           if (!isHost && sessionId != null) {
             unawaited(_pullAllParticipantTracks(
               hostSessionId: sessionId,
@@ -227,15 +208,10 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
     }
   }
 
-  /// Listener-only bootstrap: establishes the listener connection against
-  /// the host's track first (subscribeToRemoteAudio, which CREATES the
-  /// connection), then adds every OTHER active participant's track into
-  /// that same connection (addParticipantTrack, which requires one to
-  /// already exist — see lynkAudioStreamHelper.addParticipantTrack). Used
-  /// whenever a listener discovers a call already has co-hosts present
-  /// (opening the forum well after the call started, or joining
-  /// mid-call), not just the common case of a call that only ever had the
-  /// host speaking.
+  /// Listener-only bootstrap: establishes the connection against the host's
+  /// track first (which creates it), then adds every other active
+  /// participant's track into that same connection — needed when a listener
+  /// joins a call that already has co-hosts present.
   Future<void> _pullAllParticipantTracks({
     required String hostSessionId,
     required Map<String, CallParticipant> participants,
@@ -248,11 +224,8 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
 
     for (final participant in participants.values) {
       if (participant.userId == userId) continue;
-      // The host's own track was just pulled above via subscribeToRemoteAudio
-      // (which always targets streaming_config's cf_session_id/active_host_id
-      // — the host's address, by definition the same one participant.cfSessionId
-      // would resolve to for the host's own registry row), so skip it here
-      // to avoid a redundant/conflicting second pull of the same track.
+      // The host's track was already pulled above — skip it to avoid a
+      // redundant/conflicting second pull of the same session.
       if (participant.cfSessionId == hostSessionId) continue;
       await service.addParticipantTrack(
         forumId: forumId,
@@ -273,24 +246,18 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
         final hostId = payload['hostId'] as String?;
         final hostName = payload['hostName'] as String?;
         final isHost = hostId == userId;
-        // Captured BEFORE the emit below flips it to true — distinguishes
-        // a genuine first join (this listener/host was not live a moment
-        // ago) from the host's own reconnect echo (start_stream is also
-        // broadcast by _reconnectPublish for the SAME call; state.isLive
-        // never dropped on a listener for that case, since the listener
-        // never knew the host's publish connection failed).
+        // Captured before the emit below flips it to true — distinguishes
+        // a genuine first join from the host's own reconnect echo
+        // (_reconnectPublish also broadcasts start_stream for the same call).
         final wasAlreadyLive = state.isLive;
-        // Not overwritten for the host's own cubit instance — it already
-        // set this itself inside startAudioStream(), before this
-        // broadcast was even sent.
+        // Not overwritten for the host's own instance — already set inside
+        // startAudioStream() before this broadcast was sent.
         if (!isHost) {
           _callSummaryId = payload['callSummaryId'] as String?;
         }
 
-        // The host's own registry entry rides along on start_stream so a
-        // listener has it immediately, without a separate round trip —
-        // same (sessionId, trackName) address a direct fetchCallParticipants
-        // would return for the host's row.
+        // Rides along on start_stream so a listener has the host's entry
+        // immediately, without a separate fetchCallParticipants round trip.
         final hostParticipant = (hostId != null && sessionId != null)
             ? CallParticipant(
                 userId: hostId,
@@ -318,19 +285,15 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
           isBroadcastMuted: false,
         ));
 
-        // Local join feedback — only for a LISTENER discovering the call
-        // just went live while they were already in the forum; the host's
-        // own join sound plays locally from startAudioStream() instead
-        // (fires immediately there rather than waiting for this broadcast
-        // to round-trip back). !wasAlreadyLive excludes the host's own
-        // reconnect echo, which also uses 'start_stream' for the same
-        // already-live call.
+        // Only for a listener discovering the call just went live; the
+        // host's own join sound plays from startAudioStream() instead.
+        // !wasAlreadyLive excludes the host's own reconnect echo.
         if (!isHost && !wasAlreadyLive) {
           unawaited(CallSoundService.playJoin());
         }
 
-        // The broadcaster's own startAudioStream() already owns publishing
-        // its track; a listener needs to pull it down to actually hear it.
+        // The broadcaster already owns publishing its track; a listener
+        // needs to pull it down to actually hear it.
         if (!isHost && sessionId != null) {
           unawaited(service.subscribeToRemoteAudio(
             forumId: forumId,
@@ -352,21 +315,14 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
           isBroadcastMuted: false,
         ));
 
-        // Everyone on the call hears this — the one call-lifecycle tone
-        // that stays broadcast-driven rather than local-only (unlike
-        // call_join, which only plays for whoever just started/joined).
+        // The one call-lifecycle tone that's broadcast-driven rather than
+        // local-only — everyone on the call hears it.
         unawaited(CallSoundService.playEnd());
         break;
 
-      // A co-host joined the call's participant registry (the host's own
-      // initial join rides on start_stream above instead — this fires for
-      // every OTHER participant, host included broadcasting about a
-      // co-host). Listeners reactively pull the new participant's track
-      // into their already-live connection; the host/other co-hosts only
-      // need the registry update (they don't pull anyone's audio — only
-      // the host ever publishes today... once co-hosts can publish too,
-      // they'd pull each other the same way a listener does, which this
-      // role-based branch already covers via "not this user's own join").
+      // A co-host joined the registry (the host's own join rides on
+      // start_stream instead). Listeners pull the new participant's track;
+      // other roles only need the registry update.
       case 'participant_joined':
         final participant = CallParticipant.fromJson(payload);
         if (participant.userId.isEmpty || participant.userId == userId) return;
@@ -393,16 +349,12 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
         service.removeParticipantTrack(leftUserId);
         break;
 
-      // Targeted at one specific user (payload['targetUserId']) — every
-      // other client's cubit also receives this broadcast (the channel is
-      // forum-wide) but ignores it, since Supabase Realtime broadcast has
-      // no per-recipient filtering server-side. See
-      // social.invite_call_participant's doc comment for why the host
-      // can't just unilaterally register a participant — the host has no
-      // way to create a Cloudflare session or publish a track on someone
-      // else's behalf (can't access their mic), so this only ever
-      // notifies; the actual publish happens in acceptSpeakerInvite(),
-      // self-initiated by the invitee once they accept.
+      // Targeted at one user (payload['targetUserId']); every other
+      // client's cubit also receives this (the channel is forum-wide, no
+      // server-side per-recipient filtering) but ignores it. The host can't
+      // publish a track on someone else's behalf, so this only notifies —
+      // the actual publish happens in acceptSpeakerInvite(), self-initiated
+      // by the invitee.
       case 'participant_invite':
         final targetUserId = payload['targetUserId'] as String?;
         if (targetUserId != userId) return;
@@ -410,11 +362,9 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
         emit(state.copyWith(pendingInviteFromHostName: fromHostName ?? 'The host'));
         break;
 
-      // The invitee accepted and already published their own track —
-      // host-only: registers it via invite_speaker (the one RPC call only
-      // an organizer can make), then re-broadcasts participant_joined so
-      // everyone (invitee included) converges on the same registry state
-      // participant_joined's own handler above already knows how to apply.
+      // The invitee accepted and already published their track — host-only:
+      // registers it via invite_speaker, then re-broadcasts
+      // participant_joined so everyone converges on the same registry.
       case 'participant_invite_accepted':
         if (state.role != ForumHeaderRole.host) return;
         unawaited(_registerAcceptedInvite(payload));
@@ -436,12 +386,8 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
       trackName: participant.trackName,
     );
     if (participantId == null) {
-      // Cap was hit between the invite being sent and the invitee
-      // accepting, or some other rejection — nothing more this cubit can
-      // do for the invitee's side (their own publish already succeeded,
-      // but it will simply never be added to the registry listeners
-      // pull from). Surfacing this to the inviter rather than silently
-      // dropping it.
+      // Cap was hit or some other rejection — surface it to the inviter
+      // rather than silently dropping it.
       emit(state.copyWith(errorMessage: 'Could not add ${participant.userName} as a speaker — the call may be full.'));
       return;
     }
@@ -456,13 +402,10 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
     );
   }
 
-  /// Accepts a pending "invited to speak" prompt (state
-  /// .pendingInviteFromHostName) — runs the same publish sequence
-  /// joinAsCoHost() does (mic -> session -> publish), but reports the
-  /// result back to the host via participant_invite_accepted instead of
-  /// calling join_as_call_participant directly, since an invited
-  /// non-organizer member isn't eligible to call that RPC themselves —
-  /// only the inviting host can register them (social.invite_speaker).
+  /// Accepts a pending "invited to speak" prompt, running the same publish
+  /// sequence [joinAsCoHost] does, but reports success back to the host via
+  /// participant_invite_accepted rather than calling join_as_call_participant
+  /// directly — only the inviting host can register a non-organizer member.
   Future<bool> acceptSpeakerInvite() async {
     if (state.pendingInviteFromHostName == null || _isJoiningAsCoHost) {
       return false;
@@ -519,10 +462,8 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
   }
 
   /// Host/organizer-only — sends a "you're invited to speak" prompt to
-  /// [targetUserId]. Does NOT itself grant a speaking slot (see
-  /// social.invite_speaker's doc comment) — only the invitee's own
-  /// acceptSpeakerInvite() can actually publish their track; this just
-  /// starts that conversation.
+  /// [targetUserId]. Does not itself grant a speaking slot; only the
+  /// invitee's own acceptSpeakerInvite() publishes their track.
   Future<void> inviteSpeaker(String targetUserId) async {
     if (state.role != ForumHeaderRole.host) return;
     await service.broadcastAudioEvent(
@@ -532,14 +473,10 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
   }
 
   /// Joins an ongoing live audio call as a listener. Only reachable in the
-  /// narrow window before the cubit's own auto-sync (_subscribeAndSyncState /
-  /// _handleAudioEvent) has caught up — the Join Card disables its own tap
-  /// target once state.isLive is true (see updates_tab.dart), which happens
-  /// automatically the moment auto-sync resolves. Re-fetches streaming_config
-  /// itself (rather than trusting a sessionId passed in — the caller, the
-  /// Join Card, never has one) so the actual subscribe call below has a real
-  /// session to pull from instead of emitting isLive:true with nothing
-  /// behind it.
+  /// narrow window before the cubit's own auto-sync has caught up — the
+  /// Join Card disables its tap target once state.isLive is true.
+  /// Re-fetches streaming_config itself rather than trusting a passed-in
+  /// sessionId, so the subscribe call below has a real session to pull from.
   Future<void> joinAudioStream({String? hostName}) async {
     if (state.isLive || _isJoiningOrStarting) return;
     _isJoiningOrStarting = true;
@@ -577,9 +514,8 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
         isBroadcastMuted: false,
       ));
 
-      // Local join feedback — this method is only ever reached while
-      // state.isLive was false (checked at entry and again just above),
-      // so this is always a genuine join, never a resync/reconnect echo.
+      // Always a genuine join here, never a resync echo (state.isLive was
+      // checked false at entry and again just above).
       unawaited(CallSoundService.playJoin());
 
       if (!isHost && sessionId != null) {
@@ -619,12 +555,9 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
         throw StateError('Could not publish your audio — please try again.');
       }
 
-      // Call-summary row must exist BEFORE joinAsCallParticipant (which
-      // needs its id) and before updateForumStreamingConfig (which now
-      // carries it, so any later client can discover it) — moved ahead of
-      // both, unlike before the participant registry existed. Aggregate
-      // history only, not otherwise critical-path, but now load-bearing
-      // for the registry itself, so a failure here does abort the start.
+      // Must exist before joinAsCallParticipant (needs its id) and before
+      // updateForumStreamingConfig (carries it for later clients to
+      // discover) — a failure here aborts the start.
       final createdAt = forumCreatedAt;
       if (createdAt == null) {
         throw StateError('forumCreatedAt is required to start a call.');
@@ -640,9 +573,8 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
         throw StateError('Could not start the call — please try again.');
       }
 
-      // The host claims their own participant slot the same way a
-      // co-host does — see social.join_as_call_participant's doc comment
-      // for why there is no separate host-registration path.
+      // The host claims their own slot the same way a co-host does —
+      // there's no separate host-registration path.
       await service.joinAsCallParticipant(
         forumId: forumId,
         callSummaryId: callSummaryId,
@@ -682,17 +614,13 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
         isBroadcastMuted: false,
       ));
 
-      // Local join feedback for the host — fires immediately rather than
-      // waiting for the start_stream broadcast below to round-trip back
-      // through this same cubit's _handleAudioEvent.
+      // Fires immediately for the host rather than waiting for the
+      // broadcast below to round-trip back through _handleAudioEvent.
       unawaited(CallSoundService.playJoin());
 
-      // Broadcast start_stream to all connected attendees via WebSocket —
-      // carries the host's own CallParticipant so a listener's
-      // _handleAudioEvent can seed its registry without a separate fetch,
-      // and callSummaryId so joinAsCoHost()/leaveCoHost() work for
-      // clients that are already live-watching (not freshly bootstrapping
-      // via fetchInitialStreamingConfig).
+      // Carries the host's CallParticipant so a listener can seed its
+      // registry without a separate fetch, and callSummaryId so
+      // joinAsCoHost()/leaveCoHost() work for already-watching clients.
       await service.broadcastAudioEvent(
         action: 'start_stream',
         sessionId: sessionId,
@@ -732,11 +660,9 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
         hostId: userId,
       );
     } catch (e) {
-      // Server never learned the call ended: keep local state live (with the
-      // mic already stopped, matching a muted host) instead of showing
-      // "ended" locally while listeners and a later config fetch would still
-      // see is_live: true — that mismatch was silently stranding listeners
-      // and reviving the call out from under the host on their next visit.
+      // Server never learned the call ended: keep local state live (mic
+      // already stopped, matching a muted host) rather than show "ended"
+      // locally while is_live: true still strands listeners server-side.
       debugPrint('[ForumAudioStreamCubit] endAudioStream network sync error: $e');
       emit(state.copyWith(
         isMicMuted: true,
@@ -760,12 +686,10 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
     ));
   }
 
-  /// Toggles local microphone mute/unmute state. No longer touches the
-  /// participant registry — holding a slot and being audibly unmuted are
-  /// separate concerns now (see CallParticipant/ForumAudioStreamState
-  /// docs); muting doesn't remove this user from state.participants, it
-  /// only silences their published track via toggleMicEnabled's
-  /// replaceTrack swap.
+  /// Toggles local microphone mute/unmute. Doesn't touch the participant
+  /// registry — holding a slot and being audibly unmuted are separate
+  /// concerns; muting only silences the published track via
+  /// toggleMicEnabled's replaceTrack swap.
   Future<void> toggleMic() async {
     if (_isTogglingMic) return;
     _isTogglingMic = true;
@@ -774,22 +698,15 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
       final nextMuted = !state.isMicMuted;
 
       if (nextMuted) {
-        // toggleMicEnabled (not stopLocalMicrophone) — if this is the host
-        // and the track is actively published to Cloudflare, this swaps
-        // the sender's track to null via replaceTrack() rather than
-        // stopping the local MediaStreamTrack outright, which would kill
-        // the Cloudflare publish for good (a later unmute's fresh track
-        // from startLocalMicrophone() is never reattached to the
-        // already-negotiated sender). No-op if nothing is published yet.
+        // toggleMicEnabled, not stopLocalMicrophone: swaps the sender's
+        // track to null via replaceTrack() rather than stopping the local
+        // MediaStreamTrack outright, which would kill the Cloudflare
+        // publish for good. No-op if nothing is published yet.
         await service.toggleMicEnabled(false);
       } else {
-        // Only (re)acquire the mic if it isn't already captured — mute no
-        // longer stops the local track (see toggleMicEnabled above), so on
-        // a normal unmute it's still live and startLocalMicrophone() must
-        // NOT be called again here: that function stops-and-replaces
-        // whatever stream it's handed if one already exists, which would
-        // kill the very track toggleMicEnabled(true) is about to resume
-        // sending — turning this fix into the same bug one step later.
+        // Only (re)acquire if not already captured — calling
+        // startLocalMicrophone() again would stop-and-replace the already
+        // live track toggleMicEnabled(true) is about to resume sending.
         if (!service.hasLocalMicrophone) {
           final micGranted = await service.startLocalMicrophone();
           if (!micGranted) {
@@ -820,16 +737,11 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
 
   bool _isJoiningAsCoHost = false;
 
-  /// Self-serve: an eligible organizer (not the original host — they're
-  /// already a participant via startAudioStream) joins the call as a
-  /// co-host. Mirrors startAudioStream's publish sequence (mic -> session
-  /// -> publish -> join_as_call_participant) but does NOT touch
-  /// streaming_config — that still correctly points at the original
-  /// host's address; this user is an ADDITIONAL participant, not a
-  /// replacement. social.join_as_call_participant itself enforces the
-  /// organizer-role check and the speaker cap — this method surfaces
-  /// whichever of those rejections applies as errorMessage, same pattern
-  /// as every other failure path in this cubit.
+  /// Self-serve: an eligible organizer (not the original host) joins the
+  /// call as a co-host. Mirrors startAudioStream's publish sequence (mic ->
+  /// session -> publish -> join_as_call_participant) but doesn't touch
+  /// streaming_config — this user is an additional participant, not a
+  /// replacement for the host.
   Future<bool> joinAsCoHost() async {
     if (_isJoiningAsCoHost || !state.isLive || state.role == ForumHeaderRole.host) {
       return false;
@@ -893,10 +805,6 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
         extraData: selfParticipant.toBroadcastPayload(),
       );
 
-      // From here on, this cubit instance's _isPublishingRole is true, so
-      // onPublishNeedsReconnect/onPublishLost (registered in the
-      // constructor) will drive _reconnectPublish for this co-host's own
-      // connection exactly as they already do for the host.
       return true;
     } catch (e) {
       debugPrint('[ForumAudioStreamCubit] joinAsCoHost error: $e');
@@ -935,34 +843,21 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
 
   bool _isReconnectingPublish = false;
 
-  /// Whether this cubit instance currently owns the publish side of
-  /// service's peer connection — true for the host AND for a co-host,
-  /// since each runs its own ForumAudioStreamCubit/ForumAudioStreamService
-  /// pair with an independent Cloudflare publish connection. A listener
-  /// never publishes, so has nothing for onPublishNeedsReconnect/
-  /// onPublishLost to act on.
+  /// Whether this cubit instance owns the publish side of the peer
+  /// connection — true for host and co-host alike; a listener never
+  /// publishes.
   bool get _isPublishingRole =>
       state.role == ForumHeaderRole.host || state.role == ForumHeaderRole.speaker;
 
-  /// Recovers this user's own publish connection after the JS layer
-  /// detects ICE failure/disconnect (see service.onPublishNeedsReconnect).
-  /// Per Cloudflare's own guidance there is no supported same-session
-  /// recovery for a publisher, so this replaces the connection entirely: a
-  /// NEW Cloudflare session, republished tracks, the new session id
-  /// persisted to this user's own forum_call_participants row (the source
-  /// of truth every participant, including the host, actually lives in).
-  ///
-  /// The HOST additionally owns streaming_config.cf_session_id — the
-  /// well-known address every listener's OWN base connection
-  /// (joinAsListener) was built against — so only the host's reconnect
-  /// updates it and broadcasts 'start_stream', which _handleAudioEvent's
-  /// 'start_stream' case already unconditionally re-subscribes a listener
-  /// against, rebuilding their whole connection. A co-host's reconnect
-  /// instead re-broadcasts 'participant_joined' with the new session —
-  /// the SAME event a first-time join uses — so already-connected
-  /// listeners just re-run addParticipantTrack against the new session
-  /// (their base connection, pulling the host, is untouched and still
-  /// healthy; only this one co-host's track needs re-pulling).
+  /// Recovers this user's publish connection after ICE failure/disconnect.
+  /// Cloudflare has no supported same-session recovery for a publisher, so
+  /// this replaces it entirely: new session, republished tracks, persisted
+  /// to this user's forum_call_participants row. The host additionally owns
+  /// streaming_config.cf_session_id (the address every listener's base
+  /// connection was built against), so only the host's reconnect updates it
+  /// and broadcasts 'start_stream' to rebuild listener connections; a
+  /// co-host's reconnect instead re-broadcasts 'participant_joined' so
+  /// already-connected listeners just re-pull that one track.
   Future<void> _reconnectPublish() async {
     if (_isReconnectingPublish || !state.isLive || !_isPublishingRole) {
       return;

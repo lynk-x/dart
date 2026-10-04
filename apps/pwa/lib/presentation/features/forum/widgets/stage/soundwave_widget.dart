@@ -1,13 +1,9 @@
 import 'package:flutter/material.dart';
 
-/// Dynamic soundwave visualizer widget driven by a [ValueNotifier<double>] audio level.
-///
-/// Replaces the previous Timer-based polling with a lightweight notifier listener,
-/// so the widget only rebuilds when the audio level actually changes —
-/// not on a fixed 50ms tick regardless of data freshness.
-///
-/// Smoothing is applied via exponential moving average
-/// (α=0.7 toward raw) on each notifier change, preventing jitter.
+/// Dynamic soundwave visualizer driven by a [ValueNotifier<double>] audio
+/// level — rebuilds only when the level actually changes, not on a fixed
+/// tick. Smoothing is applied via exponential moving average (α=0.7 toward
+/// raw) on each notifier change, preventing jitter.
 class SoundwaveWidget extends StatefulWidget {
   /// Shared audio-level notifier. Expected range: 0.0–1.0.
   final ValueNotifier<double> audioLevelNotifier;

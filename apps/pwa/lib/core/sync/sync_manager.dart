@@ -4,12 +4,10 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'sync_item.dart';
+import '../utils/connectivity_helper.dart';
 
-/// SyncManager
-///
-/// Orchestrates background synchronisation for the PWA.
-/// Enables "Optimistic UI" by queuing actions and retrying them when network
-/// returns.
+/// Orchestrates background synchronisation for the PWA — queues actions and
+/// retries them when network returns, enabling optimistic UI.
 ///
 /// ## Conflict Detection (UPDATE actions only)
 ///
@@ -29,13 +27,6 @@ import 'sync_item.dart';
 ///     invokes [resolveConflict].
 ///
 /// INSERT and DELETE actions never trigger conflict detection.
-import '../utils/connectivity_helper.dart';
-
-/// SyncManager
-///
-/// Orchestrates background synchronisation for the PWA.
-/// Enables "Optimistic UI" by queuing actions and retrying them when network
-/// returns.
 class SyncManager {
   SyncManager._() {
     _initConnectivityListener();

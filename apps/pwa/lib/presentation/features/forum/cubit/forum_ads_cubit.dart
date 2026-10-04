@@ -6,6 +6,9 @@ import 'package:flutter/foundation.dart';
 import 'package:lynk_x/presentation/features/forum/models/forum_model.dart';
 import 'forum_ads_state.dart';
 
+/// Owns banner/interstitial ad state for the forum — semantic matching
+/// against the viewed event via pgvector RPC, falling back to the latest
+/// active campaigns, plus impression/click logging.
 class ForumAdsCubit extends Cubit<ForumAdsState> {
   static const int downloadInterstitialFrequency = 3;
   final String forumId;

@@ -7,6 +7,8 @@ import 'package:lynk_x/data/repositories/repositories.dart';
 import 'notification_state.dart';
 import 'package:lynk_x/presentation/features/notifications/models/notification_model.dart';
 
+/// Owns the notification inbox — paginated load, realtime broadcast sync,
+/// and read/delete actions with optimistic updates.
 class NotificationCubit extends Cubit<NotificationState> {
   final NotificationRepository _repo;
   final AccountRepository _accountRepo;
@@ -48,10 +50,8 @@ class NotificationCubit extends Cubit<NotificationState> {
     }
   }
 
-  /// Fetches the next page and appends it. Previously loadNotifications()
-  /// had no pagination at all — every call fetched the account's entire
-  /// notification history — so this is the first page-aware load path;
-  /// the initial page still comes from loadNotifications() above.
+  /// Fetches the next page and appends it. The initial page comes from
+  /// [loadNotifications] above.
   Future<void> loadMore() async {
     final currentState = state;
     if (currentState is! NotificationLoaded) return;
@@ -162,16 +162,10 @@ class NotificationCubit extends Cubit<NotificationState> {
   }
 
   Future<void> deleteNotification(NotificationModel notification) async {
-    // Optimistic removal — don't rely solely on the realtime DELETE event to
-    // update the UI. Realtime's DELETE payload is unreliable for this
-    // specific case: comms.notifications previously had no PRIMARY KEY, and
-    // Supabase Realtime deliberately truncates a DELETE's old_record to PK
-    // columns only when RLS is enabled (Postgres can't evaluate RLS against a
-    // row that's already gone) — with no PK that truncation left old_record
-    // empty, so the id-keyed removal in _handleRealtimeUpdate never matched
-    // and the item appeared stuck even after a successful DB delete. Now
-    // fixed schema-side (PRIMARY KEY (id, created_at) added), but a
-    // user-initiated delete shouldn't depend on realtime delivery at all.
+    // Optimistic removal rather than relying on the realtime DELETE event:
+    // Supabase Realtime truncates a DELETE's old_record to PK-only columns
+    // when RLS is enabled, so a user-initiated delete shouldn't depend on
+    // realtime delivery to update the UI.
     final currentState = state;
     List<NotificationModel>? previous;
     if (currentState is NotificationLoaded) {

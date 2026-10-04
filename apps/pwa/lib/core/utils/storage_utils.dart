@@ -1,3 +1,6 @@
+// Storage path resolution, batch URL signing (with in-memory cache), and
+// direct-to-R2 upload helpers shared across repositories/cubits that read
+// or write Supabase Storage-backed media.
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;

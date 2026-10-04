@@ -6,9 +6,7 @@ import 'package:lynk_x/data/repositories/repositories.dart';
 /// A username text field that debounces input and checks (via
 /// [TicketRepository.checkUsernameExists]) whether a matching user exists,
 /// surfacing a found/not-found indicator and helper text as the user types.
-///
-/// Shared between the ticket transfer dialog and resale sheet, which
-/// previously each hand-rolled an identical debounce/lookup block.
+/// Shared between the ticket transfer dialog and resale sheet.
 class UsernameLookupField extends StatefulWidget {
   final TicketRepository repository;
   final TextEditingController controller;

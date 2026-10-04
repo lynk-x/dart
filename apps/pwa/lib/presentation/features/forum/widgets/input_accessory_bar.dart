@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:lynk_core/core.dart';
 
-/// Warns members before an `open` forum locks to read-only, converting what
-/// was previously a silent cliff (input just disappears one day) into an
-/// expected event. The lock itself is still driven entirely server-side
-/// (weekly cron, `infra.system_config['community']['forum_auto_read_only_days']`
-/// days after the event ends) — this widget only computes when to *show* the
+/// Warns members before an `open` forum locks to read-only. The lock itself
+/// is driven entirely server-side (weekly cron,
+/// `infra.system_config['community']['forum_auto_read_only_days']` days
+/// after the event ends) — this widget only computes when to show the
 /// warning from the same inputs, it doesn't control the lock.
 class InputAccessoryBar extends StatelessWidget {
   final DateTime? eventEndsAt;

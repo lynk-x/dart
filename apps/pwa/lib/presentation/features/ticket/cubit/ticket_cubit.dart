@@ -9,6 +9,9 @@ import 'package:lynk_x/presentation/features/ticket/utils/ticket_cache.dart';
 
 part 'ticket_state.dart';
 
+/// Owns a single ticket's full lifecycle — load/refresh, realtime status
+/// updates (with backoff reconnect), purchase, transfer, resale, and
+/// refund requests.
 class TicketCubit extends Cubit<TicketState> {
   final TicketRepository _repo;
   final TicketCache _cache;

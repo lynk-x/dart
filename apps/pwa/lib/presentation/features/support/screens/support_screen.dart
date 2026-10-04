@@ -8,6 +8,8 @@ import 'package:lynk_x/presentation/shared/utils/app_snackbars.dart';
 
 enum SupportContext { wallet, events, general }
 
+/// Support hub screen — active tickets, FAQs, and entry into live chat,
+/// scoped by [SupportContext] (wallet/events/general).
 class SupportScreen extends StatefulWidget {
   final SupportContext supportContext;
 

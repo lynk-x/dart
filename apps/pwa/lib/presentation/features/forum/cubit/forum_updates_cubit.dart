@@ -11,6 +11,10 @@ import 'package:lynk_x/core/utils/embedding_manager.dart';
 import 'package:lynk_x/core/utils/i_embedding_service.dart';
 import 'package:lynk_x/data/repositories/repositories.dart';
 
+/// Owns the forum's announcements/updates tab — organizer-only posting,
+/// category filtering, and optimistic send via [SyncManager]. Extends
+/// [BaseMessageCubit] for the realtime/reconciliation machinery shared
+/// with [ForumChatCubit].
 class ForumUpdatesCubit extends BaseMessageCubit<ForumUpdatesState> {
   final ForumRepository _repo;
   final IEmbeddingService _embeddingService;

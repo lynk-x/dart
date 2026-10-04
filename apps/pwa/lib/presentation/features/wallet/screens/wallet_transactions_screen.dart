@@ -10,6 +10,8 @@ import 'package:lynk_x/presentation/shared/utils/app_snackbars.dart';
 import 'package:lynk_x/presentation/features/wallet/widgets/top_up_sheet.dart';
 import 'package:lynk_x/presentation/features/wallet/widgets/payout_sheet.dart';
 
+/// Paginated, filterable list of a wallet's transaction history for one
+/// currency.
 class WalletTransactionsPage extends StatefulWidget {
   final String currency;
   const WalletTransactionsPage({super.key, required this.currency});

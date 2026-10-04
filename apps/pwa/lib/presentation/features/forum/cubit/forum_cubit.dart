@@ -36,11 +36,9 @@ class ForumCubit extends Cubit<ForumState> {
     await _syncUserStatus();
     final fId = forumId;
     if (fId != null) {
-      // Member list and session-derived progress are now populated by
-      // _syncUserStatus's single get_forum_data call — no separate
-      // refreshMembers()/getForumSessions round-trips on entry. refreshMembers()
-      // remains available for explicit re-fetches (e.g. after a moderation
-      // action changes the roster).
+      // Member list and session-derived progress come from _syncUserStatus's
+      // single get_forum_data call; refreshMembers() remains available for
+      // explicit re-fetches (e.g. after a moderation action changes the roster).
       _setupUserStatusListener();
       _setupForumStatusListener();
       _setupReactionListeners();
@@ -200,13 +198,9 @@ class ForumCubit extends Cubit<ForumState> {
             .map((e) => e as Map<String, dynamic>)
             .toList(growable: false);
 
-        // Flat shape — {id, user_name, avatar_url, is_premium, role_id,
-        // is_organizer} — matching what refreshMembers() actually puts into
-        // state.members (it unwraps the repository's {'user_profile': {...}}
-        // wrapper before emitting; downstream consumers like
-        // PresenceDrawer._buildMergedRoster and message_input.dart's
-        // @mention autocomplete both read top-level keys, not
-        // member['user_profile']['id']).
+        // Flat shape matching what refreshMembers() puts into state.members
+        // — downstream consumers (PresenceDrawer, message_input.dart's
+        // @mention autocomplete) read top-level keys, not a nested wrapper.
         membersFromDb = membersData
             .map((e) => e as Map<String, dynamic>)
             .map((m) => {
@@ -380,11 +374,6 @@ class ForumCubit extends Cubit<ForumState> {
   /// The RPC (api.pin_message/unpin_message) independently checks
   /// can_manage_forum server-side — the isModerator gate below is a UI-only
   /// fast path, same convention as muteUser/banUser/makeModerator above.
-  /// Previously this went through a raw client-side table UPDATE, which the
-  /// base RLS policy silently limited to the message's own author, so a
-  /// moderator pinning someone else's message affected 0 rows with no error
-  /// surfaced at all — returning a bool here lets the caller show a
-  /// snackbar on failure instead of that silent no-op.
   Future<bool> pinMessage(ChatMessage message) async {
     if (!state.isModerator) return false;
     try {

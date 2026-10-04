@@ -9,6 +9,8 @@ import 'package:lynk_x/core/utils/storage_utils.dart';
 import 'package:lynk_x/data/repositories/forum_repository.dart';
 import 'forum_media_state.dart';
 
+/// Owns the forum's media tab — upload (via R2 presigned URLs), moderation
+/// (approve/delete), and realtime sync of the media grid.
 class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
   static const _uuid = Uuid();
   final String forumId;
@@ -281,15 +283,12 @@ class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
 
   /// `forum_media.forum_media` is partitioned by `created_at` with composite
   /// PK (id, created_at), so the row's `createdAt` must be in the WHERE clause
-  /// or the UPDATE/DELETE matches no rows.
-  /// Returns `true` on success, `false` on permission denial or failure.
-  /// isModeratorOrOrganizer (from ForumCubit's role flags) is only a UI fast
-  /// path — the actual gate is social.fn_guard_forum_media_approval's
-  /// is_forum_media_moderator() check, which also grants privilege via
-  /// system-admin status or an account-level can_manage_forum permission
-  /// that isModeratorOrOrganizer can't see. Previously this returned early
-  /// on !isModeratorOrOrganizer, silently blocking exactly those callers
-  /// the server would have allowed. Same convention as ForumCubit.pinMessage.
+  /// or the UPDATE/DELETE matches no rows. Returns `true` on success, `false`
+  /// on permission denial or failure. isModeratorOrOrganizer is only a UI
+  /// fast path — the actual gate is
+  /// social.fn_guard_forum_media_approval's is_forum_media_moderator()
+  /// check, which also grants privilege via system-admin status or an
+  /// account-level can_manage_forum permission this flag can't see.
   Future<bool> approveMedia(ForumMedia media) async {
     try {
       await Supabase.instance.client
@@ -309,10 +308,8 @@ class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
   /// Returns `true` on success, `false` on permission denial or failure.
   /// The "ForumMedia: delete" RLS policy already allows the uploader, a
   /// moderator/organizer, an account-level can_manage_forum holder, or a
-  /// system admin — the same broader set as approveMedia's guard. Previously
-  /// gated on `!isModeratorOrOrganizer && !isUploader`, which blocked a
-  /// system-admin/can_manage_forum caller the database would have allowed;
-  /// removed for the same reason as approveMedia above.
+  /// system admin — the same broader set as approveMedia's guard, so no
+  /// client-side gate duplicates it here.
   Future<bool> deleteMedia(ForumMedia media) async {
     try {
       await Supabase.instance.client
@@ -330,10 +327,8 @@ class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
   }
 
   /// [reasonId] must match a row in reports.report_reasons (e.g. 'spam',
-  /// 'harassment', 'inappropriate', 'likeness_no_consent') — previously
-  /// this always sent the literal string 'general_abuse', which isn't a
-  /// seeded reason, so every report failed its foreign key constraint
-  /// silently (caught below, never surfaced to the caller).
+  /// 'harassment', 'inappropriate', 'likeness_no_consent') or the insert
+  /// fails its foreign key constraint.
   Future<void> reportMedia(ForumMedia media, String reasonId) async {
     try {
       await repo.submitReport(

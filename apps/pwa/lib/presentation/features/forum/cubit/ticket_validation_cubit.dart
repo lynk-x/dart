@@ -6,6 +6,9 @@ import 'package:lynk_x/core/sync/sync_item.dart';
 import 'package:lynk_x/core/sync/sync_manager.dart';
 import 'ticket_validation_state.dart';
 
+/// Offline-first ticket scanning for an event — caches the ticket registry
+/// locally so [scanTicketOffline]/[lookupTicketOffline] work without
+/// network, queuing each scan via [SyncManager] for server reconciliation.
 class TicketValidationCubit extends HydratedCubit<TicketValidationState> {
   final String eventId;
   final DateTime eventCreatedAt;

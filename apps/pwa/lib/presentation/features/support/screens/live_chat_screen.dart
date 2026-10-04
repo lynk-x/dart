@@ -5,6 +5,7 @@ import 'package:lynk_x/data/repositories/repository_providers.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:lynk_x/presentation/shared/utils/app_snackbars.dart';
 
+/// Live support chat screen for a specific ticket or general support context.
 class LiveChatScreen extends StatefulWidget {
   final SupportContext supportContext;
   final String? ticketId;
