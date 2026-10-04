@@ -12,7 +12,7 @@ class SoundwaveWidget extends StatefulWidget {
   /// Shared audio-level notifier. Expected range: 0.0–1.0.
   final ValueNotifier<double> audioLevelNotifier;
 
-  /// When false the bars immediately collapse to resting state (4px).
+  /// When false the bars immediately collapse to resting state (3px, flat).
   final bool isSpeaking;
 
   final Color barColor;
@@ -67,10 +67,17 @@ class _SoundwaveWidgetState extends State<SoundwaveWidget> {
     super.dispose();
   }
 
+  /// Below this, bars are treated as silence (flat resting state) even
+  /// while technically "speaking" (unmuted) — without a floor here, faint
+  /// ambient mic noise kept the bars flickering just above their resting
+  /// height instead of actually settling flat.
+  static const double _silenceFloor = 0.02;
+
   @override
   Widget build(BuildContext context) {
-    final active = widget.isSpeaking && _smoothedLevel > 0.03;
+    final active = widget.isSpeaking && _smoothedLevel > _silenceFloor;
     final lvl = active ? _smoothedLevel.clamp(0.0, 1.0) : 0.0;
+    const restHeight = 3.0; // flat resting state — same for all three bars
 
     return RepaintBoundary(
       child: Row(
@@ -78,15 +85,15 @@ class _SoundwaveWidgetState extends State<SoundwaveWidget> {
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           _Bar(
-            height: active ? (5.0 + (lvl * 9.0)).clamp(4.0, 14.0) : 4.0,
+            height: active ? (restHeight + (lvl * 11.0)).clamp(restHeight, 14.0) : restHeight,
             color: active ? widget.barColor : Colors.white24,
           ),
           _Bar(
-            height: active ? (7.0 + (lvl * 12.0)).clamp(4.0, 18.0) : 4.0,
+            height: active ? (restHeight + (lvl * 15.0)).clamp(restHeight, 18.0) : restHeight,
             color: active ? widget.barColor : Colors.white24,
           ),
           _Bar(
-            height: active ? (4.5 + (lvl * 8.0)).clamp(4.0, 13.0) : 4.0,
+            height: active ? (restHeight + (lvl * 10.0)).clamp(restHeight, 13.0) : restHeight,
             color: active ? widget.barColor : Colors.white24,
           ),
         ],

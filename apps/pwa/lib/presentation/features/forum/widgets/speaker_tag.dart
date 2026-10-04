@@ -12,13 +12,16 @@ class SpeakerTag extends StatelessWidget {
     required this.audioLevel,
   });
 
+  static const double _silenceFloor = 0.015;
+
   @override
   Widget build(BuildContext context) {
     final safeAudioLevel = (audioLevel.isNaN || audioLevel.isInfinite)
         ? 0.0
         : audioLevel.clamp(0.0, 1.0);
 
-    final sensitiveAudioLevel = (safeAudioLevel * 2.0).clamp(0.0, 1.0);
+    final boosted = (safeAudioLevel * 3.0).clamp(0.0, 1.0);
+    final sensitiveAudioLevel = boosted < _silenceFloor ? 0.0 : boosted;
 
     final maxTagWidth = MediaQuery.of(context).size.width - 64;
 
@@ -52,17 +55,21 @@ class SpeakerTag extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.center,
               children: List.generate(4, (index) {
                 final multipliers = [0.65, 1.0, 0.8, 0.95];
-                const baseHeight = 4.0;
+                const minHeight = 2.0; // true-silence floor — a hairline, not a resting bar
                 const maxHeight = 16.0;
-                final activeHeight = baseHeight +
-                    ((maxHeight - baseHeight) * sensitiveAudioLevel * multipliers[index])
-                        .clamp(0.0, maxHeight - baseHeight);
-                return Container(
+                final isSilent = sensitiveAudioLevel == 0.0;
+                final activeHeight = isSilent
+                    ? minHeight
+                    : (minHeight + (maxHeight - minHeight) * sensitiveAudioLevel * multipliers[index])
+                        .clamp(minHeight, maxHeight);
+                return AnimatedContainer(
+                  duration: const Duration(milliseconds: 80),
+                  curve: Curves.easeOut,
                   margin: const EdgeInsets.symmetric(horizontal: 1.5),
                   width: 3,
                   height: activeHeight,
                   decoration: BoxDecoration(
-                    color: sensitiveAudioLevel > 0.02 ? context.accentColor : Colors.white38,
+                    color: isSilent ? Colors.white38 : context.accentColor,
                     borderRadius: BorderRadius.circular(2),
                   ),
                 );

@@ -21,13 +21,15 @@ class AudioTelemetryService {
   Timer? _pollingTimer;
   int _listenerCount = 0;
 
+  final ForumAudioStreamService _audioService = ForumAudioStreamService();
+
   /// Gets the current audio level synchronously (0.0–1.0) for the active session.
   double getActiveAudioLevel() {
     if (ForumVideoStreamService().isLiveNotifier.value) {
       final level = ForumVideoStreamService().getAudioLevel();
       if (level > 0.0) return level;
     }
-    final audioStreamLevel = ForumAudioStreamService().getAudioLevel();
+    final audioStreamLevel = _audioService.getAudioLevel();
     if (audioStreamLevel > 0.0) return audioStreamLevel;
     return 0.0;
   }

@@ -5,9 +5,23 @@
 window.lynkAudioStreamHelper = {
   audioElement: null,
   wakeLock: null,
-  audioContext: null,
-  analyserNode: null,
-  analyserDataArray: null,
+  // Two independent analysers — one for this user's own mic (set up by
+  // startLocalMicrophone, used by host/co-host), one for the remote
+  // host's pulled stream (set up by bindRemoteStream, used by a pure
+  // listener). Previously a SINGLE shared audioContext/analyserNode pair
+  // was reused for both, so whichever setupAudioAnalyser() call ran most
+  // recently silently tore down and replaced the other — a listener who
+  // became a co-host lost the ability to visualize the host's audio
+  // entirely, since only one source could ever be measured at a time.
+  // getAudioLevel() below prefers the local analyser when one exists
+  // (publishing is the more actionable "am I audible" signal), falling
+  // back to the remote one for a pure listener.
+  localAudioContext: null,
+  localAnalyserNode: null,
+  localAnalyserDataArray: null,
+  remoteAudioContext: null,
+  remoteAnalyserNode: null,
+  remoteAnalyserDataArray: null,
   localAudioStream: null,
 
   hasLocalMicrophone() {
@@ -44,7 +58,7 @@ window.lynkAudioStreamHelper = {
         }
       });
       this.localAudioStream = stream;
-      this.setupAudioAnalyser(stream);
+      this.setupAudioAnalyser(stream, 'local');
       return true;
     } catch (e) {
       console.warn('[AudioStreamHelper] getUserMedia mic permission denied or failed:', e);
@@ -62,7 +76,7 @@ window.lynkAudioStreamHelper = {
       } catch (_) {}
       this.localAudioStream = null;
     }
-    this.stopAudioAnalyser();
+    this.stopAudioAnalyser('local');
   },
 
   bindRemoteStream(stream) {
@@ -70,7 +84,7 @@ window.lynkAudioStreamHelper = {
     el.srcObject = stream;
     el.muted = false;
     el.play().catch(e => console.warn('[AudioStreamHelper] Auto-play prevented:', e));
-    this.setupAudioAnalyser(stream);
+    this.setupAudioAnalyser(stream, 'remote');
   },
 
   // One <audio> element per remote participant — binding every pulled
@@ -610,80 +624,118 @@ window.lynkAudioStreamHelper = {
     el.muted = !!isMuted;
     if (!isMuted) {
       el.play().catch(e => console.warn('[AudioStreamHelper] Play failed on unmute:', e));
-      if (this.audioContext && this.audioContext.state === 'suspended') {
-        this.audioContext.resume();
+      // el plays the REMOTE host stream (see bindRemoteStream) — resume
+      // the remote analyser's context, not the local mic's.
+      if (this.remoteAudioContext && this.remoteAudioContext.state === 'suspended') {
+        this.remoteAudioContext.resume();
       }
     }
   },
 
-  setupAudioAnalyser(stream) {
+  // [source] is 'local' (this user's own mic — startLocalMicrophone) or
+  // 'remote' (the pulled host stream — bindRemoteStream). Each gets its
+  // own AudioContext/AnalyserNode so setting one up never tears down the
+  // other — see the field comments above for why that matters (a listener
+  // who becomes a co-host needs BOTH to keep working independently).
+  setupAudioAnalyser(stream, source) {
     try {
-      this.stopAudioAnalyser();
+      this.stopAudioAnalyser(source);
       const AudioCtx = window.AudioContext || window.webkitAudioContext;
       if (!AudioCtx || !stream) return;
 
-      this.audioContext = new AudioCtx();
-      const source = this.audioContext.createMediaStreamSource(stream);
+      const ctx = new AudioCtx();
+      const node = ctx.createMediaStreamSource(stream);
 
       // 1. High-Pass Filter (85Hz) — Removes low frequency HVAC/fan rumble & desk thumps
-      const highPassFilter = this.audioContext.createBiquadFilter();
+      const highPassFilter = ctx.createBiquadFilter();
       highPassFilter.type = 'highpass';
       highPassFilter.frequency.value = 85;
 
       // 2. Vocal Presence EQ Filter (3kHz Peaking) — Boosts vocal clarity and speech pickup
-      const presenceEq = this.audioContext.createBiquadFilter();
+      const presenceEq = ctx.createBiquadFilter();
       presenceEq.type = 'peaking';
       presenceEq.frequency.value = 3000;
       presenceEq.Q.value = 1.0;
       presenceEq.gain.value = 3.0; // +3dB boost for voice clarity
 
       // 3. Dynamics Compressor Node — Smooths voice dynamics and prevents clipping
-      const compressorNode = this.audioContext.createDynamicsCompressor();
+      const compressorNode = ctx.createDynamicsCompressor();
       compressorNode.threshold.value = -24;
       compressorNode.knee.value = 30;
       compressorNode.ratio.value = 12;
       compressorNode.attack.value = 0.003;
       compressorNode.release.value = 0.25;
 
-      this.analyserNode = this.audioContext.createAnalyser();
-      this.analyserNode.fftSize = 64;
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 64;
 
       // Connect DSP chain: Source -> HighPass -> Presence EQ -> Compressor -> Analyser
-      source.connect(highPassFilter);
+      node.connect(highPassFilter);
       highPassFilter.connect(presenceEq);
       presenceEq.connect(compressorNode);
-      compressorNode.connect(this.analyserNode);
+      compressorNode.connect(analyser);
 
-      const bufferLength = this.analyserNode.frequencyBinCount;
-      this.analyserDataArray = new Uint8Array(bufferLength);
+      const bufferLength = analyser.frequencyBinCount;
+      if (source === 'local') {
+        this.localAudioContext = ctx;
+        this.localAnalyserNode = analyser;
+        this.localAnalyserDataArray = new Uint8Array(bufferLength);
+      } else {
+        this.remoteAudioContext = ctx;
+        this.remoteAnalyserNode = analyser;
+        this.remoteAnalyserDataArray = new Uint8Array(bufferLength);
+      }
     } catch (e) {
       console.warn('[AudioStreamHelper] Analyser setup failed:', e);
     }
   },
 
+  // Prefers the LOCAL analyser (this user's own mic) when one exists —
+  // "am I audible right now" is the more actionable signal once a user is
+  // publishing — falling back to the REMOTE one for a pure listener who
+  // has no local analyser at all.
   getAudioLevel() {
-    if (!this.analyserNode || !this.analyserDataArray) return 0.0;
-    if (this.audioContext && this.audioContext.state === 'suspended') {
-      this.audioContext.resume().catch(() => {});
+    const useLocal = !!(this.localAnalyserNode && this.localAnalyserDataArray);
+    const analyserNode = useLocal ? this.localAnalyserNode : this.remoteAnalyserNode;
+    const dataArray = useLocal ? this.localAnalyserDataArray : this.remoteAnalyserDataArray;
+    const ctx = useLocal ? this.localAudioContext : this.remoteAudioContext;
+    if (!analyserNode || !dataArray) return 0.0;
+    if (ctx && ctx.state === 'suspended') {
+      ctx.resume().catch(() => {});
     }
-    this.analyserNode.getByteFrequencyData(this.analyserDataArray);
+    analyserNode.getByteFrequencyData(dataArray);
     let sum = 0;
-    for (let i = 0; i < this.analyserDataArray.length; i++) {
-      sum += this.analyserDataArray[i];
+    for (let i = 0; i < dataArray.length; i++) {
+      sum += dataArray[i];
     }
-    const average = sum / this.analyserDataArray.length;
-    const level = Math.min(1.0, average / 128.0);
+    const average = sum / dataArray.length;
+    // Divisor lowered from 128 — the compressor node upstream (see
+    // setupAudioAnalyser) keeps normal speech well below byte-max 255, so
+    // 128 made the visualization look sluggish/under-sensitive for
+    // ordinary speaking volume. 48 brings moderate speech up near the
+    // visualization's useful range while Math.min still caps loud input
+    // at 1.0.
+    const level = Math.min(1.0, average / 48.0);
     return level;
   },
 
-  stopAudioAnalyser() {
-    if (this.audioContext) {
+  // [source] omitted clears BOTH (full teardown, e.g. page/call end).
+  stopAudioAnalyser(source) {
+    if ((!source || source === 'local') && this.localAudioContext) {
       try {
-        this.audioContext.close();
+        this.localAudioContext.close();
       } catch (_) {}
-      this.audioContext = null;
-      this.analyserNode = null;
-      this.analyserDataArray = null;
+      this.localAudioContext = null;
+      this.localAnalyserNode = null;
+      this.localAnalyserDataArray = null;
+    }
+    if ((!source || source === 'remote') && this.remoteAudioContext) {
+      try {
+        this.remoteAudioContext.close();
+      } catch (_) {}
+      this.remoteAudioContext = null;
+      this.remoteAnalyserNode = null;
+      this.remoteAnalyserDataArray = null;
     }
   },
 
@@ -905,7 +957,7 @@ window.lynkVideoStreamHelper = {
       attachVideo();
 
       if (window.lynkAudioStreamHelper) {
-        window.lynkAudioStreamHelper.setupAudioAnalyser(stream);
+        window.lynkAudioStreamHelper.setupAudioAnalyser(stream, 'local');
       }
 
       return true;
@@ -975,7 +1027,7 @@ window.lynkVideoStreamHelper = {
           await this.audioSender.replaceTrack(null);
         }
         if (window.lynkAudioStreamHelper) {
-          window.lynkAudioStreamHelper.stopAudioAnalyser();
+          window.lynkAudioStreamHelper.stopAudioAnalyser('local');
         }
       } else {
         // The local track set up by startVideoStream() is still live (mute
@@ -999,7 +1051,7 @@ window.lynkVideoStreamHelper = {
             this.videoStream.addTrack(track);
           }
           if (window.lynkAudioStreamHelper) {
-            window.lynkAudioStreamHelper.setupAudioAnalyser(newStream);
+            window.lynkAudioStreamHelper.setupAudioAnalyser(newStream, 'local');
           }
         }
         if (track && this.audioSender) {
@@ -1471,7 +1523,7 @@ window.lynkVideoStreamHelper = {
       this.videoStream = null;
     }
     if (window.lynkAudioStreamHelper) {
-      window.lynkAudioStreamHelper.stopAudioAnalyser();
+      window.lynkAudioStreamHelper.stopAudioAnalyser('local');
     }
   },
 
