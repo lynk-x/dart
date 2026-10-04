@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:web/web.dart' as web;
 import '../models/call_participant.dart';
+import '../widgets/header.dart' show ForumHeaderRole;
 import 'mini_overlay_service.dart';
 import 'media_device_manager.dart';
 export 'media_device_manager.dart';
@@ -217,6 +218,13 @@ class ForumVideoStreamService {
   factory ForumVideoStreamService() => _instance;
   ForumVideoStreamService._internal();
 
+  /// Mirrors ForumVideoStage.elementId — duplicated here (not imported,
+  /// to avoid a circular import between this file and stream_stage.dart)
+  /// since acceptVideoSpeakerInvite() needs it to start the local camera
+  /// even when ForumVideoStage isn't mounted (e.g. invite arrives while
+  /// minimized — see that method's own comment for the full rationale).
+  static const String _elementId = 'lynk_live_video_stage';
+
   JSFunction? _listenerLostListener;
   JSFunction? _publishNeedsReconnectListener;
   JSFunction? _publishLostListener;
@@ -364,6 +372,26 @@ class ForumVideoStreamService {
   bool isHost = true;
   int spectatorCount = 0;
 
+  /// This user's current role in the video call — the video-side
+  /// counterpart to ForumAudioStreamState.role, just held on this
+  /// singleton service rather than in a cubit since video has none of its
+  /// own. Source of truth for "can I publish" (host OR speaker); isHost
+  /// above stays a separate field since it also carries "is the
+  /// organizer" meaning in places that gate on the permanent host/
+  /// organizer identity rather than the current publish role (e.g.
+  /// end-call authority, which a co-host never gets regardless of role).
+  final ValueNotifier<ForumHeaderRole> roleNotifier =
+      ValueNotifier<ForumHeaderRole>(ForumHeaderRole.listener);
+
+  ForumHeaderRole get role => roleNotifier.value;
+  set role(ForumHeaderRole value) => roleNotifier.value = value;
+
+  /// Whether this user currently owns a publish connection — host OR
+  /// co-host (speaker). Mirrors ForumAudioStreamCubit._isPublishingRole.
+  bool get isPublishingRole => role == ForumHeaderRole.host || role == ForumHeaderRole.speaker;
+
+  final ValueNotifier<String?> pendingVideoInviteFromHostName = ValueNotifier<String?>(null);
+
   /// Set by the caller before createCloudflareSession()/publishCloudflareStream()
   /// — required by the cloudflare-calls-session Edge Function's forum
   /// membership authorization check.
@@ -371,6 +399,17 @@ class ForumVideoStreamService {
 
   String? cfSessionId;
   String? _cfAppId;
+
+  /// The ACTIVE HOST's Cloudflare session id, as known by THIS client —
+  /// set for every role (publisher or pure listener), unlike [cfSessionId]
+  /// above (which only ever reflects a PUBLISHER's own session — stays
+  /// null forever for a pure listener, since they never call
+  /// createCloudflareSession). Exists so _LiveStreamJoinCard
+  /// (updates_tab.dart) can detect "the call I was watching just ended"
+  /// immediately for ANY role, not only for a host/co-host — mirrors
+  /// ForumAudioStreamState.sessionId, which audio already sets for every
+  /// role via its 'start_stream' handler.
+  final ValueNotifier<String?> hostSessionIdNotifier = ValueNotifier<String?>(null);
 
   /// Id of the social.forum_call_summaries row for the call this service is
   /// currently hosting — set by the caller after startCallSummary(),
@@ -844,6 +883,273 @@ class ForumVideoStreamService {
     }
   }
 
+  /// Host/organizer-only — sends a "you're invited to speak" prompt to
+  /// [targetUserId]. Does NOT itself grant a speaking slot (see
+  /// social.invite_call_participant's doc comment) — only the invitee's
+  /// own acceptVideoSpeakerInvite() can actually publish their track;
+  /// this just starts that conversation. Mirrors
+  /// ForumAudioStreamCubit.inviteSpeaker exactly.
+  Future<void> inviteVideoSpeaker(String targetUserId) async {
+    if (role != ForumHeaderRole.host) return;
+    await broadcastVideoEvent(
+      action: 'participant_invite',
+      extraData: {'targetUserId': targetUserId, 'fromHostName': hostName},
+    );
+  }
+
+  bool _isAcceptingVideoInvite = false;
+
+  /// Accepts a pending "invited to speak" prompt
+  /// (pendingVideoInviteFromHostName) — runs the same camera+mic publish
+  /// sequence joinAsVideoCoHost() does (lives here, not on
+  /// ForumVideoStage's State, since an invite can arrive while that
+  /// widget isn't mounted — e.g. the viewer is minimized or on another
+  /// forum tab — see pendingVideoInviteFromHostName's own comment), but
+  /// reports the result back to the host via participant_invite_accepted
+  /// instead of calling join_as_call_participant directly, since an
+  /// invited non-organizer member isn't eligible to call that RPC
+  /// themselves — only the inviting host can register them (see
+  /// social.invite_call_participant's organizer-only gate). [viewerUserName]
+  /// is the accepting user's own display name (the dialog's caller reads
+  /// it off ForumCubit, since this service has no BuildContext of its
+  /// own). Mirrors ForumAudioStreamCubit.acceptSpeakerInvite exactly.
+  Future<bool> acceptVideoSpeakerInvite({required String viewerUserName}) async {
+    if (pendingVideoInviteFromHostName.value == null || _isAcceptingVideoInvite) {
+      return false;
+    }
+    _isAcceptingVideoInvite = true;
+    pendingVideoInviteFromHostName.value = null;
+    try {
+      final userId = Supabase.instance.client.auth.currentUser?.id;
+      if (userId == null || forumId.isEmpty) return false;
+
+      final sessionId = await createCloudflareSession(forumId);
+      if (sessionId == null) return false;
+
+      final startedCamera = await startVideoStream(_elementId, isFrontCamera: true);
+      if (!startedCamera) return false;
+
+      final published = await publishCloudflareStream(
+        customSessionId: sessionId,
+        trackBaseName: userId,
+      );
+      if (!published) return false;
+
+      // The CALLER's own display name, not hostName (that's the stream
+      // HOST's name — see joinAsVideoCoHost's identical fix/comment).
+      final selfParticipant = CallParticipant(
+        userId: userId,
+        userName: viewerUserName.isNotEmpty ? viewerUserName : 'Speaker',
+        cfSessionId: sessionId,
+        trackName: userId,
+      );
+
+      role = ForumHeaderRole.speaker;
+      isMicMuted = false;
+      isCameraOn = true;
+      requestWakeLock();
+
+      await broadcastVideoEvent(
+        action: 'participant_invite_accepted',
+        extraData: selfParticipant.toBroadcastPayload(),
+      );
+      return true;
+    } catch (e) {
+      debugPrint('[VideoStreamService] acceptVideoSpeakerInvite error: $e');
+      return false;
+    } finally {
+      _isAcceptingVideoInvite = false;
+    }
+  }
+
+  void declineVideoSpeakerInvite() {
+    pendingVideoInviteFromHostName.value = null;
+  }
+
+  /// Host-only — registers the invitee's already-published track via
+  /// invite_call_participant (the one RPC call only an organizer can
+  /// make), then re-broadcasts participant_joined so everyone (invitee
+  /// included) converges on the same registry state
+  /// _handleVideoBroadcastEvent's participant_joined case already knows
+  /// how to apply. Mirrors ForumAudioStreamCubit._registerAcceptedInvite.
+  Future<void> registerAcceptedVideoInvite(Map<String, dynamic> payload) async {
+    if (callSummaryId == null) return;
+    final participant = CallParticipant.fromJson(payload);
+    if (participant.userId.isEmpty) return;
+
+    final participantId = await inviteCallParticipant(
+      forumId: forumId,
+      callSummaryId: callSummaryId!,
+      targetUserId: participant.userId,
+      cfSessionId: participant.cfSessionId,
+      trackName: participant.trackName,
+    );
+    if (participantId == null) {
+      // Cap was hit between the invite being sent and the invitee
+      // accepting, or some other rejection — the invitee's own publish
+      // already succeeded, but it will simply never be added to the
+      // registry listeners pull from. Nothing more to do here beyond not
+      // adding them locally either.
+      return;
+    }
+
+    final updated = Map<String, CallParticipant>.from(participantsNotifier.value);
+    updated[participant.userId] = participant;
+    participantsNotifier.value = updated;
+
+    await broadcastVideoEvent(
+      action: 'participant_joined',
+      extraData: participant.toBroadcastPayload(),
+    );
+  }
+
+  bool _isJoiningAsVideoCoHost = false;
+
+  /// Self-serve: an eligible organizer (not the original host — they're
+  /// already a participant via the host-start flow in forum_screen.dart)
+  /// joins the video call as a co-host, publishing BOTH camera and mic
+  /// together (confirmed scope — no audio-only/camera-later option).
+  /// Mirrors ForumAudioStreamCubit.joinAsCoHost()'s publish sequence
+  /// exactly (mic+camera -> session -> publish -> join_as_call_participant
+  /// -> broadcast). Lives here rather than on ForumVideoStage's State so
+  /// it works even when that widget isn't mounted — e.g. called from the
+  /// presence drawer's "Join as Co-host" action while the stage is
+  /// minimized (see pendingVideoInviteFromHostName's comment for the same
+  /// reasoning applied to the invite-accept flow). Does NOT touch
+  /// streaming_config — that still correctly points at the original
+  /// host's address; this user is an ADDITIONAL participant, not a
+  /// replacement. social.join_as_call_participant itself enforces the
+  /// organizer-role check and the speaker cap. [elementId]/[isFrontCamera]
+  /// are passed in rather than hardcoded so a mounted ForumVideoStage's
+  /// own _elementId/_isFrontCamera stay the single source of truth for
+  /// those when it IS mounted; falls back to the static elementId
+  /// constant and front camera when called from elsewhere (e.g. the
+  /// presence drawer with no stage mounted).
+  Future<bool> joinAsVideoCoHost({
+    required String? forumId,
+    required String viewerUserName,
+    bool isFrontCamera = true,
+    String? elementId,
+  }) async {
+    if (_isJoiningAsVideoCoHost || !isLiveNotifier.value || isPublishingRole) {
+      return false;
+    }
+    final fId = forumId ?? this.forumId;
+    final summaryId = callSummaryId;
+    if (fId.isEmpty || summaryId == null) return false;
+
+    _isJoiningAsVideoCoHost = true;
+    try {
+      final userId = Supabase.instance.client.auth.currentUser?.id;
+      if (userId == null) return false;
+      // The CALLER's own display name, not hostName (that's specifically
+      // the stream HOST's name, used for MediaSession/UI labels elsewhere
+      // on this service) — a co-host joining under their own identity
+      // must show their own name in the registry/grid tile, not the
+      // host's.
+      final userName = viewerUserName.isNotEmpty ? viewerUserName : 'Speaker';
+
+      final sessionId = await createCloudflareSession(fId);
+      if (sessionId == null) return false;
+
+      // Publishes into the caller's own camera preview element — reuses
+      // the same element the original host's camera preview does, since
+      // a co-host IS the "local" participant on their own screen.
+      final startedCamera = await startVideoStream(elementId ?? _elementId, isFrontCamera: isFrontCamera);
+      if (!startedCamera) return false;
+
+      final published = await publishCloudflareStream(
+        customSessionId: sessionId,
+        trackBaseName: userId,
+      );
+      if (!published) return false;
+
+      final participantId = await joinAsCallParticipant(
+        forumId: fId,
+        callSummaryId: summaryId,
+        cfSessionId: sessionId,
+        trackName: userId,
+      );
+      if (participantId == null) {
+        // NOT stopVideoStream() — see stopOwnVideoPublish's own comment;
+        // a failed join attempt must not mark the whole call not-live for
+        // the person who just tried to join it.
+        stopOwnVideoPublish();
+        return false;
+      }
+
+      final selfParticipant = CallParticipant(
+        userId: userId,
+        userName: userName,
+        cfSessionId: sessionId,
+        trackName: userId,
+      );
+      final updatedParticipants = Map<String, CallParticipant>.from(participantsNotifier.value);
+      updatedParticipants[userId] = selfParticipant;
+      participantsNotifier.value = updatedParticipants;
+
+      role = ForumHeaderRole.speaker;
+      isMicMuted = false;
+      isCameraOn = true;
+      requestWakeLock();
+
+      await broadcastVideoEvent(
+        action: 'participant_joined',
+        extraData: selfParticipant.toBroadcastPayload(),
+      );
+
+      // From here on isPublishingRole is true, so a mounted
+      // ForumVideoStage's onPublishNeedsReconnect/onPublishLost callbacks
+      // (registered unconditionally in its initState — see
+      // _registerConnectionCallbacks) will drive _reconnectVideoPublish
+      // for this co-host's own connection exactly as they already do for
+      // the host.
+      return true;
+    } catch (e) {
+      debugPrint('[VideoStreamService] joinAsVideoCoHost error: $e');
+      return false;
+    } finally {
+      _isJoiningAsVideoCoHost = false;
+    }
+  }
+
+  /// Self-serve: a co-host (not the original host — they use the
+  /// end-stream flow in forum_screen.dart) leaves their speaking slot.
+  /// Mirrors ForumAudioStreamCubit.leaveCoHost() exactly. See
+  /// joinAsVideoCoHost()'s own comment for why this lives here rather
+  /// than on ForumVideoStage's State.
+  Future<void> leaveVideoCoHost() async {
+    if (role != ForumHeaderRole.speaker) return;
+    final summaryId = callSummaryId;
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+
+    // NOT stopVideoStream() — that also flips isLiveNotifier, which would
+    // incorrectly mark the WHOLE call as not-live for this client (and
+    // unmount ForumVideoStage out from under them) even though the host
+    // is still broadcasting. See stopOwnVideoPublish's own comment.
+    stopOwnVideoPublish();
+
+    if (summaryId != null) {
+      await leaveCallParticipant(summaryId);
+    }
+
+    if (userId != null) {
+      final updatedParticipants = Map<String, CallParticipant>.from(participantsNotifier.value)..remove(userId);
+      participantsNotifier.value = updatedParticipants;
+    }
+
+    role = ForumHeaderRole.listener;
+    isMicMuted = true;
+    isCameraOn = false;
+
+    if (userId != null) {
+      await broadcastVideoEvent(
+        action: 'participant_left',
+        extraData: {'userId': userId},
+      );
+    }
+  }
+
   /// Self-serve — voluntarily leaves the calling user's own speaking slot.
   Future<void> leaveCallParticipant(String callSummaryId) async {
     try {
@@ -952,6 +1258,13 @@ class ForumVideoStreamService {
     required String hostSessionId,
   }) async {
     if (!kIsWeb) return false;
+    // Every caller (pure listener's bootstrap, a co-host's own pull of
+    // the host) always has the host's real session id here — this is the
+    // one choke point that works for both, so it's the simplest place to
+    // keep hostSessionIdNotifier current for a non-host client. Set
+    // before the actual connection attempt so the Join Card's "fast
+    // path" has it even if the pull itself fails/retries.
+    hostSessionIdNotifier.value = hostSessionId;
     try {
       final session = Supabase.instance.client.auth.currentSession;
       const supabaseUrl = String.fromEnvironment('SUPABASE_URL');
@@ -1214,8 +1527,13 @@ class ForumVideoStreamService {
     }
   }
 
-  void stopVideoStream() {
-    setLive(false);
+  /// Tears down THIS user's own local camera/mic publish connection only
+  /// — does NOT touch isLiveNotifier. Safe to call from a co-host leaving
+  /// (leaveVideoCoHost) or ForumVideoStage.dispose() without marking the
+  /// whole call not-live out from under everyone else; stopVideoStream()
+  /// below is for the ORIGINAL HOST ending the call entirely and
+  /// additionally flips isLiveNotifier.
+  void stopOwnVideoPublish() {
     releaseWakeLock();
     cfSessionId = null;
     _isPublished = false;
@@ -1223,6 +1541,17 @@ class ForumVideoStreamService {
     try {
       _jsStopVideoStream();
     } catch (_) {}
+  }
+
+  /// Ends the call for THIS client's own view of it — host-only in
+  /// practice (see forum_screen.dart's end-broadcast handler and
+  /// _handleVideoBroadcastEvent's 'end_stream' case, the only two
+  /// callers). Flips isLiveNotifier, which unmounts ForumVideoStage (see
+  /// forum_screen.dart's isStageActive) — a co-host leaving must NOT go
+  /// through this path, see leaveVideoCoHost()/stopOwnVideoPublish().
+  void stopVideoStream() {
+    setLive(false);
+    stopOwnVideoPublish();
   }
 
   double getAudioLevel() {

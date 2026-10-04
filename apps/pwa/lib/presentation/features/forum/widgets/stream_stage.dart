@@ -10,11 +10,14 @@ import 'package:web/web.dart' as web;
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:lynk_x/presentation/shared/utils/app_snackbars.dart';
 import '../cubit/forum_chat_cubit.dart';
+import '../cubit/forum_cubit.dart';
 import '../cubit/forum_presence_cubit.dart';
 import '../cubit/forum_updates_cubit.dart';
 import '../models/forum_model.dart';
 import '../models/call_participant.dart';
+import '../services/mini_overlay_service.dart';
 import '../services/stream_service.dart';
+import 'header.dart' show ForumHeaderRole;
 import 'message_input.dart';
 import 'speaker_tag.dart';
 import 'stage/stream_chat_overlay.dart';
@@ -74,6 +77,70 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
 
   web.HTMLVideoElement? _videoElement;
 
+  // --- Role ---
+  // Mirrors _videoService.roleNotifier (the real source of truth — see
+  // its own field comment) into local State so build() reacts to it via
+  // setState the same way every other piece of UI state here does,
+  // rather than wrapping the whole widget in a ValueListenableBuilder.
+  // widget.isHost stays the organizer/permanent-host identity (unchanged
+  // for the session); _role is the CURRENT publish role, which a
+  // co-host join/leave flips independently of that. A genuine listener
+  // (not just a one-way mirror set from this widget's own actions) is
+  // required because joinAsVideoCoHost()/leaveVideoCoHost() can run from
+  // the presence drawer while THIS widget isn't mounted at all (the
+  // stage is minimized) — see ForumVideoStreamService.joinAsVideoCoHost's
+  // own comment — so this widget needs to pick up a role change that
+  // happened while it didn't exist, the next time it's built.
+  late ForumHeaderRole _role;
+  bool get _isPublishingRole => _role == ForumHeaderRole.host || _role == ForumHeaderRole.speaker;
+
+  void _onServiceRoleChanged() {
+    if (!mounted || _role == _videoService.role) return;
+    setState(() => _role = _videoService.role);
+    _startTelemetryPolling();
+  }
+
+  /// Registers BOTH the listener-side and publish-side JS connection
+  /// callbacks unconditionally — a co-host is simultaneously a LISTENER
+  /// (pulling the host's track) and a PUBLISHER (their own camera), so
+  /// both need to be live at once, not an either/or by role (mirrors
+  /// ForumAudioStreamCubit's constructor, which registers all three the
+  /// same way — role is checked inside each handler body, not at
+  /// registration time). Called once from initState; no need to re-call
+  /// on a role transition since the registrations themselves don't
+  /// change, only whether a given handler's body is a no-op.
+  void _registerConnectionCallbacks() {
+    if (!kIsWeb) return;
+    // Fires once the JS layer's bounded reconnect (3 attempts) for a
+    // dropped remote video track gives up. Relevant to everyone who isn't
+    // purely a publisher-with-nothing-to-pull — in practice that's
+    // everyone, since even the host/a co-host doesn't pull their OWN
+    // track, but co-hosts beyond the first pull each other, and any
+    // non-host always pulls the host.
+    _videoService.onRemoteVideoListenerLost(() {
+      if (mounted) {
+        AppSnackBars.showInfo(context, 'Lost connection to the live stream.');
+      }
+    });
+    // Publish-side: JS detected the publish connection failed. Unlike the
+    // listener side, JS can't recover this itself — Cloudflare's own
+    // guidance is to replace the connection (a NEW session), which needs
+    // a Supabase-authenticated session-create call, so the reconnect
+    // sequence runs here. No-op if this cubit/tab isn't currently
+    // publishing (_isPublishingRole false) — _reconnectVideoPublish
+    // itself checks that.
+    _videoService.onPublishNeedsReconnect(() {
+      unawaited(_reconnectVideoPublish());
+    });
+    _videoService.onPublishLost(() {
+      if (mounted && _isPublishingRole) {
+        AppSnackBars.showInfo(context, _role == ForumHeaderRole.host
+            ? 'Lost connection to your live stream. Please end and restart it.'
+            : 'Lost connection to your speaking slot. Please rejoin as a speaker.');
+      }
+    });
+  }
+
   // --- UI state fields ---
   bool _isMicMuted = false;
   bool _isCameraOn = true;
@@ -117,6 +184,18 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
     // Attendee joining stream defaults to Mic Muted (_isMicMuted = true) & Camera OFF (_isCameraOn = false).
     _isMicMuted = !widget.isHost;
     _isCameraOn = widget.isHost;
+    // _videoService.role is the real source of truth (survives minimize/
+    // restore — e.g. this widget remounting after a co-host minimized and
+    // reopened the stage, which must NOT reset them back to listener).
+    // Only seed it from widget.isHost on a genuinely fresh session (the
+    // service still at its default ForumHeaderRole.listener) — never
+    // downgrade an already-elevated role (host/speaker) just because this
+    // widget happens to be re-mounting.
+    if (widget.isHost || _videoService.role == ForumHeaderRole.listener) {
+      _videoService.role = widget.isHost ? ForumHeaderRole.host : ForumHeaderRole.listener;
+    }
+    _role = _videoService.role;
+    _videoService.roleNotifier.addListener(_onServiceRoleChanged);
 
     if (kIsWeb) {
       _onScreenShareEndedListener = (web.Event event) {
@@ -126,29 +205,7 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
       }.toJS;
       web.window.addEventListener('lynkScreenShareEnded', _onScreenShareEndedListener);
 
-      if (!widget.isHost) {
-        // Fires once the JS layer's bounded reconnect (3 attempts) for a
-        // dropped remote video track gives up.
-        _videoService.onRemoteVideoListenerLost(() {
-          if (mounted) {
-            AppSnackBars.showInfo(context, 'Lost connection to the live stream.');
-          }
-        });
-      } else {
-        // Host-side counterpart: JS detected the publish connection failed.
-        // Unlike the listener side, JS can't recover this itself —
-        // Cloudflare's own guidance is to replace the connection (a NEW
-        // session), which needs a Supabase-authenticated session-create
-        // call, so the reconnect sequence runs here.
-        _videoService.onPublishNeedsReconnect(() {
-          unawaited(_reconnectVideoPublish());
-        });
-        _videoService.onPublishLost(() {
-          if (mounted) {
-            AppSnackBars.showInfo(context, 'Lost connection to your live stream. Please end and restart it.');
-          }
-        });
-      }
+      _registerConnectionCallbacks();
 
       final fId = widget.forumId;
       if (fId != null && fId.isNotEmpty) {
@@ -242,16 +299,19 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
     });
   }
 
-  /// Polls telemetry stats from the video service every second.
-  /// Host: only fetches when the telemetry overlay is visible (on-demand
-  /// detail view, avoids redundant work). Listener: polls continuously at a
-  /// slower 5s cadence regardless of the overlay — a struggling listener
-  /// needs to see "your connection is poor" proactively (_PoorConnectionBadge
-  /// below), not only once they've already opened a stats panel to ask why
-  /// the video looks bad.
+  /// Polls telemetry stats from the video service every second. Publisher
+  /// (host or co-host): only fetches when the telemetry overlay is
+  /// visible (on-demand detail view, avoids redundant work). Pure
+  /// listener: polls continuously at a slower 5s cadence regardless of
+  /// the overlay — a struggling listener needs to see "your connection is
+  /// poor" proactively (_PoorConnectionBadge below), not only once
+  /// they've already opened a stats panel to ask why the video looks bad.
+  /// Re-called from _setRole() so a listener becoming a co-host switches
+  /// cadence immediately rather than staying on the listener polling
+  /// pattern for a now-publishing connection.
   void _startTelemetryPolling() {
     _telemetryTimer?.cancel();
-    if (widget.isHost) {
+    if (_isPublishingRole) {
       _telemetryTimer = Timer.periodic(const Duration(seconds: 1), (_) {
         if (!mounted || !_showTelemetryOverlay) return;
         _videoService.fetchTelemetryStats();
@@ -510,15 +570,44 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
 
   /// Handles a video_stream_event broadcast: 'session_changed' (host's own
   /// _reconnectVideoPublish after its Cloudflare connection was replaced
-  /// following a network drop — listener-only, the host is already on the
-  /// new session by the time this fires for anyone else) or
+  /// following a network drop — everyone else, including a co-host, is
+  /// not yet on the new session by the time this fires) or
   /// 'participant_joined'/'participant_left' (registry changes — kept
   /// current for everyone, host included, since the grid UI reads
-  /// participantsNotifier regardless of role; track pull/teardown is
-  /// listener-only, same reasoning as ForumAudioStreamCubit's audio
-  /// equivalent).
+  /// participantsNotifier regardless of role; track pull/teardown runs
+  /// for anyone who isn't the host, since a co-host pulls every other
+  /// participant too, not just a pure listener — same reasoning as
+  /// ForumAudioStreamCubit's audio equivalent).
   void _handleVideoBroadcastEvent(Map<String, dynamic> payload) {
     final action = payload['action'] as String?;
+
+    // The host ended the call — see forum_screen.dart's onEndBroadcast
+    // handler, which already tore down the HOST's own local state before
+    // broadcasting this, so _role == host here means this is that same
+    // broadcast echoing back to its own sender; nothing further to do.
+    // Everyone else (listener or co-host) needs to tear down their own
+    // connection the server already force-closed their registry row for.
+    if (action == 'end_stream') {
+      if (_role == ForumHeaderRole.host) return;
+      if (_isPublishingRole) {
+        _videoService.stopVideoStream();
+      }
+      _videoService.unsubscribeFromRemoteVideo();
+      _videoService.setLive(false);
+      _videoService.releaseWakeLock();
+      _videoService.participantsNotifier.value = {};
+      _videoService.hostSessionIdNotifier.value = null;
+      if (mounted) {
+        setState(() {
+          _role = ForumHeaderRole.listener;
+          _isMicMuted = true;
+          _isCameraOn = false;
+        });
+      }
+      _videoService.role = ForumHeaderRole.listener;
+      MiniOverlayService().endPipSession();
+      return;
+    }
 
     if (action == 'participant_joined') {
       final participant = CallParticipant.fromJson(payload);
@@ -527,9 +616,56 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
       updated[participant.userId] = participant;
       _videoService.participantsNotifier.value = updated;
 
-      if (!widget.isHost) {
+      // A co-host pulls every OTHER participant's track too (they're a
+      // listener to everyone but themselves) — only the host, who never
+      // pulls anyone, skips this. _role != host (not !_isPublishingRole)
+      // is the right test here.
+      if (_role != ForumHeaderRole.host) {
         unawaited(_pullParticipantMedia(participant));
       }
+      return;
+    }
+
+    // Targeted at one specific user (payload['targetUserId']) — every
+    // other client receives this too (forum-wide channel, no per-
+    // recipient filtering server-side) but ignores it. See
+    // ForumAudioStreamCubit's identical 'participant_invite' handling.
+    if (action == 'participant_invite') {
+      final targetUserId = payload['targetUserId'] as String?;
+      if (targetUserId != Supabase.instance.client.auth.currentUser?.id) return;
+      final fromHostName = payload['fromHostName'] as String?;
+      _videoService.pendingVideoInviteFromHostName.value = fromHostName ?? 'The host';
+      return;
+    }
+
+    // The invitee accepted and already published their own track —
+    // host-only, see ForumVideoStreamService.registerAcceptedVideoInvite.
+    if (action == 'participant_invite_accepted') {
+      if (_role != ForumHeaderRole.host) return;
+      unawaited(_videoService.registerAcceptedVideoInvite(payload));
+      return;
+    }
+
+    // Someone's mic/camera state changed — previously nothing ever
+    // broadcast this, so every OTHER client's roster/grid tile silently
+    // never reflected anyone else's actual mute/camera-off state (see
+    // _broadcastOwnMediaState's own comment). Ignore our own echo (we
+    // already updated locally in _toggleMic/_toggleCamera).
+    if (action == 'media_state_changed') {
+      final userId = payload['userId'] as String?;
+      if (userId == null || userId == Supabase.instance.client.auth.currentUser?.id) return;
+      final isMicMuted = payload['isMicMuted'] as bool?;
+      final isCameraOn = payload['isCameraOn'] as bool?;
+      // The host's own activeParticipantsNotifier entry is keyed by the
+      // literal sentinel 'host', not their real userId (see
+      // _ownParticipantId's own comment) — the sender tells us directly
+      // which one it is rather than us guessing on receipt.
+      final isHostUser = payload['isHost'] as bool? ?? false;
+      _videoService.updateParticipantMediaState(
+        isHostUser ? 'host' : userId,
+        isMicMuted: isMicMuted,
+        isCameraOn: isCameraOn,
+      );
       return;
     }
 
@@ -546,7 +682,10 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
       return;
     }
 
-    if (widget.isHost || action != 'session_changed') return;
+    // Same reasoning as participant_joined above — a co-host still needs
+    // to re-pull the HOST's track on the host's own reconnect; only the
+    // host itself (who IS the session that changed) skips this.
+    if (_role == ForumHeaderRole.host || action != 'session_changed') return;
 
     final newSessionId = payload['sessionId'] as String?;
     final forumId = widget.forumId;
@@ -564,25 +703,57 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
     }());
   }
 
+  /// Self-serve: a co-host (not the original host — they use the
+  /// end-stream flow in forum_screen.dart) leaves their speaking slot.
+  /// Thin wrapper around ForumVideoStreamService.leaveVideoCoHost() — see
+  /// joinAsVideoCoHost()'s own comment for why the sequence lives there.
+  Future<void> leaveVideoCoHost() async {
+    await _videoService.leaveVideoCoHost();
+    if (!mounted) return;
+    setState(() {
+      _role = ForumHeaderRole.listener;
+      _isMicMuted = true;
+      _isCameraOn = false;
+    });
+    _startTelemetryPolling();
+    // Resume pulling the host's own track into _elementId now that this
+    // tab's own camera preview (which was using the same element) is
+    // gone — mirrors the listener path _initCameraAndAudio already takes
+    // for someone who was never a co-host to begin with.
+    await _subscribeToHostStream();
+  }
+
   bool _isReconnectingVideoPublish = false;
 
-  /// Recovers the host's publish connection after the JS layer detects ICE
-  /// failure/disconnect. Per Cloudflare's own guidance there is no
-  /// supported same-session recovery for a publisher, so this replaces the
-  /// connection entirely: a NEW Cloudflare session, republished tracks,
-  /// the new session id persisted to BOTH streaming_config and this host's
-  /// own forum_call_participants row (now the source of truth every
-  /// participant, including the host, actually lives in), and a
-  /// 'session_changed' broadcast so already-joined listeners re-pull
-  /// against the new session (see _handleVideoBroadcastEvent). Mirrors
+  /// Recovers THIS user's own publish connection after the JS layer
+  /// detects ICE failure/disconnect — host OR co-host, see
+  /// _registerConnectionCallbacks. Per Cloudflare's own guidance there is
+  /// no supported same-session recovery for a publisher, so this replaces
+  /// the connection entirely: a NEW Cloudflare session, republished
+  /// tracks, the new session id persisted to this user's own
+  /// forum_call_participants row (the source of truth every participant,
+  /// including the host, actually lives in).
+  ///
+  /// The HOST additionally owns streaming_config.cf_session_id — the
+  /// well-known address every listener's OWN base connection was built
+  /// against — so only the host's reconnect updates it and broadcasts
+  /// 'session_changed', which _handleVideoBroadcastEvent already
+  /// unconditionally re-subscribes a listener/co-host against, rebuilding
+  /// their connection to the host. A co-host's reconnect instead
+  /// re-broadcasts 'participant_joined' with the new session — the SAME
+  /// event a first-time join uses — so everyone else just re-runs
+  /// _pullParticipantMedia against the new session (their own base
+  /// connection, pulling the host, is untouched and still healthy; only
+  /// this one co-host's track needs re-pulling). Mirrors
   /// ForumAudioStreamCubit._reconnectPublish exactly — video just has no
   /// cubit of its own, so this lives on the stage widget's state instead.
   Future<void> _reconnectVideoPublish() async {
-    if (_isReconnectingVideoPublish || !_videoService.isLiveNotifier.value) {
+    if (_isReconnectingVideoPublish || !_videoService.isLiveNotifier.value || !_isPublishingRole) {
       return;
     }
     final forumId = widget.forumId;
     if (forumId == null || forumId.isEmpty) return;
+    final isHost = _role == ForumHeaderRole.host;
 
     _isReconnectingVideoPublish = true;
     try {
@@ -599,13 +770,19 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
       if (!mounted || !published) return;
 
       final callSummaryId = _videoService.callSummaryId;
-      await _videoService.updateForumStreamingConfig(
-        forumId: forumId,
-        isLive: true,
-        sessionId: newSessionId,
-        hostId: userId,
-        callSummaryId: callSummaryId,
-      );
+      if (isHost) {
+        await _videoService.updateForumStreamingConfig(
+          forumId: forumId,
+          isLive: true,
+          sessionId: newSessionId,
+          hostId: userId,
+          callSummaryId: callSummaryId,
+        );
+        // The HOST's reconnected session is the new host session for
+        // everyone, including the host's own Join Card instance — see
+        // hostSessionIdNotifier's own comment.
+        _videoService.hostSessionIdNotifier.value = newSessionId;
+      }
       if (callSummaryId != null && userId != null) {
         await _videoService.updateParticipantSession(
           callSummaryId: callSummaryId,
@@ -615,22 +792,33 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
       }
       if (!mounted) return;
 
+      CallParticipant? selfParticipant;
       if (userId != null) {
-        final updated = Map<String, CallParticipant>.from(_videoService.participantsNotifier.value);
-        updated[userId] = CallParticipant(
+        selfParticipant = CallParticipant(
           userId: userId,
-          userName: widget.hostName,
+          userName: isHost ? widget.hostName : (context.read<ForumCubit>().state.userName.isNotEmpty
+              ? context.read<ForumCubit>().state.userName
+              : 'Speaker'),
           cfSessionId: newSessionId,
           trackName: userId,
         );
+        final updated = Map<String, CallParticipant>.from(_videoService.participantsNotifier.value);
+        updated[userId] = selfParticipant;
         _videoService.participantsNotifier.value = updated;
       }
 
-      await _videoService.broadcastVideoEvent(
-        action: 'session_changed',
-        sessionId: newSessionId,
-        hostId: userId,
-      );
+      if (isHost) {
+        await _videoService.broadcastVideoEvent(
+          action: 'session_changed',
+          sessionId: newSessionId,
+          hostId: userId,
+        );
+      } else if (selfParticipant != null) {
+        await _videoService.broadcastVideoEvent(
+          action: 'participant_joined',
+          extraData: selfParticipant.toBroadcastPayload(),
+        );
+      }
     } catch (e) {
       debugPrint('[ForumVideoStage] _reconnectVideoPublish error: $e');
     } finally {
@@ -641,14 +829,14 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _videoService.roleNotifier.removeListener(_onServiceRoleChanged);
     if (kIsWeb && _onScreenShareEndedListener != null) {
       web.window.removeEventListener('lynkScreenShareEnded', _onScreenShareEndedListener);
     }
-    if (!widget.isHost) {
-      _videoService.removeListenerLostCallback();
-    } else {
-      _videoService.removePublishReconnectCallbacks();
-    }
+    // Both registered unconditionally in _registerConnectionCallbacks()
+    // (a co-host needs both simultaneously) — clean up both the same way.
+    _videoService.removeListenerLostCallback();
+    _videoService.removePublishReconnectCallbacks();
     _audioLevelTimer?.cancel();
     _durationTimer?.cancel();
     _telemetryTimer?.cancel();
@@ -656,12 +844,26 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
     _sessionDurationNotifier.dispose();
     if (!_videoService.isMinimizedNotifier.value) {
       _videoService.releaseWakeLock();
-      if (widget.isHost) {
-        _videoService.stopVideoStream();
-      } else {
-        _videoService.unsubscribeFromRemoteVideo();
-        _videoService.setLive(false);
+      // A co-host is BOTH a publisher (their own camera) and a listener
+      // (pulling the host, and every other co-host) — stop whichever
+      // applies. stopOwnVideoPublish()/unsubscribeFromRemoteVideo() are
+      // each safe no-ops if this user never held that side of the
+      // connection, so calling both unconditionally (rather than an
+      // either/or by role) correctly tears down everything a co-host was
+      // doing. Deliberately NOT stopVideoStream()/setLive(false) for
+      // EITHER role here — navigating away from this widget (closing the
+      // tab, switching forums) is this ONE client's own exit, not the
+      // call ending; flipping isLiveNotifier was previously making the
+      // Join Card wrongly show "Session finished" to this same user the
+      // next time they opened the forum, even though the host was still
+      // broadcasting the whole time. Ending the call for everyone is a
+      // deliberate action (the host's "End Broadcast" button /
+      // 'end_stream' broadcast), never an implicit side effect of
+      // disposing this widget.
+      if (_isPublishingRole) {
+        _videoService.stopOwnVideoPublish();
       }
+      _videoService.unsubscribeFromRemoteVideo();
       unawaited(_videoService.unsubscribeVideoBroadcast());
       if (kIsWeb && _videoElement != null) {
         _videoElement!.srcObject = null;
@@ -688,18 +890,58 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
     }
   }
 
+  /// activeParticipantsNotifier keys the ORIGINAL host's own entry by the
+  /// literal sentinel id 'host' (a pre-existing convention throughout
+  /// this file's StreamParticipant logic — see e.g. toggleParticipantMic/
+  /// Camera's own 'host' checks), not their real userId. A co-host has no
+  /// such special-case entry — theirs is keyed by their actual userId, if
+  /// it exists there at all (via syncWithPresenceUsers). This resolves
+  /// which id this viewer's OWN local mic/camera toggle should target.
+  String get _ownParticipantId {
+    if (_role == ForumHeaderRole.host) return 'host';
+    return Supabase.instance.client.auth.currentUser?.id ?? 'host';
+  }
+
   void _toggleMic() {
     setState(() => _isMicMuted = !_isMicMuted);
     _videoService.isMicMuted = _isMicMuted;
     _videoService.toggleMic(!_isMicMuted);
-    _videoService.updateParticipantMediaState('host', isMicMuted: _isMicMuted);
+    _videoService.updateParticipantMediaState(_ownParticipantId, isMicMuted: _isMicMuted);
+    _broadcastOwnMediaState();
   }
 
   void _toggleCamera() {
     setState(() => _isCameraOn = !_isCameraOn);
     _videoService.isCameraOn = _isCameraOn;
     _videoService.toggleCamera(_isCameraOn);
-    _videoService.updateParticipantMediaState('host', isCameraOn: _isCameraOn);
+    _videoService.updateParticipantMediaState(_ownParticipantId, isCameraOn: _isCameraOn);
+    _broadcastOwnMediaState();
+  }
+
+  /// Broadcasts THIS viewer's own current mic/camera state to everyone
+  /// else on the call — previously updateParticipantMediaState only ever
+  /// updated this tab's own LOCAL activeParticipantsNotifier, so every
+  /// other viewer's roster/grid tile silently never reflected anyone
+  /// else's actual mute/camera-off state (each client only ever saw
+  /// itself change). Folded in alongside the video co-hosting work since
+  /// it's the same participant-state-management gap: now that multiple
+  /// independent publishers exist, each one's mute/camera state needs to
+  /// actually reach everyone, not just stay local to their own tab.
+  Future<void> _broadcastOwnMediaState() async {
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    if (userId == null) return;
+    await _videoService.broadcastVideoEvent(
+      action: 'media_state_changed',
+      extraData: {
+        'userId': userId,
+        'isMicMuted': _isMicMuted,
+        'isCameraOn': _isCameraOn,
+        // Computed by the SENDER (knows its own _role) rather than
+        // guessed on the receiving end — avoids every receiver needing
+        // its own fragile "is this userId the host" lookup.
+        'isHost': _role == ForumHeaderRole.host,
+      },
+    );
   }
 
   Future<void> _flipCamera() async {
@@ -839,7 +1081,7 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
                       orElse: () => StreamParticipant(
                         id: 'host',
                         name: widget.hostName,
-                        role: widget.isHost ? 'Host' : 'Speaker',
+                        role: _role == ForumHeaderRole.host ? 'Host' : 'Speaker',
                         isSpeaking: !_isMicMuted,
                       ),
                     );
@@ -867,8 +1109,11 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
             ),
           ),
 
-          // WEAK CONNECTION BADGE (listener only — see PoorConnectionBadge)
-          if (!widget.isHost)
+          // WEAK CONNECTION BADGE — anyone who RECEIVES the host's track
+          // (a pure listener, or a co-host who still pulls the host and
+          // others) can have poor receive quality; only the host itself,
+          // who pulls nothing, never shows this (see PoorConnectionBadge).
+          if (_role != ForumHeaderRole.host)
             ValueListenableBuilder<TelemetryData>(
               valueListenable: _videoService.listenerTelemetryNotifier,
               builder: (context, telemetry, _) {
@@ -929,6 +1174,7 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
             sessionDurationNotifier: _sessionDurationNotifier,
             showTelemetryOverlay: _showTelemetryOverlay,
             isHost: widget.isHost,
+            isPublishingRole: _isPublishingRole,
             isScreenSharing: _isScreenSharing,
             isFrontCamera: _isFrontCamera,
             isMicMuted: _isMicMuted,

@@ -114,6 +114,14 @@ class _ForumViewState extends State<ForumView> {
     final initialTab = context.read<ForumCubit>().state.currentTabIndex;
     _pageController = PageController(initialPage: initialTab);
     _loadBannerState();
+
+    ForumVideoStreamService().pendingVideoInviteFromHostName.addListener(_onVideoInviteChanged);
+  }
+
+  void _onVideoInviteChanged() {
+    final fromHostName = ForumVideoStreamService().pendingVideoInviteFromHostName.value;
+    if (fromHostName == null || !mounted) return;
+    showVideoSpeakerInviteDialog(context, fromHostName);
   }
 
   void _precacheMedia(List<ForumMedia> mediaItems) {
@@ -157,6 +165,7 @@ class _ForumViewState extends State<ForumView> {
 
   @override
   void dispose() {
+    ForumVideoStreamService().pendingVideoInviteFromHostName.removeListener(_onVideoInviteChanged);
     _precachedUrls.clear();
     _updatesScrollController.dispose();
     _chatScrollController.dispose();
@@ -580,6 +589,7 @@ class _ForumViewState extends State<ForumView> {
                                                         videoService.setMinimized(false);
                                                         videoService.stopVideoStream();
                                                         videoService.setLive(false);
+                                                        videoService.hostSessionIdNotifier.value = null;
                                                         MiniOverlayService()
                                                             .endPipSession();
                                                         // Host is the only
@@ -602,6 +612,18 @@ class _ForumViewState extends State<ForumView> {
                                                         final vfSummaryId = videoService.callSummaryId;
                                                         videoService.callSummaryId = null;
                                                         unawaited(videoService.endCallSummary(vfSummaryId));
+                                                        // Previously nothing told an already-joined
+                                                        // listener/co-host the call ended at all —
+                                                        // they'd only find out on their next
+                                                        // fetchInitialStreamingConfig poll or a page
+                                                        // reload, leaving a co-host's own publish
+                                                        // connection dangling in the meantime even
+                                                        // though the server already force-closed
+                                                        // their forum_call_participants row (see
+                                                        // social.end_forum_call_summary). Mirrors
+                                                        // ForumAudioStreamCubit.endAudioStream's
+                                                        // 'end_stream' broadcast.
+                                                        unawaited(videoService.broadcastVideoEvent(action: 'end_stream'));
 
                                                         // Mirrors the "started the live stream"
                                                         // announcement posted on start — without
@@ -696,6 +718,14 @@ class _ForumViewState extends State<ForumView> {
                                                               }
                                                               return;
                                                             }
+                                                            // The HOST's own session IS the host
+                                                            // session — keeps hostSessionIdNotifier
+                                                            // (used by _LiveStreamJoinCard's
+                                                            // end-detection fast path) current for
+                                                            // the host too, not just listeners/
+                                                            // co-hosts (see subscribeToRemoteVideo's
+                                                            // own comment).
+                                                            videoService.hostSessionIdNotifier.value = sessionId;
 
                                                             // Call-summary row must exist BEFORE
                                                             // joinAsCallParticipant (needs its id) and

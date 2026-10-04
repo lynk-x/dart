@@ -12,7 +12,7 @@ class SpeakerTag extends StatelessWidget {
     required this.audioLevel,
   });
 
-  static const double _silenceFloor = 0.015;
+  static const double _silenceFloor = 0.03;
 
   @override
   Widget build(BuildContext context) {
@@ -20,8 +20,7 @@ class SpeakerTag extends StatelessWidget {
         ? 0.0
         : audioLevel.clamp(0.0, 1.0);
 
-    final boosted = (safeAudioLevel * 3.0).clamp(0.0, 1.0);
-    final sensitiveAudioLevel = boosted < _silenceFloor ? 0.0 : boosted;
+    final sensitiveAudioLevel = safeAudioLevel < _silenceFloor ? 0.0 : safeAudioLevel;
 
     final maxTagWidth = MediaQuery.of(context).size.width - 64;
 
