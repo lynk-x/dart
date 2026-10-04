@@ -22,6 +22,8 @@ window.lynkAudioStreamHelper = {
   remoteAudioContext: null,
   remoteAnalyserNode: null,
   remoteAnalyserDataArray: null,
+  _localEnvelope: 0.0,
+  _remoteEnvelope: 0.0,
   localAudioStream: null,
 
   hasLocalMicrophone() {
@@ -680,15 +682,23 @@ window.lynkAudioStreamHelper = {
         this.localAudioContext = ctx;
         this.localAnalyserNode = analyser;
         this.localAnalyserDataArray = new Uint8Array(bufferLength);
+        this._localEnvelope = 0.0;
       } else {
         this.remoteAudioContext = ctx;
         this.remoteAnalyserNode = analyser;
         this.remoteAnalyserDataArray = new Uint8Array(bufferLength);
+        this._remoteEnvelope = 0.0;
       }
     } catch (e) {
       console.warn('[AudioStreamHelper] Analyser setup failed:', e);
     }
   },
+
+  _dbFloor: -55,
+  _dbCeiling: -10,
+  _attackSeconds: 0.03,
+  _releaseSeconds: 0.25,
+  _envelopeDtSeconds: 0.09,
 
   // Prefers the LOCAL analyser (this user's own mic) when one exists —
   // "am I audible right now" is the more actionable signal once a user is
@@ -709,14 +719,35 @@ window.lynkAudioStreamHelper = {
       sum += dataArray[i];
     }
     const average = sum / dataArray.length;
-    // Divisor lowered from 128 — the compressor node upstream (see
-    // setupAudioAnalyser) keeps normal speech well below byte-max 255, so
-    // 128 made the visualization look sluggish/under-sensitive for
-    // ordinary speaking volume. 48 brings moderate speech up near the
-    // visualization's useful range while Math.min still caps loud input
-    // at 1.0.
-    const level = Math.min(1.0, average / 48.0);
-    return level;
+
+    // Byte-domain average (0-255) -> dB, then normalized against
+    // _dbFloor/_dbCeiling -> 0.0-1.0. Human perceived loudness is
+    // logarithmic, so this (not a linear average/divisor) is what gives
+    // normal speech a usable range of motion instead of behaving like an
+    // on/off switch.
+    let targetLevel;
+    if (average <= 0) {
+      targetLevel = 0.0;
+    } else {
+      const db = 20 * Math.log10(average / 255);
+      targetLevel = (db - this._dbFloor) / (this._dbCeiling - this._dbFloor);
+      targetLevel = Math.max(0.0, Math.min(1.0, targetLevel));
+    }
+
+    // Exponential attack/release envelope toward targetLevel — this is
+    // what actually makes the bars animate rather than jump straight to
+    // whatever the current instantaneous reading is.
+    const prevEnvelope = useLocal ? this._localEnvelope : this._remoteEnvelope;
+    const tau = targetLevel > prevEnvelope ? this._attackSeconds : this._releaseSeconds;
+    const alpha = 1 - Math.exp(-this._envelopeDtSeconds / tau);
+    const envelope = prevEnvelope + (targetLevel - prevEnvelope) * alpha;
+
+    if (useLocal) {
+      this._localEnvelope = envelope;
+    } else {
+      this._remoteEnvelope = envelope;
+    }
+    return envelope;
   },
 
   // [source] omitted clears BOTH (full teardown, e.g. page/call end).

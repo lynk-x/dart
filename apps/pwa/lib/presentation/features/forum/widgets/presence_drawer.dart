@@ -84,6 +84,7 @@ class _PresenceDrawerState extends State<PresenceDrawer> {
     // redundantly trigger).
     _cachedRoster = _buildMergedRoster(widget.members, widget.onlineUsers, _collectInCallUserIds());
     ForumVideoStreamService().activeParticipantsNotifier.addListener(_onCallMembershipChanged);
+    ForumVideoStreamService().participantsNotifier.addListener(_onCallMembershipChanged);
   }
 
   @override
@@ -111,8 +112,8 @@ class _PresenceDrawerState extends State<PresenceDrawer> {
 
   Set<String> _collectInCallUserIds() {
     final ids = <String>{};
-    for (final p in ForumVideoStreamService().activeParticipantsNotifier.value) {
-      if (p.id.isNotEmpty) ids.add(p.id);
+    for (final userId in ForumVideoStreamService().participantsNotifier.value.keys) {
+      if (userId.isNotEmpty) ids.add(userId);
     }
 
     final audioState = _audioCubit?.state;
@@ -138,6 +139,7 @@ class _PresenceDrawerState extends State<PresenceDrawer> {
   @override
   void dispose() {
     ForumVideoStreamService().activeParticipantsNotifier.removeListener(_onCallMembershipChanged);
+    ForumVideoStreamService().participantsNotifier.removeListener(_onCallMembershipChanged);
     _audioCubitSub?.cancel();
     super.dispose();
   }
@@ -689,7 +691,9 @@ class ParticipantList extends StatelessWidget {
                             isMicMuted: mediaState.isMicMuted,
                             isCameraOn: isStreamActive ? mediaState.isCameraOn : null,
                             isAudioCallLive: isAudioLive,
-                            isSpeaking: audioCubit?.state.participants.containsKey(userId) ?? false,
+                            isVideoCallLive: isVideoLive,
+                            isSpeaking: (audioCubit?.state.participants.containsKey(userId) ?? false) ||
+                                ForumVideoStreamService().participantsNotifier.value.containsKey(userId),
                             onJoinAsCoHost: isSelf
                                 ? () async {
                                     final success = await audioCubit?.joinAsCoHost();
@@ -700,6 +704,19 @@ class ParticipantList extends StatelessWidget {
                                   }
                                 : null,
                             onInviteToSpeak: (id) => audioCubit?.inviteSpeaker(id),
+                            onJoinAsVideoCoHost: isSelf
+                                ? () async {
+                                    final success = await ForumVideoStreamService().joinAsVideoCoHost(
+                                      forumId: ForumVideoStreamService().forumId,
+                                      viewerUserName: userName,
+                                    );
+                                    if (!success && context.mounted) {
+                                      AppSnackBars.showError(
+                                          context, 'Could not join as a speaker — check the call isn\'t full.');
+                                    }
+                                  }
+                                : null,
+                            onInviteToVideoSpeak: (id) => ForumVideoStreamService().inviteVideoSpeaker(id),
                             onToggleMic: (id) {
                               StreamParticipantService().toggleMic(
                                 userId: id,

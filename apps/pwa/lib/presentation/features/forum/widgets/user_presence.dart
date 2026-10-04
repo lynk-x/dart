@@ -29,20 +29,34 @@ class UserPresenceCard extends StatefulWidget {
   /// neither makes sense with no call to join.
   final bool isAudioCallLive;
 
+  /// Video's counterpart to [isAudioCallLive] — a forum can only ever
+  /// have one stream_type live at once (audio XOR video), but each needs
+  /// its own flag/callback pair since they're genuinely separate RPC and
+  /// broadcast flows (ForumVideoStage's joinAsVideoCoHost/inviteSpeaker
+  /// vs. ForumAudioStreamCubit's), not a single unified one.
+  final bool isVideoCallLive;
+
   /// Whether this card's user already holds a speaking slot in the active
   /// call (social.forum_call_participants) — suppresses the join/invite
-  /// actions for someone who's already speaking.
+  /// actions for someone who's already speaking. Shared by audio and
+  /// video since a user can only be in one or the other at a time.
   final bool isSpeaking;
 
-  /// Self-serve: the viewer (an organizer) joins the active call as a
-  /// co-host. Only ever called with widget.isPrimary — see
+  /// Self-serve: the viewer (an organizer) joins the active audio call as
+  /// a co-host. Only ever called with widget.isPrimary — see
   /// ForumAudioStreamCubit.joinAsCoHost.
   final VoidCallback? onJoinAsCoHost;
 
   /// Host/organizer-only: invites this card's user (a non-organizer
-  /// member) to speak. See social.invite_speaker's organizer-only gate
-  /// and shared cap check with join_as_call_participant.
+  /// member) to speak on the active audio call. See
+  /// social.invite_call_participant's organizer-only gate and shared cap
+  /// check with join_as_call_participant.
   final ValueChanged<String>? onInviteToSpeak;
+
+  /// Video counterparts to [onJoinAsCoHost]/[onInviteToSpeak] — see
+  /// ForumVideoStage.joinAsVideoCoHost/inviteVideoSpeaker.
+  final VoidCallback? onJoinAsVideoCoHost;
+  final ValueChanged<String>? onInviteToVideoSpeak;
 
   const UserPresenceCard({
     super.key,
@@ -61,9 +75,12 @@ class UserPresenceCard extends StatefulWidget {
     this.onToggleMic,
     this.onToggleCamera,
     this.isAudioCallLive = false,
+    this.isVideoCallLive = false,
     this.isSpeaking = false,
     this.onJoinAsCoHost,
     this.onInviteToSpeak,
+    this.onJoinAsVideoCoHost,
+    this.onInviteToVideoSpeak,
   });
 
   static const Map<String, String> _roleLabels = {
@@ -337,6 +354,19 @@ class _UserPresenceCardState extends State<UserPresenceCard> {
               },
               color: context.accentColor,
             ),
+          // Video's counterpart — a forum can only have one stream_type
+          // live at a time, so isAudioCallLive/isVideoCallLive never both
+          // apply, but both items stay independently gated rather than
+          // assuming that invariant holds forever.
+          if (widget.isOrganizer && widget.isVideoCallLive && !widget.isSpeaking)
+            ActionBarItem(
+              label: 'Join as Co-host',
+              onTap: () {
+                _toggleActions();
+                widget.onJoinAsVideoCoHost?.call();
+              },
+              color: context.accentColor,
+            ),
         ],
         if (!widget.isPrimary)
           ActionBarItem(
@@ -370,7 +400,8 @@ class _UserPresenceCardState extends State<UserPresenceCard> {
           ),
         // Host/organizer invites a non-organizer member directly — the
         // counterpart to self-serve Join as Co-host above, for members
-        // who aren't eligible to self-join. See social.invite_speaker.
+        // who aren't eligible to self-join. See
+        // social.invite_call_participant.
         if (forumState.isOrganizer &&
             widget.isAudioCallLive &&
             !widget.isPrimary &&
@@ -381,6 +412,20 @@ class _UserPresenceCardState extends State<UserPresenceCard> {
             onTap: () {
               _toggleActions();
               widget.onInviteToSpeak?.call(widget.userId);
+            },
+            color: context.accentColor,
+          ),
+        // Video's counterpart — see the isVideoCallLive comment above.
+        if (forumState.isOrganizer &&
+            widget.isVideoCallLive &&
+            !widget.isPrimary &&
+            !targetIsOrganizer &&
+            !widget.isSpeaking)
+          ActionBarItem(
+            label: 'Invite to Speak',
+            onTap: () {
+              _toggleActions();
+              widget.onInviteToVideoSpeak?.call(widget.userId);
             },
             color: context.accentColor,
           ),

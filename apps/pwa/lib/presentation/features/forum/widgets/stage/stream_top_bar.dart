@@ -11,6 +11,11 @@ class StageTopBar extends StatelessWidget {
   final ValueNotifier<int> sessionDurationNotifier;
   final bool showTelemetryOverlay;
   final bool isHost;
+  /// Whether this viewer currently publishes a track — host OR co-host.
+  /// Camera flip is about THIS user's own device camera, so it's gated on
+  /// this rather than [isHost] (screen share stays host-only — see its
+  /// own IconButton below — camera flip does not).
+  final bool isPublishingRole;
   final bool isScreenSharing;
   final bool isFrontCamera;
   final bool isMicMuted;
@@ -29,6 +34,7 @@ class StageTopBar extends StatelessWidget {
     required this.sessionDurationNotifier,
     required this.showTelemetryOverlay,
     this.isHost = false,
+    this.isPublishingRole = false,
     this.isScreenSharing = false,
     this.isFrontCamera = true,
     this.isMicMuted = false,
@@ -93,12 +99,12 @@ class StageTopBar extends StatelessWidget {
               IconButton(
                 icon: Icon(
                   Icons.flip_camera_ios_rounded,
-                  color: !isHost
+                  color: !isPublishingRole
                       ? Colors.white24
                       : (isFrontCamera ? Colors.white70 : context.accentColor),
                   size: 20,
                 ),
-                onPressed: !isHost ? null : onFlipCamera,
+                onPressed: !isPublishingRole ? null : onFlipCamera,
                 tooltip: 'Flip Camera',
               ),
 

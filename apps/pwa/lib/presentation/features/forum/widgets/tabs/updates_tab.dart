@@ -429,10 +429,15 @@ class _LiveCallJoinCardState extends State<_LiveCallJoinCard> {
 
 /// Join Card for a "started the live stream" announcement message. Same
 /// two-signal fix as [_LiveCallJoinCard] — combines [hasEndedMessage] (the
-/// durable backlog check) with the in-memory Cloudflare sessionId observed
+/// durable backlog check) with the in-memory host session id observed
 /// while live, so it can show "Call Ended" whether the stream ended while
 /// this card was mounted and watching, or had already concluded before the
-/// card ever mounted.
+/// card ever mounted. Watches hostSessionIdNotifier (the HOST's session,
+/// tracked for every role) rather than cfSessionId (which only ever
+/// reflects a PUBLISHER's own session and stays null forever for a pure
+/// listener — see that field's own comment) so this fast path actually
+/// engages for the common case of a listener just watching, not only a
+/// host/co-host.
 class _LiveStreamJoinCard extends StatefulWidget {
   final String title;
   final String hostName;
@@ -459,7 +464,7 @@ class _LiveStreamJoinCardState extends State<_LiveStreamJoinCard> {
       valueListenable: ForumVideoStreamService().isLiveNotifier,
       builder: (context, isLive, _) {
         if (isLive) {
-          _observedLiveSessionId = ForumVideoStreamService().cfSessionId;
+          _observedLiveSessionId = ForumVideoStreamService().hostSessionIdNotifier.value;
         }
 
         final hasEnded = widget.hasEndedMessage ||
