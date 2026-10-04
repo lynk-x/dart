@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/call_participant.dart';
+import '../services/call_sound_service.dart';
 import '../services/forum_audio_stream_service.dart';
 import '../services/mini_overlay_service.dart';
 import '../widgets/header.dart';
@@ -105,7 +106,6 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
     emit(state.copyWith(errorMessage: null));
   }
 
-  Timer? _reconnectTimer;
   bool _isJoiningOrStarting = false;
   bool _isTogglingMic = false;
 
@@ -185,6 +185,13 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
             isMicMuted: !isHost,
             isBroadcastMuted: false,
           ));
+
+          // Local join feedback — this whole branch only runs while
+          // state.isLive was false (the enclosing `if (!state.isLive)`
+          // above), so it's always a genuine discovery: opening the forum
+          // (or reopening the app) to find a call already in progress,
+          // for host and listener alike.
+          unawaited(CallSoundService.playJoin());
 
           // The host's own publish flow already owns their peer connection
           // (startAudioStream); only a listener needs to pull the host's
@@ -266,6 +273,13 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
         final hostId = payload['hostId'] as String?;
         final hostName = payload['hostName'] as String?;
         final isHost = hostId == userId;
+        // Captured BEFORE the emit below flips it to true — distinguishes
+        // a genuine first join (this listener/host was not live a moment
+        // ago) from the host's own reconnect echo (start_stream is also
+        // broadcast by _reconnectPublish for the SAME call; state.isLive
+        // never dropped on a listener for that case, since the listener
+        // never knew the host's publish connection failed).
+        final wasAlreadyLive = state.isLive;
         // Not overwritten for the host's own cubit instance — it already
         // set this itself inside startAudioStream(), before this
         // broadcast was even sent.
@@ -304,6 +318,17 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
           isBroadcastMuted: false,
         ));
 
+        // Local join feedback — only for a LISTENER discovering the call
+        // just went live while they were already in the forum; the host's
+        // own join sound plays locally from startAudioStream() instead
+        // (fires immediately there rather than waiting for this broadcast
+        // to round-trip back). !wasAlreadyLive excludes the host's own
+        // reconnect echo, which also uses 'start_stream' for the same
+        // already-live call.
+        if (!isHost && !wasAlreadyLive) {
+          unawaited(CallSoundService.playJoin());
+        }
+
         // The broadcaster's own startAudioStream() already owns publishing
         // its track; a listener needs to pull it down to actually hear it.
         if (!isHost && sessionId != null) {
@@ -326,6 +351,11 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
           isMicMuted: true,
           isBroadcastMuted: false,
         ));
+
+        // Everyone on the call hears this — the one call-lifecycle tone
+        // that stays broadcast-driven rather than local-only (unlike
+        // call_join, which only plays for whoever just started/joined).
+        unawaited(CallSoundService.playEnd());
         break;
 
       // A co-host joined the call's participant registry (the host's own
@@ -547,6 +577,11 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
         isBroadcastMuted: false,
       ));
 
+      // Local join feedback — this method is only ever reached while
+      // state.isLive was false (checked at entry and again just above),
+      // so this is always a genuine join, never a resync/reconnect echo.
+      unawaited(CallSoundService.playJoin());
+
       if (!isHost && sessionId != null) {
         await _pullAllParticipantTracks(
           hostSessionId: sessionId,
@@ -646,6 +681,11 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
         isMicMuted: false,
         isBroadcastMuted: false,
       ));
+
+      // Local join feedback for the host — fires immediately rather than
+      // waiting for the start_stream broadcast below to round-trip back
+      // through this same cubit's _handleAudioEvent.
+      unawaited(CallSoundService.playJoin());
 
       // Broadcast start_stream to all connected attendees via WebSocket —
       // carries the host's own CallParticipant so a listener's
@@ -992,7 +1032,6 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
 
   @override
   Future<void> close() async {
-    _reconnectTimer?.cancel();
     _telemetrySub?.cancel();
     _stopTelemetryPolling();
     service.removeListenerLostCallback();
