@@ -10,7 +10,8 @@ import 'media_device_manager.dart';
 export 'media_device_manager.dart';
 
 @JS('window.lynkVideoStreamHelper.startVideoStream')
-external JSPromise<JSBoolean> _jsStartVideoStream(JSString elementId, JSBoolean isFrontCamera);
+external JSPromise<JSBoolean> _jsStartVideoStream(
+    JSString elementId, JSBoolean isFrontCamera);
 
 @JS('window.lynkVideoStreamHelper.toggleCameraEnabled')
 external void _jsToggleCameraEnabled(JSBoolean enabled);
@@ -29,6 +30,13 @@ external void _jsStopVideoStream();
 
 @JS('window.lynkAudioStreamHelper.getAudioLevel')
 external JSNumber _jsGetAudioLevel();
+
+// Per-co-host level from that participant's own pulled-track analyser —
+// the page-wide getAudioLevel above only ever reports this viewer's own mic
+// or the single remote stream, so it can't say who among a grid of co-hosts
+// is speaking.
+@JS('window.lynkAudioStreamHelper.getParticipantAudioLevel')
+external JSNumber _jsGetParticipantAudioLevel(JSString userId);
 
 @JS('window.lynkVideoStreamHelper.setCameraMirror')
 external void _jsSetCameraMirror(JSBoolean isMirrored);
@@ -123,7 +131,8 @@ external JSPromise<JSString> _jsGetTelemetryStats();
 external JSPromise<JSString> _jsGetListenerTelemetryStats();
 
 @JS('window.lynkVideoStreamHelper.setStreamQuality')
-external JSPromise<JSBoolean> _jsSetStreamQuality(JSString elementId, JSString quality);
+external JSPromise<JSBoolean> _jsSetStreamQuality(
+    JSString elementId, JSString quality);
 
 class TelemetryData {
   final int width;
@@ -219,7 +228,8 @@ enum StreamType {
 /// service is the state owner widgets read/call directly (unlike audio,
 /// which fronts similar logic with [ForumAudioStreamCubit]).
 class ForumVideoStreamService {
-  static final ForumVideoStreamService _instance = ForumVideoStreamService._internal();
+  static final ForumVideoStreamService _instance =
+      ForumVideoStreamService._internal();
   factory ForumVideoStreamService() => _instance;
   ForumVideoStreamService._internal();
 
@@ -228,8 +238,18 @@ class ForumVideoStreamService {
   static const String _elementId = 'lynk_live_video_stage';
 
   JSFunction? _listenerLostListener;
+  JSFunction? _listenerReconnectingListener;
+  JSFunction? _listenerReconnectedListener;
   JSFunction? _publishNeedsReconnectListener;
   JSFunction? _publishLostListener;
+
+  /// True while THIS client's own connection is actively being replaced
+  /// after a drop — publish side for host/co-host, or receive side for a
+  /// pure listener. Video has no cubit/state class of its own (see
+  /// roleNotifier), so this lives here the same way. Drives a visible
+  /// "Reconnecting…" state in StageTopBar instead of leaving the UI
+  /// silent while _reconnectVideoPublish/the listener retry run.
+  final ValueNotifier<bool> isReconnectingNotifier = ValueNotifier<bool>(false);
 
   /// Fires [onLost] when the JS layer's listener-side retry (3 attempts)
   /// gives up reconnecting a dropped remote video track. Call
@@ -237,14 +257,51 @@ class ForumVideoStreamService {
   void onRemoteVideoListenerLost(void Function() onLost) {
     if (!kIsWeb) return;
     removeListenerLostCallback();
-    _listenerLostListener = ((web.Event event) => onLost()).toJS;
+    _listenerLostListener = ((web.Event event) {
+      isReconnectingNotifier.value = false;
+      onLost();
+    }).toJS;
     web.window.addEventListener('lynkVideoListenerLost', _listenerLostListener);
   }
 
   void removeListenerLostCallback() {
     if (!kIsWeb || _listenerLostListener == null) return;
-    web.window.removeEventListener('lynkVideoListenerLost', _listenerLostListener);
+    web.window
+        .removeEventListener('lynkVideoListenerLost', _listenerLostListener);
     _listenerLostListener = null;
+  }
+
+  /// Fires on each listener-side retry attempt (not yet exhausted — see
+  /// onRemoteVideoListenerLost for that) and once a retry succeeds.
+  /// Together these drive [isReconnectingNotifier] for a listener/co-host's
+  /// receive-side connection.
+  void onRemoteVideoListenerReconnecting() {
+    if (!kIsWeb) return;
+    removeListenerReconnectingCallbacks();
+    _listenerReconnectingListener = ((web.Event event) {
+      isReconnectingNotifier.value = true;
+    }).toJS;
+    _listenerReconnectedListener = ((web.Event event) {
+      isReconnectingNotifier.value = false;
+    }).toJS;
+    web.window.addEventListener(
+        'lynkVideoListenerReconnecting', _listenerReconnectingListener);
+    web.window.addEventListener(
+        'lynkVideoListenerReconnected', _listenerReconnectedListener);
+  }
+
+  void removeListenerReconnectingCallbacks() {
+    if (!kIsWeb) return;
+    if (_listenerReconnectingListener != null) {
+      web.window.removeEventListener(
+          'lynkVideoListenerReconnecting', _listenerReconnectingListener);
+      _listenerReconnectingListener = null;
+    }
+    if (_listenerReconnectedListener != null) {
+      web.window.removeEventListener(
+          'lynkVideoListenerReconnected', _listenerReconnectedListener);
+      _listenerReconnectedListener = null;
+    }
   }
 
   /// Fires [onNeedsReconnect] each time the JS layer's publish side detects
@@ -253,8 +310,10 @@ class ForumVideoStreamService {
   void onPublishNeedsReconnect(void Function() onNeedsReconnect) {
     if (!kIsWeb) return;
     removePublishReconnectCallbacks();
-    _publishNeedsReconnectListener = ((web.Event event) => onNeedsReconnect()).toJS;
-    web.window.addEventListener('lynkVideoPublishNeedsReconnect', _publishNeedsReconnectListener);
+    _publishNeedsReconnectListener =
+        ((web.Event event) => onNeedsReconnect()).toJS;
+    web.window.addEventListener(
+        'lynkVideoPublishNeedsReconnect', _publishNeedsReconnectListener);
   }
 
   /// Fires [onLost] once the JS layer's publish-reconnect attempts (3) are exhausted.
@@ -267,11 +326,13 @@ class ForumVideoStreamService {
   void removePublishReconnectCallbacks() {
     if (!kIsWeb) return;
     if (_publishNeedsReconnectListener != null) {
-      web.window.removeEventListener('lynkVideoPublishNeedsReconnect', _publishNeedsReconnectListener);
+      web.window.removeEventListener(
+          'lynkVideoPublishNeedsReconnect', _publishNeedsReconnectListener);
       _publishNeedsReconnectListener = null;
     }
     if (_publishLostListener != null) {
-      web.window.removeEventListener('lynkVideoPublishLost', _publishLostListener);
+      web.window
+          .removeEventListener('lynkVideoPublishLost', _publishLostListener);
       _publishLostListener = null;
     }
   }
@@ -289,12 +350,14 @@ class ForumVideoStreamService {
     _videoChannel?.unsubscribe();
     _videoChannel = Supabase.instance.client.channel('forum_video:$forumId');
 
-    _videoChannel!.onBroadcast(
-      event: 'video_stream_event',
-      callback: (payload) {
-        onEvent(payload);
-      },
-    ).subscribe();
+    _videoChannel!
+        .onBroadcast(
+          event: 'video_stream_event',
+          callback: (payload) {
+            onEvent(payload);
+          },
+        )
+        .subscribe();
 
     return _videoChannel!;
   }
@@ -348,11 +411,68 @@ class ForumVideoStreamService {
   final ValueNotifier<Map<String, CallParticipant>> participantsNotifier =
       ValueNotifier<Map<String, CallParticipant>>({});
 
+  /// Per-co-host audio levels (0.0-1.0), one notifier per userId. Created on
+  /// first request by [participantAudioLevelNotifier] and fed by
+  /// [pollParticipantAudioLevels]. Kept separate from [participantsNotifier]
+  /// so a 10Hz level update rebuilds only that tile's ring and soundwave,
+  /// not the whole registry-driven grid.
+  final Map<String, ValueNotifier<double>> _participantAudioLevelNotifiers = {};
+
+  /// The audio level notifier for one co-host's tile. Returns a notifier
+  /// even for a userId that has no analyser yet — it simply stays at 0.0.
+  ValueNotifier<double> participantAudioLevelNotifier(String userId) {
+    return _participantAudioLevelNotifiers.putIfAbsent(
+        userId, () => ValueNotifier<double>(0.0));
+  }
+
+  /// Reads each listed co-host's analyser and pushes the result into their
+  /// level notifier. Only notifies on a change above 0.05, matching the
+  /// self-level poll in StreamStage so tiles don't repaint for sub-visible
+  /// movement.
+  void pollParticipantAudioLevels(Iterable<String> userIds) {
+    if (!kIsWeb) return;
+    for (final userId in userIds) {
+      final level = _readParticipantAudioLevel(userId);
+      final notifier = participantAudioLevelNotifier(userId);
+      if ((level - notifier.value).abs() > 0.05) {
+        notifier.value = level;
+      }
+    }
+  }
+
+  double _readParticipantAudioLevel(String userId) {
+    try {
+      return _jsGetParticipantAudioLevel(userId.toJS).toDartDouble;
+    } catch (_) {
+      return 0.0;
+    }
+  }
+
+  /// Drops a co-host's level notifier once they leave the call. Their tile
+  /// is removed from the registry in the same step, so nothing still
+  /// listens to the stale notifier.
+  void removeParticipantAudioLevel(String userId) {
+    _participantAudioLevelNotifiers.remove(userId);
+  }
+
+  /// Applies one participant's own mic/camera broadcast to their registry
+  /// entry. Ignored for a userId not in the registry — that participant's
+  /// state arrives with their participant_joined broadcast instead.
+  void updateParticipantCallMedia(String userId,
+      {bool? isMicMuted, bool? isCameraOn}) {
+    final current = participantsNotifier.value;
+    final existing = current[userId];
+    if (existing == null) return;
+    final updated = Map<String, CallParticipant>.from(current)
+      ..[userId] =
+          existing.copyWith(isMicMuted: isMicMuted, isCameraOn: isCameraOn);
+    participantsNotifier.value = updated;
+  }
+
   final ValueNotifier<String> stageSpeakerIdNotifier =
       ValueNotifier<String>('');
 
-  final ValueNotifier<bool> isStageLockedNotifier =
-      ValueNotifier<bool>(false);
+  final ValueNotifier<bool> isStageLockedNotifier = ValueNotifier<bool>(false);
 
   bool isMicMuted = false;
   bool isCameraOn = true;
@@ -374,9 +494,11 @@ class ForumVideoStreamService {
 
   /// Whether this user currently owns a publish connection — host OR
   /// co-host (speaker). Mirrors ForumAudioStreamCubit._isPublishingRole.
-  bool get isPublishingRole => role == ForumHeaderRole.host || role == ForumHeaderRole.speaker;
+  bool get isPublishingRole =>
+      role == ForumHeaderRole.host || role == ForumHeaderRole.speaker;
 
-  final ValueNotifier<String?> pendingVideoInviteFromHostName = ValueNotifier<String?>(null);
+  final ValueNotifier<String?> pendingVideoInviteFromHostName =
+      ValueNotifier<String?>(null);
 
   /// Set by the caller before createCloudflareSession()/publishCloudflareStream()
   /// — required by the cloudflare-calls-session Edge Function's forum
@@ -389,7 +511,8 @@ class ForumVideoStreamService {
   /// The active host's Cloudflare session id, set for every role (unlike
   /// [cfSessionId], which only reflects a publisher's own session and stays
   /// null for a pure listener). Lets any client detect the call ending.
-  final ValueNotifier<String?> hostSessionIdNotifier = ValueNotifier<String?>(null);
+  final ValueNotifier<String?> hostSessionIdNotifier =
+      ValueNotifier<String?>(null);
 
   /// Id of the social.forum_call_summaries row this service is currently
   /// hosting — set after startCallSummary(), cleared after endCallSummary().
@@ -405,7 +528,8 @@ class ForumVideoStreamService {
   void syncWithPresenceUsers(List<Map<String, dynamic>> presenceUsers) {
     if (presenceUsers.isEmpty) return;
 
-    final currentParticipants = List<StreamParticipant>.from(activeParticipantsNotifier.value);
+    final currentParticipants =
+        List<StreamParticipant>.from(activeParticipantsNotifier.value);
     final Map<String, StreamParticipant> existingMap = {
       for (var p in currentParticipants) p.id: p
     };
@@ -416,7 +540,8 @@ class ForumVideoStreamService {
       final uid = u['user_id'] as String? ?? u['id'] as String? ?? '';
       if (uid.isEmpty) continue;
 
-      final name = u['user_name'] as String? ?? u['full_name'] as String? ?? 'Member';
+      final name =
+          u['user_name'] as String? ?? u['full_name'] as String? ?? 'Member';
       final isOrg = (u['is_organizer'] as bool?) ?? false;
 
       if (existingMap.containsKey(uid)) {
@@ -446,7 +571,8 @@ class ForumVideoStreamService {
     }
   }
 
-  bool _areParticipantsEqual(List<StreamParticipant> a, List<StreamParticipant> b) {
+  bool _areParticipantsEqual(
+      List<StreamParticipant> a, List<StreamParticipant> b) {
     if (a.length != b.length) return false;
     for (var i = 0; i < a.length; i++) {
       if (a[i].id != b[i].id ||
@@ -467,7 +593,8 @@ class ForumVideoStreamService {
   }
 
   void muteAllParticipants() {
-    activeParticipantsNotifier.value = activeParticipantsNotifier.value.map((p) {
+    activeParticipantsNotifier.value =
+        activeParticipantsNotifier.value.map((p) {
       if (!p.isHost) {
         return p.copyWith(isMicMuted: true);
       }
@@ -485,7 +612,8 @@ class ForumVideoStreamService {
       list[index] = list[index].copyWith(isMicMuted: nextMicMuted);
 
       final isSelf = (currentUserId != null && currentUserId.isNotEmpty)
-          ? (participantId == currentUserId || (list[index].isHost && participantId == 'host'))
+          ? (participantId == currentUserId ||
+              (list[index].isHost && participantId == 'host'))
           : (participantId == 'host' || list[index].isHost);
 
       if (isSelf) {
@@ -499,7 +627,8 @@ class ForumVideoStreamService {
         isMicMuted: false,
         isCameraOn: false,
       ));
-      if (participantId == 'host' || (currentUserId != null && participantId == currentUserId)) {
+      if (participantId == 'host' ||
+          (currentUserId != null && participantId == currentUserId)) {
         toggleMic(true);
       }
     }
@@ -516,7 +645,8 @@ class ForumVideoStreamService {
       list[index] = list[index].copyWith(isCameraOn: nextCamOn);
 
       final isSelf = (currentUserId != null && currentUserId.isNotEmpty)
-          ? (participantId == currentUserId || (list[index].isHost && participantId == 'host'))
+          ? (participantId == currentUserId ||
+              (list[index].isHost && participantId == 'host'))
           : (participantId == 'host' || list[index].isHost);
 
       if (isSelf) {
@@ -530,7 +660,8 @@ class ForumVideoStreamService {
         isMicMuted: true,
         isCameraOn: true,
       ));
-      if (participantId == 'host' || (currentUserId != null && participantId == currentUserId)) {
+      if (participantId == 'host' ||
+          (currentUserId != null && participantId == currentUserId)) {
         toggleCamera(true);
       }
     }
@@ -538,7 +669,8 @@ class ForumVideoStreamService {
   }
 
   void toggleParticipantStage(String participantId) {
-    activeParticipantsNotifier.value = activeParticipantsNotifier.value.map((p) {
+    activeParticipantsNotifier.value =
+        activeParticipantsNotifier.value.map((p) {
       if (p.id == participantId) {
         return p.copyWith(isOnStage: !p.isOnStage);
       }
@@ -553,7 +685,8 @@ class ForumVideoStreamService {
   void updateHostSpeakerName(String name, {String? role, bool? isHostUser}) {
     if (name.isEmpty) return;
     hostName = name;
-    final current = List<StreamParticipant>.from(activeParticipantsNotifier.value);
+    final current =
+        List<StreamParticipant>.from(activeParticipantsNotifier.value);
     final index = current.indexWhere((p) => p.id == 'host' || p.isHost);
     if (index != -1) {
       final old = current[index];
@@ -571,8 +704,10 @@ class ForumVideoStreamService {
     }
   }
 
-  void updateParticipantMediaState(String participantId, {bool? isMicMuted, bool? isCameraOn}) {
-    final current = List<StreamParticipant>.from(activeParticipantsNotifier.value);
+  void updateParticipantMediaState(String participantId,
+      {bool? isMicMuted, bool? isCameraOn}) {
+    final current =
+        List<StreamParticipant>.from(activeParticipantsNotifier.value);
     final index = current.indexWhere((p) => p.id == participantId);
     if (index != -1) {
       final old = current[index];
@@ -702,7 +837,8 @@ class ForumVideoStreamService {
   /// distinguished by stream_type: 'video' (a forum can't run a live audio
   /// call and video stream at once, so they share the column). Reads through
   /// api.v1_forums.
-  Future<Map<String, dynamic>?> fetchInitialStreamingConfig(String forumId) async {
+  Future<Map<String, dynamic>?> fetchInitialStreamingConfig(
+      String forumId) async {
     try {
       final data = await Supabase.instance.client
           .schema('api')
@@ -748,7 +884,9 @@ class ForumVideoStreamService {
       'call_summary_id': callSummaryId,
     };
     try {
-      await Supabase.instance.client.schema('api').rpc('update_forum_streaming_config', params: {
+      await Supabase.instance.client
+          .schema('api')
+          .rpc('update_forum_streaming_config', params: {
         'p_forum_id': forumId,
         'p_is_live': isLive,
         'p_stream_type': 'video',
@@ -780,7 +918,9 @@ class ForumVideoStreamService {
     String? sessionId,
   }) async {
     try {
-      final response = await Supabase.instance.client.schema('api').rpc('start_forum_call_summary', params: {
+      final response = await Supabase.instance.client
+          .schema('api')
+          .rpc('start_forum_call_summary', params: {
         'p_forum_id': forumId,
         'p_forum_created_at': forumCreatedAt.toIso8601String(),
         'p_stream_type': 'video',
@@ -798,7 +938,9 @@ class ForumVideoStreamService {
   Future<void> endCallSummary(String? summaryId) async {
     if (summaryId == null) return;
     try {
-      await Supabase.instance.client.schema('api').rpc('end_forum_call_summary', params: {
+      await Supabase.instance.client
+          .schema('api')
+          .rpc('end_forum_call_summary', params: {
         'p_summary_id': summaryId,
       });
     } catch (e) {
@@ -817,7 +959,9 @@ class ForumVideoStreamService {
     required String trackName,
   }) async {
     try {
-      final response = await Supabase.instance.client.schema('api').rpc('join_as_call_participant', params: {
+      final response = await Supabase.instance.client
+          .schema('api')
+          .rpc('join_as_call_participant', params: {
         'p_forum_id': forumId,
         'p_call_summary_id': callSummaryId,
         'p_cf_session_id': cfSessionId,
@@ -840,7 +984,9 @@ class ForumVideoStreamService {
     required String trackName,
   }) async {
     try {
-      final response = await Supabase.instance.client.schema('api').rpc('invite_call_participant', params: {
+      final response = await Supabase.instance.client
+          .schema('api')
+          .rpc('invite_call_participant', params: {
         'p_forum_id': forumId,
         'p_call_summary_id': callSummaryId,
         'p_user_id': targetUserId,
@@ -876,8 +1022,10 @@ class ForumVideoStreamService {
   /// directly — only the inviting host can register a non-organizer member
   /// (social.invite_call_participant's organizer-only gate). Mirrors
   /// ForumAudioStreamCubit.acceptSpeakerInvite.
-  Future<bool> acceptVideoSpeakerInvite({required String viewerUserName}) async {
-    if (pendingVideoInviteFromHostName.value == null || _isAcceptingVideoInvite) {
+  Future<bool> acceptVideoSpeakerInvite(
+      {required String viewerUserName}) async {
+    if (pendingVideoInviteFromHostName.value == null ||
+        _isAcceptingVideoInvite) {
       return false;
     }
     _isAcceptingVideoInvite = true;
@@ -889,7 +1037,8 @@ class ForumVideoStreamService {
       final sessionId = await createCloudflareSession(forumId);
       if (sessionId == null) return false;
 
-      final startedCamera = await startVideoStream(_elementId, isFrontCamera: true);
+      final startedCamera =
+          await startVideoStream(_elementId, isFrontCamera: true);
       if (!startedCamera) return false;
 
       final published = await publishCloudflareStream(
@@ -954,7 +1103,8 @@ class ForumVideoStreamService {
       return;
     }
 
-    final updated = Map<String, CallParticipant>.from(participantsNotifier.value);
+    final updated =
+        Map<String, CallParticipant>.from(participantsNotifier.value);
     updated[participant.userId] = participant;
     participantsNotifier.value = updated;
 
@@ -998,7 +1148,8 @@ class ForumVideoStreamService {
       final sessionId = await createCloudflareSession(fId);
       if (sessionId == null) return false;
 
-      final startedCamera = await startVideoStream(elementId ?? _elementId, isFrontCamera: isFrontCamera);
+      final startedCamera = await startVideoStream(elementId ?? _elementId,
+          isFrontCamera: isFrontCamera);
       if (!startedCamera) return false;
 
       final published = await publishCloudflareStream(
@@ -1021,13 +1172,19 @@ class ForumVideoStreamService {
         return false;
       }
 
+      // Co-hosts join with mic and camera on, so the join broadcast carries
+      // that state — otherwise viewers would show this tile as muted until
+      // the co-host's first toggle.
       final selfParticipant = CallParticipant(
         userId: userId,
         userName: userName,
         cfSessionId: sessionId,
         trackName: userId,
+        isMicMuted: false,
+        isCameraOn: true,
       );
-      final updatedParticipants = Map<String, CallParticipant>.from(participantsNotifier.value);
+      final updatedParticipants =
+          Map<String, CallParticipant>.from(participantsNotifier.value);
       updatedParticipants[userId] = selfParticipant;
       participantsNotifier.value = updatedParticipants;
 
@@ -1069,7 +1226,9 @@ class ForumVideoStreamService {
     }
 
     if (userId != null) {
-      final updatedParticipants = Map<String, CallParticipant>.from(participantsNotifier.value)..remove(userId);
+      final updatedParticipants =
+          Map<String, CallParticipant>.from(participantsNotifier.value)
+            ..remove(userId);
       participantsNotifier.value = updatedParticipants;
     }
 
@@ -1088,7 +1247,9 @@ class ForumVideoStreamService {
   /// Self-serve — voluntarily leaves the calling user's own speaking slot.
   Future<void> leaveCallParticipant(String callSummaryId) async {
     try {
-      await Supabase.instance.client.schema('api').rpc('leave_call_participant', params: {
+      await Supabase.instance.client
+          .schema('api')
+          .rpc('leave_call_participant', params: {
         'p_call_summary_id': callSummaryId,
       });
     } catch (e) {
@@ -1104,7 +1265,9 @@ class ForumVideoStreamService {
     required String targetUserId,
   }) async {
     try {
-      await Supabase.instance.client.schema('api').rpc('remove_call_participant', params: {
+      await Supabase.instance.client
+          .schema('api')
+          .rpc('remove_call_participant', params: {
         'p_forum_id': forumId,
         'p_call_summary_id': callSummaryId,
         'p_user_id': targetUserId,
@@ -1123,7 +1286,9 @@ class ForumVideoStreamService {
     required String trackName,
   }) async {
     try {
-      await Supabase.instance.client.schema('api').rpc('update_participant_session', params: {
+      await Supabase.instance.client
+          .schema('api')
+          .rpc('update_participant_session', params: {
         'p_call_summary_id': callSummaryId,
         'p_cf_session_id': cfSessionId,
         'p_track_name': trackName,
@@ -1137,7 +1302,8 @@ class ForumVideoStreamService {
   /// — the bootstrap a listener/newly-joining client reconciles against
   /// before applying incremental participant_joined/participant_left
   /// broadcast events.
-  Future<Map<String, CallParticipant>> fetchCallParticipants(String callSummaryId) async {
+  Future<Map<String, CallParticipant>> fetchCallParticipants(
+      String callSummaryId) async {
     try {
       final rows = await Supabase.instance.client
           .schema('api')
@@ -1147,7 +1313,8 @@ class ForumVideoStreamService {
       final participants = <String, CallParticipant>{};
       for (final row in rows) {
         final participant = CallParticipant.fromJson(row);
-        if (participant.userId.isNotEmpty) participants[participant.userId] = participant;
+        if (participant.userId.isNotEmpty)
+          participants[participant.userId] = participant;
       }
       return participants;
     } catch (e) {
@@ -1171,7 +1338,8 @@ class ForumVideoStreamService {
         _cfAppId = response.data?['appId'] as String?;
         return cfSessionId;
       }
-      debugPrint('[VideoStreamService] createCloudflareSession returned status ${response.status}');
+      debugPrint(
+          '[VideoStreamService] createCloudflareSession returned status ${response.status}');
     } catch (e) {
       debugPrint('[VideoStreamService] createCloudflareSession error: $e');
     }
@@ -1312,7 +1480,8 @@ class ForumVideoStreamService {
       ).toDart;
       return res.toDart;
     } catch (e) {
-      debugPrint('[VideoStreamService] subscribeToHostAudioForVideoCall error: $e');
+      debugPrint(
+          '[VideoStreamService] subscribeToHostAudioForVideoCall error: $e');
       return false;
     }
   }
@@ -1332,7 +1501,8 @@ class ForumVideoStreamService {
     try {
       _jsStopListeningAudioForVideoCall();
     } catch (e) {
-      debugPrint('[VideoStreamService] unsubscribeFromRemoteVideo (audio) error: $e');
+      debugPrint(
+          '[VideoStreamService] unsubscribeFromRemoteVideo (audio) error: $e');
     }
   }
 
@@ -1349,7 +1519,8 @@ class ForumVideoStreamService {
     if (!kIsWeb) return true;
     final targetSessionId = customSessionId ?? cfSessionId;
     if (targetSessionId == null) {
-      debugPrint('[VideoStreamService] publishCloudflareStream: no Cloudflare session — call createCloudflareSession first');
+      debugPrint(
+          '[VideoStreamService] publishCloudflareStream: no Cloudflare session — call createCloudflareSession first');
       return false;
     }
     // Skip re-publishing if already live on the same session.
@@ -1388,7 +1559,8 @@ class ForumVideoStreamService {
     }
   }
 
-  Future<bool> startVideoStream(String elementId, {bool isFrontCamera = true}) async {
+  Future<bool> startVideoStream(String elementId,
+      {bool isFrontCamera = true}) async {
     if (!kIsWeb) return true;
     try {
       // The JS side tears down any existing publish connection/senders
@@ -1396,7 +1568,8 @@ class ForumVideoStreamService {
       // _isPublished here or publishCloudflareStream()'s "already
       // published" guard would skip republishing after a camera flip.
       _isPublished = false;
-      final res = await _jsStartVideoStream(elementId.toJS, isFrontCamera.toJS).toDart;
+      final res =
+          await _jsStartVideoStream(elementId.toJS, isFrontCamera.toJS).toDart;
       if (res.toDart) {
         // trackBaseName = the publisher's own user id, so this video call's
         // Cloudflare tracks are addressed per-speaker like every other
@@ -1481,14 +1654,16 @@ class ForumVideoStreamService {
     return MediaDeviceManager().switchCameraDevice(elementId, deviceId);
   }
 
-  Future<bool> switchAudioOutputDevice(String elementId, String deviceId) async {
+  Future<bool> switchAudioOutputDevice(
+      String elementId, String deviceId) async {
     return MediaDeviceManager().switchAudioOutputDevice(elementId, deviceId);
   }
 
   Future<bool> setStreamQuality(String elementId, String quality) async {
     if (!kIsWeb) return false;
     try {
-      final res = await _jsSetStreamQuality(elementId.toJS, quality.toJS).toDart;
+      final res =
+          await _jsSetStreamQuality(elementId.toJS, quality.toJS).toDart;
       return res.toDart;
     } catch (e) {
       debugPrint('[VideoStreamService] setStreamQuality error: $e');

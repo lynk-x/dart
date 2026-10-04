@@ -9,8 +9,9 @@ import 'soundwave_widget.dart';
 /// Grid layout overlay rendering participant tiles.
 class GridStageOverlay extends StatelessWidget {
   final ForumVideoStreamService videoService;
-  /// Shared audio level notifier — consumed by each SoundwaveWidget via listener,
-  /// eliminating per-tile timers.
+
+  /// This viewer's own audio level — drives only the self tile. Co-host tiles
+  /// read their own level from videoService.participantAudioLevelNotifier.
   final ValueNotifier<double> audioLevelNotifier;
   final bool isCameraOn;
   final bool isMicMuted;
@@ -43,30 +44,31 @@ class GridStageOverlay extends StatelessWidget {
           valueListenable: videoService.participantsNotifier,
           builder: (context, callParticipants, _) {
             final selfId = Supabase.instance.client.auth.currentUser?.id;
-            // A co-host's real camera on/off state isn't tracked anywhere
-            // in the registry (CallParticipant carries no such field) — the
-            // best available signal is whether their video track actually
-            // has a slot assigned (participantSlotViewType != null), which
-            // only happens once addParticipantVideoTrack has successfully
-            // pulled it. Mic state is similarly untracked, so stays
-            // conservatively muted-looking (true) until per-speaker mute
-            // state exists.
+            // This viewer's own tile reads the local mic/camera state; every
+            // other tile reads that participant's own broadcast state, which
+            // the registry entry carries. isHost here means "this viewer's
+            // own tile" — the mapping below is the only place it's set.
             final participants = callParticipants.values
                 .map((s) => StreamParticipant(
                       id: s.userId,
                       name: s.userName,
                       role: s.userId == selfId ? 'You' : 'Speaker',
                       isHost: s.userId == selfId,
-                      isCameraOn: s.userId == selfId ? isCameraOn : participantSlotViewType(s.userId) != null,
-                      isMicMuted: s.userId == selfId ? isMicMuted : true,
+                      isCameraOn:
+                          s.userId == selfId ? isCameraOn : s.isCameraOn,
+                      isMicMuted:
+                          s.userId == selfId ? isMicMuted : s.isMicMuted,
                     ))
                 .toList(growable: false);
-            final count = participants.isEmpty ? 1 : participants.length.clamp(1, 4);
+            final count =
+                participants.isEmpty ? 1 : participants.length.clamp(1, 4);
             final list = participants.isEmpty
                 ? [
                     StreamParticipant(
                       id: 'host',
-                      name: videoService.hostName.isNotEmpty ? videoService.hostName : 'Host',
+                      name: videoService.hostName.isNotEmpty
+                          ? videoService.hostName
+                          : 'Host',
                       role: 'Host',
                       isHost: true,
                       isCameraOn: isCameraOn,
@@ -91,14 +93,19 @@ class GridStageOverlay extends StatelessWidget {
                   }
 
                   final int rowCount = (count / crossAxisCount).ceil();
-                  final double totalSpacingX = (crossAxisCount - 1) * spacing + (padding * 2);
-                  final double totalSpacingY = (rowCount - 1) * spacing + (padding * 2);
+                  final double totalSpacingX =
+                      (crossAxisCount - 1) * spacing + (padding * 2);
+                  final double totalSpacingY =
+                      (rowCount - 1) * spacing + (padding * 2);
 
-                  final double tileWidth = (availableWidth - totalSpacingX) / crossAxisCount;
-                  final double tileHeight = (availableHeight - totalSpacingY) / rowCount;
-                  final double childAspectRatio = (tileWidth > 0 && tileHeight > 0)
-                      ? tileWidth / tileHeight
-                      : 1.0;
+                  final double tileWidth =
+                      (availableWidth - totalSpacingX) / crossAxisCount;
+                  final double tileHeight =
+                      (availableHeight - totalSpacingY) / rowCount;
+                  final double childAspectRatio =
+                      (tileWidth > 0 && tileHeight > 0)
+                          ? tileWidth / tileHeight
+                          : 1.0;
 
                   return Padding(
                     padding: const EdgeInsets.all(padding),
@@ -114,9 +121,13 @@ class GridStageOverlay extends StatelessWidget {
                       itemBuilder: (context, index) {
                         final p = list[index];
                         final isHostTile = p.isHost || index == 0;
-                        final tileCamOn = isHostTile ? isCameraOn : p.isCameraOn;
-                        final tileMicMuted = isHostTile ? isMicMuted : p.isMicMuted;
-                        final isSpeakingNow = !tileMicMuted && (p.isSpeaking || audioLevelNotifier.value > 0.05);
+                        // p already resolves to the right source (local for
+                        // this viewer's own tile, the participant's broadcast
+                        // state otherwise), so no per-tile override here —
+                        // the old isHostTile ? local : p override made every
+                        // index-0 tile show this viewer's own mic/camera.
+                        final tileCamOn = p.isCameraOn;
+                        final tileMicMuted = p.isMicMuted;
                         // Previously only the LOCAL viewer's own tile ever
                         // showed real video — every other tile fell back to
                         // the avatar placeholder unconditionally, since
@@ -126,99 +137,145 @@ class GridStageOverlay extends StatelessWidget {
                         // fixed pre-registered slot view types.
                         final coHostSlotViewType =
                             isHostTile ? null : participantSlotViewType(p.id);
-                        final hasRealVideo = isHostTile || coHostSlotViewType != null;
+                        final hasRealVideo =
+                            isHostTile || coHostSlotViewType != null;
+                        // Own tile: the shared local level. Co-host tile:
+                        // that participant's own analyser, so only the one
+                        // actually speaking lights up.
+                        final levelNotifier = p.isHost
+                            ? audioLevelNotifier
+                            : videoService.participantAudioLevelNotifier(p.id);
 
-                        return ClipRRect(
-                          borderRadius: BorderRadius.circular(12),
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF161920),
+                        return ValueListenableBuilder<double>(
+                          valueListenable: levelNotifier,
+                          builder: (context, level, _) {
+                            final isSpeakingNow = !tileMicMuted && level > 0.05;
+                            return ClipRRect(
                               borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                color: isSpeakingNow ? context.accentColor : Colors.white12,
-                                width: isSpeakingNow ? 2 : 1,
-                              ),
-                            ),
-                            child: Stack(
-                              children: [
-                                if (hasRealVideo && tileCamOn && kIsWeb && !isLowBandwidth)
-                                  Positioned.fill(
-                                    child: HtmlElementView(
-                                      viewType: isHostTile ? viewType : coHostSlotViewType!,
-                                    ),
-                                  ),
-
-                                if (!hasRealVideo || !tileCamOn || isLowBandwidth)
-                                  Center(
-                                    child: Column(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        CircleAvatar(
-                                          radius: 28,
-                                          backgroundColor: isSpeakingNow ? context.accentColor : const Color(0xFF2A2E38),
-                                          child: Text(
-                                            p.name.isNotEmpty ? p.name.substring(0, 1).toUpperCase() : '?',
-                                            style: AppTypography.interTight(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white),
-                                          ),
-                                        ),
-                                        if (isLowBandwidth) ...[
-                                          const SizedBox(height: 4),
-                                          Text(
-                                            'Audio Only',
-                                            style: AppTypography.interTight(fontSize: 10, color: Colors.amberAccent),
-                                          ),
-                                        ],
-                                      ],
-                                    ),
-                                  ),
-                                Positioned(
-                                  left: 10,
-                                  bottom: 10,
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                    decoration: BoxDecoration(
-                                      color: Colors.black.withValues(alpha: 0.75),
-                                      borderRadius: BorderRadius.circular(6),
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        if (tileMicMuted) ...[
-                                          const Icon(Icons.mic_off_rounded, size: 12, color: Colors.redAccent),
-                                          const SizedBox(width: 4),
-                                        ],
-                                        Text(
-                                          p.name,
-                                          style: AppTypography.interTight(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.white),
-                                        ),
-                                      ],
-                                    ),
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF161920),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: isSpeakingNow
+                                        ? context.accentColor
+                                        : Colors.white12,
+                                    width: isSpeakingNow ? 2 : 1,
                                   ),
                                 ),
-                                Positioned(
-                                  right: 10,
-                                  bottom: 10,
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                                    decoration: BoxDecoration(
-                                      color: Colors.black.withValues(alpha: 0.75),
-                                      borderRadius: BorderRadius.circular(6),
-                                      border: Border.all(
-                                        color: isSpeakingNow
-                                            ? context.accentColor.withValues(alpha: 0.5)
-                                            : Colors.white12,
+                                child: Stack(
+                                  children: [
+                                    if (hasRealVideo &&
+                                        tileCamOn &&
+                                        kIsWeb &&
+                                        !isLowBandwidth)
+                                      Positioned.fill(
+                                        child: HtmlElementView(
+                                          viewType: isHostTile
+                                              ? viewType
+                                              : coHostSlotViewType!,
+                                        ),
+                                      ),
+                                    if (!hasRealVideo ||
+                                        !tileCamOn ||
+                                        isLowBandwidth)
+                                      Center(
+                                        child: Column(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            CircleAvatar(
+                                              radius: 28,
+                                              backgroundColor: isSpeakingNow
+                                                  ? context.accentColor
+                                                  : const Color(0xFF2A2E38),
+                                              child: Text(
+                                                p.name.isNotEmpty
+                                                    ? p.name
+                                                        .substring(0, 1)
+                                                        .toUpperCase()
+                                                    : '?',
+                                                style: AppTypography.interTight(
+                                                    fontSize: 20,
+                                                    fontWeight: FontWeight.bold,
+                                                    color: Colors.white),
+                                              ),
+                                            ),
+                                            if (isLowBandwidth) ...[
+                                              const SizedBox(height: 4),
+                                              Text(
+                                                'Audio Only',
+                                                style: AppTypography.interTight(
+                                                    fontSize: 10,
+                                                    color: Colors.amberAccent),
+                                              ),
+                                            ],
+                                          ],
+                                        ),
+                                      ),
+                                    Positioned(
+                                      left: 10,
+                                      bottom: 10,
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 8, vertical: 4),
+                                        decoration: BoxDecoration(
+                                          color: Colors.black
+                                              .withValues(alpha: 0.75),
+                                          borderRadius:
+                                              BorderRadius.circular(6),
+                                        ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            if (tileMicMuted) ...[
+                                              const Icon(Icons.mic_off_rounded,
+                                                  size: 12,
+                                                  color: Colors.redAccent),
+                                              const SizedBox(width: 4),
+                                            ],
+                                            Text(
+                                              p.name,
+                                              style: AppTypography.interTight(
+                                                  fontSize: 11,
+                                                  fontWeight: FontWeight.w600,
+                                                  color: Colors.white),
+                                            ),
+                                          ],
+                                        ),
                                       ),
                                     ),
-                                    child: SoundwaveWidget(
-                                      isSpeaking: isSpeakingNow,
-                                      audioLevelNotifier: audioLevelNotifier,
-                                      barColor: isSpeakingNow ? context.accentColor : Colors.white54,
+                                    Positioned(
+                                      right: 10,
+                                      bottom: 10,
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 6, vertical: 4),
+                                        decoration: BoxDecoration(
+                                          color: Colors.black
+                                              .withValues(alpha: 0.75),
+                                          borderRadius:
+                                              BorderRadius.circular(6),
+                                          border: Border.all(
+                                            color: isSpeakingNow
+                                                ? context.accentColor
+                                                    .withValues(alpha: 0.5)
+                                                : Colors.white12,
+                                          ),
+                                        ),
+                                        child: SoundwaveWidget(
+                                          isSpeaking: isSpeakingNow,
+                                          audioLevelNotifier: levelNotifier,
+                                          barColor: isSpeakingNow
+                                              ? context.accentColor
+                                              : Colors.white54,
+                                        ),
+                                      ),
                                     ),
-                                  ),
+                                  ],
                                 ),
-                              ],
-                            ),
-                          ),
+                              ),
+                            );
+                          },
                         );
                       },
                     ),
@@ -261,17 +318,22 @@ class PresentationStageOverlay extends StatelessWidget {
                     color: Colors.indigoAccent.withValues(alpha: 0.15),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.present_to_all_rounded, size: 42, color: Colors.indigoAccent),
+                  child: const Icon(Icons.present_to_all_rounded,
+                      size: 42, color: Colors.indigoAccent),
                 ),
                 const SizedBox(height: 12),
                 Text(
                   'Shared Presentation Stage',
-                  style: AppTypography.interTight(fontSize: 15, fontWeight: FontWeight.w600, color: Colors.white),
+                  style: AppTypography.interTight(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   'Screen share or slides deck actively broadcasting',
-                  style: AppTypography.interTight(fontSize: 12, color: Colors.white38),
+                  style: AppTypography.interTight(
+                      fontSize: 12, color: Colors.white38),
                 ),
               ],
             ),
@@ -304,7 +366,9 @@ class CameraOffOverlay extends StatelessWidget {
                 radius: 36,
                 backgroundColor: const Color(0xFF1E222B),
                 child: Text(
-                  hostName.isNotEmpty ? hostName.substring(0, 1).toUpperCase() : 'L',
+                  hostName.isNotEmpty
+                      ? hostName.substring(0, 1).toUpperCase()
+                      : 'L',
                   style: AppTypography.interTight(
                     fontSize: 28,
                     fontWeight: FontWeight.bold,
@@ -356,17 +420,20 @@ class LowBandwidthFallbackOverlay extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 margin: const EdgeInsets.only(bottom: 16),
                 decoration: BoxDecoration(
                   color: Colors.amber.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: Colors.amber.withValues(alpha: 0.4)),
+                  border:
+                      Border.all(color: Colors.amber.withValues(alpha: 0.4)),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.bolt_rounded, size: 14, color: Colors.amber),
+                    const Icon(Icons.bolt_rounded,
+                        size: 14, color: Colors.amber),
                     const SizedBox(width: 4),
                     Text(
                       'Low-Bandwidth Mode • Audio Preserved',
@@ -383,7 +450,9 @@ class LowBandwidthFallbackOverlay extends StatelessWidget {
                 radius: 36,
                 backgroundColor: const Color(0xFF1E222B),
                 child: Text(
-                  hostName.isNotEmpty ? hostName.substring(0, 1).toUpperCase() : 'L',
+                  hostName.isNotEmpty
+                      ? hostName.substring(0, 1).toUpperCase()
+                      : 'L',
                   style: AppTypography.interTight(
                     fontSize: 28,
                     fontWeight: FontWeight.bold,
@@ -441,8 +510,10 @@ class PoorConnectionBadge extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.signal_wifi_statusbar_connected_no_internet_4_rounded,
-                size: 14, color: Colors.amber),
+            const Icon(
+                Icons.signal_wifi_statusbar_connected_no_internet_4_rounded,
+                size: 14,
+                color: Colors.amber),
             const SizedBox(width: 4),
             Text(
               'Weak connection',

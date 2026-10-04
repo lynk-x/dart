@@ -14,9 +14,14 @@ import 'package:lynk_x/presentation/shared/utils/app_snackbars.dart';
 import 'services/push_notification_service.dart';
 import 'package:lynk_x/core/utils/embedding_manager.dart';
 
+/// Root widget wrapper providing global BLoC/Cubit instances and dynamic locale management.
+///
+/// Houses global providers ([FeatureFlagCubit], [ProfileCubit], [NotificationCubit],
+/// [WalletCubit]) above the routing layer so state is retained across page transitions.
 class LynkXAppWrapper extends StatefulWidget {
   const LynkXAppWrapper({super.key});
 
+  /// Updates the application-wide locale from anywhere in the widget tree.
   static void setLocale(BuildContext context, Locale newLocale) {
     _LynkXAppWrapperState? state =
         context.findAncestorStateOfType<_LynkXAppWrapperState>();
@@ -56,6 +61,7 @@ class _LynkXAppWrapperState extends State<LynkXAppWrapper> {
   }
 }
 
+/// Core application widget configuring [GoRouter], localization delegates, and Supabase auth listeners.
 class LynkXApp extends StatefulWidget {
   final Locale? locale;
   const LynkXApp({super.key, this.locale});

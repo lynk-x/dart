@@ -1,27 +1,23 @@
 import 'dart:convert';
 
+/// Types of database mutations supported by the offline sync queue.
 enum SyncAction { insert, update, delete, rpc }
 
-/// Determines how the SyncManager behaves when it detects that the server row
-/// was modified after the client read it (i.e. `server.updated_at > baseline`).
+/// Determines how [SyncManager] handles concurrent edits when the remote row is newer
+/// than the client's baseline timestamp.
 ///
-/// - [serverWins]:  Skip the write. The local optimistic state is reverted via
-///                  `statusStream { id: false }`. A [SyncConflict] is also emitted
-///                  on `conflictStream` with the server's current row for display.
-///
-/// - [clientWins]:  Write unconditionally — no pre-check performed. Suitable for
-///                  truly local preferences (notification settings, UI state) where
-///                  the user's intent should always override whatever the server has.
-///
-/// - [manual]:      Pause the item in the queue and emit a [SyncConflict] with both
-///                  versions. Nothing is written or reverted until the caller invokes
-///                  `SyncManager.instance.resolveConflict(id, resolution)`.
+/// - [ConflictPolicy.serverWins]: Skips local write and emits `false` on `statusStream`.
+///   Dispatches a [SyncConflict] event on `conflictStream` for optional UI rollback handling.
+/// - [ConflictPolicy.clientWins]: Writes unconditionally without pre-checking baseline timestamp.
+/// - [ConflictPolicy.manual]: Holds the item in the sync queue and dispatches a [SyncConflict].
+///   The item remains paused until [SyncManager.resolveConflict] is called.
 enum ConflictPolicy {
   serverWins,
   clientWins,
   manual,
 }
 
+/// Represents a queued offline mutation pending synchronization with Supabase.
 class SyncItem {
   final String id;
   final String table;
@@ -88,6 +84,7 @@ class SyncItem {
         partitionKeyValue: partitionKeyValue,
       );
 
+  /// Serializes this sync item to a JSON-compatible map for persistent storage.
   Map<String, dynamic> toMap() {
     return {
       'id': id,
@@ -104,6 +101,7 @@ class SyncItem {
     };
   }
 
+  /// Deserializes a persisted sync item from a storage map.
   factory SyncItem.fromMap(Map<String, dynamic> map) {
     return SyncItem(
       id: map['id'] as String,
@@ -123,21 +121,21 @@ class SyncItem {
   }
 }
 
-/// Emitted on [SyncManager.conflictStream] when a write conflict is detected.
+/// Represents an unresolved write conflict emitted when remote data is newer than local baseline.
 class SyncConflict {
-  /// ID of the [SyncItem] that triggered the conflict.
+  /// Unique identifier of the [SyncItem] triggering the conflict.
   final String itemId;
 
-  /// The table where the conflict occurred.
+  /// Database table where the collision occurred.
   final String table;
 
-  /// The client's intended write (from [SyncItem.payload]).
+  /// Local payload that was scheduled to be written.
   final Map<String, dynamic> clientVersion;
 
-  /// The current server row at the time the conflict was detected.
+  /// Current remote row snapshot retrieved from the server.
   final Map<String, dynamic> serverVersion;
 
-  /// The conflict policy that was active when the conflict was detected.
+  /// The policy applied during detection.
   final ConflictPolicy policy;
 
   const SyncConflict({
@@ -149,12 +147,11 @@ class SyncConflict {
   });
 }
 
-/// Resolution provided by the caller when a [ConflictPolicy.manual] conflict
-/// is held in the queue.
+/// User or programmatic resolution for a conflict held under [ConflictPolicy.manual].
 enum ConflictResolution {
-  /// Apply the client's version — write the queued payload.
+  /// Overwrite remote state with the queued local payload.
   applyClient,
 
-  /// Discard the queued write — keep the server's current version.
+  /// Discard the queued local write and retain remote server state.
   discardClient,
 }

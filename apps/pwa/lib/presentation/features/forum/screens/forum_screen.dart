@@ -484,6 +484,12 @@ class _ForumViewState extends State<ForumView> {
                                                                 .host &&
                                                         audioTelemetry
                                                             .isPoorConnection,
+                                                    isReconnecting: !isLive &&
+                                                        audioState.isLive &&
+                                                        (audioState
+                                                                .isReconnecting ||
+                                                            audioState
+                                                                .isListenerReconnecting),
                                                     role: isLive &&
                                                             forumState
                                                                 .isOrganizer

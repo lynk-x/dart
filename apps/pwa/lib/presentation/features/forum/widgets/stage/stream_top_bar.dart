@@ -123,45 +123,66 @@ class StageTopBar extends StatelessWidget {
               ),
               const SizedBox(width: 4),
 
-              // COMBINED LIVE & SPECTATOR COUNT BADGE
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.65),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: Colors.white12),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: Colors.redAccent,
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Text(
-                        'LIVE',
-                        style: AppTypography.interTight(
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
+              // COMBINED LIVE/RECONNECTING & SPECTATOR COUNT BADGE
+              ValueListenableBuilder<bool>(
+                valueListenable: videoService.isReconnectingNotifier,
+                builder: (context, isReconnecting, _) {
+                  return Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.65),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: Colors.white12),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (isReconnecting) ...[
+                          const SizedBox(
+                            width: 10,
+                            height: 10,
+                            child: CircularProgressIndicator(strokeWidth: 1.5, color: Colors.amber),
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            'RECONNECTING',
+                            style: AppTypography.interTight(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.amber,
+                            ),
+                          ),
+                        ] else
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.redAccent,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              'LIVE',
+                              style: AppTypography.interTight(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        const SizedBox(width: 8),
+                        const Icon(Icons.remove_red_eye_rounded, size: 13, color: Colors.white70),
+                        const SizedBox(width: 5),
+                        Text(
+                          '${videoService.spectatorCount}',
+                          style: AppTypography.interTight(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white,
+                          ),
                         ),
-                      ),
+                      ],
                     ),
-                    const SizedBox(width: 8),
-                    const Icon(Icons.remove_red_eye_rounded, size: 13, color: Colors.white70),
-                    const SizedBox(width: 5),
-                    Text(
-                      '${videoService.spectatorCount}',
-                      style: AppTypography.interTight(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ],
-                ),
+                  );
+                },
               ),
             ],
           ),

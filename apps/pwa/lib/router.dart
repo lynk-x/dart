@@ -40,6 +40,13 @@ import 'package:lynk_x/presentation/features/subscription/screens/subscription_s
 import 'package:lynk_x/presentation/shared/screens/system_error_screen.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/web_camera_capture.dart';
 
+/// Creates and configures the application [GoRouter] instance.
+///
+/// Listens to [authStream], [profileStream], and [featureFlagStream] via
+/// [GoRouterRefreshStream] to re-evaluate route redirection whenever user authentication,
+/// profile completion, or feature flags change.
+///
+/// Handles route guards for authentication state, onboarding redirection, and fallback routes.
 GoRouter createRouter(
   Stream<AuthState> authStream,
   Stream<ProfileState> profileStream,

@@ -53,7 +53,8 @@ class NotificationPreferencesScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocProvider(
       create: (context) =>
-          NotificationPreferencesCubit(notificationPreferencesRepository)..load(),
+          NotificationPreferencesCubit(notificationPreferencesRepository)
+            ..load(),
       child: const _NotificationPreferencesView(),
     );
   }
@@ -84,17 +85,22 @@ class _NotificationPreferencesView extends StatelessWidget {
           ),
         ),
       ),
-      body: BlocConsumer<NotificationPreferencesCubit, NotificationPreferencesState>(
+      body: BlocConsumer<NotificationPreferencesCubit,
+          NotificationPreferencesState>(
         listener: (context, state) {
           if (state is NotificationPreferencesLoaded && state.error != null) {
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(state.error!), backgroundColor: Colors.redAccent),
+              SnackBar(
+                  content: Text(state.error!),
+                  backgroundColor: Colors.redAccent),
             );
           }
         },
         builder: (context, state) {
-          if (state is NotificationPreferencesLoading || state is NotificationPreferencesInitial) {
-            return Center(child: CircularProgressIndicator(color: context.accentColor));
+          if (state is NotificationPreferencesLoading ||
+              state is NotificationPreferencesInitial) {
+            return Center(
+                child: CircularProgressIndicator(color: context.accentColor));
           }
 
           if (state is NotificationPreferencesError) {
@@ -113,7 +119,8 @@ class _NotificationPreferencesView extends StatelessWidget {
             grouped.putIfAbsent(group, () => []).add(item);
           }
 
-          final orderedGroups = _groupOrder.where((g) => grouped.containsKey(g));
+          final orderedGroups =
+              _groupOrder.where((g) => grouped.containsKey(g));
 
           return SingleChildScrollView(
             padding: const EdgeInsets.all(20),
@@ -124,7 +131,8 @@ class _NotificationPreferencesView extends StatelessWidget {
                   padding: const EdgeInsets.only(bottom: 20),
                   child: Text(
                     'Choose how you want to hear about each kind of activity. In-app notifications always show in your notification list regardless of these settings.',
-                    style: AppTypography.inter(fontSize: 13, color: Colors.white54),
+                    style: AppTypography.inter(
+                        fontSize: 13, color: Colors.white54),
                   ),
                 ),
                 for (final group in orderedGroups) ...[
@@ -215,16 +223,20 @@ class _PreferenceCard extends StatelessWidget {
           const SizedBox(height: 12),
           Row(
             children: [
-              _ChannelToggle(
-                label: 'In-App',
-                value: preference.inApp,
-                onChanged: isSaving
-                    ? null
-                    : (v) => context
-                        .read<NotificationPreferencesCubit>()
-                        .updatePreference(category.id, inApp: v),
-              ),
-              const SizedBox(width: 20),
+              // forum_update is push-only (no in-app row is ever written), so
+              // an In-App switch for it would store a setting nothing reads.
+              if (category.id != 'forum_update') ...[
+                _ChannelToggle(
+                  label: 'In-App',
+                  value: preference.inApp,
+                  onChanged: isSaving
+                      ? null
+                      : (v) => context
+                          .read<NotificationPreferencesCubit>()
+                          .updatePreference(category.id, inApp: v),
+                ),
+                const SizedBox(width: 20),
+              ],
               _ChannelToggle(
                 label: 'Push',
                 value: preference.push,
@@ -257,7 +269,8 @@ class _ChannelToggle extends StatelessWidget {
   final bool value;
   final ValueChanged<bool>? onChanged;
 
-  const _ChannelToggle({required this.label, required this.value, required this.onChanged});
+  const _ChannelToggle(
+      {required this.label, required this.value, required this.onChanged});
 
   @override
   Widget build(BuildContext context) {

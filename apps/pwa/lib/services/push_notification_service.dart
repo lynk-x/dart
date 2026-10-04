@@ -5,10 +5,10 @@ import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:web/web.dart' as web;
 
-/// PushNotificationService for PWA.
+/// Manages Web Push notifications via Firebase Cloud Messaging (FCM) for the PWA client.
 ///
-/// Handles Firebase Cloud Messaging for Web Push.
-/// Local notifications plugin is removed as it is mobile-only.
+/// Handles user permission requests, token registration and syncing with Supabase profiles,
+/// foreground message handling, and route navigation when notifications are tapped.
 class PushNotificationService {
   PushNotificationService._();
   static final instance = PushNotificationService._();
@@ -17,22 +17,25 @@ class PushNotificationService {
   StreamSubscription<RemoteMessage>? _foregroundSub;
   StreamSubscription<RemoteMessage>? _openedSub;
 
-  /// Callback invoked when a user taps a notification.
+  /// Callback invoked with the destination route when a user taps a notification.
   void Function(String route)? onNotificationTap;
 
-  /// Callback invoked when notification permission is denied.
-  /// The app can use this to show an explanatory prompt.
+  /// Callback invoked when notification permission is denied by the user or browser.
   void Function()? onPermissionDenied;
 
-  /// Current browser/OS notification permission, without prompting. Lets a
-  /// settings screen show accurate state (and explain why re-enabling
-  /// requires the OS/browser settings once a user has permanently denied)
-  /// instead of blindly re-calling requestPermission on every visit.
+  /// Retrieves the current browser/OS notification permission without prompting the user.
+  ///
+  /// Useful for settings screens to reflect the current status accurately without triggering
+  /// repetitive permission prompts.
   Future<AuthorizationStatus> checkPermissionStatus() async {
     final settings = await _messaging.getNotificationSettings();
     return settings.authorizationStatus;
   }
 
+  /// Initializes FCM subscriptions and registers the device token with Supabase.
+  ///
+  /// Requests notification permissions if not already granted. If granted, hooks up
+  /// foreground listeners and performs token registration with retry logic.
   Future<void> init() async {
     try {
       final settings = await _messaging.requestPermission(
@@ -172,7 +175,10 @@ class PushNotificationService {
     }
   }
 
-  /// Remove the current device token on sign-out to prevent cross-user leakage.
+  /// Unregisters the current device's FCM token from Supabase on sign-out.
+  ///
+  /// Prevents subsequent push notifications from being delivered to this browser instance
+  /// after the user logs out.
   Future<void> removeToken() async {
     try {
       String? token;
@@ -197,6 +203,7 @@ class PushNotificationService {
     }
   }
 
+  /// Cancels active message and app-opened stream subscriptions.
   void dispose() {
     _foregroundSub?.cancel();
     _openedSub?.cancel();
