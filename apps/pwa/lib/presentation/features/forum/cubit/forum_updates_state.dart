@@ -58,7 +58,8 @@ class ForumUpdatesState extends BaseMessageState {
         'selectedCategory': selectedCategory,
       };
 
-  static ForumUpdatesState fromMap(Map<String, dynamic> map, [String userId = '']) {
+  static ForumUpdatesState fromMap(Map<String, dynamic> map,
+      [String userId = '']) {
     return ForumUpdatesState(
       messages: (map['messages'] as List? ?? [])
           .map((m) => ChatMessage.fromMap(m as Map<String, dynamic>, userId))

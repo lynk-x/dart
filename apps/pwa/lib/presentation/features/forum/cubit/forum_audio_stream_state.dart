@@ -17,6 +17,10 @@ class ForumAudioStreamState extends Equatable {
   final bool isMicMuted;
   final bool isBroadcastMuted;
   final String? errorMessage;
+
+  /// One-shot status line for a snackbar (e.g. "Reconnected"). Like
+  /// [errorMessage] it's dropped by the next copyWith, so it shows once.
+  final String? infoMessage;
   final String? pendingInviteFromHostName;
 
   /// True while this user's own publish connection is being replaced
@@ -40,6 +44,7 @@ class ForumAudioStreamState extends Equatable {
     this.isMicMuted = true,
     this.isBroadcastMuted = false,
     this.errorMessage,
+    this.infoMessage,
     this.pendingInviteFromHostName,
     this.isReconnecting = false,
     this.isListenerReconnecting = false,
@@ -56,6 +61,7 @@ class ForumAudioStreamState extends Equatable {
     bool? isMicMuted,
     bool? isBroadcastMuted,
     String? errorMessage,
+    String? infoMessage,
     String? pendingInviteFromHostName,
     bool clearPendingInvite = false,
     bool? isReconnecting,
@@ -69,11 +75,13 @@ class ForumAudioStreamState extends Equatable {
       isMicMuted: isMicMuted ?? this.isMicMuted,
       isBroadcastMuted: isBroadcastMuted ?? this.isBroadcastMuted,
       errorMessage: errorMessage,
+      infoMessage: infoMessage,
       pendingInviteFromHostName: clearPendingInvite
           ? null
           : (pendingInviteFromHostName ?? this.pendingInviteFromHostName),
       isReconnecting: isReconnecting ?? this.isReconnecting,
-      isListenerReconnecting: isListenerReconnecting ?? this.isListenerReconnecting,
+      isListenerReconnecting:
+          isListenerReconnecting ?? this.isListenerReconnecting,
     );
   }
 
@@ -86,6 +94,7 @@ class ForumAudioStreamState extends Equatable {
         isMicMuted,
         isBroadcastMuted,
         errorMessage,
+        infoMessage,
         pendingInviteFromHostName,
         isReconnecting,
         isListenerReconnecting,

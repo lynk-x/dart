@@ -116,11 +116,14 @@ class _ForumViewState extends State<ForumView> {
     _pageController = PageController(initialPage: initialTab);
     _loadBannerState();
 
-    ForumVideoStreamService().pendingVideoInviteFromHostName.addListener(_onVideoInviteChanged);
+    ForumVideoStreamService()
+        .pendingVideoInviteFromHostName
+        .addListener(_onVideoInviteChanged);
   }
 
   void _onVideoInviteChanged() {
-    final fromHostName = ForumVideoStreamService().pendingVideoInviteFromHostName.value;
+    final fromHostName =
+        ForumVideoStreamService().pendingVideoInviteFromHostName.value;
     if (fromHostName == null || !mounted) return;
     showVideoSpeakerInviteDialog(context, fromHostName);
   }
@@ -166,7 +169,9 @@ class _ForumViewState extends State<ForumView> {
 
   @override
   void dispose() {
-    ForumVideoStreamService().pendingVideoInviteFromHostName.removeListener(_onVideoInviteChanged);
+    ForumVideoStreamService()
+        .pendingVideoInviteFromHostName
+        .removeListener(_onVideoInviteChanged);
     _precachedUrls.clear();
     _updatesScrollController.dispose();
     _chatScrollController.dispose();
@@ -268,8 +273,15 @@ class _ForumViewState extends State<ForumView> {
           },
         ),
         BlocListener<ForumAudioStreamCubit, ForumAudioStreamState>(
+          listenWhen: (p, c) => c.infoMessage != null,
+          listener: (context, state) {
+            AppSnackBars.showInfo(context, state.infoMessage!);
+          },
+        ),
+        BlocListener<ForumAudioStreamCubit, ForumAudioStreamState>(
           listenWhen: (p, c) =>
-              p.pendingInviteFromHostName == null && c.pendingInviteFromHostName != null,
+              p.pendingInviteFromHostName == null &&
+              c.pendingInviteFromHostName != null,
           listener: (context, state) {
             showSpeakerInviteDialog(context, state.pendingInviteFromHostName!);
           },
@@ -474,455 +486,529 @@ class _ForumViewState extends State<ForumView> {
                                                     builder: (context,
                                                         audioTelemetry, _) {
                                                       return ForumHeader(
-                                                    isVideoStreamLive: isLive,
-                                                    isAudioLive:
-                                                        audioState.isLive,
-                                                    isWeakConnection: !isLive &&
-                                                        audioState.isLive &&
-                                                        audioState.role !=
-                                                            ForumHeaderRole
-                                                                .host &&
-                                                        audioTelemetry
-                                                            .isPoorConnection,
-                                                    isReconnecting: !isLive &&
-                                                        audioState.isLive &&
-                                                        (audioState
-                                                                .isReconnecting ||
+                                                        isVideoStreamLive:
+                                                            isLive,
+                                                        isAudioLive:
+                                                            audioState.isLive,
+                                                        isWeakConnection: !isLive &&
+                                                            audioState.isLive &&
+                                                            audioState.role !=
+                                                                ForumHeaderRole
+                                                                    .host &&
+                                                            audioTelemetry
+                                                                .isPoorConnection,
+                                                        isReconnecting: !isLive &&
+                                                            audioState.isLive &&
+                                                            (audioState
+                                                                    .isReconnecting ||
+                                                                audioState
+                                                                    .isListenerReconnecting),
+                                                        role: isLive &&
+                                                                forumState
+                                                                    .isOrganizer
+                                                            ? ForumHeaderRole
+                                                                .host
+                                                            : audioState.role,
+                                                        activeSpeakerNames:
                                                             audioState
-                                                                .isListenerReconnecting),
-                                                    role: isLive &&
-                                                            forumState
-                                                                .isOrganizer
-                                                        ? ForumHeaderRole.host
-                                                        : audioState.role,
-                                                    activeSpeakerNames:
-                                                        audioState
-                                                            .activeSpeakerNames,
-                                                    currentUserName:
-                                                        cubit.state.userName,
-                                                    isMicMuted: isLive
-                                                        ? videoService
-                                                            .isMicMuted
-                                                        : audioState.isMicMuted,
-                                                    isCameraOn:
-                                                        videoService.isCameraOn,
-                                                    isBroadcastMuted: audioState
-                                                        .isBroadcastMuted,
-                                                    getAudioLevel: () => isLive
-                                                        ? videoService
-                                                            .getAudioLevel()
-                                                        : audioCubit.service
-                                                            .getAudioLevel(),
-                                                    onToggleMic: () {
-                                                      if (isLive) {
-                                                        final nextMicMuted =
-                                                            !videoService
-                                                                .isMicMuted;
-                                                        videoService
-                                                                .isMicMuted =
-                                                            nextMicMuted;
-                                                        videoService.toggleMic(
-                                                            !nextMicMuted);
-                                                        videoService
-                                                            .updateParticipantMediaState(
-                                                                'host',
-                                                                isMicMuted:
-                                                                    nextMicMuted);
-                                                        if (mounted) {
-                                                          setState(() {});
-                                                        }
-                                                      } else {
-                                                        if (audioState
-                                                            .isMicMuted) {
-                                                          PermissionAcks
-                                                              .ensureAcknowledged(
-                                                            context,
-                                                            PermissionAckType
-                                                                .microphone,
-                                                            title:
-                                                                'Microphone Permission',
-                                                            description:
-                                                                'To speak in live community streams, Lynk-X needs access to your microphone.',
-                                                            icon: Icons
-                                                                .mic_rounded,
-                                                            actionLabel:
-                                                                'Allow Microphone',
-                                                            onReady: () =>
-                                                                audioCubit
-                                                                    .toggleMic(),
-                                                          );
-                                                        } else {
-                                                          audioCubit
-                                                              .toggleMic();
-                                                        }
-                                                      }
-                                                    },
-                                                    onToggleCamera: () {
-                                                      if (isLive) {
-                                                        final nextCamOn =
-                                                            !videoService
-                                                                .isCameraOn;
-                                                        videoService
-                                                                .isCameraOn =
-                                                            nextCamOn;
-                                                        videoService
-                                                            .toggleCamera(
-                                                                nextCamOn);
-                                                        videoService
-                                                            .updateParticipantMediaState(
-                                                                'host',
-                                                                isCameraOn:
-                                                                    nextCamOn);
-                                                        if (mounted) {
-                                                          setState(() {});
-                                                        }
-                                                      }
-                                                    },
-                                                    onToggleBroadcastMute: () =>
-                                                        audioCubit
-                                                            .toggleBroadcastMute(),
-                                                    onEndBroadcast: () {
-                                                      final name = forumState.userName.isNotEmpty
-                                                          ? forumState.userName
-                                                          : 'Host';
-                                                      // Read cubits before any awaited work below —
-                                                      // context shouldn't cross an async gap.
-                                                      final chatCubit = context.read<ForumChatCubit>();
-                                                      final updatesCubit = context.read<ForumUpdatesCubit>();
-
-                                                      if (isLive) {
-                                                        final videoService = ForumVideoStreamService();
-                                                        final vfId = forumState.forumId;
-                                                        videoService.setMinimized(false);
-                                                        videoService.stopVideoStream();
-                                                        videoService.setLive(false);
-                                                        videoService.hostSessionIdNotifier.value = null;
-                                                        MiniOverlayService()
-                                                            .endPipSession();
-                                                        // Host is the only
-                                                        // party that can
-                                                        // reach this branch
-                                                        // (only isHost sees
-                                                        // the end-broadcast
-                                                        // control) — safe to
-                                                        // fire-and-forget,
-                                                        // local teardown above
-                                                        // already happened.
-                                                        if (vfId != null && vfId.isNotEmpty) {
-                                                          unawaited(videoService.updateForumStreamingConfig(
-                                                            forumId: vfId,
-                                                            isLive: false,
-                                                          ).catchError((e) {
-                                                            debugPrint('[ForumScreen] video end updateForumStreamingConfig failed: $e');
-                                                          }));
-                                                        }
-                                                        final vfSummaryId = videoService.callSummaryId;
-                                                        videoService.callSummaryId = null;
-                                                        unawaited(videoService.endCallSummary(vfSummaryId));
-                                                        // Tells every already-joined listener/co-host
-                                                        // the call ended (server already force-closed
-                                                        // their forum_call_participants row).
-                                                        unawaited(videoService.broadcastVideoEvent(action: 'end_stream'));
-                                                        unawaited(CallSoundService.playEnd());
-
-                                                        // Mirrors the "started the live stream"
-                                                        // announcement posted on start — without
-                                                        // this, isLiveSessionEvent's "ended" text
-                                                        // check (updates_tab.dart) never has
-                                                        // anything to match, and the JoinCard
-                                                        // session-id comparison fix only covers
-                                                        // widgets that were mounted to witness the
-                                                        // live transition themselves.
-                                                        chatCubit.sendMessage(
-                                                          '$name ended the live stream',
-                                                          isOrganizer: forumState.isOrganizer,
-                                                          isPremium: forumState.isPremium,
-                                                          messageType: MessageType.systemChat,
-                                                        );
-                                                        updatesCubit.sendMessage(
-                                                          '$name ended the live stream',
-                                                          isOrganizer: forumState.isOrganizer,
-                                                          isPremium: forumState.isPremium,
-                                                          messageType: MessageType.systemAnnouncement,
-                                                        );
-                                                      } else {
-                                                        audioCubit
-                                                            .endAudioStream();
-
-                                                        chatCubit.sendMessage(
-                                                          '$name ended the live call',
-                                                          isOrganizer: forumState.isOrganizer,
-                                                          isPremium: forumState.isPremium,
-                                                          messageType: MessageType.systemChat,
-                                                        );
-                                                        updatesCubit.sendMessage(
-                                                          '$name ended the live call',
-                                                          isOrganizer: forumState.isOrganizer,
-                                                          isPremium: forumState.isPremium,
-                                                          messageType: MessageType.systemAnnouncement,
-                                                        );
-                                                      }
-                                                    },
-                                                    // Header start gestures
-                                                    // are test-only "cheat
-                                                    // codes" for now, but
-                                                    // are still restricted to
-                                                    // the Updates tab for
-                                                    // consistency with where
-                                                    // call/stream/quiz
-                                                    // creation now lives.
-                                                    onStartLiveStream: !isUpdatesTabActive
-                                                        ? null
-                                                        : () {
-                                                      PermissionAcks
-                                                          .ensureAcknowledged(
-                                                        context,
-                                                        PermissionAckType
-                                                            .camera,
-                                                        title:
-                                                            'Host Live Video Stream',
-                                                        description:
-                                                            'To host a live video stream, Lynk-X needs access to your camera and microphone.',
-                                                        icon: Icons
-                                                            .videocam_rounded,
-                                                        actionLabel:
-                                                            'Allow Camera & Mic',
-                                                        onReady: () async {
-                                                          final name = forumState
-                                                                  .userName
-                                                                  .isNotEmpty
-                                                              ? forumState
-                                                                  .userName
-                                                              : 'Host';
-                                                          final vfId = forumState.forumId;
-                                                          final videoService = ForumVideoStreamService();
-                                                          videoService.forumId = vfId ?? '';
-                                                          // Read cubits before the await below —
-                                                          // context shouldn't cross an async gap.
-                                                          final chatCubit = context.read<ForumChatCubit>();
-                                                          final updatesCubit = context.read<ForumUpdatesCubit>();
-                                                          videoService.setLive(true);
-                                                          videoService.setMinimized(false);
-                                                          MiniOverlayService()
-                                                              .activateLiveStream(
-                                                                  hostName:
-                                                                      name);
-
-                                                          if (vfId != null && vfId.isNotEmpty) {
-                                                            final sessionId = await videoService.createCloudflareSession(vfId);
-                                                            if (sessionId == null) {
-                                                              videoService.setLive(false);
-                                                              MiniOverlayService().endPipSession();
-                                                              if (mounted && context.mounted) {
-                                                                AppSnackBars.showError(context, 'Could not start your Cloudflare session — please try again.');
-                                                              }
-                                                              return;
+                                                                .activeSpeakerNames,
+                                                        currentUserName: cubit
+                                                            .state.userName,
+                                                        isMicMuted: isLive
+                                                            ? videoService
+                                                                .isMicMuted
+                                                            : audioState
+                                                                .isMicMuted,
+                                                        isCameraOn: videoService
+                                                            .isCameraOn,
+                                                        isBroadcastMuted:
+                                                            audioState
+                                                                .isBroadcastMuted,
+                                                        getAudioLevel: () => isLive
+                                                            ? videoService
+                                                                .getAudioLevel()
+                                                            : audioCubit.service
+                                                                .getAudioLevel(),
+                                                        onToggleMic: () {
+                                                          if (isLive) {
+                                                            final nextMicMuted =
+                                                                !videoService
+                                                                    .isMicMuted;
+                                                            videoService
+                                                                    .isMicMuted =
+                                                                nextMicMuted;
+                                                            videoService.toggleMic(
+                                                                !nextMicMuted);
+                                                            videoService
+                                                                .updateParticipantMediaState(
+                                                                    'host',
+                                                                    isMicMuted:
+                                                                        nextMicMuted);
+                                                            if (mounted) {
+                                                              setState(() {});
                                                             }
-                                                            // The HOST's own session IS the host
-                                                            // session — keeps hostSessionIdNotifier
-                                                            // (used by _LiveStreamJoinCard's
-                                                            // end-detection fast path) current for
-                                                            // the host too, not just listeners/
-                                                            // co-hosts (see subscribeToRemoteVideo's
-                                                            // own comment).
-                                                            videoService.hostSessionIdNotifier.value = sessionId;
-
-                                                            // Call-summary row must exist BEFORE
-                                                            // joinAsCallParticipant (needs its id) and
-                                                            // before updateForumStreamingConfig (which
-                                                            // now carries it, so any later client can
-                                                            // discover it) — see ForumAudioStreamCubit
-                                                            // .startAudioStream for the matching audio
-                                                            // reordering and full rationale.
-                                                            String? callSummaryId;
-                                                            final vfCreatedAt = forumState.forumCreatedAt;
-                                                            if (vfCreatedAt != null) {
-                                                              callSummaryId = await videoService.startCallSummary(
-                                                                forumId: vfId,
-                                                                forumCreatedAt: vfCreatedAt,
-                                                                hostId: cubit.userId,
-                                                                sessionId: sessionId,
+                                                          } else {
+                                                            if (audioState
+                                                                .isMicMuted) {
+                                                              PermissionAcks
+                                                                  .ensureAcknowledged(
+                                                                context,
+                                                                PermissionAckType
+                                                                    .microphone,
+                                                                title:
+                                                                    'Microphone Permission',
+                                                                description:
+                                                                    'To speak in live community streams, Lynk-X needs access to your microphone.',
+                                                                icon: Icons
+                                                                    .mic_rounded,
+                                                                actionLabel:
+                                                                    'Allow Microphone',
+                                                                onReady: () =>
+                                                                    audioCubit
+                                                                        .toggleMic(),
                                                               );
-                                                              videoService.callSummaryId = callSummaryId;
-                                                            }
-
-                                                            // The host claims their own speaker slot
-                                                            // the same way a co-host does — see
-                                                            // social.join_as_call_participant's doc
-                                                            // comment for why there is no separate
-                                                            // host-registration path.
-                                                            if (callSummaryId != null) {
-                                                              await videoService.joinAsCallParticipant(
-                                                                forumId: vfId,
-                                                                callSummaryId: callSummaryId,
-                                                                cfSessionId: sessionId,
-                                                                trackName: cubit.userId,
-                                                              );
-                                                              videoService.participantsNotifier.value = {
-                                                                cubit.userId: CallParticipant(
-                                                                  userId: cubit.userId,
-                                                                  userName: name,
-                                                                  cfSessionId: sessionId,
-                                                                  trackName: cubit.userId,
-                                                                ),
-                                                              };
-                                                            }
-
-                                                            try {
-                                                              await videoService.updateForumStreamingConfig(
-                                                                forumId: vfId,
-                                                                isLive: true,
-                                                                sessionId: sessionId,
-                                                                hostId: cubit.userId,
-                                                                callSummaryId: callSummaryId,
-                                                              );
-                                                            } catch (e) {
-                                                              debugPrint('[ForumScreen] video updateForumStreamingConfig failed: $e');
+                                                            } else {
+                                                              audioCubit
+                                                                  .toggleMic();
                                                             }
                                                           }
-
-                                                          chatCubit
-                                                              .sendMessage(
-                                                                '$name started the live stream',
-                                                                isOrganizer:
-                                                                    forumState
-                                                                        .isOrganizer,
-                                                                isPremium:
-                                                                    forumState
-                                                                        .isPremium,
-                                                                messageType:
-                                                                    MessageType
-                                                                        .systemChat,
-                                                              );
-                                                          updatesCubit
-                                                              .sendMessage(
-                                                                '$name started the live stream',
-                                                                isOrganizer:
-                                                                    forumState
-                                                                        .isOrganizer,
-                                                                isPremium:
-                                                                    forumState
-                                                                        .isPremium,
-                                                                messageType:
-                                                                    MessageType
-                                                                        .systemAnnouncement,
-                                                              );
                                                         },
-                                                      );
-                                                    },
-                                                    onStartAudioStream: !isUpdatesTabActive
-                                                        ? null
-                                                        : () {
-                                                      PermissionAcks
-                                                          .ensureAcknowledged(
-                                                        context,
-                                                        PermissionAckType
-                                                            .microphone,
-                                                        title:
-                                                            'Host Audio Stream',
-                                                        description:
-                                                            'To start a live audio stream and speak with attendees, Lynk-X needs access to your microphone.',
-                                                        icon: Icons.mic_rounded,
-                                                        actionLabel:
-                                                            'Allow Microphone',
-                                                        onReady: () {
+                                                        onToggleCamera: () {
+                                                          if (isLive) {
+                                                            final nextCamOn =
+                                                                !videoService
+                                                                    .isCameraOn;
+                                                            videoService
+                                                                    .isCameraOn =
+                                                                nextCamOn;
+                                                            videoService
+                                                                .toggleCamera(
+                                                                    nextCamOn);
+                                                            videoService
+                                                                .updateParticipantMediaState(
+                                                                    'host',
+                                                                    isCameraOn:
+                                                                        nextCamOn);
+                                                            if (mounted) {
+                                                              setState(() {});
+                                                            }
+                                                          }
+                                                        },
+                                                        onToggleBroadcastMute:
+                                                            () => audioCubit
+                                                                .toggleBroadcastMute(),
+                                                        onEndBroadcast: () {
                                                           final name = forumState
                                                                   .userName
                                                                   .isNotEmpty
                                                               ? forumState
                                                                   .userName
                                                               : 'Host';
-                                                          MiniOverlayService()
-                                                              .activateLiveCall(
-                                                                  hostName:
-                                                                      name);
-                                                          audioCubit
-                                                              .startAudioStream();
-                                                          context
-                                                              .read<
-                                                                  ForumChatCubit>()
-                                                              .sendMessage(
-                                                                '$name started the live call',
-                                                                isOrganizer:
-                                                                    forumState
-                                                                        .isOrganizer,
-                                                                isPremium:
-                                                                    forumState
-                                                                        .isPremium,
-                                                                messageType:
-                                                                    MessageType
-                                                                        .systemChat,
-                                                              );
+                                                          // Read cubits before any awaited work below —
+                                                          // context shouldn't cross an async gap.
+                                                          final chatCubit =
+                                                              context.read<
+                                                                  ForumChatCubit>();
+                                                          final updatesCubit =
+                                                              context.read<
+                                                                  ForumUpdatesCubit>();
+                                                          AppSnackBars.showInfo(
+                                                              context,
+                                                              'You ended the call.');
+
+                                                          if (isLive) {
+                                                            final videoService =
+                                                                ForumVideoStreamService();
+                                                            final vfId =
+                                                                forumState
+                                                                    .forumId;
+                                                            videoService
+                                                                .setMinimized(
+                                                                    false);
+                                                            videoService
+                                                                .stopVideoStream();
+                                                            videoService
+                                                                .setLive(false);
+                                                            videoService
+                                                                .hostSessionIdNotifier
+                                                                .value = null;
+                                                            MiniOverlayService()
+                                                                .endPipSession();
+                                                            // Host is the only
+                                                            // party that can
+                                                            // reach this branch
+                                                            // (only isHost sees
+                                                            // the end-broadcast
+                                                            // control) — safe to
+                                                            // fire-and-forget,
+                                                            // local teardown above
+                                                            // already happened.
+                                                            if (vfId != null &&
+                                                                vfId.isNotEmpty) {
+                                                              unawaited(
+                                                                  videoService
+                                                                      .updateForumStreamingConfig(
+                                                                forumId: vfId,
+                                                                isLive: false,
+                                                              )
+                                                                      .catchError(
+                                                                          (e) {
+                                                                debugPrint(
+                                                                    '[ForumScreen] video end updateForumStreamingConfig failed: $e');
+                                                              }));
+                                                            }
+                                                            final vfSummaryId =
+                                                                videoService
+                                                                    .callSummaryId;
+                                                            videoService
+                                                                    .callSummaryId =
+                                                                null;
+                                                            unawaited(videoService
+                                                                .endCallSummary(
+                                                                    vfSummaryId));
+                                                            // Tells every already-joined listener/co-host
+                                                            // the call ended (server already force-closed
+                                                            // their forum_call_participants row).
+                                                            unawaited(videoService
+                                                                .broadcastVideoEvent(
+                                                                    action:
+                                                                        'end_stream'));
+                                                            unawaited(
+                                                                CallSoundService
+                                                                    .playEnd());
+
+                                                            // Mirrors the "started the live stream"
+                                                            // announcement posted on start — without
+                                                            // this, isLiveSessionEvent's "ended" text
+                                                            // check (updates_tab.dart) never has
+                                                            // anything to match, and the JoinCard
+                                                            // session-id comparison fix only covers
+                                                            // widgets that were mounted to witness the
+                                                            // live transition themselves.
+                                                            chatCubit
+                                                                .sendMessage(
+                                                              '$name ended the live stream',
+                                                              isOrganizer:
+                                                                  forumState
+                                                                      .isOrganizer,
+                                                              isPremium:
+                                                                  forumState
+                                                                      .isPremium,
+                                                              messageType:
+                                                                  MessageType
+                                                                      .systemChat,
+                                                            );
+                                                            updatesCubit
+                                                                .sendMessage(
+                                                              '$name ended the live stream',
+                                                              isOrganizer:
+                                                                  forumState
+                                                                      .isOrganizer,
+                                                              isPremium:
+                                                                  forumState
+                                                                      .isPremium,
+                                                              messageType:
+                                                                  MessageType
+                                                                      .systemAnnouncement,
+                                                            );
+                                                          } else {
+                                                            audioCubit
+                                                                .endAudioStream();
+
+                                                            chatCubit
+                                                                .sendMessage(
+                                                              '$name ended the live call',
+                                                              isOrganizer:
+                                                                  forumState
+                                                                      .isOrganizer,
+                                                              isPremium:
+                                                                  forumState
+                                                                      .isPremium,
+                                                              messageType:
+                                                                  MessageType
+                                                                      .systemChat,
+                                                            );
+                                                            updatesCubit
+                                                                .sendMessage(
+                                                              '$name ended the live call',
+                                                              isOrganizer:
+                                                                  forumState
+                                                                      .isOrganizer,
+                                                              isPremium:
+                                                                  forumState
+                                                                      .isPremium,
+                                                              messageType:
+                                                                  MessageType
+                                                                      .systemAnnouncement,
+                                                            );
+                                                          }
+                                                        },
+                                                        // Header start gestures
+                                                        // are test-only "cheat
+                                                        // codes" for now, but
+                                                        // are still restricted to
+                                                        // the Updates tab for
+                                                        // consistency with where
+                                                        // call/stream/quiz
+                                                        // creation now lives.
+                                                        onStartLiveStream:
+                                                            !isUpdatesTabActive
+                                                                ? null
+                                                                : () {
+                                                                    PermissionAcks
+                                                                        .ensureAcknowledged(
+                                                                      context,
+                                                                      PermissionAckType
+                                                                          .camera,
+                                                                      title:
+                                                                          'Host Live Video Stream',
+                                                                      description:
+                                                                          'To host a live video stream, Lynk-X needs access to your camera and microphone.',
+                                                                      icon: Icons
+                                                                          .videocam_rounded,
+                                                                      actionLabel:
+                                                                          'Allow Camera & Mic',
+                                                                      onReady:
+                                                                          () async {
+                                                                        final name = forumState.userName.isNotEmpty
+                                                                            ? forumState.userName
+                                                                            : 'Host';
+                                                                        final vfId =
+                                                                            forumState.forumId;
+                                                                        final videoService =
+                                                                            ForumVideoStreamService();
+                                                                        videoService.forumId =
+                                                                            vfId ??
+                                                                                '';
+                                                                        // Read cubits before the await below —
+                                                                        // context shouldn't cross an async gap.
+                                                                        final chatCubit =
+                                                                            context.read<ForumChatCubit>();
+                                                                        final updatesCubit =
+                                                                            context.read<ForumUpdatesCubit>();
+                                                                        videoService
+                                                                            .setLive(true);
+                                                                        videoService
+                                                                            .setMinimized(false);
+                                                                        MiniOverlayService().activateLiveStream(
+                                                                            hostName:
+                                                                                name);
+
+                                                                        if (vfId !=
+                                                                                null &&
+                                                                            vfId.isNotEmpty) {
+                                                                          final sessionId =
+                                                                              await videoService.createCloudflareSession(vfId);
+                                                                          if (sessionId ==
+                                                                              null) {
+                                                                            videoService.setLive(false);
+                                                                            MiniOverlayService().endPipSession();
+                                                                            if (mounted &&
+                                                                                context.mounted) {
+                                                                              AppSnackBars.showError(context, 'Could not start your Cloudflare session — please try again.');
+                                                                            }
+                                                                            return;
+                                                                          }
+                                                                          // The HOST's own session IS the host
+                                                                          // session — keeps hostSessionIdNotifier
+                                                                          // (used by _LiveStreamJoinCard's
+                                                                          // end-detection fast path) current for
+                                                                          // the host too, not just listeners/
+                                                                          // co-hosts (see subscribeToRemoteVideo's
+                                                                          // own comment).
+                                                                          videoService
+                                                                              .hostSessionIdNotifier
+                                                                              .value = sessionId;
+
+                                                                          // Call-summary row must exist BEFORE
+                                                                          // joinAsCallParticipant (needs its id) and
+                                                                          // before updateForumStreamingConfig (which
+                                                                          // now carries it, so any later client can
+                                                                          // discover it) — see ForumAudioStreamCubit
+                                                                          // .startAudioStream for the matching audio
+                                                                          // reordering and full rationale.
+                                                                          String?
+                                                                              callSummaryId;
+                                                                          final vfCreatedAt =
+                                                                              forumState.forumCreatedAt;
+                                                                          if (vfCreatedAt !=
+                                                                              null) {
+                                                                            callSummaryId =
+                                                                                await videoService.startCallSummary(
+                                                                              forumId: vfId,
+                                                                              forumCreatedAt: vfCreatedAt,
+                                                                              hostId: cubit.userId,
+                                                                              sessionId: sessionId,
+                                                                            );
+                                                                            videoService.callSummaryId =
+                                                                                callSummaryId;
+                                                                          }
+
+                                                                          // The host claims their own speaker slot
+                                                                          // the same way a co-host does — see
+                                                                          // social.join_as_call_participant's doc
+                                                                          // comment for why there is no separate
+                                                                          // host-registration path.
+                                                                          if (callSummaryId !=
+                                                                              null) {
+                                                                            await videoService.joinAsCallParticipant(
+                                                                              forumId: vfId,
+                                                                              callSummaryId: callSummaryId,
+                                                                              cfSessionId: sessionId,
+                                                                              trackName: cubit.userId,
+                                                                            );
+                                                                            videoService.participantsNotifier.value =
+                                                                                {
+                                                                              cubit.userId: CallParticipant(
+                                                                                userId: cubit.userId,
+                                                                                userName: name,
+                                                                                cfSessionId: sessionId,
+                                                                                trackName: cubit.userId,
+                                                                              ),
+                                                                            };
+                                                                          }
+
+                                                                          try {
+                                                                            await videoService.updateForumStreamingConfig(
+                                                                              forumId: vfId,
+                                                                              isLive: true,
+                                                                              sessionId: sessionId,
+                                                                              hostId: cubit.userId,
+                                                                              callSummaryId: callSummaryId,
+                                                                            );
+                                                                          } catch (e) {
+                                                                            debugPrint('[ForumScreen] video updateForumStreamingConfig failed: $e');
+                                                                          }
+                                                                        }
+
+                                                                        chatCubit
+                                                                            .sendMessage(
+                                                                          '$name started the live stream',
+                                                                          isOrganizer:
+                                                                              forumState.isOrganizer,
+                                                                          isPremium:
+                                                                              forumState.isPremium,
+                                                                          messageType:
+                                                                              MessageType.systemChat,
+                                                                        );
+                                                                        updatesCubit
+                                                                            .sendMessage(
+                                                                          '$name started the live stream',
+                                                                          isOrganizer:
+                                                                              forumState.isOrganizer,
+                                                                          isPremium:
+                                                                              forumState.isPremium,
+                                                                          messageType:
+                                                                              MessageType.systemAnnouncement,
+                                                                        );
+                                                                      },
+                                                                    );
+                                                                  },
+                                                        onStartAudioStream:
+                                                            !isUpdatesTabActive
+                                                                ? null
+                                                                : () {
+                                                                    PermissionAcks
+                                                                        .ensureAcknowledged(
+                                                                      context,
+                                                                      PermissionAckType
+                                                                          .microphone,
+                                                                      title:
+                                                                          'Host Audio Stream',
+                                                                      description:
+                                                                          'To start a live audio stream and speak with attendees, Lynk-X needs access to your microphone.',
+                                                                      icon: Icons
+                                                                          .mic_rounded,
+                                                                      actionLabel:
+                                                                          'Allow Microphone',
+                                                                      onReady:
+                                                                          () {
+                                                                        final name = forumState.userName.isNotEmpty
+                                                                            ? forumState.userName
+                                                                            : 'Host';
+                                                                        MiniOverlayService().activateLiveCall(
+                                                                            hostName:
+                                                                                name);
+                                                                        audioCubit
+                                                                            .startAudioStream();
+                                                                        context
+                                                                            .read<ForumChatCubit>()
+                                                                            .sendMessage(
+                                                                              '$name started the live call',
+                                                                              isOrganizer: forumState.isOrganizer,
+                                                                              isPremium: forumState.isPremium,
+                                                                              messageType: MessageType.systemChat,
+                                                                            );
+                                                                        context
+                                                                            .read<ForumUpdatesCubit>()
+                                                                            .sendMessage(
+                                                                              '$name started the live call',
+                                                                              isOrganizer: forumState.isOrganizer,
+                                                                              isPremium: forumState.isPremium,
+                                                                              messageType: MessageType.systemAnnouncement,
+                                                                            );
+                                                                      },
+                                                                    );
+                                                                  },
+                                                        isOrganizer: forumState
+                                                            .isOrganizer,
+                                                        isReadOnly: forumState
+                                                            .isReadOnly,
+                                                        forumName: forumState
+                                                            .forumName,
+                                                        onLockToggle: () {
+                                                          final nextStatus =
+                                                              forumState
+                                                                      .isReadOnly
+                                                                  ? 'open'
+                                                                  : 'read_only';
+                                                          cubit
+                                                              .updateForumStatus(
+                                                                  nextStatus);
+                                                          AppSnackBars.showInfo(
+                                                            context,
+                                                            forumState
+                                                                    .isReadOnly
+                                                                ? 'Chat unlocked'
+                                                                : 'Chat locked',
+                                                          );
+                                                        },
+                                                        onSearch: (q) {
                                                           context
                                                               .read<
                                                                   ForumUpdatesCubit>()
-                                                              .sendMessage(
-                                                                '$name started the live call',
-                                                                isOrganizer:
-                                                                    forumState
-                                                                        .isOrganizer,
-                                                                isPremium:
-                                                                    forumState
-                                                                        .isPremium,
-                                                                messageType:
-                                                                    MessageType
-                                                                        .systemAnnouncement,
-                                                              );
+                                                              .setSearchQuery(
+                                                                  q);
+                                                          context
+                                                              .read<
+                                                                  ForumChatCubit>()
+                                                              .setSearchQuery(
+                                                                  q);
+                                                        },
+                                                        onSearchToggle: () {
+                                                          final updatesCubit =
+                                                              context.read<
+                                                                  ForumUpdatesCubit>();
+                                                          final chatCubit =
+                                                              context.read<
+                                                                  ForumChatCubit>();
+                                                          if (updatesCubit
+                                                                  .state
+                                                                  .searchQuery
+                                                                  .isNotEmpty ||
+                                                              chatCubit
+                                                                  .state
+                                                                  .searchQuery
+                                                                  .isNotEmpty) {
+                                                            updatesCubit
+                                                                .setSearchQuery(
+                                                                    '');
+                                                            chatCubit
+                                                                .setSearchQuery(
+                                                                    '');
+                                                          }
                                                         },
                                                       );
-                                                    },
-                                                    isOrganizer:
-                                                        forumState.isOrganizer,
-                                                    isReadOnly:
-                                                        forumState.isReadOnly,
-                                                    forumName:
-                                                        forumState.forumName,
-                                                    onLockToggle: () {
-                                                      final nextStatus =
-                                                          forumState.isReadOnly
-                                                              ? 'open'
-                                                              : 'read_only';
-                                                      cubit.updateForumStatus(
-                                                          nextStatus);
-                                                      AppSnackBars.showInfo(
-                                                        context,
-                                                        forumState.isReadOnly
-                                                            ? 'Chat unlocked'
-                                                            : 'Chat locked',
-                                                      );
-                                                    },
-                                                    onSearch: (q) {
-                                                      context
-                                                          .read<
-                                                              ForumUpdatesCubit>()
-                                                          .setSearchQuery(q);
-                                                      context
-                                                          .read<
-                                                              ForumChatCubit>()
-                                                          .setSearchQuery(q);
-                                                    },
-                                                    onSearchToggle: () {
-                                                      final updatesCubit =
-                                                          context.read<
-                                                              ForumUpdatesCubit>();
-                                                      final chatCubit =
-                                                          context.read<
-                                                              ForumChatCubit>();
-                                                      if (updatesCubit
-                                                              .state
-                                                              .searchQuery
-                                                              .isNotEmpty ||
-                                                          chatCubit
-                                                              .state
-                                                              .searchQuery
-                                                              .isNotEmpty) {
-                                                        updatesCubit
-                                                            .setSearchQuery('');
-                                                        chatCubit
-                                                            .setSearchQuery('');
-                                                      }
-                                                    },
-                                                  );
                                                     },
                                                   );
                                                 },
@@ -1185,7 +1271,6 @@ class _ForumViewState extends State<ForumView> {
     );
   }
 
-
   void _pushCreatedQuizMessage({
     required String messageType,
     required Map<String, dynamic> result,
@@ -1216,7 +1301,8 @@ class _ForumViewState extends State<ForumView> {
     // slightly less styled than a real system message.
     final forumState = context.read<ForumCubit>().state;
     final name = forumState.userName.isNotEmpty ? forumState.userName : 'Host';
-    final announcement = '$name started a live quiz${title != null && title.isNotEmpty ? ': $title' : ''}';
+    final announcement =
+        '$name started a live quiz${title != null && title.isNotEmpty ? ': $title' : ''}';
     context.read<ForumChatCubit>().sendMessage(
           announcement,
           isOrganizer: forumState.isOrganizer,

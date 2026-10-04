@@ -63,12 +63,16 @@ class ForumAdsCubit extends Cubit<ForumAdsState> {
 
       if (embeddingData != null) {
         final results = await Future.wait([
-          Supabase.instance.client.schema('api').rpc('match_ad_campaigns', params: {
+          Supabase.instance.client
+              .schema('api')
+              .rpc('match_ad_campaigns', params: {
             'query_embedding': embeddingData,
             'match_type': 'banner',
             'match_count': 8,
           }),
-          Supabase.instance.client.schema('api').rpc('match_ad_campaigns', params: {
+          Supabase.instance.client
+              .schema('api')
+              .rpc('match_ad_campaigns', params: {
             'query_embedding': embeddingData,
             'match_type': 'interstitial',
             'match_count': 1,
@@ -175,7 +179,9 @@ class ForumAdsCubit extends Cubit<ForumAdsState> {
       final serveToken = ad.serveToken;
       if (serveToken == null) return;
       try {
-        await Supabase.instance.client.schema('api').rpc('log_ad_interaction', params: {
+        await Supabase.instance.client
+            .schema('api')
+            .rpc('log_ad_interaction', params: {
           'p_serve_token': serveToken,
           'p_interaction_type': 'impression',
         });
@@ -205,7 +211,9 @@ class ForumAdsCubit extends Cubit<ForumAdsState> {
     final serveToken = ad.serveToken;
     if (serveToken == null) return;
     try {
-      await Supabase.instance.client.schema('api').rpc('log_ad_interaction', params: {
+      await Supabase.instance.client
+          .schema('api')
+          .rpc('log_ad_interaction', params: {
         'p_serve_token': serveToken,
         'p_interaction_type': 'click',
       });

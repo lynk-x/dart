@@ -39,9 +39,16 @@ class ForumChatCubit extends BaseMessageCubit<ForumChatState> {
         _embeddingService = embeddingService ?? EmbeddingManager.instance,
         super(
           messageType: 'chat',
-          messageTypes: const ['chat', 'livechat_poll', 'livechat_quiz', 'stream_event', 'system_chat'],
+          messageTypes: const [
+            'chat',
+            'livechat_poll',
+            'livechat_quiz',
+            'stream_event',
+            'system_chat'
+          ],
           initialState: const ForumChatState(),
-          channel: channel ?? Supabase.instance.client.channel('forum_chat_$forumId'),
+          channel: channel ??
+              Supabase.instance.client.channel('forum_chat_$forumId'),
         );
 
   @override
@@ -79,8 +86,6 @@ class ForumChatCubit extends BaseMessageCubit<ForumChatState> {
     await refresh();
     hasCompletedInitialRefresh = true;
   }
-
-
 
   void syncForumContext({
     required DateTime? forumCreatedAt,
@@ -127,7 +132,9 @@ class ForumChatCubit extends BaseMessageCubit<ForumChatState> {
       var messages =
           data.map((json) => ChatMessage.fromMap(json, userId)).toList();
 
-      final mediaMessages = messages.where((m) => m.imageUrl != null && m.imageUrl!.isNotEmpty).toList();
+      final mediaMessages = messages
+          .where((m) => m.imageUrl != null && m.imageUrl!.isNotEmpty)
+          .toList();
       if (mediaMessages.isNotEmpty) {
         final urls = mediaMessages.map((m) => m.imageUrl!).toList();
         final signedMap = await batchSignStorageUrls(urls, 'forum_media');
@@ -170,10 +177,11 @@ class ForumChatCubit extends BaseMessageCubit<ForumChatState> {
         messageTypes: messageTypes,
       );
 
-      var more =
-          data.map((json) => ChatMessage.fromMap(json, userId)).toList();
+      var more = data.map((json) => ChatMessage.fromMap(json, userId)).toList();
 
-      final mediaMessages = more.where((m) => m.imageUrl != null && m.imageUrl!.isNotEmpty).toList();
+      final mediaMessages = more
+          .where((m) => m.imageUrl != null && m.imageUrl!.isNotEmpty)
+          .toList();
       if (mediaMessages.isNotEmpty) {
         final urls = mediaMessages.map((m) => m.imageUrl!).toList();
         final signedMap = await batchSignStorageUrls(urls, 'forum_media');
@@ -203,7 +211,9 @@ class ForumChatCubit extends BaseMessageCubit<ForumChatState> {
 
   @override
   void sendMessage(String text,
-      {required bool isOrganizer, required bool isPremium, MessageType? messageType}) async {
+      {required bool isOrganizer,
+      required bool isPremium,
+      MessageType? messageType}) async {
     final messageId = BaseMessageCubit.uuid.v4();
     final now = DateTime.now();
     final replyTo = state.replyingTo;
@@ -257,7 +267,8 @@ class ForumChatCubit extends BaseMessageCubit<ForumChatState> {
           'forum_id': forumId,
           'forum_created_at': forumCreatedAt?.toIso8601String(),
           if (channelId != null) 'channel_id': channelId,
-          if (channelCreatedAt != null) 'channel_created_at': channelCreatedAt?.toIso8601String(),
+          if (channelCreatedAt != null)
+            'channel_created_at': channelCreatedAt?.toIso8601String(),
           'author_id': userId,
           'content': text,
           'message_type': effectiveType.value,
@@ -296,8 +307,6 @@ class ForumChatCubit extends BaseMessageCubit<ForumChatState> {
     }
   }
 
-
-
   void notifyTyping() {
     if (_typingThrottle?.isActive ?? false) return;
     channel?.sendBroadcastMessage(
@@ -312,7 +321,8 @@ class ForumChatCubit extends BaseMessageCubit<ForumChatState> {
   }
 
   @override
-  ForumChatState? fromJson(Map<String, dynamic> json) => ForumChatState.fromMap(json, userId);
+  ForumChatState? fromJson(Map<String, dynamic> json) =>
+      ForumChatState.fromMap(json, userId);
 
   @override
   Map<String, dynamic>? toJson(ForumChatState state) => state.toJson();
@@ -325,7 +335,7 @@ class ForumChatCubit extends BaseMessageCubit<ForumChatState> {
     try {
       final data = await _repo.getMessages(
         forumId: forumId,
-        limit: 50, 
+        limit: 50,
         after: afterTimestamp,
         messageTypes: messageTypes,
       );
@@ -335,11 +345,15 @@ class ForumChatCubit extends BaseMessageCubit<ForumChatState> {
           .map((json) => json['id'] as String)
           .toSet();
 
-      final activeData = data.where((json) => json['deleted_at'] == null).toList();
+      final activeData =
+          data.where((json) => json['deleted_at'] == null).toList();
 
-      var newMsgs = activeData.map((json) => ChatMessage.fromMap(json, userId)).toList();
+      var newMsgs =
+          activeData.map((json) => ChatMessage.fromMap(json, userId)).toList();
 
-      final mediaMessages = newMsgs.where((m) => m.imageUrl != null && m.imageUrl!.isNotEmpty).toList();
+      final mediaMessages = newMsgs
+          .where((m) => m.imageUrl != null && m.imageUrl!.isNotEmpty)
+          .toList();
       if (mediaMessages.isNotEmpty) {
         final urls = mediaMessages.map((m) => m.imageUrl!).toList();
         final signedMap = await batchSignStorageUrls(urls, 'forum_media');

@@ -54,7 +54,8 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
       },
       () {
         if (isClosed) return;
-        emit(state.copyWith(isListenerReconnecting: false));
+        emit(state.copyWith(
+            isListenerReconnecting: false, infoMessage: 'Reconnected'));
       },
     );
 
@@ -165,7 +166,8 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
           );
           if (isHost) service.requestWakeLock();
 
-          MiniOverlayService().activateLiveCall(hostName: isHost ? userName : 'Host');
+          MiniOverlayService()
+              .activateLiveCall(hostName: isHost ? userName : 'Host');
 
           // Every client's cubit needs this to support
           // joinAsCoHost()/leaveCoHost(), not just the host's.
@@ -295,7 +297,9 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
           isLive: true,
           role: isHost ? ForumHeaderRole.host : ForumHeaderRole.listener,
           sessionId: sessionId,
-          participants: hostParticipant != null ? {hostParticipant.userId: hostParticipant} : const {},
+          participants: hostParticipant != null
+              ? {hostParticipant.userId: hostParticipant}
+              : const {},
           isMicMuted: !isHost,
           isBroadcastMuted: false,
         ));
@@ -322,12 +326,16 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
         service.clearMediaSession();
         MiniOverlayService().endPipSession();
 
-        emit(const ForumAudioStreamState(
+        // The host's own end echo also lands here; only attendees get the notice.
+        emit(ForumAudioStreamState(
           isLive: false,
           role: ForumHeaderRole.listener,
-          participants: {},
+          participants: const {},
           isMicMuted: true,
           isBroadcastMuted: false,
+          infoMessage: state.role == ForumHeaderRole.host
+              ? null
+              : 'The host ended the call.',
         ));
 
         // The one call-lifecycle tone that's broadcast-driven rather than
@@ -357,7 +365,8 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
 
       case 'participant_left':
         final leftUserId = payload['userId'] as String?;
-        if (leftUserId == null || !state.participants.containsKey(leftUserId)) return;
+        if (leftUserId == null || !state.participants.containsKey(leftUserId))
+          return;
         final updated = Map<String, CallParticipant>.from(state.participants)
           ..remove(leftUserId);
         emit(state.copyWith(participants: updated));
@@ -374,7 +383,8 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
         final targetUserId = payload['targetUserId'] as String?;
         if (targetUserId != userId) return;
         final fromHostName = payload['fromHostName'] as String?;
-        emit(state.copyWith(pendingInviteFromHostName: fromHostName ?? 'The host'));
+        emit(state.copyWith(
+            pendingInviteFromHostName: fromHostName ?? 'The host'));
         break;
 
       // The invitee accepted and already published their track — host-only:
@@ -403,7 +413,9 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
     if (participantId == null) {
       // Cap was hit or some other rejection — surface it to the inviter
       // rather than silently dropping it.
-      emit(state.copyWith(errorMessage: 'Could not add ${participant.userName} as a speaker — the call may be full.'));
+      emit(state.copyWith(
+          errorMessage:
+              'Could not add ${participant.userName} as a speaker — the call may be full.'));
       return;
     }
 
@@ -431,19 +443,24 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
 
       final micGranted = await service.startLocalMicrophone();
       if (!micGranted) {
-        emit(state.copyWith(errorMessage: 'Microphone access is required to speak.'));
+        emit(state.copyWith(
+            errorMessage: 'Microphone access is required to speak.'));
         return false;
       }
 
       final sessionId = await service.createCloudflareSession(forumId);
       if (sessionId == null) {
-        emit(state.copyWith(errorMessage: 'Could not start your speaker session — please try again.'));
+        emit(state.copyWith(
+            errorMessage:
+                'Could not start your speaker session — please try again.'));
         return false;
       }
 
-      final published = await service.publishCloudflareTracks(forumId, sessionId, trackName: userId);
+      final published = await service
+          .publishCloudflareTracks(forumId, sessionId, trackName: userId);
       if (!published) {
-        emit(state.copyWith(errorMessage: 'Could not publish your audio — please try again.'));
+        emit(state.copyWith(
+            errorMessage: 'Could not publish your audio — please try again.'));
         return false;
       }
 
@@ -511,7 +528,8 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
         title: 'Lynk-X Live Audio Stream',
         artist: isHost ? userName : hName,
       );
-      MiniOverlayService().activateLiveCall(hostName: isHost ? userName : hName);
+      MiniOverlayService()
+          .activateLiveCall(hostName: isHost ? userName : hName);
 
       _callSummaryId = callSummaryId;
 
@@ -555,17 +573,20 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
         MiniOverlayService().endPipSession();
         emit(state.copyWith(
           isLive: false,
-          errorMessage: 'Microphone access is required to host a live audio stream.',
+          errorMessage:
+              'Microphone access is required to host a live audio stream.',
         ));
         return;
       }
 
       final sessionId = await service.createCloudflareSession(forumId);
       if (sessionId == null) {
-        throw StateError('Could not start your Cloudflare session — please try again.');
+        throw StateError(
+            'Could not start your Cloudflare session — please try again.');
       }
 
-      final published = await service.publishCloudflareTracks(forumId, sessionId, trackName: userId);
+      final published = await service
+          .publishCloudflareTracks(forumId, sessionId, trackName: userId);
       if (!published) {
         throw StateError('Could not publish your audio — please try again.');
       }
@@ -678,10 +699,12 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
       // Server never learned the call ended: keep local state live (mic
       // already stopped, matching a muted host) rather than show "ended"
       // locally while is_live: true still strands listeners server-side.
-      debugPrint('[ForumAudioStreamCubit] endAudioStream network sync error: $e');
+      debugPrint(
+          '[ForumAudioStreamCubit] endAudioStream network sync error: $e');
       emit(state.copyWith(
         isMicMuted: true,
-        errorMessage: 'Could not end the call — check your connection and try again.',
+        errorMessage:
+            'Could not end the call — check your connection and try again.',
       ));
       return;
     }
@@ -758,12 +781,15 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
   /// streaming_config — this user is an additional participant, not a
   /// replacement for the host.
   Future<bool> joinAsCoHost() async {
-    if (_isJoiningAsCoHost || !state.isLive || state.role == ForumHeaderRole.host) {
+    if (_isJoiningAsCoHost ||
+        !state.isLive ||
+        state.role == ForumHeaderRole.host) {
       return false;
     }
     final callSummaryId = _callSummaryId;
     if (callSummaryId == null) {
-      emit(state.copyWith(errorMessage: 'Could not join — call details are still loading.'));
+      emit(state.copyWith(
+          errorMessage: 'Could not join — call details are still loading.'));
       return false;
     }
 
@@ -771,19 +797,25 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
     try {
       final micGranted = await service.startLocalMicrophone();
       if (!micGranted) {
-        emit(state.copyWith(errorMessage: 'Microphone access is required to join as a speaker.'));
+        emit(state.copyWith(
+            errorMessage:
+                'Microphone access is required to join as a speaker.'));
         return false;
       }
 
       final sessionId = await service.createCloudflareSession(forumId);
       if (sessionId == null) {
-        emit(state.copyWith(errorMessage: 'Could not start your speaker session — please try again.'));
+        emit(state.copyWith(
+            errorMessage:
+                'Could not start your speaker session — please try again.'));
         return false;
       }
 
-      final published = await service.publishCloudflareTracks(forumId, sessionId, trackName: userId);
+      final published = await service
+          .publishCloudflareTracks(forumId, sessionId, trackName: userId);
       if (!published) {
-        emit(state.copyWith(errorMessage: 'Could not publish your audio — please try again.'));
+        emit(state.copyWith(
+            errorMessage: 'Could not publish your audio — please try again.'));
         return false;
       }
 
@@ -795,7 +827,9 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
       );
       if (participantId == null) {
         service.stopLocalMicrophone();
-        emit(state.copyWith(errorMessage: 'This call already has the maximum number of speakers.'));
+        emit(state.copyWith(
+            errorMessage:
+                'This call already has the maximum number of speakers.'));
         return false;
       }
 
@@ -805,7 +839,8 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
         cfSessionId: sessionId,
         trackName: userId,
       );
-      final updatedParticipants = Map<String, CallParticipant>.from(state.participants);
+      final updatedParticipants =
+          Map<String, CallParticipant>.from(state.participants);
       updatedParticipants[userId] = selfParticipant;
 
       emit(state.copyWith(
@@ -843,7 +878,8 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
       await service.leaveCallParticipant(callSummaryId);
     }
 
-    final updatedParticipants = Map<String, CallParticipant>.from(state.participants)..remove(userId);
+    final updatedParticipants =
+        Map<String, CallParticipant>.from(state.participants)..remove(userId);
     emit(state.copyWith(
       role: ForumHeaderRole.listener,
       participants: updatedParticipants,
@@ -862,7 +898,8 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
   /// connection — true for host and co-host alike; a listener never
   /// publishes.
   bool get _isPublishingRole =>
-      state.role == ForumHeaderRole.host || state.role == ForumHeaderRole.speaker;
+      state.role == ForumHeaderRole.host ||
+      state.role == ForumHeaderRole.speaker;
 
   /// Recovers this user's publish connection after ICE failure/disconnect.
   /// Cloudflare has no supported same-session recovery for a publisher, so
@@ -911,7 +948,8 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
       }
       if (isClosed) return;
 
-      final updatedParticipants = Map<String, CallParticipant>.from(state.participants);
+      final updatedParticipants =
+          Map<String, CallParticipant>.from(state.participants);
       final selfParticipant = CallParticipant(
         userId: userId,
         userName: userName,
@@ -919,7 +957,8 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
         trackName: userId,
       );
       updatedParticipants[userId] = selfParticipant;
-      emit(state.copyWith(sessionId: newSessionId, participants: updatedParticipants));
+      emit(state.copyWith(
+          sessionId: newSessionId, participants: updatedParticipants));
 
       if (isHost) {
         await service.broadcastAudioEvent(

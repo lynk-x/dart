@@ -411,8 +411,7 @@ class ForumCubit extends Cubit<ForumState> {
       final now = DateTime.now();
       final firstSessionStart =
           DateTime.parse(sessions.first['starts_at'] as String);
-      final lastSessionEnd =
-          DateTime.parse(sessions.last['ends_at'] as String);
+      final lastSessionEnd = DateTime.parse(sessions.last['ends_at'] as String);
 
       if (now.isBefore(firstSessionStart)) {
         emit(state.copyWith(eventProgress: 0.0));

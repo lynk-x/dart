@@ -49,7 +49,8 @@ class ScanHistoryItem extends Equatable {
   }
 
   @override
-  List<Object?> get props => [code, attendeeName, username, status, errorMessage, timestamp];
+  List<Object?> get props =>
+      [code, attendeeName, username, status, errorMessage, timestamp];
 }
 
 class TicketValidationState extends Equatable {
@@ -95,17 +96,22 @@ class TicketValidationState extends Equatable {
   factory TicketValidationState.fromJson(Map<String, dynamic> json) {
     return TicketValidationState(
       tickets: List<Map<String, dynamic>>.from(
-        (json['tickets'] as List?)?.map((e) => Map<String, dynamic>.from(e as Map)) ?? [],
+        (json['tickets'] as List?)
+                ?.map((e) => Map<String, dynamic>.from(e as Map)) ??
+            [],
       ),
       lastSyncedAt: json['lastSyncedAt'] != null
           ? DateTime.tryParse(json['lastSyncedAt'] as String)
           : null,
       scanHistory: List<ScanHistoryItem>.from(
-        (json['scanHistory'] as List?)?.map((e) => ScanHistoryItem.fromJson(Map<String, dynamic>.from(e as Map))) ?? [],
+        (json['scanHistory'] as List?)?.map((e) => ScanHistoryItem.fromJson(
+                Map<String, dynamic>.from(e as Map))) ??
+            [],
       ),
     );
   }
 
   @override
-  List<Object?> get props => [tickets, isLoading, error, lastSyncedAt, scanHistory];
+  List<Object?> get props =>
+      [tickets, isLoading, error, lastSyncedAt, scanHistory];
 }

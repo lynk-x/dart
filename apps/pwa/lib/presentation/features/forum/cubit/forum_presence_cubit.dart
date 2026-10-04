@@ -23,8 +23,8 @@ class ForumPresenceCubit extends Cubit<ForumPresenceState> {
     required this.isPremium,
     required ForumRepository repo,
     RealtimeChannel? channel,
-  }) : channel = channel ?? repo.createPresenceChannel(forumId),
-       super(const ForumPresenceState());
+  })  : channel = channel ?? repo.createPresenceChannel(forumId),
+        super(const ForumPresenceState());
 
   void updateUserName(String newName) {
     if (userName != newName) {
@@ -61,7 +61,8 @@ class ForumPresenceCubit extends Cubit<ForumPresenceState> {
     final completer = Completer<void>();
     channel?.subscribe((status, [error]) {
       if (error != null) {
-        debugPrint('[ForumPresenceCubit] Channel (forum_presence_$forumId) subscribe error: $error');
+        debugPrint(
+            '[ForumPresenceCubit] Channel (forum_presence_$forumId) subscribe error: $error');
       }
       if (status == RealtimeSubscribeStatus.subscribed) {
         _trackUser().then((_) {
@@ -70,12 +71,13 @@ class ForumPresenceCubit extends Cubit<ForumPresenceState> {
           if (!completer.isCompleted) completer.complete();
         });
       } else if (status == RealtimeSubscribeStatus.channelError ||
-                 status == RealtimeSubscribeStatus.timedOut) {
+          status == RealtimeSubscribeStatus.timedOut) {
         if (!completer.isCompleted) completer.complete();
       }
     });
 
-    await completer.future.timeout(const Duration(seconds: 5), onTimeout: () {});
+    await completer.future
+        .timeout(const Duration(seconds: 5), onTimeout: () {});
 
     _updatePresenceFromChannel();
   }

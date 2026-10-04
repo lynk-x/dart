@@ -36,9 +36,15 @@ class ForumUpdatesCubit extends BaseMessageCubit<ForumUpdatesState> {
         _embeddingService = embeddingService ?? EmbeddingManager.instance,
         super(
           messageType: 'announcement',
-          messageTypes: const ['announcement', 'update_poll', 'update_quiz', 'system_announcement'],
+          messageTypes: const [
+            'announcement',
+            'update_poll',
+            'update_quiz',
+            'system_announcement'
+          ],
           initialState: const ForumUpdatesState(),
-          channel: channel ?? Supabase.instance.client.channel('forum_updates_$forumId'),
+          channel: channel ??
+              Supabase.instance.client.channel('forum_updates_$forumId'),
         );
 
   @override
@@ -101,7 +107,9 @@ class ForumUpdatesCubit extends BaseMessageCubit<ForumUpdatesState> {
       var messages =
           data.map((json) => ChatMessage.fromMap(json, userId)).toList();
 
-      final mediaMessages = messages.where((m) => m.imageUrl != null && m.imageUrl!.isNotEmpty).toList();
+      final mediaMessages = messages
+          .where((m) => m.imageUrl != null && m.imageUrl!.isNotEmpty)
+          .toList();
       if (mediaMessages.isNotEmpty) {
         final urls = mediaMessages.map((m) => m.imageUrl!).toList();
         final signedMap = await batchSignStorageUrls(urls, 'forum_media');
@@ -144,10 +152,11 @@ class ForumUpdatesCubit extends BaseMessageCubit<ForumUpdatesState> {
         hashtag: state.selectedCategory,
       );
 
-      var more =
-          data.map((json) => ChatMessage.fromMap(json, userId)).toList();
+      var more = data.map((json) => ChatMessage.fromMap(json, userId)).toList();
 
-      final mediaMessages = more.where((m) => m.imageUrl != null && m.imageUrl!.isNotEmpty).toList();
+      final mediaMessages = more
+          .where((m) => m.imageUrl != null && m.imageUrl!.isNotEmpty)
+          .toList();
       if (mediaMessages.isNotEmpty) {
         final urls = mediaMessages.map((m) => m.imageUrl!).toList();
         final signedMap = await batchSignStorageUrls(urls, 'forum_media');
@@ -189,7 +198,9 @@ class ForumUpdatesCubit extends BaseMessageCubit<ForumUpdatesState> {
 
   @override
   void sendMessage(String text,
-      {required bool isOrganizer, required bool isPremium, MessageType? messageType}) async {
+      {required bool isOrganizer,
+      required bool isPremium,
+      MessageType? messageType}) async {
     if (!isOrganizer) return; // Only organizers send updates
     final messageId = BaseMessageCubit.uuid.v4();
     final now = DateTime.now();
@@ -240,7 +251,8 @@ class ForumUpdatesCubit extends BaseMessageCubit<ForumUpdatesState> {
         'forum_id': forumId,
         'forum_created_at': forumCreatedAt?.toIso8601String(),
         if (channelId != null) 'channel_id': channelId,
-        if (channelCreatedAt != null) 'channel_created_at': channelCreatedAt?.toIso8601String(),
+        if (channelCreatedAt != null)
+          'channel_created_at': channelCreatedAt?.toIso8601String(),
         'author_id': userId,
         'content': text,
         'message_type': (messageType ?? MessageType.announcement).value,
@@ -290,19 +302,21 @@ class ForumUpdatesCubit extends BaseMessageCubit<ForumUpdatesState> {
         query = query.eq('hashtag', state.selectedCategory!);
       }
 
-      final data = await query
-          .order('created_at', ascending: false)
-          .limit(50);
+      final data = await query.order('created_at', ascending: false).limit(50);
       final deletedIds = data
           .where((json) => json['deleted_at'] != null)
           .map((json) => json['id'] as String)
           .toSet();
 
-      final activeData = data.where((json) => json['deleted_at'] == null).toList();
+      final activeData =
+          data.where((json) => json['deleted_at'] == null).toList();
 
-      var newMsgs = activeData.map((json) => ChatMessage.fromMap(json, userId)).toList();
+      var newMsgs =
+          activeData.map((json) => ChatMessage.fromMap(json, userId)).toList();
 
-      final mediaMessages = newMsgs.where((m) => m.imageUrl != null && m.imageUrl!.isNotEmpty).toList();
+      final mediaMessages = newMsgs
+          .where((m) => m.imageUrl != null && m.imageUrl!.isNotEmpty)
+          .toList();
       if (mediaMessages.isNotEmpty) {
         final urls = mediaMessages.map((m) => m.imageUrl!).toList();
         final signedMap = await batchSignStorageUrls(urls, 'forum_media');
@@ -340,7 +354,8 @@ class ForumUpdatesCubit extends BaseMessageCubit<ForumUpdatesState> {
   }
 
   @override
-  ForumUpdatesState? fromJson(Map<String, dynamic> json) => ForumUpdatesState.fromMap(json, userId);
+  ForumUpdatesState? fromJson(Map<String, dynamic> json) =>
+      ForumUpdatesState.fromMap(json, userId);
 
   @override
   Map<String, dynamic>? toJson(ForumUpdatesState state) => state.toJson();

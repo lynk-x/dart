@@ -16,15 +16,16 @@ class ForumSessionsCubit extends Cubit<ForumSessionsState> {
   RealtimeChannel? _realtimeChannel;
 
   String get activeForumId => _resolvedForumId ?? forumId;
-  DateTime? get activeForumCreatedAt => _resolvedForumCreatedAt ?? forumCreatedAt;
+  DateTime? get activeForumCreatedAt =>
+      _resolvedForumCreatedAt ?? forumCreatedAt;
 
   ForumSessionsCubit({
     required this.forumId,
     required ForumRepository repo,
     this.forumCreatedAt,
     this.forumReference,
-  }) : _repo = repo,
-       super(const ForumSessionsState());
+  })  : _repo = repo,
+        super(const ForumSessionsState());
 
   /// Sets up the Supabase Realtime Channel for client-to-client Broadcast mutations
   /// and PostgreSQL CDC table change listening.
@@ -183,28 +184,32 @@ class ForumSessionsCubit extends Cubit<ForumSessionsState> {
     emit(state.copyWith(isLoading: true, clearError: true));
 
     try {
-      final savedSession = await _repo.addSession(session, activeForumId, activeForumCreatedAt);
+      final savedSession =
+          await _repo.addSession(session, activeForumId, activeForumCreatedAt);
 
       _onSessionInserted(savedSession);
       _broadcastMutation('insert', savedSession);
 
       emit(state.copyWith(isLoading: false));
     } catch (e) {
-      emit(state.copyWith(isLoading: false, errorMessage: 'Failed to add session: $e'));
+      emit(state.copyWith(
+          isLoading: false, errorMessage: 'Failed to add session: $e'));
     }
   }
 
   Future<void> updateSession(SessionModel session) async {
     emit(state.copyWith(isLoading: true, clearError: true));
     try {
-      final savedSession = await _repo.updateSession(session, activeForumId, activeForumCreatedAt);
+      final savedSession = await _repo.updateSession(
+          session, activeForumId, activeForumCreatedAt);
 
       _onSessionUpdated(savedSession);
       _broadcastMutation('update', savedSession);
 
       emit(state.copyWith(isLoading: false));
     } catch (e) {
-      emit(state.copyWith(isLoading: false, errorMessage: 'Failed to update session: $e'));
+      emit(state.copyWith(
+          isLoading: false, errorMessage: 'Failed to update session: $e'));
     }
   }
 
@@ -225,7 +230,8 @@ class ForumSessionsCubit extends Cubit<ForumSessionsState> {
 
       emit(state.copyWith(isLoading: false));
     } catch (e) {
-      emit(state.copyWith(isLoading: false, errorMessage: 'Failed to delete session: $e'));
+      emit(state.copyWith(
+          isLoading: false, errorMessage: 'Failed to delete session: $e'));
     }
   }
 
