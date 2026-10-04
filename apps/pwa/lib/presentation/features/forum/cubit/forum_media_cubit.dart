@@ -59,7 +59,8 @@ class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
 
         // Sign URL on-the-fly
         final path = getPathFromStorageUrl(mediaItem.url, 'forum_media');
-        final signedMap = await batchSignStorageUrls([mediaItem.url], 'forum_media');
+        final signedMap =
+            await batchSignStorageUrls([mediaItem.url], 'forum_media');
         final signed = signedMap[path];
 
         final finalItem = signed != null
@@ -76,11 +77,13 @@ class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
 
         if (!isModeratorOrOrganizer && !mediaItem.isApproved) {
           // If it got unapproved/rejected, remove it for general users
-          final updated = state.mediaItems.where((m) => m.id != mediaItem.id).toList();
+          final updated =
+              state.mediaItems.where((m) => m.id != mediaItem.id).toList();
           if (!isClosed) emit(state.copyWith(mediaItems: _sortMedia(updated)));
         } else {
           // Update approval status or metadata in-place
-          final index = state.mediaItems.indexWhere((m) => m.id == mediaItem.id);
+          final index =
+              state.mediaItems.indexWhere((m) => m.id == mediaItem.id);
           if (index != -1) {
             final updatedList = List<ForumMedia>.from(state.mediaItems);
             final existing = updatedList[index];
@@ -89,11 +92,13 @@ class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
               url: existing.url,
               thumbnailUrl: existing.thumbnailUrl,
             );
-            if (!isClosed) emit(state.copyWith(mediaItems: _sortMedia(updatedList)));
+            if (!isClosed)
+              emit(state.copyWith(mediaItems: _sortMedia(updatedList)));
           } else if (mediaItem.isApproved || isModeratorOrOrganizer) {
             // If newly approved/visible, fetch signed URL and prepend
             final path = getPathFromStorageUrl(mediaItem.url, 'forum_media');
-            final signedMap = await batchSignStorageUrls([mediaItem.url], 'forum_media');
+            final signedMap =
+                await batchSignStorageUrls([mediaItem.url], 'forum_media');
             final signed = signedMap[path];
             final finalItem = signed != null
                 ? mediaItem.copyWith(url: signed, thumbnailUrl: signed)
@@ -119,7 +124,8 @@ class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
     emit(state.copyWith(isLoading: true));
     try {
       var query = Supabase.instance.client
-          .schema('api').from('v1_forum_media')
+          .schema('api')
+          .from('v1_forum_media')
           .select()
           .eq('forum_id', forumId);
 
@@ -160,7 +166,8 @@ class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
     final startIndex = state.mediaItems.length;
     try {
       var query = Supabase.instance.client
-          .schema('api').from('v1_forum_media')
+          .schema('api')
+          .from('v1_forum_media')
           .select()
           .eq('forum_id', forumId);
 
@@ -200,7 +207,13 @@ class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
   }
 
   static const _videoExtensions = {
-    'mp4', 'mov', 'm4v', 'webm', 'mkv', 'avi', '3gp',
+    'mp4',
+    'mov',
+    'm4v',
+    'webm',
+    'mkv',
+    'avi',
+    '3gp',
   };
 
   /// Uploads multiple media items to Cloudflare R2 via Edge Function presigned URL.
@@ -253,7 +266,10 @@ class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
         }
 
         // 3. Insert record with R2 fileKey (which is signed on-the-fly when read)
-        await Supabase.instance.client.schema('social').from('forum_media').insert({
+        await Supabase.instance.client
+            .schema('social')
+            .from('forum_media')
+            .insert({
           'id': fileId,
           'forum_id': forumId,
           'uploader_id': userId,
@@ -276,7 +292,8 @@ class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
       }
     } catch (e, stack) {
       debugPrint('[ForumMediaCubit] Multi-upload error: $e\n$stack');
-      if (!isClosed) emit(state.copyWith(isUploading: false, error: e.toString()));
+      if (!isClosed)
+        emit(state.copyWith(isUploading: false, error: e.toString()));
       rethrow;
     }
   }
@@ -292,7 +309,8 @@ class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
   Future<bool> approveMedia(ForumMedia media) async {
     try {
       await Supabase.instance.client
-          .schema('social').from('forum_media')
+          .schema('social')
+          .from('forum_media')
           .update({'is_approved': true})
           .eq('id', media.id)
           .eq('created_at', media.createdAt.toIso8601String());
@@ -313,7 +331,8 @@ class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
   Future<bool> deleteMedia(ForumMedia media) async {
     try {
       await Supabase.instance.client
-          .schema('social').from('forum_media')
+          .schema('social')
+          .from('forum_media')
           .delete()
           .eq('id', media.id)
           .eq('created_at', media.createdAt.toIso8601String());
@@ -348,7 +367,8 @@ class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
   }
 
   @override
-  ForumMediaState? fromJson(Map<String, dynamic> json) => ForumMediaState.fromMap(json);
+  ForumMediaState? fromJson(Map<String, dynamic> json) =>
+      ForumMediaState.fromMap(json);
 
   @override
   Map<String, dynamic>? toJson(ForumMediaState state) => state.toJson();

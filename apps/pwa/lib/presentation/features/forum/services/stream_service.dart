@@ -274,8 +274,9 @@ class ForumVideoStreamService {
   /// Fires on each listener-side retry attempt (not yet exhausted — see
   /// onRemoteVideoListenerLost for that) and once a retry succeeds.
   /// Together these drive [isReconnectingNotifier] for a listener/co-host's
-  /// receive-side connection.
-  void onRemoteVideoListenerReconnecting() {
+  /// receive-side connection. [onReconnected] runs only on a successful
+  /// recovery, not on a publish-side reconnect, so it's safe to toast from.
+  void onRemoteVideoListenerReconnecting({void Function()? onReconnected}) {
     if (!kIsWeb) return;
     removeListenerReconnectingCallbacks();
     _listenerReconnectingListener = ((web.Event event) {
@@ -283,6 +284,7 @@ class ForumVideoStreamService {
     }).toJS;
     _listenerReconnectedListener = ((web.Event event) {
       isReconnectingNotifier.value = false;
+      onReconnected?.call();
     }).toJS;
     web.window.addEventListener(
         'lynkVideoListenerReconnecting', _listenerReconnectingListener);

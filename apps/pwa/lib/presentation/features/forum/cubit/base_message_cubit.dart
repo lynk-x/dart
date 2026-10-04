@@ -16,9 +16,10 @@ import 'base_message_state.dart';
 /// search, edit/delete/reply, offline-send reconciliation) for
 /// [ForumChatCubit] and [ForumUpdatesCubit] — subclasses supply their own
 /// state shape and message-type filter via [copyWithState]/[messageTypes].
-abstract class BaseMessageCubit<T extends BaseMessageState> extends HydratedCubit<T> {
+abstract class BaseMessageCubit<T extends BaseMessageState>
+    extends HydratedCubit<T> {
   static const uuid = Uuid();
-  
+
   final String forumId;
   final String userId;
   String userName;
@@ -32,6 +33,7 @@ abstract class BaseMessageCubit<T extends BaseMessageState> extends HydratedCubi
   final List<String> messageTypes;
 
   Timer? searchTimer;
+
   /// Stored function reference for [ForumCdcService] — must be the same object
   /// used in both [register] and [unregister] calls.
   void Function(PostgresChangePayload)? _cdcListener;
@@ -97,7 +99,8 @@ abstract class BaseMessageCubit<T extends BaseMessageState> extends HydratedCubi
           // A malformed/unparseable broadcast is dropped rather than crashing
           // the listener, but log it — otherwise a message silently vanishes
           // from other clients' views with zero diagnostic trace.
-          debugPrint('[BaseMessageCubit] new_message broadcast parse error: $e\n$stack');
+          debugPrint(
+              '[BaseMessageCubit] new_message broadcast parse error: $e\n$stack');
         }
       },
     );
@@ -124,7 +127,8 @@ abstract class BaseMessageCubit<T extends BaseMessageState> extends HydratedCubi
             );
           }
         } catch (e, stack) {
-          debugPrint('[BaseMessageCubit] edit_message broadcast parse error: $e\n$stack');
+          debugPrint(
+              '[BaseMessageCubit] edit_message broadcast parse error: $e\n$stack');
         }
       },
     );
@@ -139,7 +143,8 @@ abstract class BaseMessageCubit<T extends BaseMessageState> extends HydratedCubi
             if (!isClosed) emit(copyWithState(messages: updated));
           }
         } catch (e, stack) {
-          debugPrint('[BaseMessageCubit] delete_message broadcast parse error: $e\n$stack');
+          debugPrint(
+              '[BaseMessageCubit] delete_message broadcast parse error: $e\n$stack');
         }
       },
     );
@@ -168,7 +173,8 @@ abstract class BaseMessageCubit<T extends BaseMessageState> extends HydratedCubi
             updateMessageInPlace(msgId, reactions: updatedReactions);
           }
         } catch (e, stack) {
-          debugPrint('[BaseMessageCubit] message_reaction broadcast parse error: $e\n$stack');
+          debugPrint(
+              '[BaseMessageCubit] message_reaction broadcast parse error: $e\n$stack');
         }
       },
     );
@@ -180,7 +186,8 @@ abstract class BaseMessageCubit<T extends BaseMessageState> extends HydratedCubi
       } else if (status == RealtimeSubscribeStatus.subscribed) {
         if (_wasDisconnected) {
           _wasDisconnected = false;
-          final newest = state.messages.isNotEmpty ? state.messages.first : null;
+          final newest =
+              state.messages.isNotEmpty ? state.messages.first : null;
           if (newest != null) {
             reconcileMissedMessages(newest.createdAt.toIso8601String());
           }
@@ -291,7 +298,8 @@ abstract class BaseMessageCubit<T extends BaseMessageState> extends HydratedCubi
     } else if (content.contains('ended the live stream')) {
       ForumVideoStreamService().setLive(false);
       MiniOverlayService().endPipSession();
-    } else if (content.contains('ended the live call') || content.contains('ended the audio stream')) {
+    } else if (content.contains('ended the live call') ||
+        content.contains('ended the audio stream')) {
       MiniOverlayService().endPipSession();
     }
   }
@@ -361,11 +369,14 @@ abstract class BaseMessageCubit<T extends BaseMessageState> extends HydratedCubi
   Future<void> deleteMessage(ChatMessage message) async {
     if (userId == kGuestUserId) return;
     final originalMessages = List<ChatMessage>.from(state.messages);
-    if (!isClosed) emit(copyWithState(messages: state.messages.where((m) => m.id != message.id).toList()));
+    if (!isClosed)
+      emit(copyWithState(
+          messages: state.messages.where((m) => m.id != message.id).toList()));
 
     try {
       await Supabase.instance.client
-          .schema('social').from('forum_messages')
+          .schema('social')
+          .from('forum_messages')
           .update({'deleted_at': DateTime.now().toIso8601String()})
           .eq('id', message.id)
           .eq('created_at', message.createdAt.toIso8601String());
@@ -397,11 +408,15 @@ abstract class BaseMessageCubit<T extends BaseMessageState> extends HydratedCubi
     // Re-detect #hashtag from the edited text so the category tracks edits,
     // not just what was present when first sent.
     final category = ForumCategory.detectFrom(newContent);
-    updateMessageInPlace(message.id, content: newContent, category: category, clearCategory: category == null);
+    updateMessageInPlace(message.id,
+        content: newContent,
+        category: category,
+        clearCategory: category == null);
 
     try {
       await Supabase.instance.client
-          .schema('social').from('forum_messages')
+          .schema('social')
+          .from('forum_messages')
           .update({'content': newContent, 'hashtag': category})
           .eq('id', message.id)
           .eq('created_at', message.createdAt.toIso8601String());
@@ -447,8 +462,8 @@ abstract class BaseMessageCubit<T extends BaseMessageState> extends HydratedCubi
     }
   }
 
-
-  void updateMessageInPlace(String messageId, {
+  void updateMessageInPlace(
+    String messageId, {
     String? content,
     bool? isPinned,
     Map<String, int>? reactions,
@@ -510,11 +525,14 @@ abstract class BaseMessageCubit<T extends BaseMessageState> extends HydratedCubi
       emit(copyWithState(
           messages: state.messages.where((m) => m.id != message.id).toList()));
     }
-    sendMessage(message.message, isOrganizer: isOrganizer, isPremium: isPremium);
+    sendMessage(message.message,
+        isOrganizer: isOrganizer, isPremium: isPremium);
   }
 
   void sendMessage(String text,
-      {required bool isOrganizer, required bool isPremium, MessageType? messageType});
+      {required bool isOrganizer,
+      required bool isPremium,
+      MessageType? messageType});
 
   @override
   Future<void> close() {

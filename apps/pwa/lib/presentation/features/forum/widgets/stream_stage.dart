@@ -131,7 +131,13 @@ class _ForumVideoStageState extends State<ForumVideoStage>
     });
     // Each retry attempt / eventual success — drives isReconnectingNotifier
     // for a listener/co-host's receive-side connection.
-    _videoService.onRemoteVideoListenerReconnecting();
+    _videoService.onRemoteVideoListenerReconnecting(
+      onReconnected: () {
+        if (mounted) {
+          AppSnackBars.showInfo(context, 'Reconnected');
+        }
+      },
+    );
     // Publish-side: JS detected the connection failed but can't recover it
     // itself — Cloudflare requires a new session, so the reconnect runs
     // here. No-op if not currently publishing (_reconnectVideoPublish checks).
@@ -588,6 +594,9 @@ class _ForumVideoStageState extends State<ForumVideoStage>
     // down the connection the server already force-closed their row for.
     if (action == 'end_stream') {
       if (_role == ForumHeaderRole.host) return;
+      if (mounted) {
+        AppSnackBars.showInfo(context, 'The host ended the call.');
+      }
       if (_isPublishingRole) {
         _videoService.stopVideoStream();
       }

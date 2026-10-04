@@ -34,5 +34,6 @@ class ForumSessionsState extends Equatable {
   }
 
   @override
-  List<Object?> get props => [sessions, isLoading, errorMessage, eventStartsAt, eventEndsAt];
+  List<Object?> get props =>
+      [sessions, isLoading, errorMessage, eventStartsAt, eventEndsAt];
 }

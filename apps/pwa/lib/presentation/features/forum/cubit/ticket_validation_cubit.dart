@@ -32,7 +32,8 @@ class TicketValidationCubit extends HydratedCubit<TicketValidationState> {
           .select()
           .eq('event_id', eventId);
 
-      final List<Map<String, dynamic>> tickets = List<Map<String, dynamic>>.from(response);
+      final List<Map<String, dynamic>> tickets =
+          List<Map<String, dynamic>>.from(response);
 
       if (!isClosed) {
         emit(state.copyWith(
@@ -55,9 +56,21 @@ class TicketValidationCubit extends HydratedCubit<TicketValidationState> {
   /// Checks whether input match a ticket record by code, reference, or formatted reference.
   bool _matchesTicket(Map<String, dynamic> t, String rawSanitizedInput) {
     final sanitizedInput = rawSanitizedInput.split('|').first.trim();
-    final code = t['ticket_code']?.toString().trim().replaceAll(RegExp(r'^#|^"|"$|[\r\n]'), '').toLowerCase() ?? '';
-    final ref = t['reference']?.toString().trim().replaceAll(RegExp(r'^#|^"|"$|[\r\n]'), '').toLowerCase() ?? '';
-    final cleanRef = TicketModel.formatCleanReference(t['reference']?.toString() ?? t['ticket_code']?.toString()).toLowerCase();
+    final code = t['ticket_code']
+            ?.toString()
+            .trim()
+            .replaceAll(RegExp(r'^#|^"|"$|[\r\n]'), '')
+            .toLowerCase() ??
+        '';
+    final ref = t['reference']
+            ?.toString()
+            .trim()
+            .replaceAll(RegExp(r'^#|^"|"$|[\r\n]'), '')
+            .toLowerCase() ??
+        '';
+    final cleanRef = TicketModel.formatCleanReference(
+            t['reference']?.toString() ?? t['ticket_code']?.toString())
+        .toLowerCase();
 
     final codeNoHyphen = code.replaceAll('-', '');
     final refNoHyphen = ref.replaceAll('-', '');
@@ -74,19 +87,23 @@ class TicketValidationCubit extends HydratedCubit<TicketValidationState> {
         cleanRefNoHyphen == inputNoHyphen ||
         (codeNoHyphen.isNotEmpty && codeNoHyphen.startsWith(inputNoHyphen)) ||
         (refNoHyphen.isNotEmpty && refNoHyphen.startsWith(inputNoHyphen)) ||
-        (cleanRefNoHyphen.isNotEmpty && cleanRefNoHyphen.startsWith(inputNoHyphen)) ||
+        (cleanRefNoHyphen.isNotEmpty &&
+            cleanRefNoHyphen.startsWith(inputNoHyphen)) ||
         (inputNoHyphen.isNotEmpty && inputNoHyphen.startsWith(codeNoHyphen)) ||
         (inputNoHyphen.isNotEmpty && inputNoHyphen.startsWith(refNoHyphen)) ||
-        (inputNoHyphen.isNotEmpty && inputNoHyphen.startsWith(cleanRefNoHyphen));
+        (inputNoHyphen.isNotEmpty &&
+            inputNoHyphen.startsWith(cleanRefNoHyphen));
   }
 
   /// Performs a read-only dry-run lookup of a ticket by reference or code without modifying its status.
   Map<String, dynamic>? lookupTicketOffline(String inputCode) {
     final tickets = List<Map<String, dynamic>>.from(state.tickets);
     final primaryInput = inputCode.trim().split('|').first.trim();
-    final sanitizedCode = primaryInput.replaceAll(RegExp(r'^#|^"|"$|[\r\n]'), '').toLowerCase();
+    final sanitizedCode =
+        primaryInput.replaceAll(RegExp(r'^#|^"|"$|[\r\n]'), '').toLowerCase();
 
-    final ticketIndex = tickets.indexWhere((t) => _matchesTicket(t, sanitizedCode));
+    final ticketIndex =
+        tickets.indexWhere((t) => _matchesTicket(t, sanitizedCode));
 
     if (ticketIndex == -1) return null;
     return tickets[ticketIndex];
@@ -100,9 +117,11 @@ class TicketValidationCubit extends HydratedCubit<TicketValidationState> {
   }) async {
     final tickets = List<Map<String, dynamic>>.from(state.tickets);
     final primaryCode = ticketCode.trim().split('|').first.trim();
-    final sanitizedCode = primaryCode.replaceAll(RegExp(r'^#|^"|"$|[\r\n]'), '').toLowerCase();
+    final sanitizedCode =
+        primaryCode.replaceAll(RegExp(r'^#|^"|"$|[\r\n]'), '').toLowerCase();
 
-    final ticketIndex = tickets.indexWhere((t) => _matchesTicket(t, sanitizedCode));
+    final ticketIndex =
+        tickets.indexWhere((t) => _matchesTicket(t, sanitizedCode));
 
     if (ticketIndex == -1) {
       return {
@@ -143,7 +162,8 @@ class TicketValidationCubit extends HydratedCubit<TicketValidationState> {
     // treats p_scanner_user_id as optional (COALESCEs to auth.uid() server-side
     // if absent) — omit the key entirely rather than send '', which Postgres
     // would reject as an invalid uuid literal and get stuck retrying forever.
-    final String? actualScannerId = scannerUserId ?? Supabase.instance.client.auth.currentUser?.id;
+    final String? actualScannerId =
+        scannerUserId ?? Supabase.instance.client.auth.currentUser?.id;
     final syncItem = SyncItem(
       id: 'scan_${eventId}_${ticketCode}_${DateTime.now().millisecondsSinceEpoch}',
       table: 'scan_ticket',
@@ -162,7 +182,10 @@ class TicketValidationCubit extends HydratedCubit<TicketValidationState> {
     return {
       'success': true,
       'attendee_name': ticket['holder_name'],
-      'username': ticket['holder_email']?.toString().split('@').first, // Fallback since v1_tickets lacks username
+      'username': ticket['holder_email']
+          ?.toString()
+          .split('@')
+          .first, // Fallback since v1_tickets lacks username
       'tier_name': ticket['tier_name'] ?? '',
     };
   }
@@ -172,7 +195,8 @@ class TicketValidationCubit extends HydratedCubit<TicketValidationState> {
   }
 
   void addScanHistoryItem(ScanHistoryItem item) {
-    final updatedHistory = List<ScanHistoryItem>.from(state.scanHistory)..insert(0, item);
+    final updatedHistory = List<ScanHistoryItem>.from(state.scanHistory)
+      ..insert(0, item);
     emit(state.copyWith(scanHistory: updatedHistory));
   }
 
@@ -181,7 +205,8 @@ class TicketValidationCubit extends HydratedCubit<TicketValidationState> {
   }
 
   @override
-  TicketValidationState? fromJson(Map<String, dynamic> json) => TicketValidationState.fromJson(json);
+  TicketValidationState? fromJson(Map<String, dynamic> json) =>
+      TicketValidationState.fromJson(json);
 
   @override
   Map<String, dynamic>? toJson(TicketValidationState state) => state.toJson();
