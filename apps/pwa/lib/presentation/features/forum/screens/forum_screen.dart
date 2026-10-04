@@ -29,6 +29,7 @@ import 'package:lynk_x/presentation/features/forum/widgets/speaker_invite_dialog
 import 'package:lynk_x/presentation/features/forum/widgets/mini_overlay.dart';
 import 'package:lynk_x/presentation/features/forum/services/stream_service.dart';
 import 'package:lynk_x/presentation/features/forum/services/mini_overlay_service.dart';
+import 'package:lynk_x/presentation/features/forum/services/call_sound_service.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/presence_drawer.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/media_viewer.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/tabs/updates_tab.dart';
@@ -612,18 +613,11 @@ class _ForumViewState extends State<ForumView> {
                                                         final vfSummaryId = videoService.callSummaryId;
                                                         videoService.callSummaryId = null;
                                                         unawaited(videoService.endCallSummary(vfSummaryId));
-                                                        // Previously nothing told an already-joined
-                                                        // listener/co-host the call ended at all —
-                                                        // they'd only find out on their next
-                                                        // fetchInitialStreamingConfig poll or a page
-                                                        // reload, leaving a co-host's own publish
-                                                        // connection dangling in the meantime even
-                                                        // though the server already force-closed
-                                                        // their forum_call_participants row (see
-                                                        // social.end_forum_call_summary). Mirrors
-                                                        // ForumAudioStreamCubit.endAudioStream's
-                                                        // 'end_stream' broadcast.
+                                                        // Tells every already-joined listener/co-host
+                                                        // the call ended (server already force-closed
+                                                        // their forum_call_participants row).
                                                         unawaited(videoService.broadcastVideoEvent(action: 'end_stream'));
+                                                        unawaited(CallSoundService.playEnd());
 
                                                         // Mirrors the "started the live stream"
                                                         // announcement posted on start — without

@@ -15,6 +15,7 @@ import '../cubit/forum_presence_cubit.dart';
 import '../cubit/forum_updates_cubit.dart';
 import '../models/forum_model.dart';
 import '../models/call_participant.dart';
+import '../services/call_sound_service.dart';
 import '../services/mini_overlay_service.dart';
 import '../services/stream_service.dart';
 import 'header.dart' show ForumHeaderRole;
@@ -73,6 +74,26 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
   final Map<String, int> _participantSlotAssignment = {};
 
   web.HTMLVideoElement? _videoElement;
+
+  StageLayoutMode? _lastLayoutMode;
+
+  /// Switching layout mode remounts HtmlElementView(s) with the same
+  /// viewType into a new parent — the underlying <video> element gets
+  /// reparented in the DOM, which commonly freezes a live MediaStream's
+  /// rendered frame until playback is re-triggered (see
+  /// ForumVideoStreamService.resumeVideoPlayback). Only fires on an actual
+  /// transition, once the new HtmlElementView(s) have mounted.
+  void _nudgePlaybackOnLayoutChange(StageLayoutMode mode) {
+    if (_lastLayoutMode == mode) return;
+    _lastLayoutMode = mode;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !kIsWeb) return;
+      _videoService.resumeVideoPlayback(_elementId);
+      for (final slotId in _participantSlotViewTypes) {
+        _videoService.resumeVideoPlayback(slotId);
+      }
+    });
+  }
 
   // --- Role ---
   // Mirrors _videoService.roleNotifier (the real source of truth) into
@@ -554,6 +575,7 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
       }
       _videoService.role = ForumHeaderRole.listener;
       MiniOverlayService().endPipSession();
+      unawaited(CallSoundService.playEnd());
       return;
     }
 
@@ -921,6 +943,7 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
                       valueListenable: _videoService.stageLayoutNotifier,
                       builder: (context, layoutMode, _) {
                         final isGridMode = layoutMode == StageLayoutMode.grid;
+                        _nudgePlaybackOnLayoutChange(layoutMode);
 
                         return Stack(
                           children: [

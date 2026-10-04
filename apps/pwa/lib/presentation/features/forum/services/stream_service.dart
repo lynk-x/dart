@@ -33,6 +33,9 @@ external JSNumber _jsGetAudioLevel();
 @JS('window.lynkVideoStreamHelper.setCameraMirror')
 external void _jsSetCameraMirror(JSBoolean isMirrored);
 
+@JS('window.lynkVideoStreamHelper.resumeVideoPlayback')
+external void _jsResumeVideoPlayback(JSString elementId);
+
 @JS('window.lynkAudioStreamHelper.requestWakeLock')
 external JSPromise<JSAny?> _jsRequestWakeLock();
 
@@ -604,6 +607,16 @@ class ForumVideoStreamService {
     if (!kIsWeb) return;
     try {
       _jsSetCameraMirror(isMirrored.toJS);
+    } catch (_) {}
+  }
+
+  /// Call after a stage layout switch remounts [elementId]'s HtmlElementView
+  /// into a new parent — the DOM reparent can freeze a live MediaStream's
+  /// rendered frame until playback is explicitly re-triggered.
+  void resumeVideoPlayback(String elementId) {
+    if (!kIsWeb) return;
+    try {
+      _jsResumeVideoPlayback(elementId.toJS);
     } catch (_) {}
   }
 
