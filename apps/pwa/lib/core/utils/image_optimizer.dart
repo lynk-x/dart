@@ -1,3 +1,5 @@
+/// Builds Cloudflare Image Resizing URLs for CDN-hosted media, so images
+/// are served pre-resized/compressed instead of full-resolution.
 class ImageOptimizer {
   static const String _cdnBase = 'https://cdn.lynk-x.app';
 

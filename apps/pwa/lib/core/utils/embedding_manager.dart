@@ -8,6 +8,10 @@ import 'package:lynk_x/core/utils/embedding_noise_filter.dart';
 import 'package:lynk_x/core/utils/embedding_worker_client.dart';
 import 'package:lynk_x/core/utils/i_embedding_service.dart';
 
+/// Computes message embeddings client-side via a Web Worker (ONNX model),
+/// then syncs the result to the backend through [SyncManager]. Singleton,
+/// not per-instance, since the worker and its model load are expensive to
+/// set up more than once per session.
 class EmbeddingManager implements IEmbeddingService {
   EmbeddingManager._();
   static final instance = EmbeddingManager._();

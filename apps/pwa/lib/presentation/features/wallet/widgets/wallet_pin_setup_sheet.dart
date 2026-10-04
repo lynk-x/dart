@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:lynk_core/core.dart';
 import 'package:lynk_x/presentation/features/wallet/cubit/wallet_cubit.dart';
 
+/// First-time wallet PIN setup — enter then confirm a 6-digit PIN.
 class WalletPinSetupSheet extends StatefulWidget {
   const WalletPinSetupSheet({super.key});
 

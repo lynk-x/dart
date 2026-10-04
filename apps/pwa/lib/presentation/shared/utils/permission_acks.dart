@@ -15,12 +15,9 @@ import '../widgets/permission_request_sheet.dart';
 /// (and shouldn't duplicate) an ack flag of its own.
 enum PermissionAckType { camera, media, vibration, biometric, microphone }
 
-/// Centralizes the "check ack flag → show [PermissionRequestSheet] if
-/// unacknowledged → persist the flag on grant" pattern that was previously
-/// copy-pasted (with three different key-naming conventions:
-/// camera_permission_acknowledged, vibration_permission_acknowledged,
-/// media_permission_acknowledged) across the wallet, ticket scanner, and
-/// forum media features.
+/// Centralizes the "check ack flag -> show [PermissionRequestSheet] if
+/// unacknowledged -> persist the flag on grant" pattern shared by the
+/// wallet, ticket scanner, and forum media features.
 class PermissionAcks {
   PermissionAcks._();
 

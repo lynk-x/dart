@@ -12,6 +12,10 @@ import 'package:lynk_x/presentation/features/forum/services/mini_overlay_service
 import 'package:lynk_x/presentation/features/forum/services/forum_cdc_service.dart';
 import 'base_message_state.dart';
 
+/// Shared message-list machinery (realtime broadcast + CDC fallback,
+/// search, edit/delete/reply, offline-send reconciliation) for
+/// [ForumChatCubit] and [ForumUpdatesCubit] — subclasses supply their own
+/// state shape and message-type filter via [copyWithState]/[messageTypes].
 abstract class BaseMessageCubit<T extends BaseMessageState> extends HydratedCubit<T> {
   static const uuid = Uuid();
   
@@ -247,9 +251,8 @@ abstract class BaseMessageCubit<T extends BaseMessageState> extends HydratedCubi
     final index = state.messages.indexWhere((m) => m.id == msg.id);
     if (index != -1) {
       final existingMsg = state.messages[index];
-      
-      // Reconcile the message: if it is currently marked as sending or has unresolved/placeholder
-      // sender values, update it in-place using the newly received broadcast metadata (and clear the sending flag).
+
+      // Update in-place if sending or still showing placeholder sender values.
       if (existingMsg.isSending ||
           existingMsg.sender == 'Deleted User' ||
           existingMsg.sender == 'Unknown' ||
@@ -391,10 +394,8 @@ abstract class BaseMessageCubit<T extends BaseMessageState> extends HydratedCubi
   Future<void> editMessage(ChatMessage message, String newContent) async {
     if (userId == kGuestUserId) return;
     final originalMessages = List<ChatMessage>.from(state.messages);
-    // Re-detect #hashtag from the edited text — previously only ever
-    // computed on send, so changing/adding a hashtag while editing left
-    // the message's category stuck at whatever it was (or wasn't) when
-    // first sent.
+    // Re-detect #hashtag from the edited text so the category tracks edits,
+    // not just what was present when first sent.
     final category = ForumCategory.detectFrom(newContent);
     updateMessageInPlace(message.id, content: newContent, category: category, clearCategory: category == null);
 

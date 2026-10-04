@@ -96,6 +96,10 @@ class AudioCallTelemetry {
   }
 }
 
+/// Mic/session lifecycle, participant registry, and Cloudflare Calls
+/// JS-bridge calls for the forum's live audio call — the counterpart
+/// [ForumAudioStreamCubit] drives via this service rather than talking to
+/// Supabase/JS directly.
 class ForumAudioStreamService {
   final SupabaseClient supabase;
 
@@ -503,14 +507,10 @@ class ForumAudioStreamService {
   }
 
   /// Publishes the host's local microphone track to Cloudflare Calls SFU.
-  /// Must be called after startLocalMicrophone() (needs a captured track)
-  /// and createCloudflareSession() (needs [_cfAppId]/a real session id) —
-  /// this was previously missing entirely, so audio-only calls created a
-  /// Cloudflare session but never actually sent any media to it.
-  /// [trackName] defaults to 'audio' (today's single-publisher behavior).
-  /// Multi-speaker calls pass the speaker's own user id instead, so
-  /// Cloudflare's (sessionId, trackName) pair addresses this specific
-  /// speaker's track — see social.forum_call_participants.track_name.
+  /// Must be called after startLocalMicrophone() and createCloudflareSession().
+  /// [trackName] defaults to 'audio' (single-publisher); multi-speaker calls
+  /// pass the speaker's own user id instead — see
+  /// social.forum_call_participants.track_name.
   Future<bool> publishCloudflareTracks(
     String forumId,
     String sessionId, {

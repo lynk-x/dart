@@ -4,6 +4,9 @@ import 'package:lynk_core/core.dart';
 import 'package:lynk_x/presentation/features/forum/models/forum_model.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/disabled_state_bar.dart';
 
+/// The forum's chat/updates composer — text input with @mention
+/// autocomplete, reply/edit/mention preview chips, and the disabled-state
+/// bar swap-in for muted/read-only/archived forums.
 class MessageInput extends StatefulWidget {
   final Function(String, ChatMessage?)? onSendMessage;
   final ChatMessage? replyTo;

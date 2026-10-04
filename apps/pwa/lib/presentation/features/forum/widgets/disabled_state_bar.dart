@@ -7,6 +7,8 @@ enum DisabledForumState {
   archived,
 }
 
+/// Bottom bar shown in place of the message composer when the forum is
+/// muted, read-only, or archived for the current user.
 class DisabledStateBar extends StatelessWidget {
   final DisabledForumState state;
 

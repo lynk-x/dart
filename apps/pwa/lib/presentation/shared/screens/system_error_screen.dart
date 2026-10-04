@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lynk_core/core.dart';
 
+/// Full-screen fallback shown for unrecoverable errors or scheduled
+/// maintenance, with an optional retry/navigate action.
 class SystemErrorScreen extends StatelessWidget {
   final String title;
   final String message;

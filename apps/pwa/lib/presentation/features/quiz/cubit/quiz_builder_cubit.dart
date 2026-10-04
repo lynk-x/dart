@@ -4,6 +4,8 @@ import 'package:lynk_x/data/repositories/quiz_repository.dart';
 import '../models/quiz_builder_model.dart';
 import 'quiz_builder_state.dart';
 
+/// Owns the in-progress draft for a quiz/poll being composed — question
+/// editing, validation, and save/publish against [QuizRepository].
 class QuizBuilderCubit extends Cubit<QuizBuilderState> {
   final QuizRepository _repo;
   final String? channelId;

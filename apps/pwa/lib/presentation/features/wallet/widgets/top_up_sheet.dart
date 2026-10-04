@@ -9,6 +9,8 @@ import 'package:lynk_x/presentation/features/wallet/cubit/wallet_state.dart';
 import 'package:lynk_x/presentation/features/wallet/models/wallet_model.dart';
 import 'package:lynk_x/presentation/shared/utils/app_snackbars.dart';
 
+/// Bottom sheet for topping up a wallet balance — currency selection,
+/// quick-pick amounts, and the M-Pesa phone prompt for supported currencies.
 class TopUpSheet extends StatefulWidget {
   final List<WalletBalance> currentBalances;
   final String? initialCurrency;

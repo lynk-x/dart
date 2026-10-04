@@ -56,13 +56,10 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
   static web.HTMLVideoElement? _sharedVideoElement;
 
   // Fixed pool of pre-registered platform-view slots for co-hosts' video
-  // tiles — matches GridStageOverlay's own existing clamp(1, 4) (the
-  // default infra.system_config 'community'.max_call_speakers). Flutter
-  // web view factories are meant to be registered upfront, not
-  // dynamically per-userId at runtime; userIds aren't known ahead of time
-  // but the cap is, so a fixed slot pool is allocated/reused instead — see
-  // lynkVideoStreamHelper's _participantIdToSlotElementId comment for the
-  // JS side of this same reasoning.
+  // tiles — matches GridStageOverlay's clamp(1, 4) (default
+  // infra.system_config 'community'.max_call_speakers). Flutter web view
+  // factories must be registered upfront, not dynamically per-userId, so
+  // a fixed pool is allocated/reused instead.
   static const int _maxParticipantSlots = 4;
   static const List<String> _participantSlotViewTypes = [
     'lynk-video-participant-slot-0',
@@ -78,19 +75,14 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
   web.HTMLVideoElement? _videoElement;
 
   // --- Role ---
-  // Mirrors _videoService.roleNotifier (the real source of truth — see
-  // its own field comment) into local State so build() reacts to it via
-  // setState the same way every other piece of UI state here does,
-  // rather than wrapping the whole widget in a ValueListenableBuilder.
-  // widget.isHost stays the organizer/permanent-host identity (unchanged
-  // for the session); _role is the CURRENT publish role, which a
-  // co-host join/leave flips independently of that. A genuine listener
-  // (not just a one-way mirror set from this widget's own actions) is
+  // Mirrors _videoService.roleNotifier (the real source of truth) into
+  // local State so build() reacts via setState rather than wrapping the
+  // whole widget in a ValueListenableBuilder. widget.isHost stays the
+  // permanent-host identity; _role is the current publish role, which a
+  // co-host join/leave flips independently. A genuine listener is
   // required because joinAsVideoCoHost()/leaveVideoCoHost() can run from
-  // the presence drawer while THIS widget isn't mounted at all (the
-  // stage is minimized) — see ForumVideoStreamService.joinAsVideoCoHost's
-  // own comment — so this widget needs to pick up a role change that
-  // happened while it didn't exist, the next time it's built.
+  // the presence drawer while this widget isn't mounted (stage minimized),
+  // so it must pick up a role change on next build.
   late ForumHeaderRole _role;
   bool get _isPublishingRole => _role == ForumHeaderRole.host || _role == ForumHeaderRole.speaker;
 
@@ -100,35 +92,23 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
     _startTelemetryPolling();
   }
 
-  /// Registers BOTH the listener-side and publish-side JS connection
-  /// callbacks unconditionally — a co-host is simultaneously a LISTENER
-  /// (pulling the host's track) and a PUBLISHER (their own camera), so
-  /// both need to be live at once, not an either/or by role (mirrors
-  /// ForumAudioStreamCubit's constructor, which registers all three the
-  /// same way — role is checked inside each handler body, not at
-  /// registration time). Called once from initState; no need to re-call
-  /// on a role transition since the registrations themselves don't
-  /// change, only whether a given handler's body is a no-op.
+  /// Registers both the listener-side and publish-side JS connection
+  /// callbacks unconditionally — a co-host is simultaneously a listener
+  /// and a publisher, so both need to be live at once (role is checked
+  /// inside each handler body, not at registration time). Called once
+  /// from initState.
   void _registerConnectionCallbacks() {
     if (!kIsWeb) return;
     // Fires once the JS layer's bounded reconnect (3 attempts) for a
-    // dropped remote video track gives up. Relevant to everyone who isn't
-    // purely a publisher-with-nothing-to-pull — in practice that's
-    // everyone, since even the host/a co-host doesn't pull their OWN
-    // track, but co-hosts beyond the first pull each other, and any
-    // non-host always pulls the host.
+    // dropped remote video track gives up.
     _videoService.onRemoteVideoListenerLost(() {
       if (mounted) {
         AppSnackBars.showInfo(context, 'Lost connection to the live stream.');
       }
     });
-    // Publish-side: JS detected the publish connection failed. Unlike the
-    // listener side, JS can't recover this itself — Cloudflare's own
-    // guidance is to replace the connection (a NEW session), which needs
-    // a Supabase-authenticated session-create call, so the reconnect
-    // sequence runs here. No-op if this cubit/tab isn't currently
-    // publishing (_isPublishingRole false) — _reconnectVideoPublish
-    // itself checks that.
+    // Publish-side: JS detected the connection failed but can't recover it
+    // itself — Cloudflare requires a new session, so the reconnect runs
+    // here. No-op if not currently publishing (_reconnectVideoPublish checks).
     _videoService.onPublishNeedsReconnect(() {
       unawaited(_reconnectVideoPublish());
     });
@@ -180,17 +160,13 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
     super.initState();
     WidgetsBinding.instance.addObserver(this);
 
-    // Host starting stream defaults to Mic ON (_isMicMuted = false) & Camera ON (_isCameraOn = true).
-    // Attendee joining stream defaults to Mic Muted (_isMicMuted = true) & Camera OFF (_isCameraOn = false).
+    // Host defaults to mic/camera on; attendee defaults to muted/camera off.
     _isMicMuted = !widget.isHost;
     _isCameraOn = widget.isHost;
-    // _videoService.role is the real source of truth (survives minimize/
-    // restore — e.g. this widget remounting after a co-host minimized and
-    // reopened the stage, which must NOT reset them back to listener).
-    // Only seed it from widget.isHost on a genuinely fresh session (the
-    // service still at its default ForumHeaderRole.listener) — never
-    // downgrade an already-elevated role (host/speaker) just because this
-    // widget happens to be re-mounting.
+    // _videoService.role survives minimize/restore — only seed it from
+    // widget.isHost on a genuinely fresh session (still at the default
+    // listener role); never downgrade an already-elevated role just
+    // because this widget is re-mounting.
     if (widget.isHost || _videoService.role == ForumHeaderRole.listener) {
       _videoService.role = widget.isHost ? ForumHeaderRole.host : ForumHeaderRole.listener;
     }
@@ -209,10 +185,6 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
 
       final fId = widget.forumId;
       if (fId != null && fId.isNotEmpty) {
-        // Previously video had no realtime signaling at all — listeners
-        // only ever fetched streaming_config once, on screen open, so
-        // there was no way to tell an already-joined listener the host's
-        // Cloudflare session changed (e.g. after a publish reconnect).
         _videoService.subscribeToVideoBroadcast(
           forumId: fId,
           onEvent: _handleVideoBroadcastEvent,
@@ -299,16 +271,10 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
     });
   }
 
-  /// Polls telemetry stats from the video service every second. Publisher
-  /// (host or co-host): only fetches when the telemetry overlay is
-  /// visible (on-demand detail view, avoids redundant work). Pure
-  /// listener: polls continuously at a slower 5s cadence regardless of
-  /// the overlay — a struggling listener needs to see "your connection is
-  /// poor" proactively (_PoorConnectionBadge below), not only once
-  /// they've already opened a stats panel to ask why the video looks bad.
-  /// Re-called from _setRole() so a listener becoming a co-host switches
-  /// cadence immediately rather than staying on the listener polling
-  /// pattern for a now-publishing connection.
+  /// Polls telemetry from the video service. Publisher: only while the
+  /// telemetry overlay is visible. Pure listener: polls continuously at a
+  /// slower 5s cadence so a poor-connection badge can show proactively,
+  /// without the listener needing to open a stats panel first.
   void _startTelemetryPolling() {
     _telemetryTimer?.cancel();
     if (_isPublishingRole) {
@@ -438,9 +404,7 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
         }
       } else {
         // Listener: no local camera to start — pull the host's published
-        // track into the same shared _elementId instead (there's no local
-        // preview competing for it, unlike the audio listener path which
-        // needs a distinct element from the host's own camera preview).
+        // track into the same shared _elementId instead.
         await _subscribeToHostStream();
       }
     } else {
@@ -481,14 +445,10 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
       }
       if (!mounted || !success) return;
 
-      // Establishes the SEPARATE audio listener connection (video calls
-      // publish video and audio as two distinct Cloudflare tracks) — see
-      // ForumVideoStreamService.subscribeToHostAudioForVideoCall's comment
-      // for why this previously never happened at all for video calls.
-      // The host's own registry entry (if the registry fetch above found
-      // one — it may not have resolved yet right at call start) gives the
-      // real trackName; falls back to the literal 'audio' default
-      // publishCloudflareTracks uses when trackBaseName is empty.
+      // Establishes the separate audio listener connection (video calls
+      // publish video and audio as two distinct Cloudflare tracks). The
+      // host's registry entry, if resolved, gives the real trackName;
+      // falls back to the literal 'audio' default otherwise.
       final hostParticipant = callParticipants.values.cast<CallParticipant?>().firstWhere(
             (s) => s?.cfSessionId == sessionId,
             orElse: () => null,
@@ -514,14 +474,10 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
     }
   }
 
-  /// Pulls both the video AND audio tracks for one co-host — a video call
+  /// Pulls both the video and audio tracks for one co-host — a video call
   /// publishes them as two separate Cloudflare tracks
-  /// (trackName:video/trackName:audio, see publishCloudflareTracks), so a
-  /// listener needs two separate add_remote_track pulls, routed to two
-  /// different places: video into this participant's slot element, audio
-  /// into their own <audio> element (both via ForumVideoStreamService,
-  /// which bridges to lynkAudioStreamHelper directly for the audio half —
-  /// see addParticipantAudioTrack's comment).
+  /// (trackName:video/trackName:audio), routed to two places: video into
+  /// this participant's slot element, audio into their own element.
   Future<void> _pullParticipantMedia(CallParticipant participant) async {
     final forumId = widget.forumId;
     if (forumId == null || forumId.isEmpty) return;
@@ -569,24 +525,16 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
   }
 
   /// Handles a video_stream_event broadcast: 'session_changed' (host's own
-  /// _reconnectVideoPublish after its Cloudflare connection was replaced
-  /// following a network drop — everyone else, including a co-host, is
-  /// not yet on the new session by the time this fires) or
-  /// 'participant_joined'/'participant_left' (registry changes — kept
-  /// current for everyone, host included, since the grid UI reads
-  /// participantsNotifier regardless of role; track pull/teardown runs
-  /// for anyone who isn't the host, since a co-host pulls every other
-  /// participant too, not just a pure listener — same reasoning as
-  /// ForumAudioStreamCubit's audio equivalent).
+  /// reconnect after a network drop), 'participant_joined'/'participant_left'
+  /// (registry changes, kept current for everyone since the grid UI reads
+  /// participantsNotifier regardless of role).
   void _handleVideoBroadcastEvent(Map<String, dynamic> payload) {
     final action = payload['action'] as String?;
 
-    // The host ended the call — see forum_screen.dart's onEndBroadcast
-    // handler, which already tore down the HOST's own local state before
-    // broadcasting this, so _role == host here means this is that same
-    // broadcast echoing back to its own sender; nothing further to do.
-    // Everyone else (listener or co-host) needs to tear down their own
-    // connection the server already force-closed their registry row for.
+    // _role == host means this is the host's own end-broadcast echoing
+    // back to its sender (forum_screen.dart already tore down host state
+    // before broadcasting) — nothing further to do. Everyone else tears
+    // down the connection the server already force-closed their row for.
     if (action == 'end_stream') {
       if (_role == ForumHeaderRole.host) return;
       if (_isPublishingRole) {
@@ -616,20 +564,17 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
       updated[participant.userId] = participant;
       _videoService.participantsNotifier.value = updated;
 
-      // A co-host pulls every OTHER participant's track too (they're a
-      // listener to everyone but themselves) — only the host, who never
-      // pulls anyone, skips this. _role != host (not !_isPublishingRole)
-      // is the right test here.
+      // A co-host pulls every other participant's track too (listener to
+      // everyone but themselves); only the host, who never pulls anyone,
+      // skips this.
       if (_role != ForumHeaderRole.host) {
         unawaited(_pullParticipantMedia(participant));
       }
       return;
     }
 
-    // Targeted at one specific user (payload['targetUserId']) — every
-    // other client receives this too (forum-wide channel, no per-
-    // recipient filtering server-side) but ignores it. See
-    // ForumAudioStreamCubit's identical 'participant_invite' handling.
+    // Targeted at one user (payload['targetUserId']); every other client
+    // receives this too (forum-wide channel) but ignores it.
     if (action == 'participant_invite') {
       final targetUserId = payload['targetUserId'] as String?;
       if (targetUserId != Supabase.instance.client.auth.currentUser?.id) return;
@@ -646,20 +591,15 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
       return;
     }
 
-    // Someone's mic/camera state changed — previously nothing ever
-    // broadcast this, so every OTHER client's roster/grid tile silently
-    // never reflected anyone else's actual mute/camera-off state (see
-    // _broadcastOwnMediaState's own comment). Ignore our own echo (we
-    // already updated locally in _toggleMic/_toggleCamera).
+    // Someone's mic/camera state changed. Ignore our own echo (already
+    // updated locally in _toggleMic/_toggleCamera).
     if (action == 'media_state_changed') {
       final userId = payload['userId'] as String?;
       if (userId == null || userId == Supabase.instance.client.auth.currentUser?.id) return;
       final isMicMuted = payload['isMicMuted'] as bool?;
       final isCameraOn = payload['isCameraOn'] as bool?;
-      // The host's own activeParticipantsNotifier entry is keyed by the
-      // literal sentinel 'host', not their real userId (see
-      // _ownParticipantId's own comment) — the sender tells us directly
-      // which one it is rather than us guessing on receipt.
+      // See _ownParticipantId's own comment on the 'host' sentinel — the
+      // sender tells us directly which id it is rather than us guessing.
       final isHostUser = payload['isHost'] as bool? ?? false;
       _videoService.updateParticipantMediaState(
         isHostUser ? 'host' : userId,
@@ -703,10 +643,9 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
     }());
   }
 
-  /// Self-serve: a co-host (not the original host — they use the
-  /// end-stream flow in forum_screen.dart) leaves their speaking slot.
-  /// Thin wrapper around ForumVideoStreamService.leaveVideoCoHost() — see
-  /// joinAsVideoCoHost()'s own comment for why the sequence lives there.
+  /// Self-serve: a co-host (not the original host, who uses the end-stream
+  /// flow in forum_screen.dart) leaves their speaking slot. Thin wrapper
+  /// around ForumVideoStreamService.leaveVideoCoHost().
   Future<void> leaveVideoCoHost() async {
     await _videoService.leaveVideoCoHost();
     if (!mounted) return;
@@ -716,37 +655,17 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
       _isCameraOn = false;
     });
     _startTelemetryPolling();
-    // Resume pulling the host's own track into _elementId now that this
-    // tab's own camera preview (which was using the same element) is
-    // gone — mirrors the listener path _initCameraAndAudio already takes
-    // for someone who was never a co-host to begin with.
+    // Resume pulling the host's track into _elementId now that this tab's
+    // own camera preview (same element) is gone.
     await _subscribeToHostStream();
   }
 
   bool _isReconnectingVideoPublish = false;
 
-  /// Recovers THIS user's own publish connection after the JS layer
-  /// detects ICE failure/disconnect — host OR co-host, see
-  /// _registerConnectionCallbacks. Per Cloudflare's own guidance there is
-  /// no supported same-session recovery for a publisher, so this replaces
-  /// the connection entirely: a NEW Cloudflare session, republished
-  /// tracks, the new session id persisted to this user's own
-  /// forum_call_participants row (the source of truth every participant,
-  /// including the host, actually lives in).
-  ///
-  /// The HOST additionally owns streaming_config.cf_session_id — the
-  /// well-known address every listener's OWN base connection was built
-  /// against — so only the host's reconnect updates it and broadcasts
-  /// 'session_changed', which _handleVideoBroadcastEvent already
-  /// unconditionally re-subscribes a listener/co-host against, rebuilding
-  /// their connection to the host. A co-host's reconnect instead
-  /// re-broadcasts 'participant_joined' with the new session — the SAME
-  /// event a first-time join uses — so everyone else just re-runs
-  /// _pullParticipantMedia against the new session (their own base
-  /// connection, pulling the host, is untouched and still healthy; only
-  /// this one co-host's track needs re-pulling). Mirrors
-  /// ForumAudioStreamCubit._reconnectPublish exactly — video just has no
-  /// cubit of its own, so this lives on the stage widget's state instead.
+  /// Recovers this user's publish connection after ICE failure/disconnect
+  /// (host or co-host). Mirrors ForumAudioStreamCubit._reconnectPublish's
+  /// reconnect/rebroadcast strategy exactly — video just has no cubit of
+  /// its own, so this lives on the stage widget's state instead.
   Future<void> _reconnectVideoPublish() async {
     if (_isReconnectingVideoPublish || !_videoService.isLiveNotifier.value || !_isPublishingRole) {
       return;
@@ -844,22 +763,14 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
     _sessionDurationNotifier.dispose();
     if (!_videoService.isMinimizedNotifier.value) {
       _videoService.releaseWakeLock();
-      // A co-host is BOTH a publisher (their own camera) and a listener
-      // (pulling the host, and every other co-host) — stop whichever
-      // applies. stopOwnVideoPublish()/unsubscribeFromRemoteVideo() are
-      // each safe no-ops if this user never held that side of the
-      // connection, so calling both unconditionally (rather than an
-      // either/or by role) correctly tears down everything a co-host was
-      // doing. Deliberately NOT stopVideoStream()/setLive(false) for
-      // EITHER role here — navigating away from this widget (closing the
-      // tab, switching forums) is this ONE client's own exit, not the
-      // call ending; flipping isLiveNotifier was previously making the
-      // Join Card wrongly show "Session finished" to this same user the
-      // next time they opened the forum, even though the host was still
-      // broadcasting the whole time. Ending the call for everyone is a
-      // deliberate action (the host's "End Broadcast" button /
-      // 'end_stream' broadcast), never an implicit side effect of
-      // disposing this widget.
+      // A co-host is both a publisher and a listener — stop/unsubscribe
+      // both unconditionally, each a safe no-op if this user never held
+      // that side. Deliberately NOT stopVideoStream()/setLive(false) for
+      // either role: navigating away is this one client's own exit, not
+      // the call ending — flipping isLiveNotifier here would wrongly show
+      // "Session finished" to this user next time, even with the host
+      // still broadcasting. Ending the call for everyone is only the
+      // host's explicit 'end_stream' broadcast.
       if (_isPublishingRole) {
         _videoService.stopOwnVideoPublish();
       }
@@ -890,13 +801,10 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
     }
   }
 
-  /// activeParticipantsNotifier keys the ORIGINAL host's own entry by the
-  /// literal sentinel id 'host' (a pre-existing convention throughout
-  /// this file's StreamParticipant logic — see e.g. toggleParticipantMic/
-  /// Camera's own 'host' checks), not their real userId. A co-host has no
-  /// such special-case entry — theirs is keyed by their actual userId, if
-  /// it exists there at all (via syncWithPresenceUsers). This resolves
-  /// which id this viewer's OWN local mic/camera toggle should target.
+  /// activeParticipantsNotifier keys the original host's entry by the
+  /// literal sentinel id 'host', not their real userId; a co-host is keyed
+  /// by their actual userId. Resolves which id this viewer's own
+  /// mic/camera toggle should target.
   String get _ownParticipantId {
     if (_role == ForumHeaderRole.host) return 'host';
     return Supabase.instance.client.auth.currentUser?.id ?? 'host';
@@ -918,15 +826,9 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
     _broadcastOwnMediaState();
   }
 
-  /// Broadcasts THIS viewer's own current mic/camera state to everyone
-  /// else on the call — previously updateParticipantMediaState only ever
-  /// updated this tab's own LOCAL activeParticipantsNotifier, so every
-  /// other viewer's roster/grid tile silently never reflected anyone
-  /// else's actual mute/camera-off state (each client only ever saw
-  /// itself change). Folded in alongside the video co-hosting work since
-  /// it's the same participant-state-management gap: now that multiple
-  /// independent publishers exist, each one's mute/camera state needs to
-  /// actually reach everyone, not just stay local to their own tab.
+  /// Broadcasts this viewer's own mic/camera state to everyone else on the
+  /// call — updateParticipantMediaState alone only updates this tab's local
+  /// activeParticipantsNotifier, not other viewers' roster tiles.
   Future<void> _broadcastOwnMediaState() async {
     final userId = Supabase.instance.client.auth.currentUser?.id;
     if (userId == null) return;
@@ -936,9 +838,8 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
         'userId': userId,
         'isMicMuted': _isMicMuted,
         'isCameraOn': _isCameraOn,
-        // Computed by the SENDER (knows its own _role) rather than
-        // guessed on the receiving end — avoids every receiver needing
-        // its own fragile "is this userId the host" lookup.
+        // Computed by the sender rather than guessed on receipt — avoids
+        // every receiver needing its own "is this userId the host" lookup.
         'isHost': _role == ForumHeaderRole.host,
       },
     );

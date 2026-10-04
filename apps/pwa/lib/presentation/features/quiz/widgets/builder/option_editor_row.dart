@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:lynk_core/core.dart';
 
+/// Editable answer-option row for the quiz/poll builder — text field,
+/// optional "correct answer" checkbox (quiz only), and a remove button.
 class OptionEditorRow extends StatelessWidget {
   final int index;
   final String text;

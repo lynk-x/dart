@@ -7,6 +7,9 @@ import 'package:lynk_core/core.dart';
 import 'package:lynk_x/data/repositories/repositories.dart';
 import 'quiz_state.dart';
 
+/// Drives a live quiz/poll session's state machine (lobby -> playing ->
+/// reveal -> leaderboard -> podium -> finished) — realtime sync for all
+/// participants, with host-only controls for advancing state.
 class QuizCubit extends Cubit<QuizState> {
   final String questionnaireId;
   final String userId;
