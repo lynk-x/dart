@@ -1004,6 +1004,20 @@ window.lynkVideoStreamHelper = {
     }
   },
 
+  // Re-triggers playback on [elementId]'s <video> element without
+  // touching srcObject — browsers commonly freeze a live MediaStream's
+  // rendered frame when its element is detached and reattached elsewhere
+  // in the DOM (e.g. Flutter's HtmlElementView remounting the same
+  // platform-view element into a different parent on a layout switch).
+  // Call this after such a remount. play() on an already-playing element
+  // is a spec-safe no-op, so this doesn't gate on el.paused — a stalled
+  // decoder can freeze the frame without that flag ever flipping true.
+  resumeVideoPlayback(elementId) {
+    const el = document.getElementById(elementId);
+    if (!el || !el.srcObject) return;
+    el.play().catch(e => console.warn('[VideoStreamHelper] resumeVideoPlayback failed:', e));
+  },
+
   async toggleCameraEnabled(enabled) {
     this.isCameraDisabled = !enabled;
     if (!enabled) {
