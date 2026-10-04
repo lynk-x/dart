@@ -39,9 +39,24 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
     service.onRemoteAudioListenerLost(() {
       if (isClosed || state.role == ForumHeaderRole.host) return;
       emit(state.copyWith(
+        isListenerReconnecting: false,
         errorMessage: 'Lost connection to the live call. Tap to rejoin.',
       ));
     });
+
+    // Each retry attempt (not yet exhausted) / eventual success — drives
+    // a visible "Reconnecting…" state instead of leaving the UI silent
+    // until either recovery or total failure.
+    service.onRemoteAudioListenerReconnecting(
+      () {
+        if (isClosed || state.role == ForumHeaderRole.host) return;
+        emit(state.copyWith(isListenerReconnecting: true));
+      },
+      () {
+        if (isClosed) return;
+        emit(state.copyWith(isListenerReconnecting: false));
+      },
+    );
 
     // Publish-side counterpart: JS detected ICE failure/disconnect but
     // can't recover it itself — Cloudflare requires a new session, which
@@ -865,6 +880,7 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
     final isHost = state.role == ForumHeaderRole.host;
     final callSummaryId = _callSummaryId;
     _isReconnectingPublish = true;
+    emit(state.copyWith(isReconnecting: true));
     try {
       final newSessionId = await service.createCloudflareSession(forumId);
       if (isClosed || newSessionId == null) return;
@@ -922,6 +938,7 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
       debugPrint('[ForumAudioStreamCubit] _reconnectPublish error: $e');
     } finally {
       _isReconnectingPublish = false;
+      if (!isClosed) emit(state.copyWith(isReconnecting: false));
     }
   }
 
@@ -930,6 +947,7 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
     _telemetrySub?.cancel();
     _stopTelemetryPolling();
     service.removeListenerLostCallback();
+    service.removeListenerReconnectingCallbacks();
     service.removePublishReconnectCallbacks();
     service.stopLocalMicrophone();
     if (state.role != ForumHeaderRole.host) {

@@ -24,6 +24,11 @@ window.lynkAudioStreamHelper = {
   remoteAnalyserDataArray: null,
   _localEnvelope: 0.0,
   _remoteEnvelope: 0.0,
+  // One analyser per pulled co-host, keyed by userId — see
+  // bindRemoteParticipantStream's own comment for why the single local/
+  // remote pair above isn't enough once more than one remote track can
+  // be live at once.
+  _participantAnalysers: {},
   localAudioStream: null,
 
   hasLocalMicrophone() {
@@ -112,6 +117,12 @@ window.lynkAudioStreamHelper = {
     el.srcObject = stream;
     el.muted = false;
     el.play().catch(e => console.warn('[AudioStreamHelper] Participant auto-play prevented:', e));
+    // Each pulled co-host gets their OWN analyser — getAudioLevel()'s
+    // local/remote split only ever reports ONE level for the whole page
+    // (this user's own mic, or whatever single remote stream they're
+    // pulling), so a grid of co-host tiles had no way to tell who among
+    // them was actually speaking; every tile shared the same reading.
+    this.setupParticipantAnalyser(userId, stream);
   },
 
   unbindRemoteParticipantStream(userId) {
@@ -121,6 +132,7 @@ window.lynkAudioStreamHelper = {
     el.srcObject = null;
     el.remove();
     delete this._remoteParticipantElements[userId];
+    this.stopParticipantAnalyser(userId);
   },
 
   listenerPeerConnection: null,
@@ -390,6 +402,10 @@ window.lynkAudioStreamHelper = {
     this._listenerReconnectAttempts++;
     const delayMs = 1000 * Math.pow(2, attempt);
     console.log(`[AudioStreamHelper] Listener connection ${this.listenerPeerConnection.iceConnectionState}, retrying in ${delayMs}ms (attempt ${attempt + 1}/3)`);
+    // Lets Dart show a "Reconnecting…" state while a retry is in flight,
+    // rather than only learning about trouble once all 3 attempts are
+    // exhausted (lynkAudioListenerLost, below).
+    window.dispatchEvent(new CustomEvent('lynkAudioListenerReconnecting'));
 
     this._listenerReconnectTimer = setTimeout(async () => {
       this._listenerReconnectTimer = null;
@@ -442,6 +458,12 @@ window.lynkAudioStreamHelper = {
           // this same connection later.
           this.cfListenerSessionId = data.listenerSessionId;
           console.log('[AudioStreamHelper] Joined as listener successfully');
+          // Only a genuine recovery (this call followed at least one
+          // _scheduleListenerReconnect retry) needs to tell Dart the
+          // "Reconnecting…" state is over — a first-time join never set it.
+          if (this._listenerReconnectAttempts > 0) {
+            window.dispatchEvent(new CustomEvent('lynkAudioListenerReconnected'));
+          }
           this._listenerReconnectAttempts = 0;
           return true;
         }
@@ -634,6 +656,46 @@ window.lynkAudioStreamHelper = {
     }
   },
 
+  // Shared DSP chain builder — same high-pass/presence-EQ/compressor/
+  // analyser pipeline used for the local mic, the single remote pull, and
+  // (below) each individually pulled co-host, so there's one place that
+  // defines "what does this app consider a good voice-analysis chain"
+  // rather than three copies that could drift apart.
+  _buildAnalyserChain(ctx, stream) {
+    const node = ctx.createMediaStreamSource(stream);
+
+    // 1. High-Pass Filter (85Hz) — Removes low frequency HVAC/fan rumble & desk thumps
+    const highPassFilter = ctx.createBiquadFilter();
+    highPassFilter.type = 'highpass';
+    highPassFilter.frequency.value = 85;
+
+    // 2. Vocal Presence EQ Filter (3kHz Peaking) — Boosts vocal clarity and speech pickup
+    const presenceEq = ctx.createBiquadFilter();
+    presenceEq.type = 'peaking';
+    presenceEq.frequency.value = 3000;
+    presenceEq.Q.value = 1.0;
+    presenceEq.gain.value = 3.0; // +3dB boost for voice clarity
+
+    // 3. Dynamics Compressor Node — Smooths voice dynamics and prevents clipping
+    const compressorNode = ctx.createDynamicsCompressor();
+    compressorNode.threshold.value = -24;
+    compressorNode.knee.value = 30;
+    compressorNode.ratio.value = 12;
+    compressorNode.attack.value = 0.003;
+    compressorNode.release.value = 0.25;
+
+    const analyser = ctx.createAnalyser();
+    analyser.fftSize = 64;
+
+    // Connect DSP chain: Source -> HighPass -> Presence EQ -> Compressor -> Analyser
+    node.connect(highPassFilter);
+    highPassFilter.connect(presenceEq);
+    presenceEq.connect(compressorNode);
+    compressorNode.connect(analyser);
+
+    return analyser;
+  },
+
   // [source] is 'local' (this user's own mic — startLocalMicrophone) or
   // 'remote' (the pulled host stream — bindRemoteStream). Each gets its
   // own AudioContext/AnalyserNode so setting one up never tears down the
@@ -646,37 +708,7 @@ window.lynkAudioStreamHelper = {
       if (!AudioCtx || !stream) return;
 
       const ctx = new AudioCtx();
-      const node = ctx.createMediaStreamSource(stream);
-
-      // 1. High-Pass Filter (85Hz) — Removes low frequency HVAC/fan rumble & desk thumps
-      const highPassFilter = ctx.createBiquadFilter();
-      highPassFilter.type = 'highpass';
-      highPassFilter.frequency.value = 85;
-
-      // 2. Vocal Presence EQ Filter (3kHz Peaking) — Boosts vocal clarity and speech pickup
-      const presenceEq = ctx.createBiquadFilter();
-      presenceEq.type = 'peaking';
-      presenceEq.frequency.value = 3000;
-      presenceEq.Q.value = 1.0;
-      presenceEq.gain.value = 3.0; // +3dB boost for voice clarity
-
-      // 3. Dynamics Compressor Node — Smooths voice dynamics and prevents clipping
-      const compressorNode = ctx.createDynamicsCompressor();
-      compressorNode.threshold.value = -24;
-      compressorNode.knee.value = 30;
-      compressorNode.ratio.value = 12;
-      compressorNode.attack.value = 0.003;
-      compressorNode.release.value = 0.25;
-
-      const analyser = ctx.createAnalyser();
-      analyser.fftSize = 64;
-
-      // Connect DSP chain: Source -> HighPass -> Presence EQ -> Compressor -> Analyser
-      node.connect(highPassFilter);
-      highPassFilter.connect(presenceEq);
-      presenceEq.connect(compressorNode);
-      compressorNode.connect(analyser);
-
+      const analyser = this._buildAnalyserChain(ctx, stream);
       const bufferLength = analyser.frequencyBinCount;
       if (source === 'local') {
         this.localAudioContext = ctx;
@@ -694,11 +726,80 @@ window.lynkAudioStreamHelper = {
     }
   },
 
+  // One analyser per co-host, keyed by userId — see
+  // bindRemoteParticipantStream's own comment.
+  setupParticipantAnalyser(userId, stream) {
+    try {
+      this.stopParticipantAnalyser(userId);
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx || !stream) return;
+
+      const ctx = new AudioCtx();
+      const analyser = this._buildAnalyserChain(ctx, stream);
+      this._participantAnalysers[userId] = {
+        ctx,
+        analyser,
+        dataArray: new Uint8Array(analyser.frequencyBinCount),
+        envelope: 0.0,
+      };
+    } catch (e) {
+      console.warn('[AudioStreamHelper] Participant analyser setup failed:', e);
+    }
+  },
+
+  stopParticipantAnalyser(userId) {
+    const entry = this._participantAnalysers[userId];
+    if (!entry) return;
+    entry.ctx.close().catch(() => {});
+    delete this._participantAnalysers[userId];
+  },
+
+  // Same dB-normalization + attack/release envelope as getAudioLevel()
+  // below, applied to one co-host's own pulled-track analyser. Returns
+  // 0.0 if that userId has no analyser (never pulled, or already left).
+  getParticipantAudioLevel(userId) {
+    const entry = this._participantAnalysers[userId];
+    if (!entry) return 0.0;
+    if (entry.ctx.state === 'suspended') {
+      entry.ctx.resume().catch(() => {});
+    }
+    entry.analyser.getByteFrequencyData(entry.dataArray);
+    let sum = 0;
+    for (let i = 0; i < entry.dataArray.length; i++) {
+      sum += entry.dataArray[i];
+    }
+    const average = sum / entry.dataArray.length;
+    const targetLevel = this._dbNormalize(average);
+    entry.envelope = this._applyEnvelope(entry.envelope, targetLevel);
+    return entry.envelope;
+  },
+
   _dbFloor: -55,
   _dbCeiling: -10,
   _attackSeconds: 0.03,
   _releaseSeconds: 0.25,
   _envelopeDtSeconds: 0.09,
+
+  // Byte-domain average (0-255) -> dB, then normalized against
+  // _dbFloor/_dbCeiling -> 0.0-1.0. Human perceived loudness is
+  // logarithmic, so this (not a linear average/divisor) is what gives
+  // normal speech a usable range of motion instead of behaving like an
+  // on/off switch.
+  _dbNormalize(average) {
+    if (average <= 0) return 0.0;
+    const db = 20 * Math.log10(average / 255);
+    const level = (db - this._dbFloor) / (this._dbCeiling - this._dbFloor);
+    return Math.max(0.0, Math.min(1.0, level));
+  },
+
+  // Exponential attack/release envelope toward targetLevel — this is what
+  // actually makes a level meter animate rather than jump straight to
+  // whatever the current instantaneous reading is.
+  _applyEnvelope(prevEnvelope, targetLevel) {
+    const tau = targetLevel > prevEnvelope ? this._attackSeconds : this._releaseSeconds;
+    const alpha = 1 - Math.exp(-this._envelopeDtSeconds / tau);
+    return prevEnvelope + (targetLevel - prevEnvelope) * alpha;
+  },
 
   // Prefers the LOCAL analyser (this user's own mic) when one exists —
   // "am I audible right now" is the more actionable signal once a user is
@@ -719,28 +820,10 @@ window.lynkAudioStreamHelper = {
       sum += dataArray[i];
     }
     const average = sum / dataArray.length;
+    const targetLevel = this._dbNormalize(average);
 
-    // Byte-domain average (0-255) -> dB, then normalized against
-    // _dbFloor/_dbCeiling -> 0.0-1.0. Human perceived loudness is
-    // logarithmic, so this (not a linear average/divisor) is what gives
-    // normal speech a usable range of motion instead of behaving like an
-    // on/off switch.
-    let targetLevel;
-    if (average <= 0) {
-      targetLevel = 0.0;
-    } else {
-      const db = 20 * Math.log10(average / 255);
-      targetLevel = (db - this._dbFloor) / (this._dbCeiling - this._dbFloor);
-      targetLevel = Math.max(0.0, Math.min(1.0, targetLevel));
-    }
-
-    // Exponential attack/release envelope toward targetLevel — this is
-    // what actually makes the bars animate rather than jump straight to
-    // whatever the current instantaneous reading is.
     const prevEnvelope = useLocal ? this._localEnvelope : this._remoteEnvelope;
-    const tau = targetLevel > prevEnvelope ? this._attackSeconds : this._releaseSeconds;
-    const alpha = 1 - Math.exp(-this._envelopeDtSeconds / tau);
-    const envelope = prevEnvelope + (targetLevel - prevEnvelope) * alpha;
+    const envelope = this._applyEnvelope(prevEnvelope, targetLevel);
 
     if (useLocal) {
       this._localEnvelope = envelope;
@@ -1652,6 +1735,7 @@ window.lynkVideoStreamHelper = {
     this._listenerReconnectAttempts++;
     const delayMs = 1000 * Math.pow(2, attempt);
     console.log(`[VideoStreamHelper] Listener connection ${this.listenerPeerConnection.iceConnectionState}, retrying in ${delayMs}ms (attempt ${attempt + 1}/3)`);
+    window.dispatchEvent(new CustomEvent('lynkVideoListenerReconnecting'));
 
     this._listenerReconnectTimer = setTimeout(async () => {
       this._listenerReconnectTimer = null;
@@ -1701,6 +1785,9 @@ window.lynkVideoStreamHelper = {
           // video tracks to this same connection later.
           this.cfListenerSessionId = data.listenerSessionId;
           console.log('[VideoStreamHelper] Joined as video listener successfully');
+          if (this._listenerReconnectAttempts > 0) {
+            window.dispatchEvent(new CustomEvent('lynkVideoListenerReconnected'));
+          }
           this._listenerReconnectAttempts = 0;
           return true;
         }

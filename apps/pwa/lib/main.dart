@@ -10,9 +10,11 @@ import 'package:flutter_web_plugins/url_strategy.dart';
 import 'app.dart';
 import 'core/sync/sync_manager.dart';
 
-/// Fallback [Storage] used when [HydratedStorage.build] fails (e.g.
-/// IndexedDB unavailable in private/incognito mode, or blocked by a
-/// privacy extension). Keeps the app bootable without persisted state.
+/// Fallback [Storage] implementation used when [HydratedStorage.build] fails
+/// (e.g. IndexedDB is unavailable in private/incognito browsing mode or blocked by
+/// privacy extensions).
+///
+/// Keeps the app functional in-memory without persisting state across page reloads.
 class _InMemoryStorage implements Storage {
   final Map<String, dynamic> _data = {};
 
@@ -32,6 +34,11 @@ class _InMemoryStorage implements Storage {
   Future<void> close() async {}
 }
 
+/// Application entry point for the Lynk-X Web / PWA client.
+///
+/// Initializes core platform bindings, path URL routing, persistent HydratedBloc
+/// storage with in-memory fallback, Firebase web messaging, Supabase client & offline
+/// [SyncManager], and Sentry crash reporting.
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   usePathUrlStrategy();

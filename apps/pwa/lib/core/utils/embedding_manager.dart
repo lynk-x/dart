@@ -8,10 +8,11 @@ import 'package:lynk_x/core/utils/embedding_noise_filter.dart';
 import 'package:lynk_x/core/utils/embedding_worker_client.dart';
 import 'package:lynk_x/core/utils/i_embedding_service.dart';
 
-/// Computes message embeddings client-side via a Web Worker (ONNX model),
-/// then syncs the result to the backend through [SyncManager]. Singleton,
-/// not per-instance, since the worker and its model load are expensive to
-/// set up more than once per session.
+/// Computes message vector embeddings client-side via a Web Worker (ONNX model)
+/// and synchronizes them to Supabase via [SyncManager].
+///
+/// Implemented as a singleton to preserve worker state and prevent redundant
+/// multi-megabyte model downloads in memory.
 class EmbeddingManager implements IEmbeddingService {
   EmbeddingManager._();
   static final instance = EmbeddingManager._();
@@ -23,6 +24,7 @@ class EmbeddingManager implements IEmbeddingService {
   final Set<String> _computingMessageIds = {};
   final Set<String> _syncingMessageIds = {};
 
+  /// Whether the background ONNX Web Worker is initialized and ready to compute embeddings.
   @override
   bool get isReady => _isReady;
 

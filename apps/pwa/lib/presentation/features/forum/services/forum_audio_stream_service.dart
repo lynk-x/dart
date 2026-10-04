@@ -105,6 +105,8 @@ class ForumAudioStreamService {
 
   RealtimeChannel? _channel;
   JSFunction? _listenerLostListener;
+  JSFunction? _listenerReconnectingListener;
+  JSFunction? _listenerReconnectedListener;
   JSFunction? _publishNeedsReconnectListener;
   JSFunction? _publishLostListener;
 
@@ -137,6 +139,33 @@ class ForumAudioStreamService {
     if (!kIsWeb || _listenerLostListener == null) return;
     web.window.removeEventListener('lynkAudioListenerLost', _listenerLostListener);
     _listenerLostListener = null;
+  }
+
+  /// Registers [onReconnecting] to fire each time the listener-side retry
+  /// schedules another attempt (not yet exhausted — see
+  /// onRemoteAudioListenerLost for that), and [onReconnected] once a
+  /// retry actually succeeds. Together these let the UI show a transient
+  /// "Reconnecting…" state instead of only learning about trouble once
+  /// all 3 attempts are exhausted.
+  void onRemoteAudioListenerReconnecting(void Function() onReconnecting, void Function() onReconnected) {
+    if (!kIsWeb) return;
+    removeListenerReconnectingCallbacks();
+    _listenerReconnectingListener = ((web.Event event) => onReconnecting()).toJS;
+    _listenerReconnectedListener = ((web.Event event) => onReconnected()).toJS;
+    web.window.addEventListener('lynkAudioListenerReconnecting', _listenerReconnectingListener);
+    web.window.addEventListener('lynkAudioListenerReconnected', _listenerReconnectedListener);
+  }
+
+  void removeListenerReconnectingCallbacks() {
+    if (!kIsWeb) return;
+    if (_listenerReconnectingListener != null) {
+      web.window.removeEventListener('lynkAudioListenerReconnecting', _listenerReconnectingListener);
+      _listenerReconnectingListener = null;
+    }
+    if (_listenerReconnectedListener != null) {
+      web.window.removeEventListener('lynkAudioListenerReconnected', _listenerReconnectedListener);
+      _listenerReconnectedListener = null;
+    }
   }
 
   /// Registers [onNeedsReconnect] to fire each time the JS layer's publish

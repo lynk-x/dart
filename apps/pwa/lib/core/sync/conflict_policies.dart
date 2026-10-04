@@ -1,19 +1,18 @@
 import 'sync_item.dart';
 
-/// Per-entity conflict policy defaults.
+/// Default table-to-policy mapping for offline synchronization conflicts.
 ///
-/// When constructing a [SyncItem] for an UPDATE, look up the table here to
-/// get the appropriate [ConflictPolicy]. Explicit values passed to [SyncItem]
+/// When constructing a [SyncItem] for an UPDATE action, this map is consulted to
+/// determine the appropriate [ConflictPolicy]. Explicit values passed to [SyncItem]
 /// always take precedence over these defaults.
 ///
-/// Policy rationale:
-///   serverWins  — Any entity owned by another party (events, tiers) or where
-///                 stale writes could cause data integrity issues.
-///   clientWins  — Purely local preferences that only the user can meaningfully
-///                 change (notification settings, UI state).
-///   manual      — Collaborative entities where both versions have semantic value
-///                 and a human should decide (e.g., forum messages edited by
-///                 both the author and a moderator simultaneously).
+/// ### Policy Rationale
+/// - [ConflictPolicy.serverWins]: Entities owned by an organization or third party (events, ticket tiers)
+///   where stale offline overwrites would cause data loss.
+/// - [ConflictPolicy.clientWins]: Purely local user preferences (notification settings, UI state)
+///   where user intent is strictly authoritative.
+/// - [ConflictPolicy.manual]: Collaborative or shared records (e.g. forum messages edited concurrently)
+///   where conflict resolution requires user confirmation.
 const Map<String, ConflictPolicy> kTableConflictPolicies = {
   // ── User-owned preferences (client always wins) ──────────────────────────
   'notification_preferences': ConflictPolicy.clientWins,
@@ -39,7 +38,7 @@ const Map<String, ConflictPolicy> kTableConflictPolicies = {
   // ── Default for any table not listed: serverWins (safe fallback) ─────────
 };
 
-/// Returns the conflict policy for [table], falling back to [serverWins].
+/// Returns the conflict policy configured for [table], defaulting to [ConflictPolicy.serverWins].
 ConflictPolicy conflictPolicyFor(String table) {
   return kTableConflictPolicies[table] ?? ConflictPolicy.serverWins;
 }

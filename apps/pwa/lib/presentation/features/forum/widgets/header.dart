@@ -55,6 +55,9 @@ class ForumHeader extends StatelessWidget {
   /// See AudioSessionSlot.isWeakConnection.
   final bool isWeakConnection;
 
+  /// See AudioSessionSlot.isReconnecting.
+  final bool isReconnecting;
+
   const ForumHeader({
     super.key,
     this.onSearch,
@@ -79,6 +82,7 @@ class ForumHeader extends StatelessWidget {
     this.onStartAudioStream,
     this.onStartLiveStream,
     this.isWeakConnection = false,
+    this.isReconnecting = false,
   });
 
   @override
@@ -112,6 +116,7 @@ class ForumHeader extends StatelessWidget {
         onToggleBroadcastMute: onToggleBroadcastMute,
         onEndBroadcast: onEndBroadcast,
         isWeakConnection: isWeakConnection,
+        isReconnecting: isReconnecting,
       );
     } else {
       return SearchSlot(
@@ -224,6 +229,13 @@ class AudioSessionSlot extends StatelessWidget {
   /// experiencing, not a call-wide health signal.
   final bool isWeakConnection;
 
+  /// True while this user's own connection is actively being replaced
+  /// after a drop — publish side for host/co-host (ForumAudioStreamState
+  /// .isReconnecting) or receive side for a listener (.isListenerReconnecting).
+  /// Takes priority over [isWeakConnection]: a connection actively
+  /// recovering is a stronger signal than one that's merely degraded.
+  final bool isReconnecting;
+
   const AudioSessionSlot({
     super.key,
     required this.role,
@@ -233,9 +245,11 @@ class AudioSessionSlot extends StatelessWidget {
     this.onToggleBroadcastMute,
     this.onEndBroadcast,
     this.isWeakConnection = false,
+    this.isReconnecting = false,
   });
 
   String _resolveCenterText() {
+    if (isReconnecting) return 'Reconnecting…';
     if (activeSpeakerNames.isEmpty) {
       return role == ForumHeaderRole.host ? 'Live Call (Hosting)' : 'Live Call happening';
     }
@@ -263,11 +277,17 @@ class AudioSessionSlot extends StatelessWidget {
         const SizedBox(width: 8),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 6.0),
-          child: Icon(
-            isWeakConnection ? Icons.signal_wifi_statusbar_connected_no_internet_4_rounded : Icons.graphic_eq_rounded,
-            color: isWeakConnection ? Colors.deepOrange : Colors.black,
-            size: 20,
-          ),
+          child: isReconnecting
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.deepOrange),
+                )
+              : Icon(
+                  isWeakConnection ? Icons.signal_wifi_statusbar_connected_no_internet_4_rounded : Icons.graphic_eq_rounded,
+                  color: isWeakConnection ? Colors.deepOrange : Colors.black,
+                  size: 20,
+                ),
         ),
         const SizedBox(width: 8),
         Expanded(

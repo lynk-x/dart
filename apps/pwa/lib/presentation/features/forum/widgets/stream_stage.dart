@@ -48,7 +48,8 @@ class ForumVideoStage extends StatefulWidget {
   State<ForumVideoStage> createState() => _ForumVideoStageState();
 }
 
-class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingObserver {
+class _ForumVideoStageState extends State<ForumVideoStage>
+    with WidgetsBindingObserver {
   final ForumVideoStreamService _videoService = ForumVideoStreamService();
 
   static const String _elementId = ForumVideoStage.elementId;
@@ -105,7 +106,8 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
   // the presence drawer while this widget isn't mounted (stage minimized),
   // so it must pick up a role change on next build.
   late ForumHeaderRole _role;
-  bool get _isPublishingRole => _role == ForumHeaderRole.host || _role == ForumHeaderRole.speaker;
+  bool get _isPublishingRole =>
+      _role == ForumHeaderRole.host || _role == ForumHeaderRole.speaker;
 
   void _onServiceRoleChanged() {
     if (!mounted || _role == _videoService.role) return;
@@ -127,6 +129,9 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
         AppSnackBars.showInfo(context, 'Lost connection to the live stream.');
       }
     });
+    // Each retry attempt / eventual success — drives isReconnectingNotifier
+    // for a listener/co-host's receive-side connection.
+    _videoService.onRemoteVideoListenerReconnecting();
     // Publish-side: JS detected the connection failed but can't recover it
     // itself — Cloudflare requires a new session, so the reconnect runs
     // here. No-op if not currently publishing (_reconnectVideoPublish checks).
@@ -135,9 +140,11 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
     });
     _videoService.onPublishLost(() {
       if (mounted && _isPublishingRole) {
-        AppSnackBars.showInfo(context, _role == ForumHeaderRole.host
-            ? 'Lost connection to your live stream. Please end and restart it.'
-            : 'Lost connection to your speaking slot. Please rejoin as a speaker.');
+        AppSnackBars.showInfo(
+            context,
+            _role == ForumHeaderRole.host
+                ? 'Lost connection to your live stream. Please end and restart it.'
+                : 'Lost connection to your speaking slot. Please rejoin as a speaker.');
       }
     });
   }
@@ -153,6 +160,7 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
   /// Updated by the 100ms audio timer; consumed by SpeakerTag and GridStageOverlay
   /// via ValueListenableBuilder — no setState() needed.
   final ValueNotifier<double> _audioLevelNotifier = ValueNotifier(0.0);
+
   /// Updated by the 1s duration timer; consumed by StageTopBar's internal
   /// ValueListenableBuilder — avoids a full stage rebuild every second.
   final ValueNotifier<int> _sessionDurationNotifier = ValueNotifier(0);
@@ -189,7 +197,8 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
     // listener role); never downgrade an already-elevated role just
     // because this widget is re-mounting.
     if (widget.isHost || _videoService.role == ForumHeaderRole.listener) {
-      _videoService.role = widget.isHost ? ForumHeaderRole.host : ForumHeaderRole.listener;
+      _videoService.role =
+          widget.isHost ? ForumHeaderRole.host : ForumHeaderRole.listener;
     }
     _role = _videoService.role;
     _videoService.roleNotifier.addListener(_onServiceRoleChanged);
@@ -200,7 +209,8 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
           setState(() => _isScreenSharing = false);
         }
       }.toJS;
-      web.window.addEventListener('lynkScreenShareEnded', _onScreenShareEndedListener);
+      web.window.addEventListener(
+          'lynkScreenShareEnded', _onScreenShareEndedListener);
 
       _registerConnectionCallbacks();
 
@@ -240,7 +250,8 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
             ..style.objectFit = 'cover';
           el.setAttribute('playsinline', 'true');
           el.setAttribute('autoplay', 'true');
-          el.muted = true; // video tiles are silent — audio comes from the separate per-participant <audio> element
+          el.muted =
+              true; // video tiles are silent — audio comes from the separate per-participant <audio> element
           _participantSlotElements.add(el);
           ui_web.platformViewRegistry.registerViewFactory(
             viewType,
@@ -264,12 +275,21 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
   // Timers
   // ---------------------------------------------------------------------------
 
-  /// Polls audio level every 100ms and updates [_audioLevelNotifier].
-  /// Uses ValueNotifier.value = instead of setState() to avoid full rebuild.
+  /// Polls audio level every 100ms and updates [_audioLevelNotifier], plus
+  /// each other co-host's own level. Uses ValueNotifier.value = instead of
+  /// setState() to avoid full rebuild.
   void _startAudioLevelPolling() {
     _audioLevelTimer?.cancel();
     _audioLevelTimer = Timer.periodic(const Duration(milliseconds: 100), (_) {
       if (!mounted) return;
+      // Runs before the self-mute early return below: a muted viewer still
+      // needs to see other co-hosts speaking.
+      final selfId = Supabase.instance.client.auth.currentUser?.id;
+      _videoService.pollParticipantAudioLevels(
+        _videoService.participantsNotifier.value.keys
+            .where((id) => id != selfId)
+            .toList(),
+      );
       if (_isMicMuted) {
         if (_audioLevelNotifier.value != 0.0) _audioLevelNotifier.value = 0.0;
         return;
@@ -322,7 +342,7 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
   }
 
   // ---------------------------------------------------------------------------
-  // Combined stream memoization 
+  // Combined stream memoization
   // ---------------------------------------------------------------------------
 
   /// Rebuilds [_combinedStream] only when the underlying cubit message IDs have
@@ -341,7 +361,8 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
     } else {
       final chatIds = chatMsgs.map((m) => m.id).toList();
       final updateIds = updateMsgs.map((m) => m.id).toList();
-      if (listEquals(chatIds, _lastChatMsgIds) && listEquals(updateIds, _lastUpdateMsgIds)) {
+      if (listEquals(chatIds, _lastChatMsgIds) &&
+          listEquals(updateIds, _lastUpdateMsgIds)) {
         return; // Nothing changed — skip rebuild.
       }
       _lastChatMsgIds = chatIds;
@@ -354,7 +375,8 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
           id: msg.id,
           type: msg.type == MessageType.announcement ? 'announcement' : 'chat',
           sender: msg.sender,
-          role: msg.role == 'organizer' ? 'Organizer' : (msg.role ?? 'Spectator'),
+          role:
+              msg.role == 'organizer' ? 'Organizer' : (msg.role ?? 'Spectator'),
           text: msg.message,
           createdAt: msg.createdAt,
         ),
@@ -385,7 +407,8 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.paused || state == AppLifecycleState.detached) {
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached) {
       _videoService.releaseWakeLock();
     } else if (state == AppLifecycleState.resumed) {
       _videoService.requestWakeLock();
@@ -416,9 +439,11 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
     if (!_videoService.isMinimizedNotifier.value) {
       if (widget.isHost) {
         if (_isCameraOn) {
-          final success = await _videoService.startVideoStream(_elementId, isFrontCamera: _isFrontCamera);
+          final success = await _videoService.startVideoStream(_elementId,
+              isFrontCamera: _isFrontCamera);
           if (mounted && !success) {
-            AppSnackBars.showInfo(context, 'Camera permission requested or offline preview active');
+            AppSnackBars.showInfo(context,
+                'Camera permission requested or offline preview active');
           }
         } else {
           _videoService.toggleCamera(false);
@@ -462,7 +487,8 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
         hostSessionId: sessionId,
       );
       if (mounted && !success) {
-        AppSnackBars.showInfo(context, 'Could not connect to the live stream — check your connection.');
+        AppSnackBars.showInfo(context,
+            'Could not connect to the live stream — check your connection.');
       }
       if (!mounted || !success) return;
 
@@ -470,12 +496,14 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
       // publish video and audio as two distinct Cloudflare tracks). The
       // host's registry entry, if resolved, gives the real trackName;
       // falls back to the literal 'audio' default otherwise.
-      final hostParticipant = callParticipants.values.cast<CallParticipant?>().firstWhere(
-            (s) => s?.cfSessionId == sessionId,
-            orElse: () => null,
-          );
-      final hostAudioTrackName =
-          hostParticipant != null ? '${hostParticipant.trackName}:audio' : 'audio';
+      final hostParticipant =
+          callParticipants.values.cast<CallParticipant?>().firstWhere(
+                (s) => s?.cfSessionId == sessionId,
+                orElse: () => null,
+              );
+      final hostAudioTrackName = hostParticipant != null
+          ? '${hostParticipant.trackName}:audio'
+          : 'audio';
       await _videoService.subscribeToHostAudioForVideoCall(
         forumId: forumId,
         hostSessionId: sessionId,
@@ -487,7 +515,8 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
       // after it started, or joining mid-call) — mirrors
       // ForumAudioStreamCubit._pullAllParticipantTracks.
       for (final participant in callParticipants.values) {
-        if (participant.cfSessionId == sessionId) continue; // the host's own track, just pulled above
+        if (participant.cfSessionId == sessionId)
+          continue; // the host's own track, just pulled above
         await _pullParticipantMedia(participant);
       }
     } catch (e) {
@@ -537,7 +566,8 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
         return _participantSlotViewTypes[i];
       }
     }
-    debugPrint('[ForumVideoStage] No free participant slot for $userId — at capacity ($_maxParticipantSlots)');
+    debugPrint(
+        '[ForumVideoStage] No free participant slot for $userId — at capacity ($_maxParticipantSlots)');
     return null;
   }
 
@@ -581,8 +611,11 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
 
     if (action == 'participant_joined') {
       final participant = CallParticipant.fromJson(payload);
-      if (participant.userId.isEmpty || participant.userId == Supabase.instance.client.auth.currentUser?.id) return;
-      final updated = Map<String, CallParticipant>.from(_videoService.participantsNotifier.value);
+      if (participant.userId.isEmpty ||
+          participant.userId == Supabase.instance.client.auth.currentUser?.id)
+        return;
+      final updated = Map<String, CallParticipant>.from(
+          _videoService.participantsNotifier.value);
       updated[participant.userId] = participant;
       _videoService.participantsNotifier.value = updated;
 
@@ -601,7 +634,8 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
       final targetUserId = payload['targetUserId'] as String?;
       if (targetUserId != Supabase.instance.client.auth.currentUser?.id) return;
       final fromHostName = payload['fromHostName'] as String?;
-      _videoService.pendingVideoInviteFromHostName.value = fromHostName ?? 'The host';
+      _videoService.pendingVideoInviteFromHostName.value =
+          fromHostName ?? 'The host';
       return;
     }
 
@@ -617,7 +651,8 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
     // updated locally in _toggleMic/_toggleCamera).
     if (action == 'media_state_changed') {
       final userId = payload['userId'] as String?;
-      if (userId == null || userId == Supabase.instance.client.auth.currentUser?.id) return;
+      if (userId == null ||
+          userId == Supabase.instance.client.auth.currentUser?.id) return;
       final isMicMuted = payload['isMicMuted'] as bool?;
       final isCameraOn = payload['isCameraOn'] as bool?;
       // See _ownParticipantId's own comment on the 'host' sentinel — the
@@ -628,18 +663,27 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
         isMicMuted: isMicMuted,
         isCameraOn: isCameraOn,
       );
+      // The call tiles read the registry entry (keyed by real userId), not
+      // the presence list above.
+      _videoService.updateParticipantCallMedia(
+        userId,
+        isMicMuted: isMicMuted,
+        isCameraOn: isCameraOn,
+      );
       return;
     }
 
     if (action == 'participant_left') {
       final leftUserId = payload['userId'] as String?;
       if (leftUserId == null) return;
-      final updated = Map<String, CallParticipant>.from(_videoService.participantsNotifier.value)
+      final updated = Map<String, CallParticipant>.from(
+          _videoService.participantsNotifier.value)
         ..remove(leftUserId);
       _videoService.participantsNotifier.value = updated;
 
       _videoService.removeParticipantVideoTrack(leftUserId);
       _videoService.removeParticipantAudioTrack(leftUserId);
+      _videoService.removeParticipantAudioLevel(leftUserId);
       _freeParticipantSlot(leftUserId);
       return;
     }
@@ -660,7 +704,8 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
         hostSessionId: newSessionId,
       );
       if (mounted && !success) {
-        AppSnackBars.showInfo(context, 'Could not reconnect to the live stream — check your connection.');
+        AppSnackBars.showInfo(context,
+            'Could not reconnect to the live stream — check your connection.');
       }
     }());
   }
@@ -689,7 +734,9 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
   /// reconnect/rebroadcast strategy exactly — video just has no cubit of
   /// its own, so this lives on the stage widget's state instead.
   Future<void> _reconnectVideoPublish() async {
-    if (_isReconnectingVideoPublish || !_videoService.isLiveNotifier.value || !_isPublishingRole) {
+    if (_isReconnectingVideoPublish ||
+        !_videoService.isLiveNotifier.value ||
+        !_isPublishingRole) {
       return;
     }
     final forumId = widget.forumId;
@@ -697,6 +744,7 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
     final isHost = _role == ForumHeaderRole.host;
 
     _isReconnectingVideoPublish = true;
+    _videoService.isReconnectingNotifier.value = true;
     try {
       final newSessionId = await _videoService.createCloudflareSession(forumId);
       if (!mounted || newSessionId == null) return;
@@ -737,13 +785,16 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
       if (userId != null) {
         selfParticipant = CallParticipant(
           userId: userId,
-          userName: isHost ? widget.hostName : (context.read<ForumCubit>().state.userName.isNotEmpty
-              ? context.read<ForumCubit>().state.userName
-              : 'Speaker'),
+          userName: isHost
+              ? widget.hostName
+              : (context.read<ForumCubit>().state.userName.isNotEmpty
+                  ? context.read<ForumCubit>().state.userName
+                  : 'Speaker'),
           cfSessionId: newSessionId,
           trackName: userId,
         );
-        final updated = Map<String, CallParticipant>.from(_videoService.participantsNotifier.value);
+        final updated = Map<String, CallParticipant>.from(
+            _videoService.participantsNotifier.value);
         updated[userId] = selfParticipant;
         _videoService.participantsNotifier.value = updated;
       }
@@ -764,6 +815,7 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
       debugPrint('[ForumVideoStage] _reconnectVideoPublish error: $e');
     } finally {
       _isReconnectingVideoPublish = false;
+      _videoService.isReconnectingNotifier.value = false;
     }
   }
 
@@ -772,11 +824,14 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
     WidgetsBinding.instance.removeObserver(this);
     _videoService.roleNotifier.removeListener(_onServiceRoleChanged);
     if (kIsWeb && _onScreenShareEndedListener != null) {
-      web.window.removeEventListener('lynkScreenShareEnded', _onScreenShareEndedListener);
+      web.window.removeEventListener(
+          'lynkScreenShareEnded', _onScreenShareEndedListener);
     }
-    // Both registered unconditionally in _registerConnectionCallbacks()
-    // (a co-host needs both simultaneously) — clean up both the same way.
+    // All registered unconditionally in _registerConnectionCallbacks()
+    // (a co-host needs listener + publish callbacks simultaneously) —
+    // clean up all of them the same way.
     _videoService.removeListenerLostCallback();
+    _videoService.removeListenerReconnectingCallbacks();
     _videoService.removePublishReconnectCallbacks();
     _audioLevelTimer?.cancel();
     _durationTimer?.cancel();
@@ -811,14 +866,16 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
 
   Future<void> _toggleScreenShare() async {
     if (_isScreenSharing) {
-      await _videoService.startVideoStream(_elementId, isFrontCamera: _isFrontCamera);
+      await _videoService.startVideoStream(_elementId,
+          isFrontCamera: _isFrontCamera);
       setState(() => _isScreenSharing = false);
     } else {
       final success = await _videoService.startScreenShare(_elementId);
       if (success) {
         setState(() => _isScreenSharing = true);
       } else if (mounted) {
-        AppSnackBars.showInfo(context, 'Screen share cancelled or restricted on this mobile browser. Try Desktop or Chrome Android.');
+        AppSnackBars.showInfo(context,
+            'Screen share cancelled or restricted on this mobile browser. Try Desktop or Chrome Android.');
       }
     }
   }
@@ -836,7 +893,8 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
     setState(() => _isMicMuted = !_isMicMuted);
     _videoService.isMicMuted = _isMicMuted;
     _videoService.toggleMic(!_isMicMuted);
-    _videoService.updateParticipantMediaState(_ownParticipantId, isMicMuted: _isMicMuted);
+    _videoService.updateParticipantMediaState(_ownParticipantId,
+        isMicMuted: _isMicMuted);
     _broadcastOwnMediaState();
   }
 
@@ -844,7 +902,8 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
     setState(() => _isCameraOn = !_isCameraOn);
     _videoService.isCameraOn = _isCameraOn;
     _videoService.toggleCamera(_isCameraOn);
-    _videoService.updateParticipantMediaState(_ownParticipantId, isCameraOn: _isCameraOn);
+    _videoService.updateParticipantMediaState(_ownParticipantId,
+        isCameraOn: _isCameraOn);
     _broadcastOwnMediaState();
   }
 
@@ -905,9 +964,15 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
     ForumChatCubit? chatCubit;
     ForumUpdatesCubit? updatesCubit;
     ForumPresenceCubit? presenceCubit;
-    try { chatCubit = context.watch<ForumChatCubit>(); } catch (_) {}
-    try { updatesCubit = context.watch<ForumUpdatesCubit>(); } catch (_) {}
-    try { presenceCubit = context.watch<ForumPresenceCubit>(); } catch (_) {}
+    try {
+      chatCubit = context.watch<ForumChatCubit>();
+    } catch (_) {}
+    try {
+      updatesCubit = context.watch<ForumUpdatesCubit>();
+    } catch (_) {}
+    try {
+      presenceCubit = context.watch<ForumPresenceCubit>();
+    } catch (_) {}
 
     final presenceUsers = presenceCubit?.state.onlineUsers ?? [];
     if (presenceUsers.isNotEmpty) {
@@ -921,7 +986,9 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
       _maybeRebuildCombinedStream(chatMessages, updateMessages);
     }
     final activeCombinedStream =
-        (chatMessages.isNotEmpty || updateMessages.isNotEmpty) ? _combinedStream : _unifiedStreamMessages;
+        (chatMessages.isNotEmpty || updateMessages.isNotEmpty)
+            ? _combinedStream
+            : _unifiedStreamMessages;
 
     // --- Main stage area ---
     final mainStageArea = Expanded(
@@ -964,8 +1031,11 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
                                 isMicMuted: _isMicMuted,
                                 viewType: _viewType,
                                 participantSlotViewType: (userId) {
-                                  final slot = _participantSlotAssignment[userId];
-                                  return slot != null ? _participantSlotViewTypes[slot] : null;
+                                  final slot =
+                                      _participantSlotAssignment[userId];
+                                  return slot != null
+                                      ? _participantSlotViewTypes[slot]
+                                      : null;
                                 },
                               ),
 
@@ -973,12 +1043,16 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
                               const PresentationStageOverlay(),
 
                             // Focus / Deck mode Camera Off Overlay Placeholder
-                            if (!isGridMode && !_isCameraOn && !_isScreenSharing && !isLowBandwidth)
+                            if (!isGridMode &&
+                                !_isCameraOn &&
+                                !_isScreenSharing &&
+                                !isLowBandwidth)
                               CameraOffOverlay(hostName: widget.hostName),
 
                             // Low-Bandwidth Mode Overlay Placeholder
                             if (!isGridMode && isLowBandwidth)
-                              LowBandwidthFallbackOverlay(hostName: widget.hostName),
+                              LowBandwidthFallbackOverlay(
+                                  hostName: widget.hostName),
                           ],
                         );
                       },
@@ -996,7 +1070,8 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
             child: ValueListenableBuilder<StageLayoutMode>(
               valueListenable: _videoService.stageLayoutNotifier,
               builder: (context, layoutMode, _) {
-                if (layoutMode == StageLayoutMode.grid) return const SizedBox.shrink();
+                if (layoutMode == StageLayoutMode.grid)
+                  return const SizedBox.shrink();
                 return ValueListenableBuilder<List<StreamParticipant>>(
                   valueListenable: _videoService.activeParticipantsNotifier,
                   builder: (context, participants, _) {
@@ -1005,7 +1080,8 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
                       orElse: () => StreamParticipant(
                         id: 'host',
                         name: widget.hostName,
-                        role: _role == ForumHeaderRole.host ? 'Host' : 'Speaker',
+                        role:
+                            _role == ForumHeaderRole.host ? 'Host' : 'Speaker',
                         isSpeaking: !_isMicMuted,
                       ),
                     );
@@ -1057,7 +1133,8 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
               child: GestureDetector(
                 onTap: _showTelemetryDetailsModal,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   decoration: BoxDecoration(
                     color: Colors.black.withValues(alpha: 0.45),
                     borderRadius: BorderRadius.circular(8),
@@ -1072,7 +1149,8 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
                           return Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Icon(Icons.info_outline_rounded, color: Colors.white38, size: 12),
+                              const Icon(Icons.info_outline_rounded,
+                                  color: Colors.white38, size: 12),
                               const SizedBox(width: 6),
                               Text(
                                 '${telemetry.summaryLabel} • Uptime ${_formatDuration(seconds)}',
@@ -1147,6 +1225,4 @@ class _ForumVideoStageState extends State<ForumVideoStage> with WidgetsBindingOb
       ),
     );
   }
-
 }
-
