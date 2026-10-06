@@ -521,8 +521,9 @@ class _ForumVideoStageState extends State<ForumVideoStage>
       // after it started, or joining mid-call) — mirrors
       // ForumAudioStreamCubit._pullAllParticipantTracks.
       for (final participant in callParticipants.values) {
-        if (participant.cfSessionId == sessionId)
+        if (participant.cfSessionId == sessionId) {
           continue; // the host's own track, just pulled above
+        }
         await _pullParticipantMedia(participant);
       }
     } catch (e) {
@@ -621,8 +622,9 @@ class _ForumVideoStageState extends State<ForumVideoStage>
     if (action == 'participant_joined') {
       final participant = CallParticipant.fromJson(payload);
       if (participant.userId.isEmpty ||
-          participant.userId == Supabase.instance.client.auth.currentUser?.id)
+          participant.userId == Supabase.instance.client.auth.currentUser?.id) {
         return;
+      }
       final updated = Map<String, CallParticipant>.from(
           _videoService.participantsNotifier.value);
       updated[participant.userId] = participant;
@@ -661,7 +663,9 @@ class _ForumVideoStageState extends State<ForumVideoStage>
     if (action == 'media_state_changed') {
       final userId = payload['userId'] as String?;
       if (userId == null ||
-          userId == Supabase.instance.client.auth.currentUser?.id) return;
+          userId == Supabase.instance.client.auth.currentUser?.id) {
+        return;
+      }
       final isMicMuted = payload['isMicMuted'] as bool?;
       final isCameraOn = payload['isCameraOn'] as bool?;
       // See _ownParticipantId's own comment on the 'host' sentinel — the
@@ -1079,8 +1083,9 @@ class _ForumVideoStageState extends State<ForumVideoStage>
             child: ValueListenableBuilder<StageLayoutMode>(
               valueListenable: _videoService.stageLayoutNotifier,
               builder: (context, layoutMode, _) {
-                if (layoutMode == StageLayoutMode.grid)
+                if (layoutMode == StageLayoutMode.grid) {
                   return const SizedBox.shrink();
+                }
                 return ValueListenableBuilder<List<StreamParticipant>>(
                   valueListenable: _videoService.activeParticipantsNotifier,
                   builder: (context, participants, _) {

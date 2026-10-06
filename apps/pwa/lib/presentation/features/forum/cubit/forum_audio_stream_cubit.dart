@@ -365,8 +365,9 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
 
       case 'participant_left':
         final leftUserId = payload['userId'] as String?;
-        if (leftUserId == null || !state.participants.containsKey(leftUserId))
+        if (leftUserId == null || !state.participants.containsKey(leftUserId)) {
           return;
+        }
         final updated = Map<String, CallParticipant>.from(state.participants)
           ..remove(leftUserId);
         emit(state.copyWith(participants: updated));

@@ -7,8 +7,12 @@ import 'package:lynk_x/presentation/features/forum/models/forum_model.dart';
 import 'forum_ads_state.dart';
 
 /// Owns banner/interstitial ad state for the forum — semantic matching
-/// against the viewed event via pgvector RPC, falling back to the latest
-/// active campaigns, plus impression/click logging.
+/// against the viewed event via pgvector RPC, plus impression/click logging.
+/// Every ad shown must come from `match_ad_campaigns` (it carries the serve
+/// token that makes the ad billable and attributable to the forum's event and
+/// enforces the forum's `has_ads` gate), so when matching is unavailable the
+/// forum shows only the built-in upgrade ad rather than reading campaigns
+/// directly.
 class ForumAdsCubit extends Cubit<ForumAdsState> {
   static const int downloadInterstitialFrequency = 3;
   final String forumId;
@@ -69,6 +73,7 @@ class ForumAdsCubit extends Cubit<ForumAdsState> {
             'query_embedding': embeddingData,
             'match_type': 'banner',
             'match_count': 8,
+            'p_forum_id': forumId,
           }),
           Supabase.instance.client
               .schema('api')
@@ -76,6 +81,7 @@ class ForumAdsCubit extends Cubit<ForumAdsState> {
             'query_embedding': embeddingData,
             'match_type': 'interstitial',
             'match_count': 1,
+            'p_forum_id': forumId,
           }),
         ]);
 
@@ -98,61 +104,14 @@ class ForumAdsCubit extends Cubit<ForumAdsState> {
       }
     } catch (e, stack) {
       debugPrint('[ForumAdsCubit] Error matching tailored ads: $e\n$stack');
-      // Fallback to latest active ads if matching fails
     }
 
-    try {
-      final now = DateTime.now().toIso8601String();
-      final results = await Future.wait([
-        Supabase.instance.client
-            .schema('api')
-            .from('v1_ad_campaigns')
-            .select('*')
-            .eq('status', 'active')
-            .eq('type', 'banner')
-            .lte('start_at', now)
-            .gte('end_at', now)
-            .order('created_at', ascending: false)
-            .limit(8),
-        Supabase.instance.client
-            .schema('api')
-            .from('v1_ad_campaigns')
-            .select('*')
-            .eq('status', 'active')
-            .eq('type', 'interstitial')
-            .lte('start_at', now)
-            .gte('end_at', now)
-            .order('created_at', ascending: false)
-            .limit(1),
-      ]);
-
-      final bannerData = results[0] as List<dynamic>;
-      final interstitialData = results[1] as List<dynamic>;
-
-      final validBanners =
-          bannerData.map((json) => AdModel.fromMap(json)).toList();
-
-      AdModel? validInterstitial;
-      if (interstitialData.isNotEmpty) {
-        validInterstitial = AdModel.fromMap(interstitialData.first);
-      }
-
-      if (!isClosed) {
-        emit(state.copyWith(
-          ads: validBanners.isEmpty ? _defaultAds : validBanners,
-          interstitialAd: validInterstitial,
-          clearInterstitial: validInterstitial == null,
-          isLoading: false,
-        ));
-      }
-    } catch (e, stack) {
-      debugPrint('[ForumAdsCubit] Error grouping ads: $e\n$stack');
-      if (!isClosed) {
-        emit(state.copyWith(
-          ads: _defaultAds,
-          isLoading: false,
-        ));
-      }
+    if (!isClosed) {
+      emit(state.copyWith(
+        ads: _defaultAds,
+        clearInterstitial: true,
+        isLoading: false,
+      ));
     }
   }
 

@@ -369,9 +369,10 @@ abstract class BaseMessageCubit<T extends BaseMessageState>
   Future<void> deleteMessage(ChatMessage message) async {
     if (userId == kGuestUserId) return;
     final originalMessages = List<ChatMessage>.from(state.messages);
-    if (!isClosed)
+    if (!isClosed) {
       emit(copyWithState(
           messages: state.messages.where((m) => m.id != message.id).toList()));
+    }
 
     try {
       await Supabase.instance.client

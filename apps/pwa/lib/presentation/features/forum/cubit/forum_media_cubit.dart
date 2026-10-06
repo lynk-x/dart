@@ -92,8 +92,9 @@ class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
               url: existing.url,
               thumbnailUrl: existing.thumbnailUrl,
             );
-            if (!isClosed)
+            if (!isClosed) {
               emit(state.copyWith(mediaItems: _sortMedia(updatedList)));
+            }
           } else if (mediaItem.isApproved || isModeratorOrOrganizer) {
             // If newly approved/visible, fetch signed URL and prepend
             final path = getPathFromStorageUrl(mediaItem.url, 'forum_media');
@@ -292,8 +293,9 @@ class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
       }
     } catch (e, stack) {
       debugPrint('[ForumMediaCubit] Multi-upload error: $e\n$stack');
-      if (!isClosed)
+      if (!isClosed) {
         emit(state.copyWith(isUploading: false, error: e.toString()));
+      }
       rethrow;
     }
   }
