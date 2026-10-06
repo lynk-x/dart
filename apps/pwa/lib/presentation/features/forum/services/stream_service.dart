@@ -1315,8 +1315,9 @@ class ForumVideoStreamService {
       final participants = <String, CallParticipant>{};
       for (final row in rows) {
         final participant = CallParticipant.fromJson(row);
-        if (participant.userId.isNotEmpty)
+        if (participant.userId.isNotEmpty) {
           participants[participant.userId] = participant;
+        }
       }
       return participants;
     } catch (e) {
