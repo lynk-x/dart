@@ -54,9 +54,10 @@ class _MediaTabState extends State<MediaTab>
   void _onScroll() {
     final pos = _scrollController.position;
     final nearBottom = pos.pixels >= pos.maxScrollExtent - 200;
-    if (nearBottom && !_loadMoreTriggered) {
+    final cubit = context.read<ForumMediaCubit>();
+    if (nearBottom && !_loadMoreTriggered && cubit.state.hasMore && !cubit.state.isLoading) {
       _loadMoreTriggered = true;
-      context.read<ForumMediaCubit>().loadMore().whenComplete(
+      cubit.loadMore().whenComplete(
             () => _loadMoreTriggered = false,
           );
     }
@@ -162,6 +163,9 @@ class _MediaTabState extends State<MediaTab>
                                                 item.mediaType == 'video';
                                             final displayUrl =
                                                 item.thumbnailUrl ?? item.url;
+                                            final hasValidUrl =
+                                                displayUrl.startsWith('http://') ||
+                                                    displayUrl.startsWith('https://');
 
                                             return RepaintBoundary(
                                               key: ValueKey(item.id),
@@ -176,53 +180,67 @@ class _MediaTabState extends State<MediaTab>
                                                           BorderRadius.circular(
                                                               8),
                                                       child: isVideo
-                                                          ? const _VideoThumbnailPreview()
-                                                          : CachedNetworkImage(
-                                                              imageUrl: ImageOptimizer.getOptimizedUrl(
-                                                                displayUrl,
-                                                                width: 300,
-                                                              ),
-                                                              cacheManager:
-                                                                  LynkCacheManager
-                                                                      .instance,
-                                                              fit: BoxFit.cover,
-                                                              memCacheWidth:
-                                                                  300,
-                                                              placeholder:
-                                                                  (context,
-                                                                          url) =>
-                                                                      Container(
-                                                                color: Colors
-                                                                    .grey[900],
-                                                                child:
-                                                                    const Center(
-                                                                  child:
-                                                                      SizedBox(
-                                                                    width: 16,
-                                                                    height: 16,
-                                                                    child:
-                                                                        CircularProgressIndicator(
-                                                                      strokeWidth:
-                                                                          1.5,
-                                                                      color: AppColors
-                                                                          .tertiary,
+                                                          ? _VideoThumbnailPreview(
+                                                              thumbnailUrl: item.thumbnailUrl ?? item.url,
+                                                            )
+                                                          : (!hasValidUrl
+                                                              ? Container(
+                                                                  color: Colors
+                                                                      .grey[900],
+                                                                  child: const Center(
+                                                                    child: Icon(
+                                                                      Icons.broken_image,
+                                                                      color: Colors
+                                                                          .white24,
                                                                     ),
                                                                   ),
-                                                                ),
-                                                              ),
-                                                              errorWidget:
-                                                                  (context, url,
-                                                                          error) =>
-                                                                      Container(
-                                                                color: Colors
-                                                                    .grey[900],
-                                                                child: const Icon(
-                                                                    Icons
-                                                                        .broken_image,
+                                                                )
+                                                              : CachedNetworkImage(
+                                                                  imageUrl: ImageOptimizer.getOptimizedUrl(
+                                                                    displayUrl,
+                                                                    width: 300,
+                                                                  ),
+                                                                  cacheManager:
+                                                                      LynkCacheManager
+                                                                          .instance,
+                                                                  fit: BoxFit.cover,
+                                                                  memCacheWidth:
+                                                                      300,
+                                                                  placeholder:
+                                                                      (context,
+                                                                              url) =>
+                                                                          Container(
                                                                     color: Colors
-                                                                        .white10),
-                                                              ),
-                                                            ),
+                                                                        .grey[900],
+                                                                    child:
+                                                                        const Center(
+                                                                      child:
+                                                                          SizedBox(
+                                                                        width: 16,
+                                                                        height: 16,
+                                                                        child:
+                                                                            CircularProgressIndicator(
+                                                                          strokeWidth:
+                                                                              1.5,
+                                                                          color: AppColors
+                                                                              .tertiary,
+                                                                        ),
+                                                                      ),
+                                                                    ),
+                                                                  ),
+                                                                  errorWidget:
+                                                                      (context, url,
+                                                                              error) =>
+                                                                          Container(
+                                                                    color: Colors
+                                                                        .grey[900],
+                                                                    child: const Icon(
+                                                                        Icons
+                                                                            .broken_image,
+                                                                        color: Colors
+                                                                            .white10),
+                                                                  ),
+                                                                )),
                                                     ),
                                                     if (!item.isApproved)
                                                       Container(
@@ -267,7 +285,7 @@ class _MediaTabState extends State<MediaTab>
                                           },
                                           childCount: mediaState
                                                   .mediaItems.length +
-                                              (mediaState.isLoading ? 1 : 0),
+                                              (mediaState.isLoading && mediaState.hasMore ? 1 : 0),
                                         ),
                                       ),
                                     ),
@@ -279,7 +297,7 @@ class _MediaTabState extends State<MediaTab>
                 ),
                 if (!mainState.isMuted &&
                     (!mainState.isReadOnly || mainState.isOrganizer))
-                  _buildUploadActions(context, mediaState.isUploading)
+                  _buildUploadActions(context, mediaState)
                 else if (mainState.isMuted)
                   const DisabledStateBar(state: DisabledForumState.muted)
                 else if (mainState.isArchived && !mainState.isOrganizer)
@@ -294,7 +312,14 @@ class _MediaTabState extends State<MediaTab>
     );
   }
 
-  Widget _buildUploadActions(BuildContext context, bool isUploading) {
+  Widget _buildUploadActions(BuildContext context, ForumMediaState mediaState) {
+    final isUploading = mediaState.isUploading;
+    final uploadText = isUploading
+        ? (mediaState.uploadTotal > 1
+            ? 'Uploading ${mediaState.uploadCurrent}/${mediaState.uploadTotal}...'
+            : 'Uploading...')
+        : null;
+
     return Container(
       padding: const EdgeInsets.all(8),
       decoration: const BoxDecoration(
@@ -306,7 +331,7 @@ class _MediaTabState extends State<MediaTab>
           Expanded(
             child: PrimaryButton(
               icon: isUploading ? null : Icons.photo_camera,
-              text: isUploading ? 'Uploading...' : 'Open Camera',
+              text: isUploading ? uploadText! : 'Open Camera',
               onPressed: isUploading ? null : () => _openCamera(context),
             ),
           ),
@@ -314,7 +339,7 @@ class _MediaTabState extends State<MediaTab>
           Expanded(
             child: PrimaryButton(
               icon: isUploading ? null : Icons.photo_library,
-              text: isUploading ? 'Uploading...' : 'Upload Media',
+              text: isUploading ? uploadText! : 'Upload Media',
               onPressed: isUploading ? null : () => _pickFromGallery(context),
             ),
           ),
@@ -422,11 +447,6 @@ class _MediaTabState extends State<MediaTab>
   ) async {
     try {
       final count = files.length;
-      AppSnackBars.showInfo(
-        context,
-        'Uploading $count ${count > 1 ? 'items' : 'item'}...',
-      );
-
       await mediaCubit.uploadMultipleMedia(files: files);
 
       if (context.mounted) {
@@ -435,9 +455,12 @@ class _MediaTabState extends State<MediaTab>
       }
     } catch (e) {
       if (context.mounted) {
+        final message = e.toString().replaceFirst('Exception: ', '');
         AppSnackBars.showError(
           context,
-          'Access denied or upload failed. Please check your device settings.',
+          message.isNotEmpty
+              ? message
+              : 'Access denied or upload failed. Please check your device settings.',
         );
       }
     }
@@ -445,15 +468,38 @@ class _MediaTabState extends State<MediaTab>
 }
 
 class _VideoThumbnailPreview extends StatelessWidget {
-  const _VideoThumbnailPreview();
+  final String? thumbnailUrl;
+  const _VideoThumbnailPreview({this.thumbnailUrl});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      color: Colors.grey[900],
-      child: const Center(
-        child: Icon(Icons.play_circle_fill, color: Colors.white38, size: 36),
-      ),
+    final hasValidThumb = thumbnailUrl != null &&
+        (thumbnailUrl!.startsWith('http://') || thumbnailUrl!.startsWith('https://')) &&
+        !thumbnailUrl!.contains('.mp4') &&
+        !thumbnailUrl!.contains('.webm') &&
+        !thumbnailUrl!.contains('.mov');
+
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        if (hasValidThumb)
+          CachedNetworkImage(
+            imageUrl: ImageOptimizer.getOptimizedUrl(thumbnailUrl!, width: 300),
+            cacheManager: LynkCacheManager.instance,
+            fit: BoxFit.cover,
+            memCacheWidth: 300,
+            placeholder: (_, __) => Container(color: Colors.grey[900]),
+            errorWidget: (_, __, ___) => Container(color: Colors.grey[900]),
+          )
+        else
+          Container(color: Colors.grey[900]),
+        Container(
+          color: Colors.black26,
+          child: const Center(
+            child: Icon(Icons.play_circle_fill, color: Colors.white70, size: 36),
+          ),
+        ),
+      ],
     );
   }
 }
