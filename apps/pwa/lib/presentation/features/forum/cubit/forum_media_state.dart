@@ -5,12 +5,18 @@ class ForumMediaState extends Equatable {
   final List<ForumMedia> mediaItems;
   final bool isLoading;
   final bool isUploading;
+  final bool hasMore;
+  final int uploadCurrent;
+  final int uploadTotal;
   final String? error;
 
   const ForumMediaState({
     this.mediaItems = const [],
     this.isLoading = false,
     this.isUploading = false,
+    this.hasMore = true,
+    this.uploadCurrent = 0,
+    this.uploadTotal = 0,
     this.error,
   });
 
@@ -18,6 +24,9 @@ class ForumMediaState extends Equatable {
     List<ForumMedia>? mediaItems,
     bool? isLoading,
     bool? isUploading,
+    bool? hasMore,
+    int? uploadCurrent,
+    int? uploadTotal,
     String? error,
     bool clearError = false,
   }) {
@@ -25,24 +34,29 @@ class ForumMediaState extends Equatable {
       mediaItems: mediaItems ?? this.mediaItems,
       isLoading: isLoading ?? this.isLoading,
       isUploading: isUploading ?? this.isUploading,
+      hasMore: hasMore ?? this.hasMore,
+      uploadCurrent: uploadCurrent ?? this.uploadCurrent,
+      uploadTotal: uploadTotal ?? this.uploadTotal,
       error: clearError ? null : error ?? this.error,
     );
   }
 
   @override
-  List<Object?> get props => [mediaItems, isLoading, isUploading, error];
+  List<Object?> get props => [
+        mediaItems,
+        isLoading,
+        isUploading,
+        hasMore,
+        uploadCurrent,
+        uploadTotal,
+        error,
+      ];
 
-  Map<String, dynamic> toJson() {
-    return {
-      'mediaItems': mediaItems.map((m) => m.toMap()).toList(),
-    };
-  }
+  /// Presigned Cloudflare R2 storage URLs expire after 1 hour (X-Amz-Expires=3600).
+  /// Persisting them to disk cache causes HTTP 403 Forbidden errors when reopening
+  /// the app later. Fresh signed URLs are loaded on startup via [ForumMediaCubit.refreshMedia].
+  Map<String, dynamic> toJson() => {};
 
-  static ForumMediaState fromMap(Map<String, dynamic> map) {
-    return ForumMediaState(
-      mediaItems: (map['mediaItems'] as List? ?? [])
-          .map((m) => ForumMedia.fromMap(m as Map<String, dynamic>))
-          .toList(),
-    );
-  }
+  static ForumMediaState fromMap(Map<String, dynamic> map) =>
+      const ForumMediaState();
 }

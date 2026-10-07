@@ -54,8 +54,9 @@ class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
         // Deduplicate
         if (state.mediaItems.any((m) => m.id == mediaItem.id)) return;
 
-        // Filter permissions: General users only see approved media
-        if (!isModeratorOrOrganizer && !mediaItem.isApproved) return;
+        // Filter permissions: General users only see approved media or their own uploads
+        final isOwnUpload = mediaItem.uploaderId == userId;
+        if (!isModeratorOrOrganizer && !mediaItem.isApproved && !isOwnUpload) return;
 
         // Sign URL on-the-fly
         final path = getPathFromStorageUrl(mediaItem.url, 'forum_media');
@@ -63,20 +64,25 @@ class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
             await batchSignStorageUrls([mediaItem.url], 'forum_media');
         final signed = signedMap[path];
 
-        final finalItem = signed != null
-            ? mediaItem.copyWith(url: signed, thumbnailUrl: signed)
-            : mediaItem;
+        // Only add if URL was successfully signed into an HTTP URL; otherwise refreshMedia will resolve
+        if (signed == null) {
+          await refreshMedia();
+          return;
+        }
+
+        final finalItem = mediaItem.copyWith(url: signed, thumbnailUrl: signed);
 
         if (!isClosed) {
-          final updatedItems = [finalItem, ...state.mediaItems];
+          final updatedItems = [finalItem, ...state.mediaItems.where((m) => m.id != finalItem.id)];
           emit(state.copyWith(mediaItems: _sortMedia(updatedItems)));
         }
       } else if (payload.eventType == PostgresChangeEvent.update) {
         final data = payload.newRecord;
         final mediaItem = ForumMedia.fromMap(data);
+        final isOwnUpload = mediaItem.uploaderId == userId;
 
-        if (!isModeratorOrOrganizer && !mediaItem.isApproved) {
-          // If it got unapproved/rejected, remove it for general users
+        if (!isModeratorOrOrganizer && !mediaItem.isApproved && !isOwnUpload) {
+          // If it got unapproved/rejected, remove it for general users (unless own upload)
           final updated =
               state.mediaItems.where((m) => m.id != mediaItem.id).toList();
           if (!isClosed) emit(state.copyWith(mediaItems: _sortMedia(updated)));
@@ -95,19 +101,23 @@ class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
             if (!isClosed) {
               emit(state.copyWith(mediaItems: _sortMedia(updatedList)));
             }
-          } else if (mediaItem.isApproved || isModeratorOrOrganizer) {
+          } else if (mediaItem.isApproved || isModeratorOrOrganizer || isOwnUpload) {
             // If newly approved/visible, fetch signed URL and prepend
             final path = getPathFromStorageUrl(mediaItem.url, 'forum_media');
             final signedMap =
                 await batchSignStorageUrls([mediaItem.url], 'forum_media');
             final signed = signedMap[path];
-            final finalItem = signed != null
-                ? mediaItem.copyWith(url: signed, thumbnailUrl: signed)
-                : mediaItem;
+            if (signed != null) {
+              final finalItem =
+                  mediaItem.copyWith(url: signed, thumbnailUrl: signed);
 
-            if (!isClosed) {
-              final updatedItems = [finalItem, ...state.mediaItems];
-              emit(state.copyWith(mediaItems: _sortMedia(updatedItems)));
+              if (!isClosed) {
+                final updatedItems = [
+                  finalItem,
+                  ...state.mediaItems.where((m) => m.id != finalItem.id),
+                ];
+                emit(state.copyWith(mediaItems: _sortMedia(updatedItems)));
+              }
             }
           }
         }
@@ -151,7 +161,11 @@ class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
       }
 
       if (!isClosed) {
-        emit(state.copyWith(mediaItems: _sortMedia(media), isLoading: false));
+        emit(state.copyWith(
+          mediaItems: _sortMedia(media),
+          isLoading: false,
+          hasMore: data.length >= 20,
+        ));
       }
     } catch (e, stack) {
       debugPrint('[ForumMediaCubit] Error: $e\n$stack');
@@ -162,9 +176,10 @@ class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
   }
 
   Future<void> loadMore() async {
-    if (state.isLoading || state.isUploading || isClosed) return;
+    if (state.isLoading || state.isUploading || !state.hasMore || isClosed) return;
     emit(state.copyWith(isLoading: true));
     final startIndex = state.mediaItems.length;
+    const pageSize = 20;
     try {
       var query = Supabase.instance.client
           .schema('api')
@@ -176,9 +191,17 @@ class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
         query = query.or('is_approved.eq.true,uploader_id.eq.$userId');
       }
 
+      // Supabase range is inclusive on both ends: [startIndex, startIndex + pageSize - 1]
       final data = await query
           .order('created_at', ascending: false)
-          .range(startIndex, startIndex + 20);
+          .range(startIndex, startIndex + pageSize - 1);
+
+      if (data.isEmpty) {
+        if (!isClosed) {
+          emit(state.copyWith(isLoading: false, hasMore: false));
+        }
+        return;
+      }
 
       var more = data.map((json) => ForumMedia.fromMap(json)).toList();
 
@@ -196,9 +219,13 @@ class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
       }
 
       if (!isClosed) {
+        // Prevent duplicate keys by filtering against already loaded IDs
+        final existingIds = state.mediaItems.map((m) => m.id).toSet();
+        final uniqueMore = more.where((m) => !existingIds.contains(m.id)).toList();
         emit(state.copyWith(
-          mediaItems: _sortMedia([...state.mediaItems, ...more]),
+          mediaItems: _sortMedia([...state.mediaItems, ...uniqueMore]),
           isLoading: false,
+          hasMore: data.length >= pageSize,
         ));
       }
     } catch (e, stack) {
@@ -225,45 +252,79 @@ class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
     required List<XFile> files,
   }) async {
     if (isClosed || files.isEmpty) return;
-    emit(state.copyWith(isUploading: true));
-    try {
-      for (final file in files) {
+    emit(state.copyWith(
+      isUploading: true,
+      uploadCurrent: 0,
+      uploadTotal: files.length,
+      clearError: true,
+    ));
+
+    final succeeded = <String>[];
+    final errors = <String>[];
+    const maxFileSizeBytes = 100 * 1024 * 1024; // 100 MB max guard
+
+    for (var i = 0; i < files.length; i++) {
+      final file = files[i];
+      if (!isClosed) {
+        emit(state.copyWith(
+          isUploading: true,
+          uploadCurrent: i + 1,
+          uploadTotal: files.length,
+        ));
+      }
+
+      try {
+        final fileLength = await file.length();
+        if (fileLength > maxFileSizeBytes) {
+          throw Exception('File "${file.name}" exceeds the 100MB limit');
+        }
+
         final bytes = await file.readAsBytes();
         final ext = file.name.split('.').last.toLowerCase();
         final type = _videoExtensions.contains(ext) ? 'video' : 'image';
         final fileId = _uuid.v4();
         final fileName = '$fileId.$ext';
-        final mimeType = type == 'video' ? 'video/$ext' : 'image/$ext';
+        // Normalize MIME type (e.g. image/jpeg instead of non-standard image/jpg)
+        // to prevent SigV4 SignatureDoesNotMatch errors.
+        final mimeType = (ext == 'jpg' || ext == 'jpeg')
+            ? 'image/jpeg'
+            : (type == 'video' ? 'video/$ext' : 'image/$ext');
 
-        // 1. Request presigned upload URL from Edge Function
-        final uploadResponse = await Supabase.instance.client.functions.invoke(
-          'media-signer',
-          body: {
-            'action': 'upload',
-            'folder': 'forum_media/$forumId',
-            'filename': fileName,
-            'contentType': mimeType,
-            'mediaType': type,
-          },
-        );
+        // 1. Request presigned upload URL from Edge Function with timeout
+        final uploadResponse = await Supabase.instance.client.functions
+            .invoke(
+              'media-signer',
+              body: {
+                'action': 'upload',
+                'folder': 'forum_media/$forumId',
+                'filename': fileName,
+                'contentType': mimeType,
+                'mediaType': type,
+              },
+            )
+            .timeout(const Duration(seconds: 30));
 
         if (uploadResponse.status != 200) {
-          throw Exception('Failed to get presigned upload URL');
+          throw Exception('Failed to get presigned upload URL: ${uploadResponse.status}');
         }
 
         final uploadData = uploadResponse.data;
         final uploadUrl = uploadData['uploadUrl'] as String;
         final fileKey = uploadData['fileKey'] as String;
 
-        // 2. Upload file directly to R2
-        final putResponse = await http.put(
-          Uri.parse(uploadUrl),
-          headers: {'Content-Type': mimeType},
-          body: bytes,
-        );
+        // 2. Upload file directly to R2 with timeout
+        final putResponse = await http
+            .put(
+              Uri.parse(uploadUrl),
+              headers: {'Content-Type': mimeType},
+              body: bytes,
+            )
+            .timeout(const Duration(seconds: 60));
 
-        if (putResponse.statusCode != 200) {
-          throw Exception('Failed to upload file to R2: ${putResponse.body}');
+        // Accept all 2xx codes (e.g. 200 OK, 204 No Content from S3/R2)
+        if (putResponse.statusCode < 200 || putResponse.statusCode >= 300) {
+          throw Exception(
+              'Failed to upload file to R2: HTTP ${putResponse.statusCode} - ${putResponse.body}');
         }
 
         // 3. Insert record with R2 fileKey (which is signed on-the-fly when read)
@@ -285,18 +346,32 @@ class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
           },
           'is_approved': isModeratorOrOrganizer,
         });
-      }
 
-      if (!isClosed) {
-        emit(state.copyWith(isUploading: false));
+        succeeded.add(file.name);
+      } catch (e, stack) {
+        debugPrint('[ForumMediaCubit] Upload failed for ${file.name}: $e\n$stack');
+        errors.add('${file.name}: $e');
+      }
+    }
+
+    if (!isClosed) {
+      emit(state.copyWith(
+        isUploading: false,
+        uploadCurrent: 0,
+        uploadTotal: 0,
+        error: errors.isNotEmpty
+            ? (succeeded.isEmpty
+                ? 'Upload failed: ${errors.join(', ')}'
+                : 'Uploaded ${succeeded.length}/${files.length} items. Failed: ${errors.join(', ')}')
+            : null,
+      ));
+      if (succeeded.isNotEmpty) {
         await refreshMedia();
       }
-    } catch (e, stack) {
-      debugPrint('[ForumMediaCubit] Multi-upload error: $e\n$stack');
-      if (!isClosed) {
-        emit(state.copyWith(isUploading: false, error: e.toString()));
-      }
-      rethrow;
+    }
+
+    if (errors.isNotEmpty) {
+      throw Exception(errors.join('\n'));
     }
   }
 
