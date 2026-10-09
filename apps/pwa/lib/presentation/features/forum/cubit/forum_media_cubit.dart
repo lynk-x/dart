@@ -365,7 +365,7 @@ class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
           'id': fileId,
           'forum_id': forumId,
           if (effectiveForumCreatedAt != null)
-            'forum_created_at': effectiveForumCreatedAt.toIso8601String(),
+            'forum_created_at': effectiveForumCreatedAt.toUtc().toIso8601String(),
           'uploader_id': userId,
           'media_type': type,
           'media_url': {
@@ -468,6 +468,63 @@ class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
     } catch (e, stack) {
       debugPrint('[ForumMediaCubit] reportMedia error: $e\n$stack');
       rethrow;
+    }
+  }
+
+  /// Opts a media item out of event marketing recaps, ads, and promotional materials.
+  /// Callable by any forum member (e.g. attendee pictured), the uploader, or an organizer.
+  Future<bool> optOutMarketing(ForumMedia media) async {
+    try {
+      await Supabase.instance.client.schema('api').rpc(
+        'opt_out_media_marketing',
+        params: {
+          'p_media_id': media.id,
+          'p_media_created_at': media.createdAt.toIso8601String(),
+        },
+      );
+
+      final idx = state.mediaItems.indexWhere((m) => m.id == media.id);
+      if (idx != -1) {
+        final updatedList = List<ForumMedia>.from(state.mediaItems);
+        final currentMeta = Map<String, dynamic>.from(media.metadata ?? {});
+        currentMeta['is_marketing_eligible'] = false;
+        updatedList[idx] = media.copyWith(metadata: currentMeta);
+        if (!isClosed) emit(state.copyWith(mediaItems: updatedList));
+      }
+      return true;
+    } catch (e, stack) {
+      debugPrint('[ForumMediaCubit] optOutMarketing error: $e\n$stack');
+      if (!isClosed) emit(state.copyWith(error: e.toString()));
+      return false;
+    }
+  }
+
+  /// Sets whether a media item is eligible for event marketing recaps.
+  /// Re-enabling (setting true) is restricted to the uploader or an organizer.
+  Future<bool> setMarketingEligibility(ForumMedia media, bool isEligible) async {
+    try {
+      await Supabase.instance.client.schema('api').rpc(
+        'set_media_marketing_eligibility',
+        params: {
+          'p_media_id': media.id,
+          'p_media_created_at': media.createdAt.toIso8601String(),
+          'p_is_eligible': isEligible,
+        },
+      );
+
+      final idx = state.mediaItems.indexWhere((m) => m.id == media.id);
+      if (idx != -1) {
+        final updatedList = List<ForumMedia>.from(state.mediaItems);
+        final currentMeta = Map<String, dynamic>.from(media.metadata ?? {});
+        currentMeta['is_marketing_eligible'] = isEligible;
+        updatedList[idx] = media.copyWith(metadata: currentMeta);
+        if (!isClosed) emit(state.copyWith(mediaItems: updatedList));
+      }
+      return true;
+    } catch (e, stack) {
+      debugPrint('[ForumMediaCubit] setMarketingEligibility error: $e\n$stack');
+      if (!isClosed) emit(state.copyWith(error: e.toString()));
+      return false;
     }
   }
 
