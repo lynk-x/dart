@@ -103,6 +103,7 @@ class ForumBlocProviders extends StatelessWidget {
         BlocProvider(
           create: (context) => ForumMediaCubit(
             forumId: forumId,
+            forumCreatedAt: state.forumCreatedAt,
             userId: mainCubit.userId,
             isOrganizer: state.isOrganizer,
             isModerator: state.isModerator,

@@ -20,6 +20,8 @@ class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
   final ForumRepository repo;
   RealtimeChannel? _mediaSubscription;
 
+  DateTime? forumCreatedAt;
+
   bool get isModeratorOrOrganizer => isOrganizer || isModerator;
 
   List<ForumMedia> _sortMedia(List<ForumMedia> items) {
@@ -34,11 +36,19 @@ class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
 
   ForumMediaCubit({
     required this.forumId,
+    this.forumCreatedAt,
     required this.userId,
     required this.isOrganizer,
     required this.isModerator,
     required this.repo,
   }) : super(const ForumMediaState());
+
+  /// Synchronizes forum context timestamps for composite foreign keys and partition pruning.
+  void syncForumContext({DateTime? forumCreatedAt}) {
+    if (forumCreatedAt != null) {
+      this.forumCreatedAt = forumCreatedAt;
+    }
+  }
 
   Future<void> init() async {
     await refreshMedia();
@@ -263,6 +273,26 @@ class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
     final errors = <String>[];
     const maxFileSizeBytes = 100 * 1024 * 1024; // 100 MB max guard
 
+    // Resolve forumCreatedAt for the composite foreign key (forum_id, forum_created_at)
+    // and RLS policy partition pruning.
+    DateTime? effectiveForumCreatedAt = forumCreatedAt;
+    if (effectiveForumCreatedAt == null) {
+      try {
+        final res = await Supabase.instance.client
+            .schema('social')
+            .from('forums')
+            .select('created_at')
+            .eq('id', forumId)
+            .maybeSingle();
+        if (res != null && res['created_at'] != null) {
+          effectiveForumCreatedAt = DateTime.parse(res['created_at'] as String);
+          forumCreatedAt = effectiveForumCreatedAt;
+        }
+      } catch (e) {
+        debugPrint('[ForumMediaCubit] Fallback forumCreatedAt fetch failed: $e');
+      }
+    }
+
     for (var i = 0; i < files.length; i++) {
       final file = files[i];
       if (!isClosed) {
@@ -334,6 +364,8 @@ class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
             .insert({
           'id': fileId,
           'forum_id': forumId,
+          if (effectiveForumCreatedAt != null)
+            'forum_created_at': effectiveForumCreatedAt.toIso8601String(),
           'uploader_id': userId,
           'media_type': type,
           'media_url': {
