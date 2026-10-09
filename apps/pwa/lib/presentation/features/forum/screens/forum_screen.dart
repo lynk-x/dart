@@ -252,6 +252,9 @@ class _ForumViewState extends State<ForumView> {
                   channelId: state.channelId,
                   channelCreatedAt: state.channelCreatedAt,
                 );
+            context.read<ForumMediaCubit>().syncForumContext(
+                  forumCreatedAt: state.forumCreatedAt,
+                );
           },
         ),
         BlocListener<ForumCubit, ForumState>(
