@@ -18,7 +18,7 @@ import 'package:lynk_x/presentation/shared/utils/app_snackbars.dart';
 class MediaViewer extends StatefulWidget {
   final String? imageUrl;
   final ForumMedia? mediaItem;
-  final VoidCallback? onMention;
+  final void Function(ForumMedia)? onMention;
   final VoidCallback? onApprove;
   final VoidCallback? onReject;
 
@@ -34,7 +34,7 @@ class MediaViewer extends StatefulWidget {
   static void show(BuildContext context,
       {String? imageUrl,
       ForumMedia? mediaItem,
-      VoidCallback? onMention,
+      void Function(ForumMedia)? onMention,
       VoidCallback? onApprove,
       VoidCallback? onReject}) {
         
@@ -425,14 +425,17 @@ class _MediaViewerState extends State<MediaViewer> {
                           isUploader: isUploader,
                         ),
                       ),
-                      // Members with no moderation authority get their own
-                      // action here instead of the bottom Approve/Reject bar
-                      // (which stays organizer/moderator-only) — Delete for
-                      // their own upload, Report for anyone else's.
-                      if (!isAuthorized && currentUserId != null) ...[
+                      // Members and organizers get an action menu next to the attribution chip:
+                      // - Uploader: Marketing toggle & Delete
+                      // - Attendee: Exclude from Marketing & Report Violation
+                      // - Organizer: Marketing toggle & Moderator controls
+                      if (currentUserId != null) ...[
                         const SizedBox(width: 8),
                         _MediaMemberAction(
+                          media: currentMedia,
                           isUploader: isUploader,
+                          isAuthorized: isAuthorized,
+                          onMention: widget.onMention,
                           onDelete: () async {
                             if (!hasCubit) return;
                             final success = await context.read<ForumMediaCubit>().deleteMedia(currentMedia);
@@ -441,6 +444,31 @@ class _MediaViewerState extends State<MediaViewer> {
                               Navigator.pop(context);
                             } else {
                               AppSnackBars.showError(context, 'Failed to delete media. Please try again.');
+                            }
+                          },
+                          onOptOutMarketing: () async {
+                            if (!hasCubit) return;
+                            final success = await context.read<ForumMediaCubit>().optOutMarketing(currentMedia);
+                            if (!context.mounted) return;
+                            if (success) {
+                              AppSnackBars.showSuccess(context, 'Photo excluded from event marketing materials.');
+                            } else {
+                              AppSnackBars.showError(context, 'Failed to update marketing preference.');
+                            }
+                          },
+                          onToggleMarketing: (eligible) async {
+                            if (!hasCubit) return;
+                            final success = await context.read<ForumMediaCubit>().setMarketingEligibility(currentMedia, eligible);
+                            if (!context.mounted) return;
+                            if (success) {
+                              AppSnackBars.showSuccess(
+                                context,
+                                eligible
+                                    ? 'Marketing permission enabled.'
+                                    : 'Photo excluded from marketing materials.',
+                              );
+                            } else {
+                              AppSnackBars.showError(context, 'Failed to update marketing preference.');
                             }
                           },
                           onReport: (reasonId) async {
@@ -588,13 +616,40 @@ class _MediaAttribution extends StatelessWidget {
         ? 'Shared by $displayName · $relativeTime'
         : relativeTime;
 
-    return Text(
-      text,
-      style: AppTypography.inter(
-        fontSize: 11,
-        color: Colors.white.withValues(alpha: 0.75),
-      ),
-      overflow: TextOverflow.ellipsis,
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Text(
+          text,
+          style: AppTypography.inter(
+            fontSize: 11,
+            color: Colors.white.withValues(alpha: 0.75),
+          ),
+          overflow: TextOverflow.ellipsis,
+        ),
+        if (!media.isMarketingEligible) ...[
+          const SizedBox(height: 3),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.shield_outlined,
+                size: 11,
+                color: Colors.amberAccent.withValues(alpha: 0.9),
+              ),
+              const SizedBox(width: 4),
+              Text(
+                'Excluded from marketing',
+                style: AppTypography.inter(
+                  fontSize: 10,
+                  color: Colors.amberAccent.withValues(alpha: 0.9),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ],
     );
   }
 }
@@ -636,14 +691,24 @@ void showMediaDeleteConfirmation(BuildContext context, VoidCallback onDelete) {
 /// instead, so the same person never gets two different ways to remove
 /// the same item.
 class _MediaMemberAction extends StatelessWidget {
+  final ForumMedia media;
   final bool isUploader;
+  final bool isAuthorized;
   final VoidCallback onDelete;
+  final VoidCallback onOptOutMarketing;
+  final ValueChanged<bool> onToggleMarketing;
   final ValueChanged<String> onReport;
+  final void Function(ForumMedia)? onMention;
 
   const _MediaMemberAction({
+    required this.media,
     required this.isUploader,
+    this.isAuthorized = false,
     required this.onDelete,
+    required this.onOptOutMarketing,
+    required this.onToggleMarketing,
     required this.onReport,
+    this.onMention,
   });
 
   void _confirmDelete(BuildContext context) {
@@ -699,10 +764,192 @@ class _MediaMemberAction extends StatelessWidget {
     );
   }
 
+  void _showOptionsSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF141414),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (bottomSheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 24.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Media Options',
+                style: AppTypography.interTight(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(height: 16),
+              if (onMention != null) ...[
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: Colors.blueAccent.withValues(alpha: 0.12),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.chat_bubble_outline_rounded, color: Colors.blueAccent, size: 20),
+                  ),
+                  title: const Text(
+                    'Discuss in Live Chat',
+                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 15),
+                  ),
+                  subtitle: const Text(
+                    'Attach this photo to a message in community chat',
+                    style: TextStyle(color: Colors.white54, fontSize: 12),
+                  ),
+                  trailing: const Icon(Icons.chevron_right, color: Colors.white38, size: 20),
+                  onTap: () {
+                    Navigator.pop(bottomSheetContext);
+                    Navigator.pop(context);
+                    onMention?.call(media);
+                  },
+                ),
+                const Divider(color: Colors.white12, height: 24),
+              ],
+              if (isUploader || isAuthorized) ...[
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.08),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.campaign_outlined, color: Colors.white70, size: 20),
+                  ),
+                  title: const Text(
+                    'Marketing & Highlights',
+                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 15),
+                  ),
+                  subtitle: Text(
+                    media.isMarketingEligible
+                        ? 'Eligible for event highlights and promo recaps'
+                        : 'Excluded from event marketing materials',
+                    style: const TextStyle(color: Colors.white54, fontSize: 12),
+                  ),
+                  trailing: Switch(
+                    value: media.isMarketingEligible,
+                    activeThumbColor: context.accentColor,
+                    onChanged: (val) {
+                      Navigator.pop(bottomSheetContext);
+                      onToggleMarketing(val);
+                    },
+                  ),
+                ),
+                if (isUploader) ...[
+                  const Divider(color: Colors.white12, height: 24),
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: Colors.redAccent.withValues(alpha: 0.12),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 20),
+                    ),
+                    title: const Text(
+                      'Delete Photo',
+                      style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.w600, fontSize: 15),
+                    ),
+                    subtitle: const Text(
+                      'Permanently remove this upload from the forum',
+                      style: TextStyle(color: Colors.white54, fontSize: 12),
+                    ),
+                    onTap: () {
+                      Navigator.pop(bottomSheetContext);
+                      _confirmDelete(context);
+                    },
+                  ),
+                ],
+              ] else ...[
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: media.isMarketingEligible
+                          ? Colors.amberAccent.withValues(alpha: 0.12)
+                          : Colors.greenAccent.withValues(alpha: 0.12),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.shield_outlined,
+                      color: media.isMarketingEligible ? Colors.amberAccent : Colors.greenAccent,
+                      size: 20,
+                    ),
+                  ),
+                  title: Text(
+                    media.isMarketingEligible ? 'Exclude from Event Marketing' : 'Excluded from Marketing',
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 15),
+                  ),
+                  subtitle: Text(
+                    media.isMarketingEligible
+                        ? "I'm in this photo — keep in forum, but don't feature in promo recaps or ads."
+                        : 'This photo has been opted out of event marketing materials.',
+                    style: const TextStyle(color: Colors.white54, fontSize: 12),
+                  ),
+                  trailing: media.isMarketingEligible
+                      ? const Icon(Icons.chevron_right, color: Colors.white38, size: 20)
+                      : const Icon(Icons.check_circle, color: Colors.greenAccent, size: 20),
+                  onTap: media.isMarketingEligible
+                      ? () {
+                          Navigator.pop(bottomSheetContext);
+                          onOptOutMarketing();
+                        }
+                      : null,
+                ),
+                const Divider(color: Colors.white12, height: 24),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.08),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.flag_outlined, color: Colors.white70, size: 20),
+                  ),
+                  title: const Text(
+                    'Report Content Violation',
+                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 15),
+                  ),
+                  subtitle: const Text(
+                    'Inappropriate content, spam, or harassment',
+                    style: TextStyle(color: Colors.white54, fontSize: 12),
+                  ),
+                  trailing: const Icon(Icons.chevron_right, color: Colors.white38, size: 20),
+                  onTap: () {
+                    Navigator.pop(bottomSheetContext);
+                    _showReportSheet(context);
+                  },
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: () => isUploader ? _confirmDelete(context) : _showReportSheet(context),
+      onTap: () => _showOptionsSheet(context),
       child: Container(
         width: 30,
         height: 30,
@@ -710,10 +957,10 @@ class _MediaMemberAction extends StatelessWidget {
           color: Colors.black.withValues(alpha: 0.45),
           shape: BoxShape.circle,
         ),
-        child: Icon(
-          isUploader ? Icons.delete_outline : Icons.flag_outlined,
-          size: 15,
-          color: Colors.white.withValues(alpha: 0.75),
+        child: const Icon(
+          Icons.more_vert,
+          size: 16,
+          color: Colors.white70,
         ),
       ),
     );

@@ -1267,11 +1267,13 @@ class _ForumViewState extends State<ForumView> {
 
   void _navigateToTab(int index) {
     context.read<ForumCubit>().setTabIndex(index);
-    _pageController.animateToPage(
-      index,
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeInOut,
-    );
+    if (_pageController.hasClients) {
+      _pageController.animateToPage(
+        index,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
+    }
   }
 
   void _pushCreatedQuizMessage({
@@ -1348,17 +1350,26 @@ class _ForumViewState extends State<ForumView> {
     MediaViewer.show(context, imageUrl: url);
   }
 
+  void _handleMentionMedia(ForumMedia media) {
+    _navigateToTab(1);
+    context.read<ForumChatCubit>().setMentionedMedia(media);
+  }
+
   void _viewForumMedia(ForumMedia item) {
     final mediaCubit = context.read<ForumMediaCubit>();
     final forumCubit = context.read<ForumCubit>();
     final isAuthorized =
         forumCubit.state.isOrganizer || forumCubit.state.isModerator;
     final isUploader = item.uploaderId == forumCubit.userId;
+    final showChat = context
+        .read<FeatureFlagCubit>()
+        .isEnabled('enable_forum_live_chat');
 
     MediaViewer.show(
       context,
       imageUrl: item.url,
       mediaItem: item,
+      onMention: showChat ? _handleMentionMedia : null,
       onApprove: (isAuthorized && !item.isApproved)
           ? () => mediaCubit.approveMedia(item)
           : null,

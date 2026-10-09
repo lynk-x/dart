@@ -355,6 +355,7 @@ class ForumMedia {
   final String? uploaderId;
   final String? uploaderName;
   final bool isApproved;
+  final Map<String, dynamic>? metadata;
   final DateTime createdAt;
 
   const ForumMedia({
@@ -366,8 +367,18 @@ class ForumMedia {
     this.uploaderId,
     this.uploaderName,
     this.isApproved = true,
+    this.metadata,
     required this.createdAt,
   });
+
+  /// True unless explicitly opted out of marketing in metadata.
+  bool get isMarketingEligible {
+    if (metadata == null) return true;
+    final val = metadata!['is_marketing_eligible'];
+    if (val is bool) return val;
+    if (val is String) return val.toLowerCase() != 'false';
+    return true;
+  }
 
   factory ForumMedia.fromMap(Map<String, dynamic> map) {
     final mediaUrl = map['media_url'] as Map<String, dynamic>? ?? {};
@@ -384,6 +395,9 @@ class ForumMedia {
           uploaderProfile?['full_name'] as String? ??
           map['uploader_name'] as String?,
       isApproved: map['is_approved'] == true,
+      metadata: map['metadata'] is Map<String, dynamic>
+          ? Map<String, dynamic>.from(map['metadata'] as Map)
+          : null,
       createdAt: DateTime.parse(map['created_at'] as String),
     );
   }
@@ -397,6 +411,7 @@ class ForumMedia {
       'caption': caption,
       'uploader_id': uploaderId,
       'is_approved': isApproved,
+      'metadata': metadata,
       'created_at': createdAt.toIso8601String(),
     };
   }
@@ -410,6 +425,7 @@ class ForumMedia {
     String? uploaderId,
     String? uploaderName,
     bool? isApproved,
+    Map<String, dynamic>? metadata,
     DateTime? createdAt,
   }) {
     return ForumMedia(
@@ -421,6 +437,7 @@ class ForumMedia {
       uploaderId: uploaderId ?? this.uploaderId,
       uploaderName: uploaderName ?? this.uploaderName,
       isApproved: isApproved ?? this.isApproved,
+      metadata: metadata ?? this.metadata,
       createdAt: createdAt ?? this.createdAt,
     );
   }
