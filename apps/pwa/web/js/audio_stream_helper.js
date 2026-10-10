@@ -145,6 +145,10 @@ window.lynkAudioStreamHelper = {
   _listenerReconnectTimer: null,
   _listenerParams: null,
   _listenerStopped: false,
+  _audioStallWatchdogTimer: null,
+  _lastInboundAudioBytes: 0,
+  _audioStallStrikes: 0,
+  _audioListenerStartedAt: 0,
 
   // ─── Host publish (audio-only calls) ───
   // This was previously entirely missing: startLocalMicrophone() only ever
@@ -360,6 +364,7 @@ window.lynkAudioStreamHelper = {
   _midToParticipantId: {},
 
   initCloudflareListenerConnection() {
+    this._stopInboundAudioWatchdog();
     if (this.listenerPeerConnection) {
       try { this.listenerPeerConnection.close(); } catch (_) {}
     }
@@ -400,6 +405,7 @@ window.lynkAudioStreamHelper = {
   // by renegotiating the same Cloudflare session, so each attempt redoes
   // the full join (fresh listener session + fresh offer) via joinAsListener.
   _scheduleListenerReconnect() {
+    this._stopInboundAudioWatchdog();
     if (this._listenerStopped || !this._listenerParams) return;
     if (this._listenerReconnectTimer) return;
     if (this._listenerReconnectAttempts >= 3) {
@@ -411,7 +417,7 @@ window.lynkAudioStreamHelper = {
     const attempt = this._listenerReconnectAttempts;
     this._listenerReconnectAttempts++;
     const delayMs = 1000 * Math.pow(2, attempt);
-    console.log(`[AudioStreamHelper] Listener connection ${this.listenerPeerConnection.iceConnectionState}, retrying in ${delayMs}ms (attempt ${attempt + 1}/3)`);
+    console.log(`[AudioStreamHelper] Listener connection ${this.listenerPeerConnection && this.listenerPeerConnection.iceConnectionState}, retrying in ${delayMs}ms (attempt ${attempt + 1}/3)`);
     // Lets Dart show a "Reconnecting…" state while a retry is in flight,
     // rather than only learning about trouble once all 3 attempts are
     // exhausted (lynkAudioListenerLost, below).
@@ -423,6 +429,83 @@ window.lynkAudioStreamHelper = {
       const p = this._listenerParams;
       await this.joinAsListener(p.edgeFunctionUrl, p.authToken, p.forumId, p.remoteSessionId, p.remoteTrackName);
     }, delayMs);
+  },
+
+  // Inbound audio stall watchdog: detects when WebRTC claims the connection
+  // is 'connected' or 'completed', but inbound bytes have completely frozen
+  // (e.g. mobile radio handoff, edge routing stall, or suspended decoder).
+  _startInboundAudioWatchdog() {
+    this._stopInboundAudioWatchdog();
+    this._lastInboundAudioBytes = 0;
+    this._audioStallStrikes = 0;
+    this._audioListenerStartedAt = performance.now();
+
+    const WARMUP_MS = 4000;
+    const MAX_STRIKES = 5; // 5 consecutive seconds with 0 new audio bytes received while connected
+
+    this._audioStallWatchdogTimer = setInterval(async () => {
+      if (this._listenerStopped || !this.listenerPeerConnection) {
+        this._stopInboundAudioWatchdog();
+        return;
+      }
+
+      // Allow 4s warm-up for ICE negotiation and media buffers to start flowing
+      if (performance.now() - this._audioListenerStartedAt < WARMUP_MS) return;
+
+      const pc = this.listenerPeerConnection;
+      const iceState = pc.iceConnectionState;
+
+      // Only evaluate when ICE claims the connection is alive/working
+      if (iceState !== 'connected' && iceState !== 'completed') {
+        this._audioStallStrikes = 0;
+        return;
+      }
+
+      try {
+        let currentBytes = 0;
+        let hasInboundAudio = false;
+
+        const stats = await pc.getStats();
+        stats.forEach((report) => {
+          if (report.type === 'inbound-rtp' && report.kind === 'audio') {
+            hasInboundAudio = true;
+            if (report.bytesReceived !== undefined) {
+              currentBytes += report.bytesReceived;
+            }
+          }
+        });
+
+        if (!hasInboundAudio) return;
+
+        // If bytes received hasn't advanced while connected, count a strike
+        if (this._lastInboundAudioBytes > 0 && currentBytes <= this._lastInboundAudioBytes) {
+          this._audioStallStrikes++;
+          console.warn(`[AudioStreamHelper] Inbound audio stall detected (strike ${this._audioStallStrikes}/${MAX_STRIKES})`);
+
+          if (this._audioStallStrikes >= MAX_STRIKES) {
+            console.warn('[AudioStreamHelper] Inbound audio stall sustained for 5s — triggering watchdog reconnect');
+            this._stopInboundAudioWatchdog();
+            this._scheduleListenerReconnect();
+            return;
+          }
+        } else {
+          this._audioStallStrikes = 0;
+        }
+
+        this._lastInboundAudioBytes = currentBytes;
+      } catch (err) {
+        console.warn('[AudioStreamHelper] Watchdog stats check error:', err);
+      }
+    }, 1000);
+  },
+
+  _stopInboundAudioWatchdog() {
+    if (this._audioStallWatchdogTimer) {
+      clearInterval(this._audioStallWatchdogTimer);
+      this._audioStallWatchdogTimer = null;
+    }
+    this._audioStallStrikes = 0;
+    this._lastInboundAudioBytes = 0;
   },
 
   // Joins an already-live host session in one Edge Function round-trip
@@ -475,6 +558,7 @@ window.lynkAudioStreamHelper = {
             window.dispatchEvent(new CustomEvent('lynkAudioListenerReconnected'));
           }
           this._listenerReconnectAttempts = 0;
+          this._startInboundAudioWatchdog();
           return true;
         }
       } else {
@@ -592,6 +676,7 @@ window.lynkAudioStreamHelper = {
   // stream from the audio element. Does NOT touch localAudioStream (the
   // listener's own mic, if they're also speaking) — that's stopLocalMicrophone's job.
   stopListening() {
+    this._stopInboundAudioWatchdog();
     this._listenerStopped = true;
     this._listenerParams = null;
     this._listenerReconnectAttempts = 0;

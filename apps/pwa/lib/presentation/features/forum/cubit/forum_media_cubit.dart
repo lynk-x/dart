@@ -9,6 +9,7 @@ import 'package:lynk_x/core/utils/retry.dart';
 import 'package:lynk_x/core/utils/upload_put.dart';
 import 'package:lynk_x/core/utils/storage_utils.dart';
 import 'package:lynk_x/data/repositories/forum_repository.dart';
+import 'package:lynk_x/presentation/features/forum/core/upload_preview_math.dart';
 import 'forum_media_state.dart';
 
 /// Owns the forum's media tab — upload (via R2 presigned URLs), moderation
@@ -257,8 +258,6 @@ class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
   // Full images are capped at 2048 px on the long edge; grid thumbnails at 480 px.
   static const _fullMaxEdge = 2048;
   static const _thumbMaxEdge = 480;
-  // Animated / vector formats where re-encoding to JPEG would destroy the content.
-  static const _resizeSkipExtensions = {'gif', 'svg'};
 
   /// Requests a presigned upload URL for [fileName] and PUTs [bytes] to R2.
   /// Returns the stored file key; throws on any failure.
@@ -335,15 +334,6 @@ class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
     });
   }
 
-  static const _videoExtensions = {
-    'mp4',
-    'mov',
-    'm4v',
-    'webm',
-    'mkv',
-    'avi',
-    '3gp',
-  };
 
   /// Uploads multiple media items to Cloudflare R2 via Edge Function presigned URL.
   /// [keepOriginal] uploads photos untouched (organizers, moderators, premium users — decided by
@@ -389,7 +379,7 @@ class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
 
         var bytes = await file.readAsBytes();
         final ext = file.name.split('.').last.toLowerCase();
-        final type = _videoExtensions.contains(ext) ? 'video' : 'image';
+        final type = kUploadVideoExtensions.contains(ext) ? 'video' : 'image';
         final fileId = _uuid.v4();
         var fileName = '$fileId.$ext';
         // Normalize MIME type (e.g. image/jpeg instead of non-standard image/jpg)
@@ -402,7 +392,7 @@ class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
         // make a small thumbnail for the grid. Skipped for video, and for GIF/SVG (animation / vector),
         // and silently falls back to the untouched original if the browser can't decode it.
         Uint8List? thumbBytes;
-        if (type == 'image' && !_resizeSkipExtensions.contains(ext)) {
+        if (type == 'image' && !kUploadKeepAsIsExtensions.contains(ext)) {
           if (!keepOriginal) {
             final resized = await resizeImageToJpeg(bytes, maxEdge: _fullMaxEdge, quality: 0.85);
             if (resized != null && resized.length < bytes.length) {

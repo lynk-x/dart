@@ -30,6 +30,24 @@ window.lynkMicProcessor = (function () {
   let wasmPromise = null;
   let lastStatus = { mode: 'none' };
 
+  // A device that overloaded once will very likely do so again, and each attempt costs the user a
+  // few choppy seconds before the watchdog gives up — so skip RNNoise there for a while. The
+  // override 'lynk_neural_ns' = '1' still forces it on (for testing); the memory expires.
+  const SLOW_KEY = 'lynk_neural_ns_slow_until';
+  const SLOW_DEVICE_MS = 7 * 24 * 60 * 60 * 1000;
+
+  function markDeviceSlow() {
+    try { localStorage.setItem(SLOW_KEY, String(Date.now() + SLOW_DEVICE_MS)); } catch (_) {}
+  }
+
+  function deviceRecentlySlow() {
+    try {
+      return Number(localStorage.getItem(SLOW_KEY) || 0) > Date.now();
+    } catch (_) {
+      return false;
+    }
+  }
+
   function readOverride() {
     try {
       return localStorage.getItem('lynk_neural_ns');
@@ -58,6 +76,30 @@ window.lynkMicProcessor = (function () {
     return wasmPromise;
   }
 
+  // Re-opens the mic with the browser's noise suppression ON, on the same device. Used when RNNoise
+  // can't run (startup) or is bypassed (watchdog). track.applyConstraints() is deliberately NOT
+  // used for this: audio-processing settings can't be relied on to change on a live track (the
+  // call resolves but the setting may stay as it was), whereas constraints given at capture time
+  // are the canonical, cross-browser way to get browser suppression.
+  async function reacquireWithBrowserSuppression(oldStream) {
+    const settings = (oldStream.getAudioTracks()[0] && oldStream.getAudioTracks()[0].getSettings()) || {};
+    const constraints = {
+      echoCancellation: true,
+      noiseSuppression: true,
+      autoGainControl: api.isAutoGainEnabled(),
+      channelCount: 1,
+      sampleRate: SAMPLE_RATE,
+    };
+    if (settings.deviceId) constraints.deviceId = { exact: settings.deviceId };
+    try {
+      return await navigator.mediaDevices.getUserMedia({ audio: constraints });
+    } catch (e) {
+      if (!constraints.deviceId) throw e;
+      delete constraints.deviceId; // the device went away: any mic beats none
+      return navigator.mediaDevices.getUserMedia({ audio: constraints });
+    }
+  }
+
   function withTimeout(promise, ms) {
     return Promise.race([
       promise,
@@ -75,6 +117,7 @@ window.lynkMicProcessor = (function () {
     isNeuralEnabled() {
       if (readOverride() === '0') return false;
       if (readOverride() === '1') return true;
+      if (deviceRecentlySlow()) return false;
       return window.lynkMicConfig.neuralNoiseSuppression !== false
         && typeof AudioWorkletNode !== 'undefined'
         && typeof WebAssembly !== 'undefined';
@@ -160,15 +203,22 @@ window.lynkMicProcessor = (function () {
       const fallback = async (reason) => {
         console.warn('[MicProcessor] falling back to browser noise suppression:', reason);
         lastStatus = { mode: 'browser_fallback', reason: String(reason), setupMs: Math.round(performance.now() - startedAt) };
-        // The raw track was captured with noiseSuppression off — turn it back on.
-        for (const track of rawStream.getAudioTracks()) {
-          try { await track.applyConstraints({ noiseSuppression: true }); } catch (_) {}
+        // The raw capture was opened with browser noise suppression OFF (RNNoise was going to do
+        // the job). Capture again with it ON; if that fails keep the existing mic — no suppression
+        // but a working mic beats none.
+        let stream = rawStream;
+        try {
+          const fresh = await reacquireWithBrowserSuppression(rawStream);
+          rawStream.getTracks().forEach((t) => t.stop());
+          stream = fresh;
+        } catch (e) {
+          console.warn('[MicProcessor] could not re-open the mic with browser noise suppression:', e && e.message);
         }
         return {
-          stream: rawStream,
+          stream,
           processed: false,
           dispose() {
-            rawStream.getTracks().forEach((t) => t.stop());
+            stream.getTracks().forEach((t) => t.stop());
           },
         };
       };
@@ -194,7 +244,8 @@ window.lynkMicProcessor = (function () {
 
         if (ctx.state === 'suspended') await ctx.resume().catch(() => {});
 
-        const source = ctx.createMediaStreamSource(rawStream);
+        let currentRaw = rawStream;
+        let source = ctx.createMediaStreamSource(rawStream);
 
         // 1. High-pass — handling thumps / rumble that confuse the denoiser.
         const highPass = ctx.createBiquadFilter();
@@ -235,17 +286,71 @@ window.lynkMicProcessor = (function () {
 
         lastStatus = { mode: 'neural', setupMs: Math.round(performance.now() - startedAt) };
         let disposed = false;
+        let degraded = false;
+        let stopWatchdog = function () {};
+
+        // Bypass RNNoise inside the live graph, then hand noise suppression back to the browser by
+        // swapping the graph's INPUT to a fresh capture opened with it on. The published track is the
+        // same MediaStreamDestination track throughout, so nothing is renegotiated or replaced.
+        const degrade = (reason, detail) => {
+          if (degraded || disposed) return;
+          degraded = true;
+          stopWatchdog();
+          try { highPass.connect(compressor); } catch (_) {}   // connect the bypass first: no dead air
+          try { highPass.disconnect(rnnoise); } catch (_) {}
+          try { rnnoise.port.postMessage('destroy'); } catch (_) {}
+          try { rnnoise.disconnect(); } catch (_) {}
+          lastStatus = {
+            mode: 'browser_fallback',
+            reason: detail ? reason + ' ' + JSON.stringify(detail) : reason,
+            setupMs: lastStatus.setupMs,
+            degradedAfterMs: Math.round(performance.now() - startedAt),
+          };
+          console.warn('[MicProcessor] RNNoise bypassed mid-call:', lastStatus.reason);
+          if (reason === 'cpu_overload') markDeviceSlow();
+          // Lets the app report it (mic_status_reporter.dart listens for this).
+          window.dispatchEvent(new CustomEvent('lynk-mic-status', { detail: lastStatus }));
+
+          reacquireWithBrowserSuppression(currentRaw).then((fresh) => {
+            if (disposed) { fresh.getTracks().forEach((t) => t.stop()); return; }
+            const freshSource = ctx.createMediaStreamSource(fresh);
+            freshSource.connect(highPass);
+            try { source.disconnect(); } catch (_) {}
+            currentRaw.getTracks().forEach((t) => t.stop());
+            currentRaw = fresh;
+            source = freshSource;
+          }).catch((e) => {
+            // Keep the existing capture: the call continues, just without any noise suppression.
+            console.warn('[MicProcessor] could not switch to browser noise suppression:', e && e.message);
+          });
+        };
+
+        const cfg = window.lynkMicConfig;
+        if (cfg.cpuWatchdog !== false && window.lynkMicWatchdog) {
+          stopWatchdog = window.lynkMicWatchdog.watch(
+            ctx,
+            (detail) => degrade('cpu_overload', detail),
+            cfg.cpuWatchdogOptions
+          );
+        }
+
         return {
           stream: destination.stream,
-          processed: true,
+          // True only while RNNoise is actually in the path; flips to false if the watchdog trips.
+          get processed() { return !degraded; },
+          // Diagnostics/tests: the graph's AudioContext, and a way to bypass RNNoise on demand.
+          context: ctx,
+          get rawStream() { return currentRaw; },
+          degrade: (reason) => degrade(reason || 'manual'),
           dispose() {
             if (disposed) return;
             disposed = true;
+            stopWatchdog();
             try { rnnoise.port.postMessage('destroy'); } catch (_) {}
             try { source.disconnect(); } catch (_) {}
             try { rnnoise.disconnect(); } catch (_) {}
             destination.stream.getTracks().forEach((t) => t.stop());
-            rawStream.getTracks().forEach((t) => t.stop());
+            currentRaw.getTracks().forEach((t) => t.stop());
             ctx.close().catch(() => {});
           },
         };

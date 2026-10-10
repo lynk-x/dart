@@ -152,7 +152,6 @@ class _HomeViewState extends State<HomeView>
         );
         if (confirmed != true) return;
 
-
         web.window.history.back();
       },
       child: Scaffold(
@@ -255,7 +254,9 @@ class _HomeViewState extends State<HomeView>
                               childAspectRatio: 1.38,
                             ),
                             itemCount: state.events.length +
-                                (state.isLoadingMore || state.loadMoreFailed ? 1 : 0),
+                                (state.isLoadingMore || state.loadMoreFailed
+                                    ? 1
+                                    : 0),
                             itemBuilder: (context, index) {
                               if (index == state.events.length) {
                                 return state.loadMoreFailed
@@ -282,11 +283,14 @@ class _HomeViewState extends State<HomeView>
                           controller: _scrollController,
                           padding: const EdgeInsets.all(12),
                           itemCount: state.events.length +
-                              (state.isLoadingMore || state.loadMoreFailed ? 1 : 0),
+                              (state.isLoadingMore || state.loadMoreFailed
+                                  ? 1
+                                  : 0),
                           itemBuilder: (context, index) {
                             // Bottom pagination spinner
                             if (index == state.events.length) {
-                              if (state.loadMoreFailed) return const _LoadMoreRetry();
+                              if (state.loadMoreFailed)
+                                return const _LoadMoreRetry();
                               return Padding(
                                 padding: const EdgeInsets.all(16.0),
                                 child: Center(
