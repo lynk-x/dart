@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:lynk_x/core/network/lynk_cache_manager.dart';
 import 'package:lynk_x/core/utils/image_optimizer.dart';
+import 'unread_badge_text.dart';
 
 /// A card widget displaying a forum event summary on the home feed.
 ///
@@ -42,9 +43,7 @@ class ForumWidget extends StatelessWidget {
     return DateFormat('EEE, MMM d • h:mm a').format(endDatetime);
   }
 
-  /// The feed only knows *whether* a forum has unread messages, not how many, so a single unread
-  /// shows as a plain dot instead of a misleading "1".
-  String get _unreadBadgeText => event.chatCount > 1 ? event.chatCount.toString() : '';
+  String get _unreadBadgeText => unreadBadgeText(event.chatCount);
 
   @override
   Widget build(BuildContext context) {

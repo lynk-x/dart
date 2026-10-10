@@ -286,8 +286,8 @@ class ForumCubit extends Cubit<ForumState> {
   /// Marks the forum read for this user (advances forum_members.last_read_at to now).
   ///
   /// Called when the forum opens AND when it is left: everything that arrived while the user was
-  /// inside (their own messages included) has been seen, and without the second call the home
-  /// list's has_unread flag — last_message_at > last_read_at — stays true for it afterwards.
+  /// inside has been seen, and without the second call the home list's unread count — the forum's
+  /// message_seq minus the member's read position — would still include it afterwards.
   /// Calls within two seconds of the last one are skipped (back button + close() both fire).
   Future<void> markAsRead() => _markAsRead();
 

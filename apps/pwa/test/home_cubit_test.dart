@@ -63,6 +63,7 @@ Map<String, dynamic> _row(String id, {required bool past, bool unread = false}) 
     'event_starts_at': end.subtract(const Duration(hours: 4)).toUtc().toIso8601String(),
     'event_ends_at': end.toUtc().toIso8601String(),
     'has_unread': unread,
+    'unread_count': unread ? 7 : 0,
   };
 }
 
@@ -227,9 +228,18 @@ void main() {
       await cubit.close();
     });
 
-    test('EventModel reads the has_unread column of v1_user_forums', () {
-      expect(EventModel.fromMap(_row('x', past: false, unread: true)).hasUnread, isTrue);
-      expect(EventModel.fromMap(_row('y', past: false)).hasUnread, isFalse);
+    test('EventModel reads the real unread_count of v1_user_forums', () {
+      final unread = EventModel.fromMap(_row('x', past: false, unread: true));
+      expect(unread.chatCount, 7);
+      expect(unread.hasUnread, isTrue);
+      final read = EventModel.fromMap(_row('y', past: false));
+      expect(read.chatCount, 0);
+      expect(read.hasUnread, isFalse);
+    });
+
+    test('EventModel falls back to the boolean flag when no count is present', () {
+      final row = _row('z', past: false, unread: true)..remove('unread_count');
+      expect(EventModel.fromMap(row).chatCount, 1);
     });
   });
 }
