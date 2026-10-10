@@ -20,6 +20,7 @@ import 'package:lynk_x/presentation/features/forum/cubit/forum_audio_stream_cubi
 import 'package:lynk_x/presentation/features/forum/cubit/forum_audio_stream_state.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/header.dart' show ForumHeaderRole;
 import 'package:lynk_x/presentation/shared/widgets/empty_state.dart';
+import 'package:lynk_x/presentation/features/forum/widgets/message_list_keys.dart';
 
 /// The 'Updates' tab content for the Forum.
 class UpdatesTab extends StatefulWidget {
@@ -230,23 +231,7 @@ class _UpdatesScrollView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return CustomScrollView(
-      controller: scrollController,
-      reverse: true,
-      slivers: [
-        if (updatesState.messages.isEmpty && !updatesState.isLoading)
-          const SliverFillRemaining(
-            hasScrollBody: false,
-            child: EmptyState(
-              message: 'No messages yet. Start the conversation!',
-            ),
-          ),
-        if (updatesState.messages.isNotEmpty)
-          SliverPadding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-            sliver: SliverList(
-              delegate: SliverChildBuilderDelegate(
-                (context, index) {
+    Widget buildItem(BuildContext context, int index) {
                   if (index == updatesState.messages.length) {
                     return Center(
                       child: Padding(
@@ -331,7 +316,31 @@ class _UpdatesScrollView extends StatelessWidget {
                     onReply: () => updatesCubit.setReplyTo(message),
                     child: bubble,
                   );
+    }
+
+    return CustomScrollView(
+      controller: scrollController,
+      reverse: true,
+      slivers: [
+        if (updatesState.messages.isEmpty && !updatesState.isLoading)
+          const SliverFillRemaining(
+            hasScrollBody: false,
+            child: EmptyState(
+              message: 'No messages yet. Start the conversation!',
+            ),
+          ),
+        if (updatesState.messages.isNotEmpty)
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+            sliver: SliverList(
+              delegate: SliverChildBuilderDelegate(
+                (context, index) {
+                  final item = buildItem(context, index);
+                  return index < updatesState.messages.length
+                      ? keyedMessageItem(updatesState.messages[index], item)
+                      : item;
                 },
+                findChildIndexCallback: messageChildIndexFinder(updatesState.messages),
                 childCount: updatesState.messages.isNotEmpty
                     ? updatesState.messages.length +
                         (updatesState.isLoading ? 1 : 0)

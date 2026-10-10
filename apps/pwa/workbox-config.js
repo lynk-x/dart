@@ -30,7 +30,12 @@ module.exports = {
     '**/*.map',
     'service-worker.js',
     'firebase-messaging-sw.js',
+    'rnnoise-warmup.js',
   ],
+
+  // Warm the 'rnnoise' runtime cache from the CDN at SW install (non-fatal, unlike a
+  // precache entry — see the header of rnnoise-warmup.js).
+  importScripts: ['rnnoise-warmup.js'],
 
   // ── SW Behaviour ──────────────────────────────────────────────────────────
   // skipWaiting + clientsClaim = new SW activates immediately on deploy,
@@ -84,6 +89,25 @@ module.exports = {
         cacheableResponse: { statuses: [0, 200] },
         expiration: {
           maxEntries: 30,
+          maxAgeSeconds: 60 * 60 * 24 * 365, // 1 year
+        },
+      },
+    },
+
+    // ── RNNoise (cdn.lynk-x.app/models/rnnoise/<version>/): Cache-first ────────
+    // Neural mic noise suppression for forum calls — worklet + wasm (~150 KB each).
+    // Version-pinned paths are immutable, so cache for a year. rnnoise-warmup.js fills this
+    // cache at SW install; this rule serves it and is the fallback fill. Must come before the
+    // /models/ and general media rules below — Workbox uses the first match, and both would
+    // otherwise claim these URLs (wrong cache, so the warm-up's entries would never be hit).
+    {
+      urlPattern: /^https:\/\/cdn\.lynk-x\.app\/models\/rnnoise\//,
+      handler: 'CacheFirst',
+      options: {
+        cacheName: 'rnnoise',
+        cacheableResponse: { statuses: [0, 200] },
+        expiration: {
+          maxEntries: 6,
           maxAgeSeconds: 60 * 60 * 24 * 365, // 1 year
         },
       },

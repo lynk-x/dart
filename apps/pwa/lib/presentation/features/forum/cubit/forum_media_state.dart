@@ -8,6 +8,8 @@ class ForumMediaState extends Equatable {
   final bool hasMore;
   final int uploadCurrent;
   final int uploadTotal;
+  // 0.0-1.0 progress of the file currently uploading.
+  final double uploadProgress;
   final String? error;
 
   const ForumMediaState({
@@ -17,6 +19,7 @@ class ForumMediaState extends Equatable {
     this.hasMore = true,
     this.uploadCurrent = 0,
     this.uploadTotal = 0,
+    this.uploadProgress = 0.0,
     this.error,
   });
 
@@ -27,6 +30,7 @@ class ForumMediaState extends Equatable {
     bool? hasMore,
     int? uploadCurrent,
     int? uploadTotal,
+    double? uploadProgress,
     String? error,
     bool clearError = false,
   }) {
@@ -37,6 +41,7 @@ class ForumMediaState extends Equatable {
       hasMore: hasMore ?? this.hasMore,
       uploadCurrent: uploadCurrent ?? this.uploadCurrent,
       uploadTotal: uploadTotal ?? this.uploadTotal,
+      uploadProgress: uploadProgress ?? this.uploadProgress,
       error: clearError ? null : error ?? this.error,
     );
   }
@@ -49,6 +54,7 @@ class ForumMediaState extends Equatable {
         hasMore,
         uploadCurrent,
         uploadTotal,
+        uploadProgress,
         error,
       ];
 

@@ -17,7 +17,11 @@ class _FakeEventRepository extends EventRepository {
 
   @override
   Future<List<Map<String, dynamic>>> getUserForums(String userId,
-          {int limit = 15, String? afterStartsAt, String? afterForumId}) async =>
+          {int limit = 15,
+          required bool past,
+          required DateTime anchor,
+          String? afterEndsAt,
+          String? afterForumId}) async =>
       [];
 }
 

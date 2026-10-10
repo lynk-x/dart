@@ -3,8 +3,10 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:uuid/uuid.dart';
-import 'package:http/http.dart' as http;
 import 'package:lynk_x/presentation/features/forum/models/forum_model.dart';
+import 'package:lynk_x/core/utils/image_resizer.dart';
+import 'package:lynk_x/core/utils/retry.dart';
+import 'package:lynk_x/core/utils/upload_put.dart';
 import 'package:lynk_x/core/utils/storage_utils.dart';
 import 'package:lynk_x/data/repositories/forum_repository.dart';
 import 'forum_media_state.dart';
@@ -20,9 +22,42 @@ class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
   final ForumRepository repo;
   RealtimeChannel? _mediaSubscription;
 
+  // Files whose last upload attempt failed, kept so the user can retry without re-picking them.
+  List<XFile> _failedFiles = const [];
+  bool _failedKeepOriginal = false;
+  bool get hasFailedUploads => _failedFiles.isNotEmpty;
+
+  /// Re-attempts every file that failed in the last upload. Files that already uploaded are not
+  /// repeated, since only the failures were kept.
+  Future<void> retryFailedUploads() async {
+    if (_failedFiles.isEmpty) return;
+    await uploadMultipleMedia(files: List.of(_failedFiles), keepOriginal: _failedKeepOriginal);
+  }
+
   DateTime? forumCreatedAt;
 
   bool get isModeratorOrOrganizer => isOrganizer || isModerator;
+
+  /// Storage keys that need signing for [items]: the full-res key, plus the thumbnail
+  /// when it's a separate object (legacy rows point both at the same file).
+  List<String> _keysToSign(Iterable<ForumMedia> items) => [
+        for (final m in items) ...[
+          m.url,
+          if (m.thumbnailUrl != null && m.thumbnailUrl != m.url) m.thumbnailUrl!,
+        ],
+      ];
+
+  /// [item] with signed full and thumbnail URLs, or null when the full-res key couldn't
+  /// be signed. A thumbnail that fails to sign falls back to the full image.
+  ForumMedia? _applySigned(ForumMedia item, Map<String, String> signedMap) {
+    final full = signedMap[getPathFromStorageUrl(item.url, 'forum_media')];
+    if (full == null) return null;
+    final thumbKey = item.thumbnailUrl;
+    final thumb = (thumbKey == null || thumbKey == item.url)
+        ? full
+        : signedMap[getPathFromStorageUrl(thumbKey, 'forum_media')] ?? full;
+    return item.copyWith(url: full, thumbnailUrl: thumb);
+  }
 
   List<ForumMedia> _sortMedia(List<ForumMedia> items) {
     return List<ForumMedia>.from(items)
@@ -69,18 +104,14 @@ class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
         if (!isModeratorOrOrganizer && !mediaItem.isApproved && !isOwnUpload) return;
 
         // Sign URL on-the-fly
-        final path = getPathFromStorageUrl(mediaItem.url, 'forum_media');
-        final signedMap =
-            await batchSignStorageUrls([mediaItem.url], 'forum_media');
-        final signed = signedMap[path];
+        final signedMap = await batchSignStorageUrls(_keysToSign([mediaItem]), 'forum_media');
+        final finalItem = _applySigned(mediaItem, signedMap);
 
         // Only add if URL was successfully signed into an HTTP URL; otherwise refreshMedia will resolve
-        if (signed == null) {
+        if (finalItem == null) {
           await refreshMedia();
           return;
         }
-
-        final finalItem = mediaItem.copyWith(url: signed, thumbnailUrl: signed);
 
         if (!isClosed) {
           final updatedItems = [finalItem, ...state.mediaItems.where((m) => m.id != finalItem.id)];
@@ -113,14 +144,9 @@ class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
             }
           } else if (mediaItem.isApproved || isModeratorOrOrganizer || isOwnUpload) {
             // If newly approved/visible, fetch signed URL and prepend
-            final path = getPathFromStorageUrl(mediaItem.url, 'forum_media');
-            final signedMap =
-                await batchSignStorageUrls([mediaItem.url], 'forum_media');
-            final signed = signedMap[path];
-            if (signed != null) {
-              final finalItem =
-                  mediaItem.copyWith(url: signed, thumbnailUrl: signed);
-
+            final signedMap = await batchSignStorageUrls(_keysToSign([mediaItem]), 'forum_media');
+            final finalItem = _applySigned(mediaItem, signedMap);
+            if (finalItem != null) {
               if (!isClosed) {
                 final updatedItems = [
                   finalItem,
@@ -158,16 +184,8 @@ class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
       var media = data.map((json) => ForumMedia.fromMap(json)).toList();
 
       if (media.isNotEmpty) {
-        final urls = media.map((m) => m.url).toList();
-        final signedMap = await batchSignStorageUrls(urls, 'forum_media');
-        media = media.map((m) {
-          final path = getPathFromStorageUrl(m.url, 'forum_media');
-          final signed = signedMap[path];
-          if (signed != null) {
-            return m.copyWith(url: signed, thumbnailUrl: signed);
-          }
-          return m;
-        }).toList();
+        final signedMap = await batchSignStorageUrls(_keysToSign(media), 'forum_media');
+        media = media.map((m) => _applySigned(m, signedMap) ?? m).toList();
       }
 
       if (!isClosed) {
@@ -216,16 +234,8 @@ class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
       var more = data.map((json) => ForumMedia.fromMap(json)).toList();
 
       if (more.isNotEmpty) {
-        final urls = more.map((m) => m.url).toList();
-        final signedMap = await batchSignStorageUrls(urls, 'forum_media');
-        more = more.map((m) {
-          final path = getPathFromStorageUrl(m.url, 'forum_media');
-          final signed = signedMap[path];
-          if (signed != null) {
-            return m.copyWith(url: signed, thumbnailUrl: signed);
-          }
-          return m;
-        }).toList();
+        final signedMap = await batchSignStorageUrls(_keysToSign(more), 'forum_media');
+        more = more.map((m) => _applySigned(m, signedMap) ?? m).toList();
       }
 
       if (!isClosed) {
@@ -244,6 +254,87 @@ class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
     }
   }
 
+  // Full images are capped at 2048 px on the long edge; grid thumbnails at 480 px.
+  static const _fullMaxEdge = 2048;
+  static const _thumbMaxEdge = 480;
+  // Animated / vector formats where re-encoding to JPEG would destroy the content.
+  static const _resizeSkipExtensions = {'gif', 'svg'};
+
+  /// Requests a presigned upload URL for [fileName] and PUTs [bytes] to R2.
+  /// Returns the stored file key; throws on any failure.
+  Future<String> _putToR2(
+    Uint8List bytes,
+    String fileName,
+    String mimeType,
+    String mediaType, {
+    void Function(double fraction)? onProgress,
+  }) {
+    // Each attempt asks for a fresh presigned URL, so an expired or half-used one never poisons a retry.
+    return retryTransient(() async {
+      final uploadResponse = await Supabase.instance.client.functions
+          .invoke(
+            'media-signer',
+            body: {
+              'action': 'upload',
+              'folder': 'forum_media/$forumId',
+              'filename': fileName,
+              'contentType': mimeType,
+              'mediaType': mediaType,
+            },
+          )
+          .timeout(const Duration(seconds: 30));
+
+      if (uploadResponse.status != 200) {
+        throw Exception('Failed to get presigned upload URL: ${uploadResponse.status}');
+      }
+
+      final uploadData = uploadResponse.data;
+      final uploadUrl = uploadData['uploadUrl'] as String;
+      final fileKey = uploadData['fileKey'] as String;
+
+      // Stall-based timeout, not a fixed one: a large video on a slow connection can legitimately
+      // take minutes, so this only gives up when no bytes have left the device for 30 s.
+      final status = await putBytesWithProgress(
+        Uri.parse(uploadUrl),
+        bytes,
+        mimeType,
+        onProgress: onProgress,
+      );
+
+      // Accept all 2xx codes (e.g. 200 OK, 204 No Content from S3/R2)
+      if (status < 200 || status >= 300) {
+        final detail = 'Failed to upload file to R2: HTTP $status';
+        // 5xx / 429 are worth another try; other statuses (403 bad signature, 400) are not.
+        if (status >= 500 || status == 429) {
+          throw TransientFailure(detail);
+        }
+        throw Exception(detail);
+      }
+      return fileKey;
+    });
+  }
+
+  /// Registers the uploaded file via api.add_forum_media, retrying dropped connections. The RPC
+  /// checks permissions, resolves forum_created_at and decides approval server-side, and is
+  /// idempotent on [id] — so a retry after a lost response returns the existing row rather than
+  /// creating a duplicate.
+  Future<void> _registerMedia({
+    required String id,
+    required String mediaType,
+    required Map<String, dynamic> mediaUrl,
+    required Map<String, dynamic> metadata,
+  }) {
+    return retryTransient(() async {
+      await Supabase.instance.client.schema('api').rpc('add_forum_media', params: {
+        'p_forum_id': forumId,
+        'p_id': id,
+        'p_media_type': mediaType,
+        'p_media_url': mediaUrl,
+        'p_metadata': metadata,
+      });
+    });
+  }
+
   static const _videoExtensions = {
     'mp4',
     'mov',
@@ -255,22 +346,28 @@ class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
   };
 
   /// Uploads multiple media items to Cloudflare R2 via Edge Function presigned URL.
+  /// [keepOriginal] uploads photos untouched (organizers, moderators, premium users — decided by
+  /// the caller); otherwise photos are downscaled and re-encoded to save data. The grid
+  /// thumbnail is generated either way.
   /// Each file's type is inferred from its own extension rather than shared
   /// across the whole batch, so a single call can carry a mix of photos and
   /// videos (e.g. from the unified "Upload Media" picker).
   Future<void> uploadMultipleMedia({
     required List<XFile> files,
+    bool keepOriginal = false,
   }) async {
     if (isClosed || files.isEmpty) return;
     emit(state.copyWith(
       isUploading: true,
       uploadCurrent: 0,
       uploadTotal: files.length,
+      uploadProgress: 0.0,
       clearError: true,
     ));
 
     final succeeded = <String>[];
     final errors = <String>[];
+    final failedFiles = <XFile>[];
     const maxFileSizeBytes = 100 * 1024 * 1024; // 100 MB max guard
 
     for (var i = 0; i < files.length; i++) {
@@ -280,6 +377,7 @@ class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
           isUploading: true,
           uploadCurrent: i + 1,
           uploadTotal: files.length,
+          uploadProgress: 0.0,
         ));
       }
 
@@ -289,90 +387,97 @@ class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
           throw Exception('File "${file.name}" exceeds the 100MB limit');
         }
 
-        final bytes = await file.readAsBytes();
+        var bytes = await file.readAsBytes();
         final ext = file.name.split('.').last.toLowerCase();
         final type = _videoExtensions.contains(ext) ? 'video' : 'image';
         final fileId = _uuid.v4();
-        final fileName = '$fileId.$ext';
+        var fileName = '$fileId.$ext';
         // Normalize MIME type (e.g. image/jpeg instead of non-standard image/jpg)
         // to prevent SigV4 SignatureDoesNotMatch errors.
-        final mimeType = (ext == 'jpg' || ext == 'jpeg')
+        var mimeType = (ext == 'jpg' || ext == 'jpeg')
             ? 'image/jpeg'
             : (type == 'video' ? 'video/$ext' : 'image/$ext');
 
-        // 1. Request presigned upload URL from Edge Function with timeout
-        final uploadResponse = await Supabase.instance.client.functions
-            .invoke(
-              'media-signer',
-              body: {
-                'action': 'upload',
-                'folder': 'forum_media/$forumId',
-                'filename': fileName,
-                'contentType': mimeType,
-                'mediaType': type,
-              },
-            )
-            .timeout(const Duration(seconds: 30));
-
-        if (uploadResponse.status != 200) {
-          throw Exception('Failed to get presigned upload URL: ${uploadResponse.status}');
+        // Phone photos are routinely 4-8 MB: downscale the full image (unless keepOriginal) and
+        // make a small thumbnail for the grid. Skipped for video, and for GIF/SVG (animation / vector),
+        // and silently falls back to the untouched original if the browser can't decode it.
+        Uint8List? thumbBytes;
+        if (type == 'image' && !_resizeSkipExtensions.contains(ext)) {
+          if (!keepOriginal) {
+            final resized = await resizeImageToJpeg(bytes, maxEdge: _fullMaxEdge, quality: 0.85);
+            if (resized != null && resized.length < bytes.length) {
+              bytes = resized;
+              fileName = '$fileId.jpg';
+              mimeType = 'image/jpeg';
+            }
+          }
+          thumbBytes = await resizeImageToJpeg(bytes, maxEdge: _thumbMaxEdge, quality: 0.75);
+        } else if (type == 'video') {
+          // A still frame for the grid. Prefer the picker's blob: URL so the video isn't copied;
+          // null (undecodable codec, e.g. HEVC outside Safari) just means no thumbnail.
+          thumbBytes = await extractVideoPoster(
+            url: file.path.startsWith('blob:') ? file.path : null,
+            bytes: file.path.startsWith('blob:') ? null : bytes,
+            maxEdge: _thumbMaxEdge,
+          );
         }
 
-        final uploadData = uploadResponse.data;
-        final uploadUrl = uploadData['uploadUrl'] as String;
-        final fileKey = uploadData['fileKey'] as String;
-
-        // 2. Upload file directly to R2 with timeout
-        final putResponse = await http
-            .put(
-              Uri.parse(uploadUrl),
-              headers: {'Content-Type': mimeType},
-              body: bytes,
-            )
-            .timeout(const Duration(seconds: 60));
-
-        // Accept all 2xx codes (e.g. 200 OK, 204 No Content from S3/R2)
-        if (putResponse.statusCode < 200 || putResponse.statusCode >= 300) {
-          throw Exception(
-              'Failed to upload file to R2: HTTP ${putResponse.statusCode} - ${putResponse.body}');
-        }
-
-        // 3. Insert record with R2 fileKey (which is signed on-the-fly when read)
-        await Supabase.instance.client
-            .schema('social')
-            .from('forum_media')
-            .insert({
-          'id': fileId,
-          'forum_id': forumId,
-          // forum_created_at is deliberately omitted: on web, Dart's DateTime
-          // is millisecond-precision, so a round-tripped forums.created_at
-          // (microseconds) wouldn't match the composite FK. fn_sanitize_forum_media
-          // fills it from social.forums when null.
-          'uploader_id': userId,
-          'media_type': type,
-          'media_url': {
-            'full_res': fileKey,
-            'thumbnail': fileKey,
+        // 1-2. Presigned URL from the Edge Function, then PUT straight to R2.
+        if (!isClosed) emit(state.copyWith(uploadProgress: 0.0));
+        final fileKey = await _putToR2(
+          bytes,
+          fileName,
+          mimeType,
+          type,
+          // Throttled to whole percents so a large upload doesn't rebuild the UI per event.
+          onProgress: (fraction) {
+            final percent = (fraction * 100).floor() / 100;
+            if (!isClosed && percent != state.uploadProgress) {
+              emit(state.copyWith(uploadProgress: percent));
+            }
           },
-          'metadata': {
+        );
+
+        // The thumbnail is best-effort: if it fails the grid just falls back to the full image.
+        var thumbKey = fileKey;
+        if (thumbBytes != null) {
+          try {
+            thumbKey = await _putToR2(thumbBytes, '${fileId}_thumb.jpg', 'image/jpeg', 'image');
+          } catch (e) {
+            debugPrint('[ForumMediaCubit] Thumbnail upload failed for ${file.name}, using full image: $e');
+          }
+        }
+
+        // 3. Register the media (R2 keys are signed on-the-fly when read)
+        await _registerMedia(
+          id: fileId,
+          mediaType: type,
+          mediaUrl: {'full_res': fileKey, 'thumbnail': thumbKey},
+          metadata: {
             'mime_type': mimeType,
             'file_size': bytes.length,
+            // Lets marketing exports tell untouched originals from downscaled copies.
+            if (type == 'image') 'quality': keepOriginal ? 'original' : 'optimized',
           },
-          'is_approved': isModeratorOrOrganizer,
-        });
+        );
 
         succeeded.add(file.name);
       } catch (e, stack) {
         debugPrint('[ForumMediaCubit] Upload failed for ${file.name}: $e\n$stack');
         errors.add('${file.name}: $e');
+        failedFiles.add(file);
       }
     }
+
+    _failedFiles = failedFiles;
+    _failedKeepOriginal = keepOriginal;
 
     if (!isClosed) {
       emit(state.copyWith(
         isUploading: false,
         uploadCurrent: 0,
         uploadTotal: 0,
+        uploadProgress: 0.0,
         error: errors.isNotEmpty
             ? (succeeded.isEmpty
                 ? 'Upload failed: ${errors.join(', ')}'

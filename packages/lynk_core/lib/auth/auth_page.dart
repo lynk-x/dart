@@ -516,15 +516,20 @@ class _OtpFormState extends State<_OtpForm> {
   }
 
   Future<void> _reportIssue() async {
-    final message = await showDialog<String>(
+    final report = await showDialog<({String? email, String message})>(
       context: context,
-      builder: (context) => _ReportLoginIssueDialog(identifier: widget.identifier),
+      builder: (context) => _ReportLoginIssueDialog(
+        identifier: widget.identifier,
+        needsEmail: _isPhone,
+      ),
     );
-    if (message == null || !mounted) return;
+    if (report == null || !mounted) return;
+    final message = report.message;
 
     try {
       await Supabase.instance.client.schema('api').from('v1_support_tickets').insert({
-        'email': _isPhone ? null : widget.identifier,
+        // reports.support_tickets.email is NOT NULL, so a phone sign-in has to supply one.
+        'email': _isPhone ? report.email : widget.identifier,
         'phone': _isPhone ? widget.identifier : null,
         'subject': 'Failed login (${_isPhone ? 'phone' : 'email'} OTP)',
         'message': message.trim().isEmpty
@@ -641,14 +646,56 @@ class _OtpFormState extends State<_OtpForm> {
 /// so the user only ever types what went wrong, if anything.
 class _ReportLoginIssueDialog extends StatefulWidget {
   final String identifier;
-  const _ReportLoginIssueDialog({required this.identifier});
+  // A phone sign-in gives support no email to reply to, so one is collected here.
+  final bool needsEmail;
+  const _ReportLoginIssueDialog({required this.identifier, required this.needsEmail});
 
   @override
   State<_ReportLoginIssueDialog> createState() => _ReportLoginIssueDialogState();
 }
 
 class _ReportLoginIssueDialogState extends State<_ReportLoginIssueDialog> {
+  // Catches typos only; same shape check as the web ReportIssueModal.
+  static final _emailPattern = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
+
   final _messageController = TextEditingController();
+  final _emailController = TextEditingController();
+  String? _emailError;
+
+  @override
+  void dispose() {
+    _messageController.dispose();
+    _emailController.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    String? email;
+    if (widget.needsEmail) {
+      email = _emailController.text.trim();
+      if (email.isEmpty) {
+        setState(() => _emailError = 'Please enter your email so we can follow up');
+        return;
+      }
+      if (!_emailPattern.hasMatch(email)) {
+        setState(() => _emailError = 'Please enter a valid email address');
+        return;
+      }
+    }
+    Navigator.pop(context, (email: email, message: _messageController.text));
+  }
+
+  InputDecoration _fieldDecoration(String hint, {String? errorText}) => InputDecoration(
+        hintText: hint,
+        hintStyle: const TextStyle(color: Colors.white30),
+        errorText: errorText,
+        filled: true,
+        fillColor: Colors.white.withValues(alpha: 0.05),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide.none,
+        ),
+      );
 
   @override
   Widget build(BuildContext context) {
@@ -665,20 +712,24 @@ class _ReportLoginIssueDialogState extends State<_ReportLoginIssueDialog> {
             style: const TextStyle(color: Colors.white70, fontSize: 13),
           ),
           const SizedBox(height: 16),
+          if (widget.needsEmail) ...[
+            TextField(
+              controller: _emailController,
+              keyboardType: TextInputType.emailAddress,
+              autofillHints: const [AutofillHints.email],
+              style: const TextStyle(color: Colors.white),
+              onChanged: (_) {
+                if (_emailError != null) setState(() => _emailError = null);
+              },
+              decoration: _fieldDecoration('Your email (so we can reply)', errorText: _emailError),
+            ),
+            const SizedBox(height: 12),
+          ],
           TextField(
             controller: _messageController,
             maxLines: 4,
             style: const TextStyle(color: Colors.white),
-            decoration: InputDecoration(
-              hintText: 'What happened? (optional)',
-              hintStyle: const TextStyle(color: Colors.white30),
-              filled: true,
-              fillColor: Colors.white.withValues(alpha: 0.05),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide.none,
-              ),
-            ),
+            decoration: _fieldDecoration('What happened? (optional)'),
           ),
         ],
       ),
@@ -688,7 +739,7 @@ class _ReportLoginIssueDialogState extends State<_ReportLoginIssueDialog> {
           child: const Text('Cancel', style: TextStyle(color: Colors.white54)),
         ),
         TextButton(
-          onPressed: () => Navigator.pop(context, _messageController.text),
+          onPressed: _submit,
           child: const Text('Submit', style: TextStyle(color: Color(0xFF00FF00))),
         ),
       ],

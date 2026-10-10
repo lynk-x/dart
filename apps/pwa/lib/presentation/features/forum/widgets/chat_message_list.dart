@@ -6,6 +6,7 @@ import 'package:lynk_x/presentation/features/forum/widgets/skeletons.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/swipe_to_reply.dart';
 import 'package:lynk_x/presentation/shared/widgets/empty_state.dart';
 import 'package:lynk_x/presentation/features/forum/cubit/base_message_state.dart';
+import 'package:lynk_x/presentation/features/forum/widgets/message_list_keys.dart';
 
 
 
@@ -93,16 +94,7 @@ class ChatMessageList extends StatelessWidget {
       );
     }
 
-    return CustomScrollView(
-      key: const ValueKey('content'),
-      controller: scrollController,
-      reverse: true,
-      slivers: [
-        SliverPadding(
-          padding: EdgeInsets.fromLTRB(16, 16 + topPadding, 16, 16),
-          sliver: SliverList(
-            delegate: SliverChildBuilderDelegate(
-              (context, index) {
+    Widget buildItem(BuildContext context, int index) {
                 if (index == chatState.messages.length) {
                   return Center(
                     child: Padding(
@@ -166,7 +158,24 @@ class ChatMessageList extends StatelessWidget {
                 }
 
                 return bubble;
+    }
+
+    return CustomScrollView(
+      key: const ValueKey('content'),
+      controller: scrollController,
+      reverse: true,
+      slivers: [
+        SliverPadding(
+          padding: EdgeInsets.fromLTRB(16, 16 + topPadding, 16, 16),
+          sliver: SliverList(
+            delegate: SliverChildBuilderDelegate(
+              (context, index) {
+                final item = buildItem(context, index);
+                return index < chatState.messages.length
+                    ? keyedMessageItem(chatState.messages[index], item)
+                    : item;
               },
+              findChildIndexCallback: messageChildIndexFinder(chatState.messages),
               childCount: chatState.messages.isNotEmpty
                   ? chatState.messages.length + (chatState.isLoading ? 1 : 0)
                   : 0,
