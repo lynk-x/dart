@@ -96,7 +96,8 @@ class EventModel extends Equatable {
       isOnline: map['is_online'] as bool? ?? false,
       currency: map['currency'] as String?,
       totalCapacity: map['total_capacity'] as int?,
-      chatCount: (map['chat_count'] as int?) ??
+      chatCount: (map['unread_count'] as num?)?.toInt() ??
+          (map['chat_count'] as int?) ??
           ((map['has_unread'] == true || map['has_unread_activity'] == true)
               ? 1
               : 0),
