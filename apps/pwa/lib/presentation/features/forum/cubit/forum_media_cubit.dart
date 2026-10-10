@@ -273,26 +273,6 @@ class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
     final errors = <String>[];
     const maxFileSizeBytes = 100 * 1024 * 1024; // 100 MB max guard
 
-    // Resolve forumCreatedAt for the composite foreign key (forum_id, forum_created_at)
-    // and RLS policy partition pruning.
-    DateTime? effectiveForumCreatedAt = forumCreatedAt;
-    if (effectiveForumCreatedAt == null) {
-      try {
-        final res = await Supabase.instance.client
-            .schema('social')
-            .from('forums')
-            .select('created_at')
-            .eq('id', forumId)
-            .maybeSingle();
-        if (res != null && res['created_at'] != null) {
-          effectiveForumCreatedAt = DateTime.parse(res['created_at'] as String);
-          forumCreatedAt = effectiveForumCreatedAt;
-        }
-      } catch (e) {
-        debugPrint('[ForumMediaCubit] Fallback forumCreatedAt fetch failed: $e');
-      }
-    }
-
     for (var i = 0; i < files.length; i++) {
       final file = files[i];
       if (!isClosed) {
@@ -364,8 +344,10 @@ class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
             .insert({
           'id': fileId,
           'forum_id': forumId,
-          if (effectiveForumCreatedAt != null)
-            'forum_created_at': effectiveForumCreatedAt.toUtc().toIso8601String(),
+          // forum_created_at is deliberately omitted: on web, Dart's DateTime
+          // is millisecond-precision, so a round-tripped forums.created_at
+          // (microseconds) wouldn't match the composite FK. fn_sanitize_forum_media
+          // fills it from social.forums when null.
           'uploader_id': userId,
           'media_type': type,
           'media_url': {
