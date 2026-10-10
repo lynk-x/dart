@@ -8,15 +8,28 @@ class AppSnackBars {
     _show(context, message, Icons.check_circle_outline, context.accentColor);
   }
 
-  static void showError(BuildContext context, String message) {
-    _show(context, message, Icons.error_outline, Colors.redAccent);
+  static void showError(
+    BuildContext context,
+    String message, {
+    String? actionLabel,
+    VoidCallback? onAction,
+  }) {
+    _show(context, message, Icons.error_outline, Colors.redAccent,
+        actionLabel: actionLabel, onAction: onAction);
   }
 
   static void showInfo(BuildContext context, String message) {
     _show(context, message, Icons.info_outline, Colors.blueAccent);
   }
 
-  static void _show(BuildContext context, String message, IconData icon, Color color) {
+  static void _show(
+    BuildContext context,
+    String message,
+    IconData icon,
+    Color color, {
+    String? actionLabel,
+    VoidCallback? onAction,
+  }) {
     ScaffoldMessenger.of(context).hideCurrentSnackBar();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -36,7 +49,10 @@ class AppSnackBars {
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         margin: const EdgeInsets.all(16),
-        duration: const Duration(seconds: 4),
+        duration: Duration(seconds: onAction != null ? 8 : 4),
+        action: (actionLabel != null && onAction != null)
+            ? SnackBarAction(label: actionLabel, textColor: color, onPressed: onAction)
+            : null,
       ),
     );
   }

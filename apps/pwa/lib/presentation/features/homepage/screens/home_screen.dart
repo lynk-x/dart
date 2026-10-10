@@ -255,13 +255,15 @@ class _HomeViewState extends State<HomeView>
                               childAspectRatio: 1.38,
                             ),
                             itemCount: state.events.length +
-                                (state.isLoadingMore ? 1 : 0),
+                                (state.isLoadingMore || state.loadMoreFailed ? 1 : 0),
                             itemBuilder: (context, index) {
                               if (index == state.events.length) {
-                                return Center(
-                                  child: CircularProgressIndicator(
-                                      color: context.accentColor),
-                                );
+                                return state.loadMoreFailed
+                                    ? const _LoadMoreRetry()
+                                    : Center(
+                                        child: CircularProgressIndicator(
+                                            color: context.accentColor),
+                                      );
                               }
                               final event = state.events[index];
                               return RepaintBoundary(
@@ -280,10 +282,11 @@ class _HomeViewState extends State<HomeView>
                           controller: _scrollController,
                           padding: const EdgeInsets.all(12),
                           itemCount: state.events.length +
-                              (state.isLoadingMore ? 1 : 0),
+                              (state.isLoadingMore || state.loadMoreFailed ? 1 : 0),
                           itemBuilder: (context, index) {
                             // Bottom pagination spinner
                             if (index == state.events.length) {
+                              if (state.loadMoreFailed) return const _LoadMoreRetry();
                               return Padding(
                                 padding: const EdgeInsets.all(16.0),
                                 child: Center(
@@ -439,6 +442,26 @@ class _HomeViewState extends State<HomeView>
           },
         ),
       ],
+    );
+  }
+}
+
+/// Footer shown when appending the next page failed. Scrolling doesn't retry on its own after a
+/// failure, so this is the user's way to try again.
+class _LoadMoreRetry extends StatelessWidget {
+  const _LoadMoreRetry();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Center(
+        child: TextButton.icon(
+          onPressed: () => context.read<HomeCubit>().retryLoadMore(),
+          icon: const Icon(Icons.refresh),
+          label: const Text("Couldn't load more events — tap to retry"),
+        ),
+      ),
     );
   }
 }

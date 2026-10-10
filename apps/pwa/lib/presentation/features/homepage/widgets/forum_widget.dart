@@ -42,6 +42,10 @@ class ForumWidget extends StatelessWidget {
     return DateFormat('EEE, MMM d • h:mm a').format(endDatetime);
   }
 
+  /// The feed only knows *whether* a forum has unread messages, not how many, so a single unread
+  /// shows as a plain dot instead of a misleading "1".
+  String get _unreadBadgeText => event.chatCount > 1 ? event.chatCount.toString() : '';
+
   @override
   Widget build(BuildContext context) {
     final formattedDate = _formatEventDate(event.endDatetime);
@@ -49,7 +53,7 @@ class ForumWidget extends StatelessWidget {
     if (isGrid) {
       return FlameBadge(
         showBadge: event.hasUnread,
-        content: event.chatCount.toString(),
+        content: _unreadBadgeText,
         child: Container(
           decoration: BoxDecoration(
             color: AppColors.surface,
@@ -147,7 +151,7 @@ class ForumWidget extends StatelessWidget {
 
     return FlameBadge(
       showBadge: event.hasUnread,
-      content: event.chatCount.toString(),
+      content: _unreadBadgeText,
       child: Container(
         margin: const EdgeInsets.only(bottom: 8),
         decoration: BoxDecoration(

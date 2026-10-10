@@ -16,9 +16,9 @@ class EventModel extends Equatable {
   final String? timezone;
   final String? locationName;
   final String? thumbnailUrl;
-  final String? category;       // category_name from api.v1_events JOIN
-  final String? categoryId;     // category_id FK
-  final String? status;         // draft | published | cancelled | completed
+  final String? category; // category_name from api.v1_events JOIN
+  final String? categoryId; // category_id FK
+  final String? status; // draft | published | cancelled | completed
   final bool isPrivate;
   final bool isOnline;
   final String? currency;
@@ -56,26 +56,24 @@ class EventModel extends Equatable {
   factory EventModel.fromMap(Map<String, dynamic> map) {
     // Accepts both raw table columns (starts_at) and view aliases (start_datetime /
     // event_starts_at from RPC results). Falls back safely rather than throwing.
-    final startRaw = map['start_datetime']
-        ?? map['starts_at']
-        ?? map['event_starts_at'];
-    final endRaw = map['end_datetime']
-        ?? map['ends_at']
-        ?? map['event_ends_at'];
+    final startRaw =
+        map['start_datetime'] ?? map['starts_at'] ?? map['event_starts_at'];
+    final endRaw =
+        map['end_datetime'] ?? map['ends_at'] ?? map['event_ends_at'];
 
     // location is a jsonb column: { "name": "...", "venue": "..." }
     final location = map['location'] as Map<String, dynamic>?;
-    final locationName = map['location_name'] as String?
-        ?? location?['name'] as String?
-        ?? location?['venue'] as String?;
+    final locationName = map['location_name'] as String? ??
+        location?['name'] as String? ??
+        location?['venue'] as String?;
 
     // media is a jsonb column: { "thumbnail": "...", "poster": "..." }
     final media = map['media'] as Map<String, dynamic>?;
-    final thumbnailUrl = map['thumbnail_url'] as String?
-        ?? map['event_thumbnail_url'] as String?
-        ?? map['event_thumbnail'] as String?
-        ?? media?['thumbnail'] as String?
-        ?? media?['poster'] as String?;
+    final thumbnailUrl = map['thumbnail_url'] as String? ??
+        map['event_thumbnail_url'] as String? ??
+        map['event_thumbnail'] as String? ??
+        media?['thumbnail'] as String? ??
+        media?['poster'] as String?;
 
     final createdAtRaw = map['created_at'] ?? map['event_created_at'];
 
@@ -99,8 +97,11 @@ class EventModel extends Equatable {
       currency: map['currency'] as String?,
       totalCapacity: map['total_capacity'] as int?,
       chatCount: (map['chat_count'] as int?) ??
-          (map['has_unread_activity'] == true ? 1 : 0),
-      createdAt: createdAtRaw != null ? DateTime.parse(createdAtRaw as String) : null,
+          ((map['has_unread'] == true || map['has_unread_activity'] == true)
+              ? 1
+              : 0),
+      createdAt:
+          createdAtRaw != null ? DateTime.parse(createdAtRaw as String) : null,
     );
   }
 

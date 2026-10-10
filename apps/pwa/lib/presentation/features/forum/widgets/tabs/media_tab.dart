@@ -314,10 +314,13 @@ class _MediaTabState extends State<MediaTab>
 
   Widget _buildUploadActions(BuildContext context, ForumMediaState mediaState) {
     final isUploading = mediaState.isUploading;
+    // Percent of the current file, once bytes are actually moving (0 = still preparing).
+    final percent = (mediaState.uploadProgress * 100).floor();
+    final percentText = percent > 0 ? ' $percent%' : '...';
     final uploadText = isUploading
         ? (mediaState.uploadTotal > 1
-            ? 'Uploading ${mediaState.uploadCurrent}/${mediaState.uploadTotal}...'
-            : 'Uploading...')
+            ? 'Uploading ${mediaState.uploadCurrent}/${mediaState.uploadTotal}$percentText'
+            : 'Uploading$percentText')
         : null;
 
     return Container(
@@ -447,7 +450,13 @@ class _MediaTabState extends State<MediaTab>
   ) async {
     try {
       final count = files.length;
-      await mediaCubit.uploadMultipleMedia(files: files);
+      // Original quality for organizers, moderators and premium users; everyone else uploads
+      // the downscaled copy. Read at upload time so it reflects the current forum state.
+      final forum = context.read<ForumCubit>().state;
+      await mediaCubit.uploadMultipleMedia(
+        files: files,
+        keepOriginal: forum.isOrganizer || forum.isModerator || forum.isPremium,
+      );
 
       if (context.mounted) {
         AppSnackBars.showSuccess(context,
@@ -461,6 +470,26 @@ class _MediaTabState extends State<MediaTab>
           message.isNotEmpty
               ? message
               : 'Access denied or upload failed. Please check your device settings.',
+          actionLabel: mediaCubit.hasFailedUploads ? 'Retry' : null,
+          onAction: mediaCubit.hasFailedUploads
+              ? () => _retryFailed(context, mediaCubit)
+              : null,
+        );
+      }
+    }
+  }
+
+  Future<void> _retryFailed(BuildContext context, ForumMediaCubit mediaCubit) async {
+    try {
+      await mediaCubit.retryFailedUploads();
+      if (context.mounted) AppSnackBars.showSuccess(context, 'Upload successful!');
+    } catch (e) {
+      if (context.mounted) {
+        AppSnackBars.showError(
+          context,
+          e.toString().replaceFirst('Exception: ', ''),
+          actionLabel: mediaCubit.hasFailedUploads ? 'Retry' : null,
+          onAction: mediaCubit.hasFailedUploads ? () => _retryFailed(context, mediaCubit) : null,
         );
       }
     }

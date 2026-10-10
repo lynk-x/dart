@@ -271,6 +271,9 @@ class ForumCubit extends Cubit<ForumState> {
 
   @override
   Future<void> close() {
+    // Covers every way of leaving (system back, deep link, route replace). Fire-and-forget: the
+    // cubit is going away, and the back button awaits markAsRead() itself when it can.
+    unawaited(markAsRead());
     _channel?.unsubscribe();
     _statusChannel?.unsubscribe();
     _forumStatusChannel?.unsubscribe();
@@ -278,9 +281,22 @@ class ForumCubit extends Cubit<ForumState> {
     return super.close();
   }
 
+  DateTime? _lastMarkedReadAt;
+
+  /// Marks the forum read for this user (advances forum_members.last_read_at to now).
+  ///
+  /// Called when the forum opens AND when it is left: everything that arrived while the user was
+  /// inside (their own messages included) has been seen, and without the second call the home
+  /// list's has_unread flag — last_message_at > last_read_at — stays true for it afterwards.
+  /// Calls within two seconds of the last one are skipped (back button + close() both fire).
+  Future<void> markAsRead() => _markAsRead();
+
   Future<void> _markAsRead() async {
     final fId = forumId;
     if (userId == kGuestUserId || fId == null) return;
+    final last = _lastMarkedReadAt;
+    if (last != null && DateTime.now().difference(last) < const Duration(seconds: 2)) return;
+    _lastMarkedReadAt = DateTime.now();
     try {
       await _repo.markForumAsRead(fId);
     } catch (e, stack) {

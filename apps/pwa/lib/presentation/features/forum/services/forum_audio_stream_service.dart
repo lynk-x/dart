@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:web/web.dart' as web;
 import '../models/call_participant.dart';
+import 'mic_status_reporter.dart';
 
 @JS('window.lynkAudioStreamHelper.setupMediaSession')
 external void _jsSetupMediaSession(JSString title, JSString artist, JSString artworkUrl);
@@ -220,6 +221,7 @@ class ForumAudioStreamService {
     if (!kIsWeb) return true;
     try {
       final res = await _jsStartLocalMicrophone().toDart;
+      if (res.toDart) reportMicStatus();
       return res.toDart;
     } catch (e) {
       debugPrint('[AudioStreamService] startLocalMicrophone error: $e');
