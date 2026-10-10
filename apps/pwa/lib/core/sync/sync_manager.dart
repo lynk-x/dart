@@ -106,7 +106,18 @@ class SyncManager {
     }
   }
 
+  /// Maximum duration allowed for an individual sync item's network round-trip.
+  static const Duration _kExecutionTimeout = Duration(seconds: 20);
+
+  /// Watchdog timeout limit: if queue processing is actively locked for longer
+  /// than this duration without completing, the watchdog forcibly clears the
+  /// syncing lock and reschedules to self-heal hung connections.
+  static const Duration _kQueueWatchdogTimeout = Duration(seconds: 45);
+
+  Timer? _queueWatchdogTimer;
+
   void dispose() {
+    _queueWatchdogTimer?.cancel();
     _connectivitySub?.cancel();
     _statusController.close();
     _conflictController.close();
@@ -157,55 +168,90 @@ class SyncManager {
 
   // ─── Private ───────────────────────────────────────────────────────────────
 
+  /// Arms an active watchdog timer to prevent [_isSyncing] from remaining permanently
+  /// stuck in true if an unhandled asynchronous hang occurs (e.g., interrupted TCP handshake
+  /// during mobile network transitions).
+  void _armQueueWatchdog() {
+    _queueWatchdogTimer?.cancel();
+    _queueWatchdogTimer = Timer(_kQueueWatchdogTimeout, () {
+      if (_isSyncing) {
+        debugPrint(
+          '[SyncManager] Watchdog tripped: sync queue stuck for >${_kQueueWatchdogTimeout.inSeconds}s. '
+          'Forcibly clearing syncing lock and rescheduling.',
+        );
+        _isSyncing = false;
+        _processQueue();
+      }
+    });
+  }
+
+  void _disarmQueueWatchdog() {
+    _queueWatchdogTimer?.cancel();
+    _queueWatchdogTimer = null;
+  }
+
   Future<void> _processQueue() async {
     if (_isSyncing || _queue.isEmpty) return;
     _isSyncing = true;
+    _armQueueWatchdog();
 
-    while (_queue.isNotEmpty) {
-      final item = _queue.first;
+    try {
+      while (_queue.isNotEmpty) {
+        final item = _queue.first;
 
-      // Skip items paused for manual conflict resolution.
-      if (_pausedIds.contains(item.id)) {
-        break;
-      }
-
-      try {
-        final outcome = await _execute(item);
-
-        if (outcome == _ExecuteOutcome.success) {
-          _queue.removeAt(0);
-          _updatePendingCount();
-          _persistQueue();
-          _statusController.add({item.id: true});
-        } else if (outcome == _ExecuteOutcome.conflictServerWins) {
-          // Server won — revert the optimistic UI state.
-          _queue.removeAt(0);
-          _updatePendingCount();
-          _persistQueue();
-          _statusController.add({item.id: false});
-        } else if (outcome == _ExecuteOutcome.conflictManual) {
-          // Paused — do not advance the queue until resolved.
-          _pausedIds.add(item.id);
+        // Skip items paused for manual conflict resolution.
+        if (_pausedIds.contains(item.id)) {
           break;
         }
-      } catch (e) {
-        debugPrint('[SyncManager] Sync failed for ${item.id}: $e');
 
-        _queue[0] = item.copyWith(retryCount: item.retryCount + 1);
-        if (_queue[0].retryCount >= 5) {
-          _queue.removeAt(0);
-          _updatePendingCount();
-          _persistQueue();
-          _statusController.add({item.id: false});
-          debugPrint('[SyncManager] Discarded ${item.id} after max retries');
-        } else {
-          _persistQueue();
-          break; // Back off; retry on next triggerSync call or timer
+        try {
+          // Guard each database mutation with a hard timeout to avoid hung HTTP sockets
+          final outcome = await _execute(item).timeout(
+            _kExecutionTimeout,
+            onTimeout: () => throw TimeoutException(
+              'Sync execution timed out for ${item.table}/${item.id} after ${_kExecutionTimeout.inSeconds}s',
+            ),
+          );
+
+          // Reset watchdog window after each item successfully completes
+          _armQueueWatchdog();
+
+          if (outcome == _ExecuteOutcome.success) {
+            _queue.removeAt(0);
+            _updatePendingCount();
+            _persistQueue();
+            _statusController.add({item.id: true});
+          } else if (outcome == _ExecuteOutcome.conflictServerWins) {
+            // Server won — revert the optimistic UI state.
+            _queue.removeAt(0);
+            _updatePendingCount();
+            _persistQueue();
+            _statusController.add({item.id: false});
+          } else if (outcome == _ExecuteOutcome.conflictManual) {
+            // Paused — do not advance the queue until resolved.
+            _pausedIds.add(item.id);
+            break;
+          }
+        } catch (e) {
+          debugPrint('[SyncManager] Sync failed for ${item.id}: $e');
+
+          _queue[0] = item.copyWith(retryCount: item.retryCount + 1);
+          if (_queue[0].retryCount >= 5) {
+            _queue.removeAt(0);
+            _updatePendingCount();
+            _persistQueue();
+            _statusController.add({item.id: false});
+            debugPrint('[SyncManager] Discarded ${item.id} after max retries');
+          } else {
+            _persistQueue();
+            break; // Back off; retry on next triggerSync call or timer
+          }
         }
       }
+    } finally {
+      _disarmQueueWatchdog();
+      _isSyncing = false;
     }
-
-    _isSyncing = false;
 
     if (_queue.isNotEmpty && _pausedIds.length < _queue.length) {
       final retryCount = _queue.first.retryCount;

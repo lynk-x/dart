@@ -1,3 +1,4 @@
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -17,6 +18,8 @@ import 'package:lynk_x/presentation/features/forum/models/forum_model.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/disabled_state_bar.dart';
 import 'package:lynk_x/core/network/lynk_cache_manager.dart';
 import 'package:lynk_x/core/utils/image_optimizer.dart';
+import 'package:lynk_x/core/utils/image_resizer.dart';
+import 'package:lynk_x/presentation/features/forum/widgets/upload_preview_sheet.dart';
 
 /// The 'Media' tab content for the Forum.
 class MediaTab extends StatefulWidget {
@@ -380,8 +383,10 @@ class _MediaTabState extends State<MediaTab>
     );
     if (result == null || !context.mounted) return;
 
+    // The camera screen already reviewed these (capture review / gallery review), so no second
+    // preview here.
     if (result.pickedFiles.isNotEmpty) {
-      await _upload(context, mediaCubit, result.pickedFiles);
+      await _upload(context, mediaCubit, result.pickedFiles, showPreview: false);
       return;
     }
 
@@ -393,7 +398,7 @@ class _MediaTabState extends State<MediaTab>
     );
 
     try {
-      await _upload(context, mediaCubit, [file]);
+      await _upload(context, mediaCubit, [file], showPreview: false);
     } finally {
       // uploadMultipleMedia has read the blob's bytes by now (success or
       // failure) — release it from browser memory rather than leaking it
@@ -446,16 +451,30 @@ class _MediaTabState extends State<MediaTab>
   Future<void> _upload(
     BuildContext context,
     ForumMediaCubit mediaCubit,
-    List<XFile> files,
-  ) async {
+    List<XFile> files, {
+    bool showPreview = true,
+  }) async {
     try {
       final count = files.length;
-      // Original quality for organizers, moderators and premium users; everyone else uploads
-      // the downscaled copy. Read at upload time so it reflects the current forum state.
+      // Original quality is offered to organizers, moderators and premium members; everyone else
+      // sends the downscaled copy. Read now so it reflects the current forum state.
       final forum = context.read<ForumCubit>().state;
+      final canChooseOriginal = forum.isOrganizer || forum.isModerator || forum.isPremium;
+      var keepOriginal = canChooseOriginal; // the default when no preview asks
+      if (showPreview) {
+        final choice = await showUploadPreviewSheet(
+          context,
+          files: files,
+          forumName: forum.forumName,
+          canChooseOriginal: canChooseOriginal,
+          loadVideoThumbnail: _videoThumbnail,
+        );
+        if (choice == null || !context.mounted) return; // cancelled: nothing uploads
+        keepOriginal = choice.keepOriginal;
+      }
       await mediaCubit.uploadMultipleMedia(
         files: files,
-        keepOriginal: forum.isOrganizer || forum.isModerator || forum.isPremium,
+        keepOriginal: keepOriginal,
       );
 
       if (context.mounted) {
@@ -477,6 +496,17 @@ class _MediaTabState extends State<MediaTab>
         );
       }
     }
+  }
+
+  /// A still frame for a video tile in the preview sheet. Uses the picker's blob URL when there is
+  /// one, so the video isn't copied into memory just to draw a thumbnail.
+  Future<Uint8List?> _videoThumbnail(XFile file) async {
+    final isBlob = file.path.startsWith('blob:');
+    return extractVideoPoster(
+      url: isBlob ? file.path : null,
+      bytes: isBlob ? null : await file.readAsBytes(),
+      maxEdge: 160,
+    );
   }
 
   Future<void> _retryFailed(BuildContext context, ForumMediaCubit mediaCubit) async {

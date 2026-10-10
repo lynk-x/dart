@@ -22,9 +22,13 @@ window.lynkVideoStreamHelper = {
     // attached to the RTP sender, and stopping it first would silence the call until the
     // caller gets the replacement published.
     const previous = this._micProcessing;
-    const processing = await window.lynkMicProcessor.process(new MediaStream(rawTracks));
+    const wrapper = new MediaStream(rawTracks);
+    const processing = await window.lynkMicProcessor.process(wrapper);
     this._micProcessing = processing;
-    if (processing.processed) { // on fallback the raw tracks stay in place
+    // Swap whenever the processor gave back something other than the stream we handed it: the
+    // processed graph output, or (on fallback) a fresh capture opened with browser suppression on.
+    // Only when it returned our own stream untouched do the original tracks stay in place.
+    if (processing.stream !== wrapper) {
       rawTracks.forEach((t) => stream.removeTrack(t));
       processing.stream.getAudioTracks().forEach((t) => stream.addTrack(t));
     }
@@ -692,6 +696,10 @@ window.lynkVideoStreamHelper = {
   _listenerReconnectTimer: null,
   _listenerParams: null,
   _listenerStopped: false,
+  _videoStallWatchdogTimer: null,
+  _lastInboundVideoBytes: 0,
+  _videoStallStrikes: 0,
+  _videoListenerStartedAt: 0,
 
   // mid -> participant userId, mirrors
   // lynkAudioStreamHelper._midToParticipantId — see that field's comment
@@ -708,6 +716,7 @@ window.lynkVideoStreamHelper = {
   _participantIdToSlotElementId: {},
 
   initCloudflareVideoListenerConnection(elementId) {
+    this._stopInboundVideoWatchdog();
     if (this.listenerPeerConnection) {
       try { this.listenerPeerConnection.close(); } catch (_) {}
     }
@@ -753,6 +762,7 @@ window.lynkVideoStreamHelper = {
   },
 
   _scheduleListenerReconnect() {
+    this._stopInboundVideoWatchdog();
     if (this._listenerStopped || !this._listenerParams) return;
     if (this._listenerReconnectTimer) return;
     if (this._listenerReconnectAttempts >= 3) {
@@ -764,7 +774,7 @@ window.lynkVideoStreamHelper = {
     const attempt = this._listenerReconnectAttempts;
     this._listenerReconnectAttempts++;
     const delayMs = 1000 * Math.pow(2, attempt);
-    console.log(`[VideoStreamHelper] Listener connection ${this.listenerPeerConnection.iceConnectionState}, retrying in ${delayMs}ms (attempt ${attempt + 1}/3)`);
+    console.log(`[VideoStreamHelper] Listener connection ${this.listenerPeerConnection && this.listenerPeerConnection.iceConnectionState}, retrying in ${delayMs}ms (attempt ${attempt + 1}/3)`);
     window.dispatchEvent(new CustomEvent('lynkVideoListenerReconnecting'));
 
     this._listenerReconnectTimer = setTimeout(async () => {
@@ -773,6 +783,83 @@ window.lynkVideoStreamHelper = {
       const p = this._listenerParams;
       await this.joinAsVideoListener(p.elementId, p.edgeFunctionUrl, p.authToken, p.forumId, p.remoteSessionId, p.remoteTrackName);
     }, delayMs);
+  },
+
+  // Inbound video stall watchdog: detects when WebRTC claims the connection
+  // is 'connected' or 'completed', but inbound video bytes have completely frozen
+  // (e.g. mobile radio handoff, edge routing stall, or frozen hardware decoder).
+  _startInboundVideoWatchdog() {
+    this._stopInboundVideoWatchdog();
+    this._lastInboundVideoBytes = 0;
+    this._videoStallStrikes = 0;
+    this._videoListenerStartedAt = performance.now();
+
+    const WARMUP_MS = 4000;
+    const MAX_STRIKES = 4; // 4 consecutive seconds with 0 new video bytes received while connected
+
+    this._videoStallWatchdogTimer = setInterval(async () => {
+      if (this._listenerStopped || !this.listenerPeerConnection) {
+        this._stopInboundVideoWatchdog();
+        return;
+      }
+
+      // Allow 4s warm-up for ICE negotiation and media buffers to start flowing
+      if (performance.now() - this._videoListenerStartedAt < WARMUP_MS) return;
+
+      const pc = this.listenerPeerConnection;
+      const iceState = pc.iceConnectionState;
+
+      // Only check when ICE claims the connection is alive
+      if (iceState !== 'connected' && iceState !== 'completed') {
+        this._videoStallStrikes = 0;
+        return;
+      }
+
+      try {
+        let currentBytes = 0;
+        let hasInboundVideo = false;
+
+        const stats = await pc.getStats();
+        stats.forEach((report) => {
+          if (report.type === 'inbound-rtp' && report.kind === 'video') {
+            hasInboundVideo = true;
+            if (report.bytesReceived !== undefined) {
+              currentBytes += report.bytesReceived;
+            }
+          }
+        });
+
+        if (!hasInboundVideo) return;
+
+        // If bytes received hasn't advanced while connected, count a strike
+        if (this._lastInboundVideoBytes > 0 && currentBytes <= this._lastInboundVideoBytes) {
+          this._videoStallStrikes++;
+          console.warn(`[VideoStreamHelper] Inbound video stall detected (strike ${this._videoStallStrikes}/${MAX_STRIKES})`);
+
+          if (this._videoStallStrikes >= MAX_STRIKES) {
+            console.warn('[VideoStreamHelper] Inbound video stall sustained for 4s — triggering watchdog reconnect');
+            this._stopInboundVideoWatchdog();
+            this._scheduleListenerReconnect();
+            return;
+          }
+        } else {
+          this._videoStallStrikes = 0;
+        }
+
+        this._lastInboundVideoBytes = currentBytes;
+      } catch (err) {
+        console.warn('[VideoStreamHelper] Watchdog stats check error:', err);
+      }
+    }, 1000);
+  },
+
+  _stopInboundVideoWatchdog() {
+    if (this._videoStallWatchdogTimer) {
+      clearInterval(this._videoStallWatchdogTimer);
+      this._videoStallWatchdogTimer = null;
+    }
+    this._videoStallStrikes = 0;
+    this._lastInboundVideoBytes = 0;
   },
 
   // Joins an already-live host video session in one Edge Function
@@ -819,6 +906,7 @@ window.lynkVideoStreamHelper = {
             window.dispatchEvent(new CustomEvent('lynkVideoListenerReconnected'));
           }
           this._listenerReconnectAttempts = 0;
+          this._startInboundVideoWatchdog();
           return true;
         }
       } else {
@@ -937,6 +1025,7 @@ window.lynkVideoStreamHelper = {
   },
 
   stopListeningVideo() {
+    this._stopInboundVideoWatchdog();
     this._listenerStopped = true;
     this._listenerParams = null;
     this._listenerReconnectAttempts = 0;
