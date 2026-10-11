@@ -11,6 +11,7 @@ import 'package:lynk_x/presentation/features/forum/widgets/interstitial_ad.dart'
 import 'package:lynk_x/core/utils/download_helper.dart';
 import 'package:lynk_core/core.dart';
 import 'package:lynk_x/presentation/shared/utils/app_snackbars.dart';
+import 'package:lynk_x/presentation/features/forum/core/media_comment_rules.dart';
 import 'media_viewer_overlays.dart';
 import 'single_media_view.dart';
 
@@ -18,6 +19,10 @@ class MediaViewer extends StatefulWidget {
   final String? imageUrl;
   final ForumMedia? mediaItem;
   final void Function(ForumMedia)? onMention;
+
+  /// Sends [text] to Live Chat with the photo attached, without leaving the viewer. Null hides the quick comment
+  /// box (chat switched off for the forum). Returns whether the message was accepted.
+  final Future<bool> Function(ForumMedia media, String text)? onSendComment;
   final VoidCallback? onApprove;
   final VoidCallback? onReject;
 
@@ -26,6 +31,7 @@ class MediaViewer extends StatefulWidget {
     this.imageUrl,
     this.mediaItem,
     this.onMention,
+    this.onSendComment,
     this.onApprove,
     this.onReject,
   });
@@ -34,6 +40,7 @@ class MediaViewer extends StatefulWidget {
       {String? imageUrl,
       ForumMedia? mediaItem,
       void Function(ForumMedia)? onMention,
+      Future<bool> Function(ForumMedia media, String text)? onSendComment,
       VoidCallback? onApprove,
       VoidCallback? onReject}) {
         
@@ -56,6 +63,7 @@ class MediaViewer extends StatefulWidget {
             imageUrl: imageUrl,
             mediaItem: mediaItem,
             onMention: onMention,
+            onSendComment: onSendComment,
             onApprove: onApprove,
             onReject: onReject,
           );
@@ -86,6 +94,8 @@ class _MediaViewerState extends State<MediaViewer> {
   int _currentIndex = 0;
   List<ForumMedia> _gallery = [];
   bool _isStandalone = true;
+  final TextEditingController _commentController = TextEditingController();
+  bool _isSendingComment = false;
 
   @override
   void initState() {
@@ -132,6 +142,7 @@ class _MediaViewerState extends State<MediaViewer> {
   @override
   void dispose() {
     _pageController.dispose();
+    _commentController.dispose();
     if (kIsWeb) {
       BrowserContextMenu.enableContextMenu();
     }
@@ -139,6 +150,8 @@ class _MediaViewerState extends State<MediaViewer> {
   }
 
   void _onPageChanged(int index) {
+    // A half-typed comment belongs to the photo it was written under, so it is dropped rather than carried over.
+    _commentController.clear();
     setState(() {
       _currentIndex = index;
     });
@@ -249,6 +262,98 @@ class _MediaViewerState extends State<MediaViewer> {
     }
   }
 
+  /// Sends the quick comment under [media] to Live Chat and keeps the viewer open.
+  Future<void> _sendComment(ForumMedia media) async {
+    final text = _commentController.text.trim();
+    final send = widget.onSendComment;
+    if (text.isEmpty || send == null || _isSendingComment) return;
+
+    setState(() => _isSendingComment = true);
+    final sent = await send(media, text);
+    if (!mounted) return;
+    setState(() => _isSendingComment = false);
+
+    if (sent) {
+      _commentController.clear();
+      FocusScope.of(context).unfocus();
+      AppSnackBars.showSuccess(context, 'Sent to Live Chat');
+    } else {
+      AppSnackBars.showError(context, 'Could not send your comment. Please try again.');
+    }
+  }
+
+  /// The quick comment box under the photo: type, send, and the message goes to Live Chat with this photo attached.
+  /// [bottomInset] adds the device's safe-area space when nothing sits below it.
+  Widget _buildCommentBox(ForumMedia media, {required bool bottomInset}) {
+    final noun = media.mediaType == 'video' ? 'video' : 'photo';
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        16,
+        12,
+        16,
+        bottomInset ? MediaQuery.of(context).padding.bottom + 12 : 4,
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              decoration: BoxDecoration(
+                color: const Color(0xFFE0E0E0),
+                borderRadius: BorderRadius.circular(24),
+              ),
+              child: TextField(
+                key: const Key('media-viewer-comment-field'),
+                controller: _commentController,
+                enabled: !_isSendingComment,
+                cursorColor: AppColors.secondaryText,
+                style: AppTypography.inter(color: AppColors.secondaryText),
+                textInputAction: TextInputAction.send,
+                onSubmitted: (_) => _sendComment(media),
+                decoration: InputDecoration(
+                  hintText: 'Say something about this $noun',
+                  hintStyle: AppTypography.inter(
+                      color: AppColors.secondaryText.withValues(alpha: 0.5)),
+                  border: InputBorder.none,
+                  isDense: true,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          ValueListenableBuilder<TextEditingValue>(
+            valueListenable: _commentController,
+            builder: (context, value, _) {
+              final canSend = value.text.trim().isNotEmpty && !_isSendingComment;
+              return Semantics(
+                button: true,
+                label: 'Send to Live Chat',
+                child: IconButton.filled(
+                  key: const Key('media-viewer-comment-send'),
+                  onPressed: canSend ? () => _sendComment(media) : null,
+                  style: IconButton.styleFrom(
+                    backgroundColor: context.accentColor,
+                    foregroundColor: Colors.black,
+                    disabledBackgroundColor: Colors.white12,
+                    minimumSize: const Size(44, 44),
+                  ),
+                  icon: _isSendingComment
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black),
+                        )
+                      : const Icon(Icons.send_rounded, size: 20),
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
   void _prevPage() {
     if (_currentIndex > 0) {
       _pageController.previousPage(
@@ -306,6 +411,30 @@ class _MediaViewerState extends State<MediaViewer> {
           final isAuthorized = isOrganizer || isModerator;
           final isUploader = hasCubit && currentMedia.uploaderId == currentUserId;
 
+          // The quick comment box follows the chat composer's own rules: it never shows to guests, in an archived
+          // or read-only forum (organizers excepted, as in the composer), or to a muted member, and only for
+          // approved media, since pending items are not visible to the forum yet.
+          var forumReadOnly = false;
+          var forumArchived = false;
+          var forumMuted = false;
+          try {
+            final forumState = context.read<ForumCubit>().state;
+            forumReadOnly = forumState.isReadOnly;
+            forumArchived = forumState.isArchived;
+            forumMuted = forumState.isMuted;
+          } catch (_) {}
+          final canComment = canCommentOnMedia(
+            chatEnabled: widget.onSendComment != null,
+            mediaId: currentMedia?.id,
+            mediaApproved: currentMedia?.isApproved ?? false,
+            userId: currentUserId,
+            isGuest: currentUserId != null && isGuestUser(currentUserId),
+            isOrganizer: isOrganizer,
+            forumReadOnly: forumReadOnly,
+            forumArchived: forumArchived,
+            isMuted: forumMuted,
+          );
+
           final showApprove = hasCubit ? (isAuthorized && !currentMedia.isApproved) : (widget.onApprove != null);
           final showDelete = hasCubit ? (isAuthorized || isUploader) : (widget.onReject != null);
           // A moderator's bottom-bar action is "Reject" while the item is
@@ -323,18 +452,21 @@ class _MediaViewerState extends State<MediaViewer> {
               SafeArea(
                 bottom: false,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  // The icon buttons carry their own 10 px padding (a 44 px touch target), so the bar itself has
+                  // no side padding and the icons sit 10 px from the screen edge instead of 16.
+                  padding: const EdgeInsets.symmetric(vertical: 2),
                   color: Colors.black,
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       IconButton(
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
+                        padding: const EdgeInsets.all(10),
+                        constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
                         icon: const Icon(Icons.close, color: Colors.white),
+                        tooltip: 'Close',
                         onPressed: () => Navigator.pop(context),
                       ),
-                      const SizedBox(width: 16),
+                      const SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           currentMedia != null
@@ -351,9 +483,10 @@ class _MediaViewerState extends State<MediaViewer> {
                         ),
                       ),
                       IconButton(
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
+                        padding: const EdgeInsets.all(10),
+                        constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
                         icon: const Icon(Icons.download_rounded, color: Colors.white),
+                        tooltip: 'Download',
                         onPressed: _downloadMedia,
                       ),
                     ],
@@ -425,9 +558,9 @@ class _MediaViewerState extends State<MediaViewer> {
                         ),
                       ),
                       // Members and organizers get an action menu next to the attribution chip:
-                      // - Uploader: Marketing toggle & Delete
-                      // - Attendee: Exclude from Marketing & Report Violation
-                      // - Organizer: Marketing toggle & Moderator controls
+                      // - Uploader: Distribution rights toggle & Delete
+                      // - Attendee: Revoke distribution rights & Report Violation
+                      // - Organizer: Distribution rights toggle & Moderator controls
                       if (currentUserId != null) ...[
                         const SizedBox(width: 8),
                         MediaMemberAction(
@@ -445,36 +578,43 @@ class _MediaViewerState extends State<MediaViewer> {
                               AppSnackBars.showError(context, 'Failed to delete media. Please try again.');
                             }
                           },
-                          onOptOutMarketing: () async {
+                          onRevokeDistributionRights: () async {
                             if (!hasCubit) return;
-                            final success = await context.read<ForumMediaCubit>().optOutMarketing(currentMedia);
+                            final success = await context.read<ForumMediaCubit>().revokeDistributionRights(currentMedia);
                             if (!context.mounted) return;
                             if (success) {
-                              AppSnackBars.showSuccess(context, 'Photo excluded from event marketing materials.');
+                              AppSnackBars.showSuccess(context, 'Distribution rights revoked for this photo.');
                             } else {
-                              AppSnackBars.showError(context, 'Failed to update marketing preference.');
+                              AppSnackBars.showError(context, 'Couldn\'t update distribution rights. Please try again.');
                             }
                           },
-                          onToggleMarketing: (eligible) async {
+                          onToggleDistributionRights: (eligible) async {
                             if (!hasCubit) return;
-                            final success = await context.read<ForumMediaCubit>().setMarketingEligibility(currentMedia, eligible);
+                            final success = await context.read<ForumMediaCubit>().setDistributionRights(currentMedia, eligible);
                             if (!context.mounted) return;
                             if (success) {
                               AppSnackBars.showSuccess(
                                 context,
                                 eligible
-                                    ? 'Marketing permission enabled.'
-                                    : 'Photo excluded from marketing materials.',
+                                    ? 'Distribution rights granted for this photo.'
+                                    : 'Distribution rights revoked for this photo.',
                               );
                             } else {
-                              AppSnackBars.showError(context, 'Failed to update marketing preference.');
+                              AppSnackBars.showError(context, 'Couldn\'t update distribution rights. Please try again.');
                             }
                           },
                           onReport: (reasonId) async {
                             if (!hasCubit) return;
                             try {
                               await context.read<ForumMediaCubit>().reportMedia(currentMedia, reasonId);
-                              if (context.mounted) {
+                              if (!context.mounted) return;
+                              if (reasonId == 'likeness_no_consent') {
+                                Navigator.pop(context);
+                                AppSnackBars.showSuccess(
+                                  context,
+                                  'Photo reported and hidden pending review.',
+                                );
+                              } else {
                                 AppSnackBars.showSuccess(context, 'Media reported.');
                               }
                             } catch (_) {
@@ -488,6 +628,9 @@ class _MediaViewerState extends State<MediaViewer> {
                     ],
                   ),
                 ),
+
+              if (canComment && currentMedia != null)
+                _buildCommentBox(currentMedia, bottomInset: !(showApprove || showDelete)),
 
               // Bottom Actions
               if (showApprove || showDelete)

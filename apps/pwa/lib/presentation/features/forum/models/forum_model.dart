@@ -371,12 +371,12 @@ class ForumMedia {
     required this.createdAt,
   });
 
-  /// True unless explicitly opted out of marketing in metadata.
-  bool get isMarketingEligible {
+  /// True unless external distribution rights are explicitly revoked in metadata.
+  bool get hasDistributionRights {
     if (metadata == null) return true;
-    final val = metadata!['is_marketing_eligible'];
-    if (val is bool) return val;
-    if (val is String) return val.toLowerCase() != 'false';
+    final rightsVal = metadata!['has_distribution_rights'];
+    if (rightsVal is bool) return rightsVal;
+    if (rightsVal is String) return rightsVal.toLowerCase() != 'false';
     return true;
   }
 

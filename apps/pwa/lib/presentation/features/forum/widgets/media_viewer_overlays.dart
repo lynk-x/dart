@@ -12,7 +12,8 @@ class MediaAttribution extends StatelessWidget {
   final ForumMedia media;
   final bool isUploader;
 
-  const MediaAttribution({super.key, required this.media, required this.isUploader});
+  const MediaAttribution(
+      {super.key, required this.media, required this.isUploader});
 
   @override
   Widget build(BuildContext context) {
@@ -35,7 +36,7 @@ class MediaAttribution extends StatelessWidget {
           ),
           overflow: TextOverflow.ellipsis,
         ),
-        if (!media.isMarketingEligible) ...[
+        if (!media.hasDistributionRights) ...[
           const SizedBox(height: 3),
           Row(
             mainAxisSize: MainAxisSize.min,
@@ -47,7 +48,7 @@ class MediaAttribution extends StatelessWidget {
               ),
               const SizedBox(width: 4),
               Text(
-                'Excluded from marketing',
+                'No distribution rights',
                 style: AppTypography.inter(
                   fontSize: 10,
                   color: Colors.amberAccent.withValues(alpha: 0.9),
@@ -71,7 +72,8 @@ void showMediaDeleteConfirmation(BuildContext context, VoidCallback onDelete) {
     builder: (ctx) => AlertDialog(
       backgroundColor: const Color(0xFF1A1A1A),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      title: const Text('Delete this upload?', style: TextStyle(color: Colors.white)),
+      title: const Text('Delete this upload?',
+          style: TextStyle(color: Colors.white)),
       content: const Text(
         'This will be removed for everyone.',
         style: TextStyle(color: Colors.white54),
@@ -83,7 +85,9 @@ void showMediaDeleteConfirmation(BuildContext context, VoidCallback onDelete) {
         ),
         TextButton(
           onPressed: () => Navigator.pop(ctx, true),
-          child: const Text('Delete', style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
+          child: const Text('Delete',
+              style: TextStyle(
+                  color: Colors.redAccent, fontWeight: FontWeight.bold)),
         ),
       ],
     ),
@@ -102,18 +106,19 @@ class MediaMemberAction extends StatelessWidget {
   final bool isUploader;
   final bool isAuthorized;
   final VoidCallback onDelete;
-  final VoidCallback onOptOutMarketing;
-  final ValueChanged<bool> onToggleMarketing;
+  final VoidCallback onRevokeDistributionRights;
+  final ValueChanged<bool> onToggleDistributionRights;
   final ValueChanged<String> onReport;
   final void Function(ForumMedia)? onMention;
 
-  const MediaMemberAction({super.key, 
+  const MediaMemberAction({
+    super.key,
     required this.media,
     required this.isUploader,
     this.isAuthorized = false,
     required this.onDelete,
-    required this.onOptOutMarketing,
-    required this.onToggleMarketing,
+    required this.onRevokeDistributionRights,
+    required this.onToggleDistributionRights,
     required this.onReport,
     this.onMention,
   });
@@ -149,15 +154,25 @@ class MediaMemberAction extends StatelessWidget {
               // reports.report_reasons; a mismatched id fails the report's
               // foreign key at insert time.
               ...const [
-                ('spam', 'Spam'),
-                ('harassment', 'Harassment'),
-                ('inappropriate', 'Inappropriate Content'),
-                ('likeness_no_consent', "I'm in this without my consent"),
+                ('spam', 'Spam', null),
+                ('harassment', 'Harassment', null),
+                ('inappropriate', 'Inappropriate Content', null),
+                (
+                  'likeness_no_consent',
+                  "I'm in this without my consent",
+                  'Hides immediately pending review'
+                ),
               ].map((entry) {
-                final (reasonId, label) = entry;
+                final (reasonId, label, subtitle) = entry;
                 return ListTile(
                   contentPadding: EdgeInsets.zero,
-                  title: Text(label, style: const TextStyle(color: Colors.white)),
+                  title:
+                      Text(label, style: const TextStyle(color: Colors.white)),
+                  subtitle: subtitle != null
+                      ? Text(subtitle,
+                          style: const TextStyle(
+                              color: Colors.white54, fontSize: 12))
+                      : null,
                   onTap: () {
                     onReport(reasonId);
                     Navigator.pop(bottomSheetContext);
@@ -204,17 +219,22 @@ class MediaMemberAction extends StatelessWidget {
                       color: Colors.blueAccent.withValues(alpha: 0.12),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.chat_bubble_outline_rounded, color: Colors.blueAccent, size: 20),
+                    child: const Icon(Icons.chat_bubble_outline_rounded,
+                        color: Colors.blueAccent, size: 20),
                   ),
                   title: const Text(
                     'Discuss in Live Chat',
-                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 15),
+                    style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 15),
                   ),
                   subtitle: const Text(
                     'Attach this photo to a message in community chat',
                     style: TextStyle(color: Colors.white54, fontSize: 12),
                   ),
-                  trailing: const Icon(Icons.chevron_right, color: Colors.white38, size: 20),
+                  trailing: const Icon(Icons.chevron_right,
+                      color: Colors.white38, size: 20),
                   onTap: () {
                     Navigator.pop(bottomSheetContext);
                     Navigator.pop(context);
@@ -233,24 +253,28 @@ class MediaMemberAction extends StatelessWidget {
                       color: Colors.white.withValues(alpha: 0.08),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.campaign_outlined, color: Colors.white70, size: 20),
+                    child: const Icon(Icons.campaign_outlined,
+                        color: Colors.white70, size: 20),
                   ),
                   title: const Text(
-                    'Marketing & Highlights',
-                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 15),
+                    'Distribution rights',
+                    style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 15),
                   ),
                   subtitle: Text(
-                    media.isMarketingEligible
-                        ? 'Eligible for event highlights and promo recaps'
-                        : 'Excluded from event marketing materials',
+                    media.hasDistributionRights
+                        ? 'Public distribution is enabled for this photo/video.'
+                        : 'Public distribution is disabled for this photo/video.',
                     style: const TextStyle(color: Colors.white54, fontSize: 12),
                   ),
                   trailing: Switch(
-                    value: media.isMarketingEligible,
+                    value: media.hasDistributionRights,
                     activeThumbColor: context.accentColor,
                     onChanged: (val) {
                       Navigator.pop(bottomSheetContext);
-                      onToggleMarketing(val);
+                      onToggleDistributionRights(val);
                     },
                   ),
                 ),
@@ -265,11 +289,15 @@ class MediaMemberAction extends StatelessWidget {
                         color: Colors.redAccent.withValues(alpha: 0.12),
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 20),
+                      child: const Icon(Icons.delete_outline,
+                          color: Colors.redAccent, size: 20),
                     ),
                     title: const Text(
                       'Delete Photo',
-                      style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.w600, fontSize: 15),
+                      style: TextStyle(
+                          color: Colors.redAccent,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 15),
                     ),
                     subtitle: const Text(
                       'Permanently remove this upload from the forum',
@@ -288,34 +316,43 @@ class MediaMemberAction extends StatelessWidget {
                     width: 36,
                     height: 36,
                     decoration: BoxDecoration(
-                      color: media.isMarketingEligible
+                      color: media.hasDistributionRights
                           ? Colors.amberAccent.withValues(alpha: 0.12)
                           : Colors.greenAccent.withValues(alpha: 0.12),
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
                       Icons.shield_outlined,
-                      color: media.isMarketingEligible ? Colors.amberAccent : Colors.greenAccent,
+                      color: media.hasDistributionRights
+                          ? Colors.amberAccent
+                          : Colors.greenAccent,
                       size: 20,
                     ),
                   ),
                   title: Text(
-                    media.isMarketingEligible ? 'Exclude from Event Marketing' : 'Excluded from Marketing',
-                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 15),
+                    media.hasDistributionRights
+                        ? 'Revoke distribution rights'
+                        : 'Distribution rights revoked',
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 15),
                   ),
                   subtitle: Text(
-                    media.isMarketingEligible
-                        ? "I'm in this photo — keep in forum, but don't feature in promo recaps or ads."
-                        : 'This photo has been opted out of event marketing materials.',
+                    media.hasDistributionRights
+                        ? 'The photo/video stays in the forum, but public distribution is disabled.'
+                        : 'This photo/video stays in the forum. Public distribution is disabled.',
                     style: const TextStyle(color: Colors.white54, fontSize: 12),
                   ),
-                  trailing: media.isMarketingEligible
-                      ? const Icon(Icons.chevron_right, color: Colors.white38, size: 20)
-                      : const Icon(Icons.check_circle, color: Colors.greenAccent, size: 20),
-                  onTap: media.isMarketingEligible
+                  trailing: media.hasDistributionRights
+                      ? const Icon(Icons.chevron_right,
+                          color: Colors.white38, size: 20)
+                      : const Icon(Icons.check_circle,
+                          color: Colors.greenAccent, size: 20),
+                  onTap: media.hasDistributionRights
                       ? () {
                           Navigator.pop(bottomSheetContext);
-                          onOptOutMarketing();
+                          onRevokeDistributionRights();
                         }
                       : null,
                 ),
@@ -329,17 +366,22 @@ class MediaMemberAction extends StatelessWidget {
                       color: Colors.white.withValues(alpha: 0.08),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.flag_outlined, color: Colors.white70, size: 20),
+                    child: const Icon(Icons.flag_outlined,
+                        color: Colors.white70, size: 20),
                   ),
                   title: const Text(
                     'Report Content Violation',
-                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 15),
+                    style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 15),
                   ),
                   subtitle: const Text(
                     'Inappropriate content, spam, or harassment',
                     style: TextStyle(color: Colors.white54, fontSize: 12),
                   ),
-                  trailing: const Icon(Icons.chevron_right, color: Colors.white38, size: 20),
+                  trailing: const Icon(Icons.chevron_right,
+                      color: Colors.white38, size: 20),
                   onTap: () {
                     Navigator.pop(bottomSheetContext);
                     _showReportSheet(context);

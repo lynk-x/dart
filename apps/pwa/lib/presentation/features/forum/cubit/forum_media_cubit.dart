@@ -533,7 +533,8 @@ class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
 
   /// [reasonId] must match a row in reports.report_reasons (e.g. 'spam',
   /// 'harassment', 'inappropriate', 'likeness_no_consent') or the insert
-  /// fails its foreign key constraint.
+  /// fails its foreign key constraint. Likeness reports auto-hide the photo
+  /// on a single report pending review, so local state optimistically removes it.
   Future<void> reportMedia(ForumMedia media, String reasonId) async {
     try {
       await repo.submitReport(
@@ -542,18 +543,22 @@ class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
         reasonId: reasonId,
         description: 'Reported from media viewer',
       );
+      if (reasonId == 'likeness_no_consent') {
+        final updated = state.mediaItems.where((m) => m.id != media.id).toList();
+        if (!isClosed) emit(state.copyWith(mediaItems: updated));
+      }
     } catch (e, stack) {
       debugPrint('[ForumMediaCubit] reportMedia error: $e\n$stack');
       rethrow;
     }
   }
 
-  /// Opts a media item out of event marketing recaps, ads, and promotional materials.
-  /// Callable by any forum member (e.g. attendee pictured), the uploader, or an organizer.
-  Future<bool> optOutMarketing(ForumMedia media) async {
+  /// Revokes external distribution rights for a media item.
+  /// Callable by any forum member (e.g. attendee pictured), the uploader or an organizer.
+  Future<bool> revokeDistributionRights(ForumMedia media) async {
     try {
       await Supabase.instance.client.schema('api').rpc(
-        'opt_out_media_marketing',
+        'revoke_media_distribution_rights',
         params: {
           'p_media_id': media.id,
           'p_media_created_at': media.createdAt.toIso8601String(),
@@ -564,28 +569,28 @@ class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
       if (idx != -1) {
         final updatedList = List<ForumMedia>.from(state.mediaItems);
         final currentMeta = Map<String, dynamic>.from(media.metadata ?? {});
-        currentMeta['is_marketing_eligible'] = false;
+        currentMeta['has_distribution_rights'] = false;
         updatedList[idx] = media.copyWith(metadata: currentMeta);
         if (!isClosed) emit(state.copyWith(mediaItems: updatedList));
       }
       return true;
     } catch (e, stack) {
-      debugPrint('[ForumMediaCubit] optOutMarketing error: $e\n$stack');
+      debugPrint('[ForumMediaCubit] revokeDistributionRights error: $e\n$stack');
       if (!isClosed) emit(state.copyWith(error: e.toString()));
       return false;
     }
   }
 
-  /// Sets whether a media item is eligible for event marketing recaps.
+  /// Sets whether a media item has external distribution rights.
   /// Re-enabling (setting true) is restricted to the uploader or an organizer.
-  Future<bool> setMarketingEligibility(ForumMedia media, bool isEligible) async {
+  Future<bool> setDistributionRights(ForumMedia media, bool hasRights) async {
     try {
       await Supabase.instance.client.schema('api').rpc(
-        'set_media_marketing_eligibility',
+        'set_media_distribution_rights',
         params: {
           'p_media_id': media.id,
           'p_media_created_at': media.createdAt.toIso8601String(),
-          'p_is_eligible': isEligible,
+          'p_has_rights': hasRights,
         },
       );
 
@@ -593,13 +598,13 @@ class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
       if (idx != -1) {
         final updatedList = List<ForumMedia>.from(state.mediaItems);
         final currentMeta = Map<String, dynamic>.from(media.metadata ?? {});
-        currentMeta['is_marketing_eligible'] = isEligible;
+        currentMeta['has_distribution_rights'] = hasRights;
         updatedList[idx] = media.copyWith(metadata: currentMeta);
         if (!isClosed) emit(state.copyWith(mediaItems: updatedList));
       }
       return true;
     } catch (e, stack) {
-      debugPrint('[ForumMediaCubit] setMarketingEligibility error: $e\n$stack');
+      debugPrint('[ForumMediaCubit] setDistributionRights error: $e\n$stack');
       if (!isClosed) emit(state.copyWith(error: e.toString()));
       return false;
     }

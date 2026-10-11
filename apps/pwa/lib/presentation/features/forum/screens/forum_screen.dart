@@ -716,6 +716,23 @@ class _ForumViewState extends State<ForumView> {
     MediaViewer.show(context, imageUrl: url);
   }
 
+  /// Posts [text] to Live Chat with [media] attached, for the media viewer's quick comment box. The message is
+  /// queued like any other chat message (it also works offline), so this reports success once it is accepted.
+  Future<bool> _sendMediaComment(ForumMedia media, String text) async {
+    try {
+      final forumState = context.read<ForumCubit>().state;
+      context.read<ForumChatCubit>().sendMessage(
+            text,
+            isOrganizer: forumState.isOrganizer,
+            isPremium: forumState.isPremium,
+            media: media,
+          );
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
   void _handleMentionMedia(ForumMedia media) {
     _navigateToTab(1);
     context.read<ForumChatCubit>().setMentionedMedia(media);
@@ -736,6 +753,7 @@ class _ForumViewState extends State<ForumView> {
       imageUrl: item.url,
       mediaItem: item,
       onMention: showChat ? _handleMentionMedia : null,
+      onSendComment: showChat ? _sendMediaComment : null,
       onApprove: (isAuthorized && !item.isApproved)
           ? () => mediaCubit.approveMedia(item)
           : null,

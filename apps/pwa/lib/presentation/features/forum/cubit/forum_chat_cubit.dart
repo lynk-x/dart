@@ -209,17 +209,28 @@ class ForumChatCubit extends BaseMessageCubit<ForumChatState> {
     }
   }
 
+  /// Sends [text] as a chat message.
+  ///
+  /// Normally the message carries whatever photo is staged in the composer (state.mentionedMedia) and any reply
+  /// being written. Pass [media] to attach a specific photo instead, as the media viewer's quick comment box does:
+  /// that message ignores the composer's staged photo and pending reply and leaves both untouched, since the
+  /// person never touched the composer.
   @override
   void sendMessage(String text,
       {required bool isOrganizer,
       required bool isPremium,
-      MessageType? messageType}) async {
+      MessageType? messageType,
+      ForumMedia? media}) async {
     final messageId = BaseMessageCubit.uuid.v4();
     final now = DateTime.now();
-    final replyTo = state.replyingTo;
-    final mediaId = state.mentionedMedia?.id;
-    final imageUrl = state.mentionedMedia?.url;
-    final thumbnailUrl = state.mentionedMedia?.thumbnailUrl;
+    final fromComposer = media == null;
+    final replyTo = fromComposer ? state.replyingTo : null;
+    final attached = media ?? state.mentionedMedia;
+    final mediaId = attached?.id;
+    final imageUrl = attached?.url;
+    final thumbnailUrl = attached?.thumbnailUrl;
+    // Read before the emit below clears mentionedMedia: it is the partition key sent with media_id.
+    final mediaCreatedAt = attached?.createdAt.toIso8601String();
 
     // Extract #hashtag from text if present.
     final category = ForumCategory.detectFrom(text);
@@ -243,12 +254,11 @@ class ForumChatCubit extends BaseMessageCubit<ForumChatState> {
 
     emit(state.copyWith(
       messages: [newMessage, ...state.messages],
-      clearReplyTo: true,
-      clearMentionedMedia: true,
+      clearReplyTo: fromComposer,
+      clearMentionedMedia: fromComposer,
     ));
 
     if (userId != kGuestUserId) {
-      final mediaCreatedAt = state.mentionedMedia?.createdAt.toIso8601String();
       final replyCreatedAt = replyTo?.createdAt.toIso8601String();
       final messageCreatedAt = now.toIso8601String();
 
