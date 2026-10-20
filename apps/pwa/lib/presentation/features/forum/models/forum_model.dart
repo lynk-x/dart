@@ -336,10 +336,13 @@ class AdModel {
       callToAction: firstAsset?['call_to_action'] as String? ??
           metadata['call_to_action'] as String? ??
           'Learn More',
-      targetUrl: map['destination_url'] as String? ?? metadata['destination_url'] as String?,
+      targetUrl: firstAsset?['destination_url'] as String? ??
+          metadata['destination_url'] as String? ??
+          map['destination_url'] as String?,
       targetEventId: map['target_event_id'] as String?,
-      imageUrl:
-          firstAsset?['url'] as String? ?? metadata['image_url'] as String?,
+      imageUrl: firstAsset?['media_url'] as String? ??
+          firstAsset?['url'] as String? ??
+          metadata['image_url'] as String?,
       serveToken: metadata['serve_token'] as String?,
     );
   }

@@ -289,8 +289,9 @@ class _HomeViewState extends State<HomeView>
                           itemBuilder: (context, index) {
                             // Bottom pagination spinner
                             if (index == state.events.length) {
-                              if (state.loadMoreFailed)
+                              if (state.loadMoreFailed) {
                                 return const _LoadMoreRetry();
+                              }
                               return Padding(
                                 padding: const EdgeInsets.all(16.0),
                                 child: Center(
