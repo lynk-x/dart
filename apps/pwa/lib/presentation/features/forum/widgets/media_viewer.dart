@@ -436,16 +436,19 @@ class _MediaViewerState extends State<MediaViewer> {
           );
 
           final showApprove = hasCubit ? (isAuthorized && !currentMedia.isApproved) : (widget.onApprove != null);
-          final showDelete = hasCubit ? (isAuthorized || isUploader) : (widget.onReject != null);
+          final showDelete = hasCubit ? ((isAuthorized && !currentMedia.isApproved) || (isUploader && !isAuthorized)) : (widget.onReject != null);
           // A moderator's bottom-bar action is "Reject" while the item is
           // still pending review, but "Delete" once it's already approved —
           // otherwise the label implies the item was never reviewed even
-          // when it's live and being removed after the fact.
+          // when it's live and being removed after the fact. Organizers
+          // must not see the large delete button for already-approved media
+          // they uploaded; only non-organizer uploaders or pending review
+          // items can be removed via the bottom bar.
           final deleteText = (hasCubit && isUploader && !isAuthorized)
               ? 'Delete'
-              : (hasCubit && isAuthorized && currentMedia.isApproved)
-                  ? 'Delete'
-                  : 'Reject';
+              : (hasCubit && isAuthorized && !currentMedia.isApproved)
+                  ? 'Reject'
+                  : 'Delete';
 
           return Column(
             children: [
@@ -629,8 +632,9 @@ class _MediaViewerState extends State<MediaViewer> {
                   ),
                 ),
 
-              if (canComment && currentMedia != null)
-                _buildCommentBox(currentMedia, bottomInset: !(showApprove || showDelete)),
+              // Message input removed from media viewer per requirements
+              // if (canComment && currentMedia != null)
+              //   _buildCommentBox(currentMedia, bottomInset: !(showApprove || showDelete)),
 
               // Bottom Actions
               if (showApprove || showDelete)

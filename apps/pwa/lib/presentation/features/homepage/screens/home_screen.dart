@@ -46,7 +46,7 @@ class HomeView extends StatefulWidget {
 }
 
 class _HomeViewState extends State<HomeView>
-    with AutomaticKeepAliveClientMixin {
+    with AutomaticKeepAliveClientMixin, WidgetsBindingObserver {
   final ScrollController _scrollController = ScrollController();
   bool _showWelcomeBanner = false;
 
@@ -56,6 +56,7 @@ class _HomeViewState extends State<HomeView>
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _scrollController.addListener(() {
       final cubit = context.read<HomeCubit>();
       if (_scrollController.position.pixels >=
@@ -69,6 +70,19 @@ class _HomeViewState extends State<HomeView>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       DeviceNotificationModal.checkAndShow(context);
+    });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Refresh when returning to this screen
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        try {
+          context.read<HomeCubit>().refresh();
+        } catch (_) {}
+      }
     });
   }
 
@@ -86,8 +100,16 @@ class _HomeViewState extends State<HomeView>
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _scrollController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && mounted) {
+      context.read<HomeCubit>().refresh();
+    }
   }
 
   /// Launches the web app in the device browser.

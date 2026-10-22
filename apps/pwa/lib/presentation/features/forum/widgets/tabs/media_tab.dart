@@ -501,12 +501,16 @@ class _MediaTabState extends State<MediaTab>
   /// A still frame for a video tile in the preview sheet. Uses the picker's blob URL when there is
   /// one, so the video isn't copied into memory just to draw a thumbnail.
   Future<Uint8List?> _videoThumbnail(XFile file) async {
-    final isBlob = file.path.startsWith('blob:');
-    return extractVideoPoster(
-      url: isBlob ? file.path : null,
-      bytes: isBlob ? null : await file.readAsBytes(),
-      maxEdge: 160,
-    );
+    try {
+      final bytes = await file.readAsBytes();
+      return extractVideoPoster(
+        url: null,
+        bytes: bytes,
+        maxEdge: 160,
+      );
+    } catch (_) {
+      return null;
+    }
   }
 
   Future<void> _retryFailed(BuildContext context, ForumMediaCubit mediaCubit) async {

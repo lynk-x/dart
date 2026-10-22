@@ -504,7 +504,17 @@ class _ForumViewState extends State<ForumView> {
               .read<ForumCubit>()
               .markAsRead()
               .timeout(const Duration(milliseconds: 1500), onTimeout: () {});
-          if (mounted) context.go('/');
+          if (mounted) {
+            try {
+              final homeCubit = context.read();
+              (homeCubit as dynamic).refresh();
+            } catch (_) {}
+            if (Navigator.of(context).canPop()) {
+              Navigator.of(context).pop();
+            } else {
+              context.go('/');
+            }
+          }
         },
       ),
       title: RepaintBoundary(

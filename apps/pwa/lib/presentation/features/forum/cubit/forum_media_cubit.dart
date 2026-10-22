@@ -403,11 +403,11 @@ class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
           }
           thumbBytes = await resizeImageToJpeg(bytes, maxEdge: _thumbMaxEdge, quality: 0.75);
         } else if (type == 'video') {
-          // A still frame for the grid. Prefer the picker's blob: URL so the video isn't copied;
-          // null (undecodable codec, e.g. HEVC outside Safari) just means no thumbnail.
+          // A still frame for the grid. Use bytes we already read to avoid
+          // relying on potentially revoked blob: URLs.
           thumbBytes = await extractVideoPoster(
-            url: file.path.startsWith('blob:') ? file.path : null,
-            bytes: file.path.startsWith('blob:') ? null : bytes,
+            url: null,
+            bytes: bytes,
             maxEdge: _thumbMaxEdge,
           );
         }
