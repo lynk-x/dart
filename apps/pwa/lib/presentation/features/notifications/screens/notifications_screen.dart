@@ -42,6 +42,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
 
   void _onScroll() {
     if (!_scrollController.hasClients) return;
+    if (!mounted) return;
     // Fire loadMore() a bit before the actual end so the next page is
     // already in flight by the time the user reaches the bottom.
     final threshold = _scrollController.position.maxScrollExtent - 400;
@@ -263,14 +264,26 @@ class _NotificationsPageState extends State<NotificationsPage> {
             );
           }
 
-          if (state is NotificationError) {
-            return Center(
-              child: Text(
-                'Error: ${state.message}',
-                style: const TextStyle(color: Colors.white70),
-              ),
-            );
-          }
+              if (state is NotificationError) {
+                return Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Error: ${state.message}',
+                        style: const TextStyle(color: Colors.white70),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 16),
+                      TextButton.icon(
+                        onPressed: () => context.read<NotificationCubit>().loadNotifications(),
+                        icon: const Icon(Icons.refresh),
+                        label: const Text('Retry'),
+                      ),
+                    ],
+                  ),
+                );
+              }
 
           final loadedState = state as NotificationLoaded;
           final notifications = loadedState.notifications;
@@ -327,8 +340,12 @@ class _NotificationsPageState extends State<NotificationsPage> {
               }
 
               final notification = row.item!;
+              final currentStateForUndo = context.read<NotificationCubit>().state;
+              final previousList = currentStateForUndo is NotificationLoaded
+                  ? List<NotificationModel>.from(currentStateForUndo.notifications)
+                  : null;
               return Dismissible(
-                key: Key(notification.id),
+                key: Key('${notification.id}_${notification.createdAt.millisecondsSinceEpoch}'),
                 direction: DismissDirection.endToStart,
                 background: Container(
                   color: Colors.red,
@@ -344,10 +361,12 @@ class _NotificationsPageState extends State<NotificationsPage> {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text('${notification.title} dismissed'),
-                      action: SnackBarAction(
-                        label: 'Undo',
-                        onPressed: () => cubit.loadNotifications(),
-                      ),
+                      action: previousList != null
+                          ? SnackBarAction(
+                              label: 'Undo',
+                              onPressed: () => cubit.undoDelete(previousList),
+                            )
+                          : null,
                     ),
                   );
                 },
@@ -356,8 +375,24 @@ class _NotificationsPageState extends State<NotificationsPage> {
                   onTap: () => _handleNotificationTap(notification),
                   onDelete: () {
                     final cubit = context.read<NotificationCubit>();
+                    final s = cubit.state;
+                    final prev = s is NotificationLoaded
+                        ? List<NotificationModel>.from(s.notifications)
+                        : null;
                     cubit.deleteNotification(notification);
                     AppSnackBars.showInfo(context, '${notification.title} dismissed');
+                    if (prev != null && mounted) {
+                      ScaffoldMessenger.of(context).clearSnackBars();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('${notification.title} dismissed'),
+                          action: SnackBarAction(
+                            label: 'Undo',
+                            onPressed: () => cubit.undoDelete(prev),
+                          ),
+                        ),
+                      );
+                    }
                   },
                 ),
               );

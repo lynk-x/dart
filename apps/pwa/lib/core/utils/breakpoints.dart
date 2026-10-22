@@ -44,8 +44,16 @@ class Breakpoints {
 
   /// Returns the number of grid columns appropriate for the current width.
   ///
-  /// Used for category pickers, media grids, etc.
-  static int gridColumns(BuildContext context, {int phoneColumns = 2, int tabletColumns = 4}) {
+  /// Used for category pickers, media grids, etc. Desktop gets its own
+  /// column count — a 1600px viewport doesn't need the same density as a
+  /// 700px tablet just because both clear the tablet breakpoint.
+  static int gridColumns(
+    BuildContext context, {
+    int phoneColumns = 2,
+    int tabletColumns = 4,
+    int desktopColumns = 6,
+  }) {
+    if (isDesktop(context)) return desktopColumns;
     return isTablet(context) ? tabletColumns : phoneColumns;
   }
 

@@ -67,6 +67,7 @@ class _HomeViewState extends State<HomeView>
     });
     _loadWelcomeBanner();
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       DeviceNotificationModal.checkAndShow(context);
     });
   }

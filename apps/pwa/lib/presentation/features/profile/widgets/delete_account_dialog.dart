@@ -12,11 +12,19 @@ class DeleteAccountDialog extends StatefulWidget {
 
 class _DeleteAccountDialogState extends State<DeleteAccountDialog> {
   final TextEditingController _confirmController = TextEditingController();
+  bool _isDeleting = false;
 
   @override
   void dispose() {
     _confirmController.dispose();
     super.dispose();
+  }
+
+  void _onDelete() {
+    if (_isDeleting || _confirmController.text != 'DELETE') return;
+    setState(() => _isDeleting = true);
+    Navigator.pop(context);
+    widget.onDelete();
   }
 
   @override
@@ -50,6 +58,7 @@ class _DeleteAccountDialogState extends State<DeleteAccountDialog> {
           TextFormField(
             controller: _confirmController,
             autofocus: true,
+            enabled: !_isDeleting,
             style: const TextStyle(
               color: Colors.white,
               letterSpacing: 2,
@@ -75,20 +84,17 @@ class _DeleteAccountDialogState extends State<DeleteAccountDialog> {
       ),
       actions: [
         TextButton(
-          onPressed: () => Navigator.pop(context),
+          onPressed: _isDeleting ? null : () => Navigator.pop(context),
           child: const Text('Cancel', style: TextStyle(color: Colors.white60)),
         ),
         TextButton(
-          onPressed: _confirmController.text == 'DELETE'
-              ? () {
-                  Navigator.pop(context);
-                  widget.onDelete();
-                }
+          onPressed: (_confirmController.text == 'DELETE' && !_isDeleting)
+              ? _onDelete
               : null,
           child: Text(
-            'Delete Forever',
+            _isDeleting ? 'Deleting...' : 'Delete Forever',
             style: TextStyle(
-              color: _confirmController.text == 'DELETE'
+              color: (_confirmController.text == 'DELETE' && !_isDeleting)
                   ? Colors.redAccent
                   : Colors.redAccent.withValues(alpha: 0.3),
               fontWeight: FontWeight.bold,

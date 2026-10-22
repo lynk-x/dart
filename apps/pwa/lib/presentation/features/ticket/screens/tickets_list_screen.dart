@@ -21,8 +21,36 @@ class TicketsListScreen extends StatelessWidget {
   }
 }
 
-class TicketsListView extends StatelessWidget {
+class TicketsListView extends StatefulWidget {
   const TicketsListView({super.key});
+
+  @override
+  State<TicketsListView> createState() => _TicketsListViewState();
+}
+
+class _TicketsListViewState extends State<TicketsListView> {
+  final _scrollController = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (!_scrollController.hasClients || !mounted) return;
+    final position = _scrollController.position;
+    if (position.pixels >= position.maxScrollExtent - 400) {
+      context.read<TicketsListCubit>().loadMore();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -48,7 +76,7 @@ class TicketsListView extends StatelessWidget {
             icon:
                 const Icon(Icons.support_agent_rounded, color: Colors.white70),
             onPressed: () {
-              context.push('/support?context=events');
+              context.push('/support?context=general');
             },
           ),
           const SizedBox(width: 8),
@@ -105,6 +133,7 @@ class TicketsListView extends StatelessWidget {
 
                 if (isWide) {
                   return GridView.builder(
+                    controller: _scrollController,
                     padding: const EdgeInsets.all(16),
                     gridDelegate:
                         const SliverGridDelegateWithMaxCrossAxisExtent(
@@ -113,8 +142,16 @@ class TicketsListView extends StatelessWidget {
                       crossAxisSpacing: 16,
                       childAspectRatio: 1.25,
                     ),
-                    itemCount: state.tickets.length,
+                    itemCount: state.tickets.length + ((state.hasMore || state.isLoadingMore) ? 1 : 0),
                     itemBuilder: (context, index) {
+                      if (index >= state.tickets.length) {
+                        return const Center(
+                          child: Padding(
+                            padding: EdgeInsets.all(16),
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                        );
+                      }
                       final ticket = state.tickets[index];
                       return RepaintBoundary(
                         key: ValueKey('ticket_grid_${ticket.reference}'),
@@ -128,11 +165,22 @@ class TicketsListView extends StatelessWidget {
                 }
 
                 return ListView.separated(
+                  controller: _scrollController,
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
-                  itemCount: state.tickets.length,
+                  itemCount: state.tickets.length + ((state.hasMore || state.isLoadingMore) ? 1 : 0),
                   separatorBuilder: (context, index) =>
-                      const SizedBox(height: 16),
+                      index >= state.tickets.length
+                          ? const SizedBox.shrink()
+                          : const SizedBox(height: 16),
                   itemBuilder: (context, index) {
+                    if (index >= state.tickets.length) {
+                      return const Center(
+                        child: Padding(
+                          padding: EdgeInsets.all(16),
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                      );
+                    }
                     final ticket = state.tickets[index];
                     return RepaintBoundary(
                       key: ValueKey('ticket_list_${ticket.reference}'),

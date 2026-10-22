@@ -262,7 +262,9 @@ class _HomeDrawerState extends State<HomeDrawer> {
                     context.push('/edit-profile');
                   },
                 ),
-                if (context.read<FeatureFlagCubit>().isEnabled('enable_wallet'))
+                if (context
+                    .watch<FeatureFlagCubit>()
+                    .isEnabled('enable_wallet'))
                   ListTile(
                     leading: const Icon(Icons.account_balance_wallet,
                         color: Colors.white),
@@ -320,7 +322,7 @@ class _HomeDrawerState extends State<HomeDrawer> {
               children: [
                 // ── Upgrade CTA Card ──
                 if (context
-                    .read<FeatureFlagCubit>()
+                    .watch<FeatureFlagCubit>()
                     .isEnabled('enable_premium_subscriptions'))
                   Container(
                     margin:

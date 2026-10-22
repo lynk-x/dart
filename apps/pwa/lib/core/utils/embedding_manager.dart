@@ -110,6 +110,17 @@ class EmbeddingManager implements IEmbeddingService {
     }
   }
 
+  /// Terminates the Web Worker and clears the in-flight tracking sets.
+  /// Safe to call from app teardown; subsequent [processMessage] calls are
+  /// no-ops until [init] is called again.
+  void dispose() {
+    _workerClient?.dispose();
+    _workerClient = null;
+    _isReady = false;
+    _computingMessageIds.clear();
+    _syncingMessageIds.clear();
+  }
+
   @override
   void processMessage(String messageId, String text) {
     if (!_isEnabled || !_isReady) return;

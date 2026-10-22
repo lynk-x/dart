@@ -4,6 +4,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/call_participant.dart';
 import '../services/call_sound_service.dart';
+import '../services/call_lifecycle_service.dart';
+import '../services/call_recovery_service.dart';
 import '../services/forum_audio_stream_service.dart';
 import '../services/mini_overlay_service.dart';
 import '../widgets/header.dart';
@@ -62,12 +64,31 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
     // Publish-side counterpart: JS detected ICE failure/disconnect but
     // can't recover it itself — Cloudflare requires a new session, which
     // needs an authenticated create call, so the reconnect runs here.
+    // CallRecoveryService owns the retry/backoff policy (3 attempts,
+    // exponential backoff) so the audio publish side matches the video
+    // stream's recovery shape instead of firing once and giving up.
+    CallRecoveryService().setPublishAction(RecoveryAction(_reconnectPublish));
     service.onPublishNeedsReconnect(() {
       if (isClosed || !_isPublishingRole) return;
-      unawaited(_reconnectPublish());
+      unawaited(CallRecoveryService().requestReconnect(
+        side: RecoverySide.publish,
+        onGiveUp: () {
+          if (isClosed) return;
+          emit(state.copyWith(
+            errorMessage: state.role == ForumHeaderRole.host
+                ? 'Lost connection to your live call. Please end and restart it.'
+                : 'Lost connection to your speaking slot. Please rejoin as a speaker.',
+          ));
+        },
+      ));
     });
     service.onPublishLost(() {
       if (isClosed || !_isPublishingRole) return;
+      // The publish connection died outright (not a recoverable ICE
+      // failure) — cancel any in-flight recovery so it doesn't fire
+      // after the UI has already shown the give-up message, then surface
+      // the same give-up text the recovery path would have.
+      CallRecoveryService().cancel();
       emit(state.copyWith(
         errorMessage: state.role == ForumHeaderRole.host
             ? 'Lost connection to your live call. Please end and restart it.'
@@ -85,10 +106,20 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
         _stopTelemetryPolling();
       }
     });
+
+    // Forward CallRecoveryService's recovery flag to the cubit's own
+    // [isReconnecting] so the UI shows "Reconnecting…" during backoff.
+    _recoveryNotifierListener = () {
+      if (isClosed) return;
+      emit(state.copyWith(
+          isReconnecting: CallRecoveryService().isRecoveringNotifier.value));
+    };
+    CallRecoveryService().isRecoveringNotifier.addListener(_recoveryNotifierListener!);
   }
 
   Timer? _telemetryTimer;
   StreamSubscription<ForumAudioStreamState>? _telemetrySub;
+  VoidCallback? _recoveryNotifierListener;
 
   void _startTelemetryPolling() {
     if (_telemetryTimer != null) return;
@@ -191,8 +222,11 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
 
           // Always a genuine discovery here (branch only runs while
           // state.isLive was false): opening the forum to find a call
-          // already in progress.
-          unawaited(CallSoundService.playJoin());
+          // already in progress. CallLifecycleService serialises the
+          // chime, mic reporting, and telemetry start so they fire
+          // exactly once — the audio cubit and the video service both
+          // trigger a join, and without this the chime can fire twice.
+          unawaited(CallLifecycleService().join());
 
           // Only a listener needs to pull the host's track down; the host's
           // own publish flow (startAudioStream) already owns its connection.
@@ -327,6 +361,10 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
         MiniOverlayService().endPipSession();
 
         // The host's own end echo also lands here; only attendees get the notice.
+        // CallLifecycleService().leave() is idempotent — the host already
+        // called it from endAudioStream, so this is a no-op for them and
+        // stops telemetry for everyone else.
+        CallLifecycleService().leave();
         emit(ForumAudioStreamState(
           isLive: false,
           role: ForumHeaderRole.listener,
@@ -549,8 +587,11 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
       ));
 
       // Always a genuine join here, never a resync echo (state.isLive was
-      // checked false at entry and again just above).
-      unawaited(CallSoundService.playJoin());
+      // checked false at entry and again just above). CallLifecycleService
+      // serialises the chime, mic reporting, and telemetry start so they
+      // fire exactly once — the audio cubit and the video service both
+      // trigger a join, and without this the chime can fire twice.
+      unawaited(CallLifecycleService().join());
 
       if (!isHost && sessionId != null) {
         await _pullAllParticipantTracks(
@@ -651,9 +692,10 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
         isBroadcastMuted: false,
       ));
 
-      // Fires immediately for the host rather than waiting for the
-      // broadcast below to round-trip back through _handleAudioEvent.
-      unawaited(CallSoundService.playJoin());
+      // CallLifecycleService serialises the chime, mic reporting, and
+      // telemetry start so they fire exactly once — the host's own start
+      // and a listener's join both route through it.
+      unawaited(CallLifecycleService().join());
 
       // Carries the host's CallParticipant so a listener can seed its
       // registry without a separate fetch, and callSummaryId so
@@ -712,6 +754,10 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
 
     service.clearMediaSession();
     MiniOverlayService().endPipSession();
+
+    // CallLifecycleService.stopPolling() runs the telemetry teardown in order
+    // and resets join state so a subsequent join() can fire again.
+    CallLifecycleService().leave();
 
     await service.endCallSummary(_callSummaryId);
     _callSummaryId = null;
@@ -893,8 +939,6 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
     );
   }
 
-  bool _isReconnectingPublish = false;
-
   /// Whether this cubit instance owns the publish side of the peer
   /// connection — true for host and co-host alike; a listener never
   /// publishes.
@@ -902,90 +946,108 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
       state.role == ForumHeaderRole.host ||
       state.role == ForumHeaderRole.speaker;
 
-  /// Recovers this user's publish connection after ICE failure/disconnect.
-  /// Cloudflare has no supported same-session recovery for a publisher, so
-  /// this replaces it entirely: new session, republished tracks, persisted
-  /// to this user's forum_call_participants row. The host additionally owns
-  /// streaming_config.cf_session_id (the address every listener's base
-  /// connection was built against), so only the host's reconnect updates it
-  /// and broadcasts 'start_stream' to rebuild listener connections; a
-  /// co-host's reconnect instead re-broadcasts 'participant_joined' so
-  /// already-connected listeners just re-pull that one track.
-  Future<void> _reconnectPublish() async {
-    if (_isReconnectingPublish || !state.isLive || !_isPublishingRole) {
-      return;
-    }
-    final isHost = state.role == ForumHeaderRole.host;
-    final callSummaryId = _callSummaryId;
-    _isReconnectingPublish = true;
-    emit(state.copyWith(isReconnecting: true));
-    try {
-      final newSessionId = await service.createCloudflareSession(forumId);
-      if (isClosed || newSessionId == null) return;
-
-      final published = await service.publishCloudflareTracks(
-        forumId,
-        newSessionId,
-        forceReconnect: true,
-        trackName: userId,
-      );
-      if (isClosed || !published) return;
-
-      if (isHost) {
-        await service.updateForumStreamingConfig(
-          forumId: forumId,
-          isLive: true,
-          sessionId: newSessionId,
-          hostId: userId,
-          callSummaryId: callSummaryId,
-        );
-      }
-      if (callSummaryId != null) {
-        await service.updateParticipantSession(
-          callSummaryId: callSummaryId,
-          cfSessionId: newSessionId,
-          trackName: userId,
-        );
-      }
-      if (isClosed) return;
-
-      final updatedParticipants =
-          Map<String, CallParticipant>.from(state.participants);
-      final selfParticipant = CallParticipant(
-        userId: userId,
-        userName: userName,
-        cfSessionId: newSessionId,
-        trackName: userId,
-      );
-      updatedParticipants[userId] = selfParticipant;
-      emit(state.copyWith(
-          sessionId: newSessionId, participants: updatedParticipants));
-
-      if (isHost) {
-        await service.broadcastAudioEvent(
-          action: 'start_stream',
-          sessionId: newSessionId,
-          hostId: userId,
-          extraData: {'hostName': userName, 'callSummaryId': callSummaryId},
-        );
-      } else {
-        await service.broadcastAudioEvent(
-          action: 'participant_joined',
-          extraData: selfParticipant.toBroadcastPayload(),
-        );
-      }
-    } catch (e) {
-      debugPrint('[ForumAudioStreamCubit] _reconnectPublish error: $e');
-    } finally {
-      _isReconnectingPublish = false;
-      if (!isClosed) emit(state.copyWith(isReconnecting: false));
-    }
+/// Recovers this user's publish connection after ICE failure/disconnect.
+/// Cloudflare has no supported same-session recovery for a publisher, so
+/// this replaces it entirely: new session, republished tracks, persisted
+/// to this user's forum_call_participants row. The host additionally owns
+/// streaming_config.cf_session_id (the address every listener's base
+/// connection was built against), so only the host's reconnect updates it
+/// and broadcasts 'start_stream' to rebuild listener connections; a
+/// co-host's reconnect instead re-broadcasts 'participant_joined' so
+/// already-connected listeners just re-pull that one track.
+///
+/// Throws on any failure — CallRecoveryService's retry loop catches it and
+/// backs off exponentially up to 3 attempts. The recovery service owns the
+/// `isReconnecting` flag (via its notifier, subscribed below) so the cubit
+/// doesn't toggle state itself.
+Future<void> _reconnectPublish() async {
+  if (!state.isLive || !_isPublishingRole) {
+    throw StateError('Not live or not a publishing role — refusing to reconnect.');
   }
+  final isHost = state.role == ForumHeaderRole.host;
+  final callSummaryId = _callSummaryId;
+
+  final newSessionId = await service.createCloudflareSession(forumId);
+  if (isClosed) {
+    // Hard stop — the cubit is gone and retrying would only waste attempts.
+    throw RecoveryAbort('Cubit closed during session creation.');
+  }
+  if (newSessionId == null) {
+    throw StateError('Could not create a new Cloudflare session.');
+  }
+
+  final published = await service.publishCloudflareTracks(
+    forumId,
+    newSessionId,
+    forceReconnect: true,
+    trackName: userId,
+  );
+  if (isClosed) {
+    throw RecoveryAbort('Cubit closed during track publish.');
+  }
+  if (!published) {
+    throw StateError('Could not republish audio tracks.');
+  }
+
+  if (isHost) {
+    await service.updateForumStreamingConfig(
+      forumId: forumId,
+      isLive: true,
+      sessionId: newSessionId,
+      hostId: userId,
+      callSummaryId: callSummaryId,
+    );
+  }
+  if (callSummaryId != null) {
+    await service.updateParticipantSession(
+      callSummaryId: callSummaryId,
+      cfSessionId: newSessionId,
+      trackName: userId,
+    );
+  }
+  if (isClosed) {
+    throw StateError('Cubit closed mid-reconnect.');
+  }
+
+  final updatedParticipants =
+      Map<String, CallParticipant>.from(state.participants);
+  final selfParticipant = CallParticipant(
+    userId: userId,
+    userName: userName,
+    cfSessionId: newSessionId,
+    trackName: userId,
+  );
+  updatedParticipants[userId] = selfParticipant;
+  emit(state.copyWith(
+      sessionId: newSessionId, participants: updatedParticipants));
+
+  if (isHost) {
+    await service.broadcastAudioEvent(
+      action: 'start_stream',
+      sessionId: newSessionId,
+      hostId: userId,
+      extraData: {'hostName': userName, 'callSummaryId': callSummaryId},
+    );
+  } else {
+    await service.broadcastAudioEvent(
+      action: 'participant_joined',
+      extraData: selfParticipant.toBroadcastPayload(),
+    );
+  }
+}
 
   @override
   Future<void> close() async {
     _telemetrySub?.cancel();
     _stopTelemetryPolling();
+    if (_recoveryNotifierListener != null) {
+      CallRecoveryService().isRecoveringNotifier.removeListener(_recoveryNotifierListener!);
+    }
+    CallRecoveryService().cancel();
+    // Idempotent — leave() is a no-op if never joined. Without this, the
+    // singleton's _joined flag stays true after this cubit closes and the
+    // next join() (a fresh cubit for the same user) silently no-ops.
+    CallLifecycleService().leave();
     service.removeListenerLostCallback();
     service.removeListenerReconnectingCallbacks();
     service.removePublishReconnectCallbacks();

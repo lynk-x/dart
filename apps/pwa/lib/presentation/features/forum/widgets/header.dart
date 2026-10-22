@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:lynk_core/core.dart';
 
-/// Role of the active user in the audio room session.
-enum ForumHeaderRole { host, speaker, listener }
+import '../core/forum_header_role.dart';
+export '../core/forum_header_role.dart' show ForumHeaderRole;
 
 /// Polymorphic Header component for the Forum screen.
 ///
@@ -281,11 +281,11 @@ class AudioSessionSlot extends StatelessWidget {
               ? const SizedBox(
                   width: 16,
                   height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.deepOrange),
+                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.amber),
                 )
               : Icon(
                   isWeakConnection ? Icons.signal_wifi_statusbar_connected_no_internet_4_rounded : Icons.graphic_eq_rounded,
-                  color: isWeakConnection ? Colors.deepOrange : Colors.black,
+                  color: isWeakConnection ? Colors.amber : Colors.black,
                   size: 20,
                 ),
         ),

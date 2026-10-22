@@ -7,6 +7,13 @@ class EmbeddingNoiseFilter {
   static final RegExp _wordSplitRegex = RegExp(r'\s+');
   static final RegExp _urlRegex = RegExp(r'^(https?:\/\/[^\s]+)$');
 
+  // Tuning knobs — these are deliberate, not incidental. A CJK/Thai/etc.
+  // sentence measures as "1 word" under the space-delimited logic below, so
+  // unspaced scripts are judged on character density instead.
+  static const _minUnspacedMeaningfulChars = 6;
+  static const _minSpaceDelimitedLength = 10;
+  static const _minSpaceDelimitedWords = 3;
+
   // Scripts written without spaces between words (CJK, Thai, Lao, Khmer,
   // Myanmar) \u2014 the whitespace-split word count below is meaningless for
   // these (a full sentence measures as "1 word"), so they need a separate,
@@ -23,12 +30,13 @@ class EmbeddingNoiseFilter {
 
     if (_unspacedScriptRegex.hasMatch(trimmed)) {
       final meaningfulCharCount = _meaningfulContentRegex.allMatches(trimmed).length;
-      return meaningfulCharCount < 6;
+      return meaningfulCharCount < _minUnspacedMeaningfulChars;
     }
 
     // Space-delimited scripts (Latin, Cyrillic, Arabic, Devanagari, etc.) \u2014
     // behavior unchanged from before the multilingual fix above.
-    if (trimmed.length < 10 || trimmed.split(_wordSplitRegex).length < 3) {
+    if (trimmed.length < _minSpaceDelimitedLength ||
+        trimmed.split(_wordSplitRegex).length < _minSpaceDelimitedWords) {
       return true;
     }
 

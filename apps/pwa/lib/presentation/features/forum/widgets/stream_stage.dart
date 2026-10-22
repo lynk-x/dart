@@ -13,6 +13,8 @@ import '../cubit/forum_chat_cubit.dart';
 import '../cubit/forum_cubit.dart';
 import '../cubit/forum_presence_cubit.dart';
 import '../cubit/forum_updates_cubit.dart';
+import '../services/call_recovery_service.dart';
+import '../services/call_lifecycle_service.dart';
 import '../models/forum_model.dart';
 import '../models/call_participant.dart';
 import '../services/call_sound_service.dart';
@@ -140,12 +142,32 @@ class _ForumVideoStageState extends State<ForumVideoStage>
     );
     // Publish-side: JS detected the connection failed but can't recover it
     // itself — Cloudflare requires a new session, so the reconnect runs
-    // here. No-op if not currently publishing (_reconnectVideoPublish checks).
+    // here. CallRecoveryService owns the retry/backoff policy (3 attempts,
+    // exponential backoff) so the video publish side matches the audio
+    // side's recovery shape instead of firing once and giving up.
+    CallRecoveryService().setPublishAction(RecoveryAction(_reconnectVideoPublish));
     _videoService.onPublishNeedsReconnect(() {
-      unawaited(_reconnectVideoPublish());
+      if (mounted && _isPublishingRole) {
+        unawaited(CallRecoveryService().requestReconnect(
+          side: RecoverySide.publish,
+          onGiveUp: () {
+            if (!mounted) return;
+            AppSnackBars.showInfo(
+                context,
+                _role == ForumHeaderRole.host
+                    ? 'Lost connection to your live stream. Please end and restart it.'
+                    : 'Lost connection to your speaking slot. Please rejoin as a speaker.');
+          },
+        ));
+      }
     });
     _videoService.onPublishLost(() {
       if (mounted && _isPublishingRole) {
+        // The publish connection died outright (not a recoverable ICE
+        // failure) — cancel any in-flight recovery so it doesn't fire
+        // after the UI has already shown the give-up message, then
+        // surface the same give-up text the recovery path would have.
+        CallRecoveryService().cancel();
         AppSnackBars.showInfo(
             context,
             _role == ForumHeaderRole.host
@@ -185,6 +207,7 @@ class _ForumVideoStageState extends State<ForumVideoStage>
   List<StageChatEntry> _combinedStream = const [];
 
   JSFunction? _onScreenShareEndedListener;
+  VoidCallback? _recoveryNotifierListener;
 
   // ---------------------------------------------------------------------------
   // Lifecycle
@@ -219,6 +242,16 @@ class _ForumVideoStageState extends State<ForumVideoStage>
           'lynkScreenShareEnded', _onScreenShareEndedListener);
 
       _registerConnectionCallbacks();
+
+      // Forward CallRecoveryService's recovery flag to the video service's
+      // own isReconnectingNotifier so StageTopBar's "RECONNECTING" badge
+      // shows during backoff. The recovery service owns the flag now
+      // (it used to be toggled manually in _reconnectVideoPublish).
+      _recoveryNotifierListener = () {
+        _videoService.isReconnectingNotifier.value =
+            CallRecoveryService().isRecoveringNotifier.value;
+      };
+      CallRecoveryService().isRecoveringNotifier.addListener(_recoveryNotifierListener!);
 
       final fId = widget.forumId;
       if (fId != null && fId.isNotEmpty) {
@@ -462,6 +495,14 @@ class _ForumVideoStageState extends State<ForumVideoStage>
     } else {
       _videoService.setMinimized(false);
     }
+
+    // CallLifecycleService serialises the chime, mic reporting, and
+    // telemetry start so they fire exactly once — video's lifecycle is
+    // widget-mount-driven rather than broadcast-driven, but the side
+    // effects are identical to audio's, so it routes through the same
+    // service. reportMicStatus() was previously missing from video
+    // entirely; it now runs here via join().
+    unawaited(CallLifecycleService().join());
   }
 
   /// Fetches the persisted streaming_config for this forum and, if a live
@@ -615,6 +656,11 @@ class _ForumVideoStageState extends State<ForumVideoStage>
       }
       _videoService.role = ForumHeaderRole.listener;
       MiniOverlayService().endPipSession();
+      // CallLifecycleService().leave() is idempotent — the host already
+      // called it from their own end flow, so this is a no-op for them and
+      // stops telemetry for everyone else. Fires before playEnd() so the
+      // end chime plays after telemetry teardown.
+      CallLifecycleService().leave();
       unawaited(CallSoundService.playEnd());
       return;
     }
@@ -740,95 +786,103 @@ class _ForumVideoStageState extends State<ForumVideoStage>
     await _subscribeToHostStream();
   }
 
-  bool _isReconnectingVideoPublish = false;
-
   /// Recovers this user's publish connection after ICE failure/disconnect
   /// (host or co-host). Mirrors ForumAudioStreamCubit._reconnectPublish's
   /// reconnect/rebroadcast strategy exactly — video just has no cubit of
   /// its own, so this lives on the stage widget's state instead.
+  ///
+  /// Throws on any failure — CallRecoveryService's retry loop catches it
+  /// and backs off exponentially up to 3 attempts. The recovery service
+  /// owns the isReconnectingNotifier flag (driving StageTopBar's badge),
+  /// so this method doesn't toggle state itself.
   Future<void> _reconnectVideoPublish() async {
-    if (_isReconnectingVideoPublish ||
-        !_videoService.isLiveNotifier.value ||
-        !_isPublishingRole) {
-      return;
+    if (!_videoService.isLiveNotifier.value || !_isPublishingRole) {
+      throw StateError('Not live or not a publishing role — refusing to reconnect.');
     }
     final forumId = widget.forumId;
-    if (forumId == null || forumId.isEmpty) return;
+    if (forumId == null || forumId.isEmpty) {
+      throw StateError('No forum id — refusing to reconnect.');
+    }
     final isHost = _role == ForumHeaderRole.host;
 
-    _isReconnectingVideoPublish = true;
-    _videoService.isReconnectingNotifier.value = true;
-    try {
-      final newSessionId = await _videoService.createCloudflareSession(forumId);
-      if (!mounted || newSessionId == null) return;
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    if (userId == null) {
+      throw StateError('No authenticated user — refusing to reconnect.');
+    }
 
-      final userId = Supabase.instance.client.auth.currentUser?.id;
+    // Cache the display name before any await — context.read across an
+    // async gap is unsafe (the widget tree may have changed).
+    final coHostUserName = isHost
+        ? widget.hostName
+        : (context.read<ForumCubit>().state.userName.isNotEmpty
+            ? context.read<ForumCubit>().state.userName
+            : 'Speaker');
 
-      final published = await _videoService.publishCloudflareStream(
-        customSessionId: newSessionId,
-        forceReconnect: true,
-        trackBaseName: userId ?? '',
+    final newSessionId = await _videoService.createCloudflareSession(forumId);
+    if (!mounted) {
+      // Hard stop — the widget is gone and retrying would only waste attempts.
+      throw RecoveryAbort('Widget disposed during session creation.');
+    }
+    if (newSessionId == null) {
+      throw StateError('Could not create a new Cloudflare session.');
+    }
+
+    final published = await _videoService.publishCloudflareStream(
+      customSessionId: newSessionId,
+      forceReconnect: true,
+      trackBaseName: userId,
+    );
+    if (!mounted) {
+      throw RecoveryAbort('Widget disposed during track publish.');
+    }
+    if (!published) {
+      throw StateError('Could not republish video tracks.');
+    }
+
+    final callSummaryId = _videoService.callSummaryId;
+    if (isHost) {
+      await _videoService.updateForumStreamingConfig(
+        forumId: forumId,
+        isLive: true,
+        sessionId: newSessionId,
+        hostId: userId,
+        callSummaryId: callSummaryId,
       );
-      if (!mounted || !published) return;
+      // The HOST's reconnected session is the new host session for
+      // everyone, including the host's own Join Card instance — see
+      // hostSessionIdNotifier's own comment.
+      _videoService.hostSessionIdNotifier.value = newSessionId;
+    }
+    if (callSummaryId != null) {
+      await _videoService.updateParticipantSession(
+        callSummaryId: callSummaryId,
+        cfSessionId: newSessionId,
+        trackName: userId,
+      );
+    }
 
-      final callSummaryId = _videoService.callSummaryId;
-      if (isHost) {
-        await _videoService.updateForumStreamingConfig(
-          forumId: forumId,
-          isLive: true,
-          sessionId: newSessionId,
-          hostId: userId,
-          callSummaryId: callSummaryId,
-        );
-        // The HOST's reconnected session is the new host session for
-        // everyone, including the host's own Join Card instance — see
-        // hostSessionIdNotifier's own comment.
-        _videoService.hostSessionIdNotifier.value = newSessionId;
-      }
-      if (callSummaryId != null && userId != null) {
-        await _videoService.updateParticipantSession(
-          callSummaryId: callSummaryId,
-          cfSessionId: newSessionId,
-          trackName: userId,
-        );
-      }
-      if (!mounted) return;
+    final selfParticipant = CallParticipant(
+      userId: userId,
+      userName: coHostUserName,
+      cfSessionId: newSessionId,
+      trackName: userId,
+    );
+    final updated = Map<String, CallParticipant>.from(
+        _videoService.participantsNotifier.value);
+    updated[userId] = selfParticipant;
+    _videoService.participantsNotifier.value = updated;
 
-      CallParticipant? selfParticipant;
-      if (userId != null) {
-        selfParticipant = CallParticipant(
-          userId: userId,
-          userName: isHost
-              ? widget.hostName
-              : (context.read<ForumCubit>().state.userName.isNotEmpty
-                  ? context.read<ForumCubit>().state.userName
-                  : 'Speaker'),
-          cfSessionId: newSessionId,
-          trackName: userId,
-        );
-        final updated = Map<String, CallParticipant>.from(
-            _videoService.participantsNotifier.value);
-        updated[userId] = selfParticipant;
-        _videoService.participantsNotifier.value = updated;
-      }
-
-      if (isHost) {
-        await _videoService.broadcastVideoEvent(
-          action: 'session_changed',
-          sessionId: newSessionId,
-          hostId: userId,
-        );
-      } else if (selfParticipant != null) {
-        await _videoService.broadcastVideoEvent(
-          action: 'participant_joined',
-          extraData: selfParticipant.toBroadcastPayload(),
-        );
-      }
-    } catch (e) {
-      debugPrint('[ForumVideoStage] _reconnectVideoPublish error: $e');
-    } finally {
-      _isReconnectingVideoPublish = false;
-      _videoService.isReconnectingNotifier.value = false;
+    if (isHost) {
+      await _videoService.broadcastVideoEvent(
+        action: 'session_changed',
+        sessionId: newSessionId,
+        hostId: userId,
+      );
+    } else {
+      await _videoService.broadcastVideoEvent(
+        action: 'participant_joined',
+        extraData: selfParticipant.toBroadcastPayload(),
+      );
     }
   }
 
@@ -843,6 +897,17 @@ class _ForumVideoStageState extends State<ForumVideoStage>
     // All registered unconditionally in _registerConnectionCallbacks()
     // (a co-host needs listener + publish callbacks simultaneously) —
     // clean up all of them the same way.
+    if (_recoveryNotifierListener != null) {
+      CallRecoveryService().isRecoveringNotifier
+          .removeListener(_recoveryNotifierListener!);
+    }
+    CallRecoveryService().cancel();
+    // CallLifecycleService().leave() is idempotent — a no-op if never
+    // joined. Fires unconditionally (outside the minimized guard) so
+    // telemetry stops even when the stage was minimized before dispose.
+    // The audio-level and duration timers below are video-specific and
+    // stay here; only telemetry is shared with the lifecycle service.
+    CallLifecycleService().leave();
     _videoService.removeListenerLostCallback();
     _videoService.removeListenerReconnectingCallbacks();
     _videoService.removePublishReconnectCallbacks();

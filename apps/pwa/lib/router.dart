@@ -26,7 +26,6 @@ import 'package:lynk_x/presentation/features/profile/screens/account_screen.dart
 import 'package:lynk_x/presentation/features/profile/screens/notification_preferences_screen.dart';
 import 'package:lynk_x/presentation/features/feedback/screens/feedback_screen.dart';
 import 'package:lynk_x/presentation/features/support/screens/support_screen.dart';
-import 'package:lynk_x/presentation/features/support/screens/live_chat_screen.dart';
 
 import 'package:lynk_x/presentation/features/wallet/screens/wallet_screen.dart';
 import 'package:lynk_x/presentation/features/wallet/screens/wallet_list_screen.dart';
@@ -531,29 +530,6 @@ GoRouter createRouter(
             ),
           );
         },
-        routes: [
-          GoRoute(
-            path: 'chat',
-            builder: (context, state) {
-              final extras = state.extra as Map<String, dynamic>?;
-              final ticketId = extras?['ticketId'] as String?;
-              final supportContextName =
-                  state.uri.queryParameters['context'] ?? 'general';
-              final supportContext = SupportContext.values.firstWhere(
-                (e) => e.name == supportContextName,
-                orElse: () => SupportContext.general,
-              );
-              return Title(
-                title: 'Live Chat',
-                color: Colors.black,
-                child: LiveChatScreen(
-                  supportContext: supportContext,
-                  ticketId: ticketId,
-                ),
-              );
-            },
-          ),
-        ],
       ),
       GoRoute(
         path: '/update-required',

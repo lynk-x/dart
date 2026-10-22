@@ -62,6 +62,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
   @override
   void dispose() {
     _subChannel?.unsubscribe();
+    _subChannel = null;
     _mpesaCountdownTimer?.cancel();
     super.dispose();
   }
@@ -91,8 +92,15 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
     try {
       final uid = _supabase.auth.currentUser?.id;
 
-      final results = await Future.wait<dynamic>([
+        // Active subscription
+      final activeSubQuery = _supabase
+          .schema('api')
+          .from('v1_subscriptions')
+          .select('id, plan_id, ends_at')
+          .inFilter('status', ['active', 'trialing'])
+          .eq('is_latest', true);
 
+      final results = await Future.wait<dynamic>([
         _supabase
             .schema('api')
             .rpc('get_subscription_catalog', params: {'p_product_type': 'attendee_premium'}),
@@ -110,13 +118,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
             : Future<dynamic>.value(null),
 
         // Active subscription
-        _supabase
-            .schema('api')
-            .from('v1_subscriptions')
-            .select('id, plan_id, ends_at')
-            .inFilter('status', ['active', 'trialing'])
-            .eq('is_latest', true)
-            .maybeSingle(),
+        uid != null ? activeSubQuery.eq('user_id', uid).maybeSingle() : activeSubQuery.maybeSingle(),
 
         // Wallet balances across currencies — selector below picks the best match.
         // escrow_balance holds funds reserved for pending payouts; subtract it
@@ -149,7 +151,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
         final c = w['currency'] as String;
         final raw = (w['cash_balance'] as num).toDouble();
         final escrow = (w['escrow_balance'] as num? ?? 0).toDouble();
-        final spendable = raw - escrow;
+        final spendable = (raw - escrow).clamp(0.0, double.infinity);
         if (localCurrency.isNotEmpty && c == localCurrency) {
           walletCurrency = c;
           walletBalance = spendable;
@@ -184,6 +186,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
         // Pre-select the currently active interval
         if (_activePlanId == yearly?.id) _interval = 'year';
         _isLoading = false;
+        _hasError = false;
       });
     } catch (_) {
       if (mounted) setState(() { _isLoading = false; _hasError = true; });
@@ -233,14 +236,15 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
           event: PostgresChangeEvent.insert,
           schema: 'finance',
           table: 'subscriptions',
-          callback: (_) {
+            callback: (_) {
             if (!_waitingMpesa || !mounted) return;
             _cancelMpesaCountdown();
+            _subChannel?.unsubscribe();
+            _subChannel = null;
             setState(() {
               _waitingMpesa = false;
               _isProcessing = false;
             });
-            _subChannel?.unsubscribe();
             _showSuccess();
           },
         )
@@ -260,11 +264,12 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
       Future.delayed(const Duration(minutes: 3), () {
         if (!mounted || !_waitingMpesa) return;
         _cancelMpesaCountdown();
+        _subChannel?.unsubscribe();
+        _subChannel = null;
         setState(() {
           _waitingMpesa = false;
           _isProcessing = false;
         });
-        _subChannel?.unsubscribe();
         _showError('M-Pesa payment timed out. Please try again.');
       });
     } catch (e) {
@@ -704,14 +709,15 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
             ),
             const SizedBox(height: 28),
             TextButton(
-              onPressed: () {
-                _cancelMpesaCountdown();
-                _subChannel?.unsubscribe();
-                setState(() {
-                  _waitingMpesa = false;
-                  _isProcessing = false;
-                });
-              },
+            onPressed: () {
+              _cancelMpesaCountdown();
+              _subChannel?.unsubscribe();
+              _subChannel = null;
+              setState(() {
+                _waitingMpesa = false;
+                _isProcessing = false;
+              });
+            },
               child: const Text('Cancel',
                   style: TextStyle(color: Colors.white38, fontSize: 14)),
             ),

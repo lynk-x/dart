@@ -5,11 +5,12 @@ import 'package:hydrated_bloc/hydrated_bloc.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 import 'package:lynk_x/presentation/features/forum/models/forum_model.dart';
-import 'package:lynk_x/core/utils/storage_utils.dart';
+import 'package:lynk_x/core/utils/storage.dart';
 import 'package:lynk_x/core/sync/sync_manager.dart';
 import 'package:lynk_x/presentation/features/forum/services/stream_service.dart';
 import 'package:lynk_x/presentation/features/forum/services/mini_overlay_service.dart';
 import 'package:lynk_x/presentation/features/forum/services/forum_cdc_service.dart';
+import 'package:lynk_x/core/utils/debounce.dart';
 import 'base_message_state.dart';
 
 /// Shared message-list machinery (realtime broadcast + CDC fallback,
@@ -23,6 +24,12 @@ abstract class BaseMessageCubit<T extends BaseMessageState>
   final String forumId;
   final String userId;
   String userName;
+
+  /// Mutated by [updateUserName] when the user edits their profile — the
+  /// cubit can't re-construct because it doesn't own the profile source of
+  /// truth. Deliberately non-final; `HydratedCubit` serializes the current
+  /// value on close, so a stale name only survives if the cubit is closed
+  /// before the profile update lands.
   final RealtimeChannel? channel;
   // The primary type a message sent from this tab gets (used by sendMessage);
   // messageTypes is the full set this tab renders/subscribes to — e.g. Live
@@ -32,7 +39,9 @@ abstract class BaseMessageCubit<T extends BaseMessageState>
   final String messageType;
   final List<String> messageTypes;
 
-  Timer? searchTimer;
+  /// Debouncer for search queries — delays [refresh] until 300 ms of
+  /// inactivity so typing "abc" doesn't fire three round-trips.
+  final Debouncer _searchDebouncer = Debouncer(const Duration(milliseconds: 300));
 
   /// Stored function reference for [ForumCdcService] — must be the same object
   /// used in both [register] and [unregister] calls.
@@ -283,6 +292,9 @@ abstract class BaseMessageCubit<T extends BaseMessageState>
   }
 
   List<ChatMessage> _capMessages(List<ChatMessage> msgs) {
+    // Cap the *incoming* batch at the newest 100 — messages are prepended, so
+    // this drops the oldest tail. The cap is a memory guard for busy streams;
+    // older items are loaded on demand via loadMore(), not retained here.
     if (msgs.length > maxInMemoryMessages) {
       return msgs.sublist(0, maxInMemoryMessages);
     }
@@ -336,7 +348,7 @@ abstract class BaseMessageCubit<T extends BaseMessageState>
 
   void setSearchQuery(String query) {
     if (!isClosed) emit(copyWithState(searchQuery: query));
-    searchTimer?.cancel();
+    _searchDebouncer.cancel();
 
     if (query.isEmpty) {
       // Restore pre-search snapshot without a network round-trip when
@@ -357,7 +369,7 @@ abstract class BaseMessageCubit<T extends BaseMessageState>
       _preSearchMessages = List.unmodifiable(state.messages);
     }
 
-    searchTimer = Timer(const Duration(milliseconds: 300), () {
+    _searchDebouncer.run(() {
       if (!isClosed) emit(copyWithState(messages: []));
       refresh();
     });
@@ -538,7 +550,7 @@ abstract class BaseMessageCubit<T extends BaseMessageState>
   @override
   Future<void> close() {
     _syncSubscription?.cancel();
-    searchTimer?.cancel();
+    _searchDebouncer.cancel();
     _preSearchMessages = const [];
     if (_cdcListener != null) {
       // Unregister from the shared CDC singleton — decrements ref count;

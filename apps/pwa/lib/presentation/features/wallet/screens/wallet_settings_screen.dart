@@ -166,7 +166,7 @@ class _WalletSettingsPageState extends State<WalletSettingsPage> {
                 icon: const Icon(Icons.support_agent_rounded,
                     color: Colors.white70),
                 onPressed: () {
-                  context.push('/support?context=wallet');
+                  context.push('/support?context=general');
                 },
               ),
               const SizedBox(width: 8),

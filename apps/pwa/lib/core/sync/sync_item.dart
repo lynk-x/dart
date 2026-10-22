@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'package:uuid/uuid.dart';
+
 /// Types of database mutations supported by the offline sync queue.
 enum SyncAction { insert, update, delete, rpc }
 
@@ -25,7 +27,13 @@ class SyncItem {
   final SyncAction action;
   final Map<String, dynamic> payload;
   final DateTime createdAt;
-  int retryCount;
+  final int retryCount;
+
+  /// Client-generated idempotency key. The server dedupes on
+  /// `(user_id, idempotencyKey)` so a crash between `addWork` and persist, or
+  /// a duplicate cubit call, can never queue the same logical action twice.
+  /// Generated at construction (UUID v4) and carried through [copyWith].
+  final String idempotencyKey;
 
   /// How to handle a write conflict on UPDATE.
   /// Ignored for INSERT and DELETE actions.
@@ -68,7 +76,9 @@ class SyncItem {
     this.serverUpdatedAtBaseline,
     this.partitionKeyName,
     this.partitionKeyValue,
-  }) : createdAt = createdAt ?? DateTime.now();
+    String? idempotencyKey,
+  })  : idempotencyKey = idempotencyKey ?? const Uuid().v4(),
+        createdAt = createdAt ?? DateTime.now();
 
   SyncItem copyWith({int? retryCount}) => SyncItem(
         id: id,
@@ -82,6 +92,7 @@ class SyncItem {
         serverUpdatedAtBaseline: serverUpdatedAtBaseline,
         partitionKeyName: partitionKeyName,
         partitionKeyValue: partitionKeyValue,
+        idempotencyKey: idempotencyKey,
       );
 
   /// Serializes this sync item to a JSON-compatible map for persistent storage.
@@ -95,6 +106,7 @@ class SyncItem {
       'createdAt': createdAt.toIso8601String(),
       'retryCount': retryCount,
       'conflictPolicy': conflictPolicy.name,
+      'idempotencyKey': idempotencyKey,
       'serverUpdatedAtBaseline': serverUpdatedAtBaseline,
       'partitionKeyName': partitionKeyName,
       'partitionKeyValue': partitionKeyValue,
@@ -114,6 +126,8 @@ class SyncItem {
       conflictPolicy: ConflictPolicy.values.byName(
         (map['conflictPolicy'] as String?) ?? ConflictPolicy.serverWins.name,
       ),
+      idempotencyKey:
+          (map['idempotencyKey'] as String?) ?? const Uuid().v4(),
       serverUpdatedAtBaseline: map['serverUpdatedAtBaseline'] as String?,
       partitionKeyName: map['partitionKeyName'] as String?,
       partitionKeyValue: map['partitionKeyValue'] as String?,

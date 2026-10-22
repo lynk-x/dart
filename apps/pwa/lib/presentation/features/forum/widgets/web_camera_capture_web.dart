@@ -448,6 +448,10 @@ class _WebCameraCaptureScreenState extends State<WebCameraCaptureScreen> {
   // Discards the pending capture and returns to the live camera preview.
   // The stream itself is never stopped/restarted here — only started once
   // in initState and stopped once in dispose — so retaking is instant.
+  // Re-applies the mirror transform: _applyMirrorTransform() only fires
+  // on _startCamera/_switchCamera, so a retake from a front-camera photo
+  // would otherwise show the live preview un-mirrored until the next
+  // camera switch.
   void _retake() {
     if (_pendingResult != null && _pendingResult!.objectUrl.isNotEmpty) {
       try {
@@ -456,6 +460,7 @@ class _WebCameraCaptureScreenState extends State<WebCameraCaptureScreen> {
     }
     _reviewVideoController?.dispose();
     _cachedVideo?.style.display = 'block';
+    _applyMirrorTransform();
     setState(() {
       _pendingResult = null;
       _reviewVideoController = null;

@@ -5,13 +5,11 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:web/web.dart' as web;
 import 'mic_status_reporter.dart';
 import '../models/call_participant.dart';
-import '../widgets/header.dart' show ForumHeaderRole;
+import '../core/forum_header_role.dart' show ForumHeaderRole;
 import 'mini_overlay_service.dart';
 import 'media_device_manager.dart';
 export 'media_device_manager.dart';
 
-part 'stream_service_js.dart';
-part 'stream_service_models.dart';
 
 /// Singleton owning all video-call state and Cloudflare Calls JS-bridge calls
 /// for the forum's live video stream — mic/camera, stage layout, participant
@@ -283,7 +281,22 @@ class ForumVideoStreamService {
       ValueNotifier<ForumHeaderRole>(ForumHeaderRole.listener);
 
   ForumHeaderRole get role => roleNotifier.value;
+
+  /// Sets the role. Last-writer-wins — two cubits racing to set the role
+  /// (e.g. a host demoting themselves while a speaker claims the mic) can
+  /// overwrite each other's intent. Use [trySetRole] when the caller owns a
+  /// precondition that must still hold for the write to apply.
   set role(ForumHeaderRole value) => roleNotifier.value = value;
+
+  /// Compare-and-set: applies [value] only if the current role matches
+  /// [expected]. Prevents lost updates when two cubits transition the same
+  /// role flag concurrently — the caller asserts "I only want to move the
+  /// role forward if it's still in the state I thought it was."
+  bool trySetRole(ForumHeaderRole value, {required ForumHeaderRole expected}) {
+    if (roleNotifier.value != expected) return false;
+    roleNotifier.value = value;
+    return true;
+  }
 
   /// Whether this user currently owns a publish connection — host OR
   /// co-host (speaker). Mirrors ForumAudioStreamCubit._isPublishingRole.
@@ -1465,4 +1478,224 @@ class ForumVideoStreamService {
       return false;
     }
   }
+}
+
+// JS interop bindings for window.lynkVideoStreamHelper (web/js/video_stream_helper.js). Kept in
+// their own part so the service file is just the service; part files share its private names.
+
+@JS('window.lynkVideoStreamHelper.startVideoStream')
+external JSPromise<JSBoolean> _jsStartVideoStream(
+    JSString elementId, JSBoolean isFrontCamera);
+
+@JS('window.lynkVideoStreamHelper.toggleCameraEnabled')
+external void _jsToggleCameraEnabled(JSBoolean enabled);
+
+@JS('window.lynkVideoStreamHelper.toggleMicEnabled')
+external void _jsToggleMicEnabled(JSBoolean enabled);
+
+@JS('window.lynkVideoStreamHelper.requestPictureInPicture')
+external JSPromise<JSBoolean> _jsRequestPictureInPicture(JSString elementId);
+
+@JS('window.lynkVideoStreamHelper.startScreenShare')
+external JSPromise<JSBoolean> _jsStartScreenShare(JSString elementId);
+
+@JS('window.lynkVideoStreamHelper.stopVideoStream')
+external void _jsStopVideoStream();
+
+@JS('window.lynkAudioStreamHelper.getAudioLevel')
+external JSNumber _jsGetAudioLevel();
+
+// Per-co-host level from that participant's own pulled-track analyser —
+// the page-wide getAudioLevel above only ever reports this viewer's own mic
+// or the single remote stream, so it can't say who among a grid of co-hosts
+// is speaking.
+@JS('window.lynkAudioStreamHelper.getParticipantAudioLevel')
+external JSNumber _jsGetParticipantAudioLevel(JSString userId);
+
+@JS('window.lynkVideoStreamHelper.setCameraMirror')
+external void _jsSetCameraMirror(JSBoolean isMirrored);
+
+@JS('window.lynkVideoStreamHelper.resumeVideoPlayback')
+external void _jsResumeVideoPlayback(JSString elementId);
+
+@JS('window.lynkAudioStreamHelper.requestWakeLock')
+external JSPromise<JSAny?> _jsRequestWakeLock();
+
+@JS('window.lynkAudioStreamHelper.releaseWakeLock')
+external JSPromise<JSAny?> _jsReleaseWakeLock();
+
+// A video call's co-host audio pull goes through lynkAudioStreamHelper
+// directly (same bridging pattern as getAudioLevel/requestWakeLock above),
+// not through a separate ForumAudioStreamService instance — audio
+// playback for ANY call (audio-only or video) is that JS helper's
+// responsibility; ForumVideoStreamService only owns video.
+@JS('window.lynkAudioStreamHelper.addParticipantTrack')
+external JSPromise<JSBoolean> _jsAddAudioParticipantTrack(
+  JSString edgeFunctionUrl,
+  JSString authToken,
+  JSString forumId,
+  JSString participantUserId,
+  JSString remoteSessionId,
+  JSString remoteTrackName,
+);
+
+@JS('window.lynkAudioStreamHelper.removeParticipantTrack')
+external void _jsRemoveAudioParticipantTrack(JSString participantUserId);
+
+// Establishes the audio listener connection for a video call — needed
+// because lynkVideoStreamHelper's recvonly transceiver is video-only, so
+// the host's audio track (published alongside video — see
+// publishCloudflareTracks) is pulled through lynkAudioStreamHelper instead.
+// addParticipantAudioTrack (co-host audio, above) requires this connection
+// to already exist, same as an audio-only call requires its own joinAsListener first.
+@JS('window.lynkAudioStreamHelper.joinAsListener')
+external JSPromise<JSBoolean> _jsJoinAudioListenerForVideoCall(
+  JSString edgeFunctionUrl,
+  JSString authToken,
+  JSString forumId,
+  JSString remoteSessionId,
+  JSString remoteTrackName,
+);
+
+@JS('window.lynkAudioStreamHelper.stopListening')
+external void _jsStopListeningAudioForVideoCall();
+
+@JS('window.lynkVideoStreamHelper.publishCloudflareTracks')
+external JSPromise<JSBoolean> _jsPublishCloudflareTracks(
+  JSString appId,
+  JSString sessionId,
+  JSString edgeFunctionUrl,
+  JSString authToken,
+  JSString forumId,
+  JSBoolean forceReconnect,
+  JSString trackBaseName,
+);
+
+@JS('window.lynkVideoStreamHelper.joinAsVideoListener')
+external JSPromise<JSBoolean> _jsJoinAsVideoListener(
+  JSString elementId,
+  JSString edgeFunctionUrl,
+  JSString authToken,
+  JSString forumId,
+  JSString remoteSessionId,
+  JSString remoteTrackName,
+);
+
+@JS('window.lynkVideoStreamHelper.stopListeningVideo')
+external void _jsStopListeningVideo();
+
+@JS('window.lynkVideoStreamHelper.addParticipantVideoTrack')
+external JSPromise<JSBoolean> _jsAddParticipantVideoTrack(
+  JSString edgeFunctionUrl,
+  JSString authToken,
+  JSString forumId,
+  JSString participantUserId,
+  JSString slotElementId,
+  JSString remoteSessionId,
+  JSString remoteTrackName,
+);
+
+@JS('window.lynkVideoStreamHelper.removeParticipantVideoTrack')
+external void _jsRemoveParticipantVideoTrack(JSString participantUserId);
+
+@JS('window.lynkVideoStreamHelper.getTelemetryStats')
+external JSPromise<JSString> _jsGetTelemetryStats();
+
+@JS('window.lynkVideoStreamHelper.getListenerTelemetryStats')
+external JSPromise<JSString> _jsGetListenerTelemetryStats();
+
+@JS('window.lynkVideoStreamHelper.setStreamQuality')
+external JSPromise<JSBoolean> _jsSetStreamQuality(
+    JSString elementId, JSString quality);
+
+// Plain data types used by ForumVideoStreamService and its consumers (telemetry, participants,
+// stage layout, stream type). A part of the service library, so imports of stream_service.dart
+// still expose them unchanged.
+
+class TelemetryData {
+  final int width;
+  final int height;
+  final int fps;
+  final int rttMs;
+  final String bitrateMbps;
+  final String packetLossPercent;
+  final String codec;
+
+  const TelemetryData({
+    this.width = 1280,
+    this.height = 720,
+    this.fps = 30,
+    this.rttMs = 28,
+    this.bitrateMbps = '2.8',
+    this.packetLossPercent = '0.0',
+    this.codec = 'H.264 / Opus',
+  });
+
+  String get resolutionLabel => '${height}p$fps';
+  String get summaryLabel => '$resolutionLabel • $bitrateMbps Mbps';
+
+  /// Evaluates connection quality to trigger automated Low-Bandwidth fallback mode
+  bool get isPoorConnection {
+    final loss = double.tryParse(packetLossPercent) ?? 0.0;
+    return loss >= 5.0 || rttMs >= 250;
+  }
+}
+
+class StreamParticipant {
+  final String id;
+  final String name;
+  final String role;
+  final String avatarUrl;
+  final bool isHost;
+  final bool isCameraOn;
+  final bool isMicMuted;
+  final bool isSpeaking;
+  final bool isOnStage;
+
+  const StreamParticipant({
+    required this.id,
+    required this.name,
+    required this.role,
+    this.avatarUrl = '',
+    this.isHost = false,
+    this.isCameraOn = true,
+    this.isMicMuted = false,
+    this.isSpeaking = false,
+    this.isOnStage = true,
+  });
+
+  StreamParticipant copyWith({
+    String? id,
+    String? name,
+    String? role,
+    String? avatarUrl,
+    bool? isHost,
+    bool? isCameraOn,
+    bool? isMicMuted,
+    bool? isSpeaking,
+    bool? isOnStage,
+  }) {
+    return StreamParticipant(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      role: role ?? this.role,
+      avatarUrl: avatarUrl ?? this.avatarUrl,
+      isHost: isHost ?? this.isHost,
+      isCameraOn: isCameraOn ?? this.isCameraOn,
+      isMicMuted: isMicMuted ?? this.isMicMuted,
+      isSpeaking: isSpeaking ?? this.isSpeaking,
+      isOnStage: isOnStage ?? this.isOnStage,
+    );
+  }
+}
+
+enum StageLayoutMode {
+  focus,
+  grid,
+  presentation,
+}
+
+enum StreamType {
+  liveCall,
+  liveStream,
 }

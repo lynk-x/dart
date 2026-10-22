@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -15,6 +16,11 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 /// cubits are active. Each cubit [register]s a typed listener; incoming CDC events
 /// are dispatched to every registered listener and each listener is responsible for
 /// filtering by its own `messageTypes`.
+///
+/// CDC events arrive in bursts (a single INSERT is one event, a bulk import is
+/// many), so dispatch is debounced: events within 50ms are coalesced into a
+/// single dispatch pass, preventing cascading re-emits from a storm of
+/// individual changes.
 ///
 /// ## Lifecycle
 /// - The channel is created on the **first** [register] call for a given `forumId`.
@@ -34,12 +40,18 @@ class ForumCdcService {
   // Ref-counts per forumId — channel is torn down when this reaches zero.
   final Map<String, int> _refCounts = {};
 
+  // Pending CDC payloads per forumId, drained on a 50ms timer.
+  final Map<String, List<PostgresChangePayload>> _pending = {};
+  Timer? _debounceTimer;
+
   /// Registers [listener] to receive CDC events for [forumId].
   ///
   /// Creates the shared Realtime channel for [forumId] if one does not already
   /// exist. Safe to call multiple times for the same [forumId].
   void register(String forumId, void Function(PostgresChangePayload) listener) {
-    _listeners.putIfAbsent(forumId, () => []).add(listener);
+    final list = _listeners.putIfAbsent(forumId, () => []);
+    if (list.contains(listener)) return;
+    list.add(listener);
     _refCounts[forumId] = (_refCounts[forumId] ?? 0) + 1;
 
     if (!_channels.containsKey(forumId)) {
@@ -61,6 +73,7 @@ class ForumCdcService {
       _channels.remove(forumId);
       _listeners.remove(forumId);
       _refCounts.remove(forumId);
+      _pending.remove(forumId);
     }
   }
 
@@ -77,22 +90,42 @@ class ForumCdcService {
             value: forumId,
           ),
           callback: (payload) {
-            // Snapshot listener list to guard against concurrent modification
-            // if a cubit disposes (and unregisters) during dispatch.
-            final listeners = List<void Function(PostgresChangePayload)>.from(
-              _listeners[forumId] ?? const [],
-            );
-            for (final fn in listeners) {
-              try {
-                fn(payload);
-              } catch (e, stack) {
-                debugPrint('[ForumCdcService] listener error for forum $forumId: $e\n$stack');
-              }
-            }
+            _pending[forumId] ??= [];
+            _pending[forumId]!.add(payload);
+            _armDebounce();
           },
         );
 
     channel.subscribe();
     _channels[forumId] = channel;
+  }
+
+  /// Arms a 50ms debounce timer that drains [_pending] into a single dispatch
+  /// pass. Coalesces bursts of CDC events so listeners update once per tick
+  /// instead of once per event.
+  void _armDebounce() {
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(const Duration(milliseconds: 50), () {
+      _debounceTimer = null;
+      for (final entry in _pending.entries) {
+        final forumId = entry.key;
+        final events = entry.value;
+        entry.value.clear();
+        if (events.isEmpty) continue;
+
+        final listeners = List<void Function(PostgresChangePayload)>.from(
+          _listeners[forumId] ?? const [],
+        );
+        for (final fn in listeners) {
+          for (final payload in events) {
+            try {
+              fn(payload);
+            } catch (e, stack) {
+              debugPrint('[ForumCdcService] listener error for forum $forumId: $e\n$stack');
+            }
+          }
+        }
+      }
+    });
   }
 }

@@ -1,5 +1,7 @@
 import 'dart:typed_data' show Uint8List;
 
+import 'dart:typed_data';
+
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -142,7 +144,7 @@ class _RequirementField extends StatelessWidget {
   }
 }
 
-class _TextInput extends StatelessWidget {
+class _TextInput extends StatefulWidget {
   final String reqId;
   final String value;
   final String label;
@@ -150,14 +152,42 @@ class _TextInput extends StatelessWidget {
   const _TextInput({required this.reqId, required this.value, required this.label});
 
   @override
+  State<_TextInput> createState() => _TextInputState();
+}
+
+class _TextInputState extends State<_TextInput> {
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.value);
+    _controller.selection = TextSelection.collapsed(offset: _controller.text.length);
+  }
+
+  @override
+  void didUpdateWidget(covariant _TextInput oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.value != widget.value && _controller.text != widget.value) {
+      _controller.text = widget.value;
+      _controller.selection = TextSelection.collapsed(offset: _controller.text.length);
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return TextField(
-      controller: TextEditingController(text: value)
-        ..selection = TextSelection.collapsed(offset: value.length),
-      onChanged: (v) => context.read<KycCubit>().setTextValue(reqId, v),
+      controller: _controller,
+      onChanged: (v) => context.read<KycCubit>().setTextValue(widget.reqId, v),
       style: const TextStyle(color: Colors.white),
       decoration: InputDecoration(
-        hintText: 'Enter ${label.toLowerCase()}...',
+        hintText: 'Enter ${widget.label.toLowerCase()}...',
         hintStyle: const TextStyle(color: Colors.white24),
         filled: true,
         fillColor: AppColors.tertiary,
@@ -307,12 +337,12 @@ class _FileTile extends StatelessWidget {
               color: Colors.black26,
               borderRadius: BorderRadius.circular(8),
             ),
-            child: file.isImage
-                ? ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: Image.memory(_asBytes(file.bytes), fit: BoxFit.cover),
-                  )
-                : const Icon(Icons.picture_as_pdf_outlined, color: Colors.white54, size: 18),
+              child: file.isImage
+                  ? ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Image.memory(Uint8List.fromList(file.bytes), fit: BoxFit.cover),
+                    )
+                  : const Icon(Icons.picture_as_pdf_outlined, color: Colors.white54, size: 18),
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -333,6 +363,3 @@ class _FileTile extends StatelessWidget {
     );
   }
 }
-
-// KycPendingFile.bytes is a List<int>; Image.memory needs Uint8List.
-Uint8List _asBytes(List<int> bytes) => Uint8List.fromList(bytes);

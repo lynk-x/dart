@@ -6,7 +6,7 @@ import 'package:lynk_x/data/repositories/repositories.dart';
 import 'package:lynk_x/presentation/features/forum/models/forum_model.dart';
 import 'package:lynk_x/core/sync/sync_item.dart';
 import 'package:lynk_x/core/sync/sync_manager.dart';
-import 'package:lynk_x/core/utils/storage_utils.dart';
+import 'package:lynk_x/core/utils/storage.dart';
 import 'package:lynk_x/core/utils/embedding_manager.dart';
 import 'package:lynk_x/core/utils/i_embedding_service.dart';
 import 'base_message_cubit.dart';

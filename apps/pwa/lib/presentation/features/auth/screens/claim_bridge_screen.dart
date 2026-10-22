@@ -29,7 +29,10 @@ class ClaimBridgeScreen extends StatefulWidget {
   State<ClaimBridgeScreen> createState() => _ClaimBridgeScreenState();
 }
 
+enum _BridgeState { loading, error, done }
+
 class _ClaimBridgeScreenState extends State<ClaimBridgeScreen> {
+  _BridgeState _state = _BridgeState.loading;
   String? _errorMessage;
 
   @override
@@ -41,7 +44,12 @@ class _ClaimBridgeScreenState extends State<ClaimBridgeScreen> {
   Future<void> _forward() async {
     final forumReference = widget.forumReference;
     if (forumReference == null || forumReference.isEmpty) {
-      setState(() => _errorMessage = 'This link is missing its event.');
+      if (mounted) {
+        setState(() {
+          _state = _BridgeState.error;
+          _errorMessage = 'This link is missing its event.';
+        });
+      }
       return;
     }
 
@@ -85,22 +93,25 @@ class _ClaimBridgeScreenState extends State<ClaimBridgeScreen> {
     }
 
     if (!mounted) return;
+    setState(() => _state = _BridgeState.done);
     context.go('/forum/$forumReference');
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_errorMessage != null) {
+    if (_state == _BridgeState.error) {
       return SystemErrorScreen(
         title: 'Could not open forum',
         message: _errorMessage!,
       );
     }
 
-    return const Scaffold(
+    return Scaffold(
       backgroundColor: Colors.black,
       body: Center(
-        child: CircularProgressIndicator(color: Colors.white),
+        child: _state == _BridgeState.done
+            ? null
+            : const CircularProgressIndicator(color: Colors.white),
       ),
     );
   }

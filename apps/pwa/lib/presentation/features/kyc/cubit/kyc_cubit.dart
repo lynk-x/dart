@@ -4,7 +4,7 @@ import 'package:lynk_core/core.dart';
 
 import 'package:lynk_x/data/repositories/repositories.dart';
 import 'package:lynk_x/data/repositories/repository_providers.dart';
-import 'package:lynk_x/core/utils/storage_utils.dart';
+import 'package:lynk_x/core/utils/storage.dart';
 import 'kyc_state.dart';
 
 /// Mirrors identity.kyc_document_type in supabase/schema/00_base/04_types.sql.
@@ -44,6 +44,7 @@ class KycCubit extends Cubit<KycState> {
     try {
       final userId = _supabase.auth.currentUser?.id;
       final accountId = userId == null ? null : await _accountRepo.resolveOwnerAccountId(userId);
+      if (isClosed) return;
       if (accountId == null) {
         emit(state.copyWith(isLoading: false, error: 'No account found for this profile.'));
         return;
@@ -55,6 +56,7 @@ class KycCubit extends Cubit<KycState> {
           .select('type, country_code')
           .eq('id', accountId)
           .maybeSingle();
+      if (isClosed) return;
 
       final accountType = account?['type'] as String? ?? 'organizer';
       final countryCode = account?['country_code'] as String? ?? 'KE';
@@ -63,6 +65,7 @@ class KycCubit extends Cubit<KycState> {
         _repo.getRequirements(countryCode: countryCode, accountType: accountType),
         _repo.getStatus(accountId),
       ]);
+      if (isClosed) return;
       final requirements = results[0] as List<Map<String, dynamic>>;
       final statusData = results[1] as Map<String, dynamic>;
 
@@ -78,6 +81,7 @@ class KycCubit extends Cubit<KycState> {
             : null,
       ));
     } catch (e) {
+      if (isClosed) return;
       emit(state.copyWith(isLoading: false, error: e.toFriendlyMessage()));
     }
   }
@@ -162,6 +166,13 @@ class KycCubit extends Cubit<KycState> {
     final accountId = state.accountId;
     if (accountId == null || !state.consentAccepted || !state.accuracyConfirmed) return;
 
+    // Enforce mandatory requirements server-side in addition to the UI.
+    if (!state.isSatisfied(state.textRequirements) ||
+        !state.isSatisfied(state.fileRequirements)) {
+      emit(state.copyWith(error: 'Please complete all required fields and documents.'));
+      return;
+    }
+
     emit(state.copyWith(isSubmitting: true, clearError: true));
     try {
       final uploadedDocs = <String>[];
@@ -186,8 +197,9 @@ class KycCubit extends Cubit<KycState> {
               filename: name,
               contentType: file.contentType,
               folder: 'accounts',
-              mediaType: 'image',
+              mediaType: file.isImage ? 'image' : 'document',
             );
+            if (isClosed) return;
             uploadedDocs.add(fileKey);
           }
           primaryDocumentType ??= _resolveDocumentType((req['subtype'] as String?) ?? id);
@@ -197,6 +209,7 @@ class KycCubit extends Cubit<KycState> {
           piiData[id] = value.trim();
         }
       }
+      if (isClosed) return;
 
       final result = await _repo.submit(
         accountId: accountId,
@@ -205,6 +218,7 @@ class KycCubit extends Cubit<KycState> {
         uploadedDocs: uploadedDocs,
         piiData: piiData,
       );
+      if (isClosed) return;
 
       emit(state.copyWith(
         isSubmitting: false,
@@ -212,6 +226,7 @@ class KycCubit extends Cubit<KycState> {
         status: KycStatus.pending,
       ));
     } catch (e) {
+      if (isClosed) return;
       emit(state.copyWith(isSubmitting: false, error: e.toFriendlyMessage()));
     }
   }

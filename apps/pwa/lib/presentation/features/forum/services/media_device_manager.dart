@@ -27,19 +27,24 @@ class MediaDevice {
 }
 
 /// Centralized manager for hardware media device enumeration & selection.
-/// Shared by audio calls and video broadcasts.
-class MediaDeviceManager {
-  static final MediaDeviceManager _instance = MediaDeviceManager._internal();
-  factory MediaDeviceManager() => _instance;
-  MediaDeviceManager._internal();
+  /// Shared by audio calls and video broadcasts.
+  class MediaDeviceManager {
+    static final MediaDeviceManager _instance = MediaDeviceManager._internal();
+    factory MediaDeviceManager() => _instance;
+    MediaDeviceManager._internal();
 
-  /// Fetches available input/output hardware media devices (mics, cameras, speakers)
-  Future<List<MediaDevice>> getAvailableDevices() async {
+    /// Cached device list. Null until the first successful enumeration —
+    /// callers that need a fresh list can pass [forceRefresh: true].
+    List<MediaDevice>? _cachedDevices;
+
+    /// Fetches available input/output hardware media devices (mics, cameras, speakers).
+  Future<List<MediaDevice>> getAvailableDevices({bool forceRefresh = false}) async {
     if (!kIsWeb) return [];
+    if (!forceRefresh && _cachedDevices != null) return _cachedDevices!;
     try {
       final rawJson = await _jsGetAvailableDevices().toDart;
       final List<dynamic> list = jsonDecode(rawJson.toDart);
-      return list.map((item) {
+      _cachedDevices = list.map((item) {
         final map = item as Map<String, dynamic>;
         return MediaDevice(
           deviceId: map['deviceId'] as String? ?? '',
@@ -47,17 +52,23 @@ class MediaDeviceManager {
           label: map['label'] as String? ?? 'Device',
         );
       }).toList();
+      return _cachedDevices!;
     } catch (e) {
       debugPrint('[MediaDeviceManager] getAvailableDevices error: $e');
       return [];
     }
   }
 
+  /// Invalidates the cached device list so the next [getAvailableDevices] call
+  /// re-enumerates. Call after a device switch or if a device was unplugged.
+  void invalidateCache() => _cachedDevices = null;
+
   /// Switches active microphone input device
   Future<bool> switchAudioDevice(String deviceId) async {
     if (!kIsWeb) return false;
     try {
       final res = await _jsSwitchAudioDevice(deviceId.toJS).toDart;
+      if (res.toDart) invalidateCache();
       return res.toDart;
     } catch (e) {
       debugPrint('[MediaDeviceManager] switchAudioDevice error: $e');
@@ -70,6 +81,7 @@ class MediaDeviceManager {
     if (!kIsWeb) return false;
     try {
       final res = await _jsSwitchCameraDevice(elementId.toJS, deviceId.toJS).toDart;
+      if (res.toDart) invalidateCache();
       return res.toDart;
     } catch (e) {
       debugPrint('[MediaDeviceManager] switchCameraDevice error: $e');
@@ -82,6 +94,7 @@ class MediaDeviceManager {
     if (!kIsWeb) return false;
     try {
       final res = await _jsSwitchAudioOutputDevice(elementId.toJS, deviceId.toJS).toDart;
+      if (res.toDart) invalidateCache();
       return res.toDart;
     } catch (e) {
       debugPrint('[MediaDeviceManager] switchAudioOutputDevice error: $e');

@@ -45,7 +45,7 @@ class MiniOverlayService {
   factory MiniOverlayService() => _instance;
   MiniOverlayService._internal();
 
-  /// Consolidated single ValueNotifier holding full state snapshot
+  /// Consolidated single ValueNotifier holding full state snapshot.
   final ValueNotifier<MiniOverlayState> stateNotifier =
       ValueNotifier<MiniOverlayState>(const MiniOverlayState());
 
@@ -58,18 +58,6 @@ class MiniOverlayService {
   String get hostName => state.hostName;
   String get forumName => state.forumName;
 
-  // Legacy individual ValueNotifier bridges for backwards compatibility with external listeners
-  final ValueNotifier<bool> isMinimizedNotifier = ValueNotifier<bool>(false);
-  final ValueNotifier<bool> isLiveNotifier = ValueNotifier<bool>(false);
-  final ValueNotifier<MiniOverlayType> streamTypeNotifier =
-      ValueNotifier<MiniOverlayType>(MiniOverlayType.liveStream);
-
-  void _notifyLegacy() {
-    isMinimizedNotifier.value = state.isMinimized;
-    isLiveNotifier.value = state.isLive;
-    streamTypeNotifier.value = state.streamType;
-  }
-
   /// Activates Mini Overlay mode for a Live Call (Audio strip)
   void activateLiveCall({required String hostName, String forumName = ''}) {
     stateNotifier.value = state.copyWith(
@@ -79,7 +67,6 @@ class MiniOverlayService {
       isLive: true,
       isMinimized: true,
     );
-    _notifyLegacy();
   }
 
   /// Activates Mini Overlay mode for a Live Stream (Video canvas)
@@ -91,13 +78,11 @@ class MiniOverlayService {
       isLive: true,
       isMinimized: false,
     );
-    _notifyLegacy();
   }
 
   /// Toggles or explicitly sets minimized state
   void setMinimized(bool minimized) {
     stateNotifier.value = state.copyWith(isMinimized: minimized);
-    _notifyLegacy();
   }
 
   /// Ends Mini Overlay session and hides overlay
@@ -106,6 +91,5 @@ class MiniOverlayService {
       isLive: false,
       isMinimized: false,
     );
-    _notifyLegacy();
   }
 }

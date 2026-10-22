@@ -140,9 +140,12 @@ class HomeCubit extends Cubit<HomeState> {
     var cursorForum = afterForumId;
     var hasMore = true;
     final rows = <Map<String, dynamic>>[];
+    var iterations = 0;
 
     while (true) {
+      if (++iterations > 3) break;
       final remaining = _pageSize - rows.length;
+      if (remaining <= 0) break;
       final batch = await _repo.getUserForums(
         userId,
         limit: remaining,
@@ -151,11 +154,17 @@ class HomeCubit extends Cubit<HomeState> {
         afterEndsAt: cursorEnds,
         afterForumId: cursorForum,
       );
-      rows.addAll(batch);
-      if (batch.isNotEmpty) {
-        cursorEnds = batch.last['event_ends_at'] as String?;
-        cursorForum = batch.last['forum_id'] as String?;
+      if (batch.isEmpty) {
+        // No rows returned — if we were crossing into past, that's the end.
+        // Otherwise stop to avoid an infinite loop (e.g. RLS/filter change).
+        if (inPast) {
+          hasMore = false;
+        }
+        break;
       }
+      rows.addAll(batch);
+      cursorEnds = batch.last['event_ends_at'] as String?;
+      cursorForum = batch.last['forum_id'] as String?;
       if (batch.length >= remaining) break; // page is full; more may follow in this half
       if (inPast) {
         hasMore = false; // ended events exhausted: that's the end of the feed

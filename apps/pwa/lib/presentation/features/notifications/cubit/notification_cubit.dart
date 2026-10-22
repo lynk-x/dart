@@ -23,6 +23,8 @@ class NotificationCubit extends Cubit<NotificationState> {
   /// every loadNotifications() call.
   String? _resolvedAccountId;
 
+  bool _isLoading = false;
+
   /// Returns the current user's ID, or null if auth has not resolved yet.
   String? get _userId {
     return Supabase.instance.client.auth.currentUser?.id;
@@ -31,14 +33,18 @@ class NotificationCubit extends Cubit<NotificationState> {
   Future<void> loadNotifications() async {
     final uid = _userId;
     if (uid == null) return; // Auth not ready — called too early
+    if (_isLoading) return;
+    _isLoading = true;
     emit(const NotificationLoading());
     try {
       _resolvedAccountId ??= await _accountRepo.resolveOwnerAccountId(uid);
+      if (isClosed) return;
 
       final notifications = await _repo.getNotifications(
         accountId: _resolvedAccountId,
         limit: _pageSize,
       );
+      if (isClosed) return;
 
       emit(NotificationLoaded(
         notifications: notifications,
@@ -46,7 +52,9 @@ class NotificationCubit extends Cubit<NotificationState> {
       ));
       _subscribeToNotifications();
     } catch (e) {
-      emit(NotificationError(e.toFriendlyMessage()));
+      if (!isClosed) emit(NotificationError(e.toFriendlyMessage()));
+    } finally {
+      _isLoading = false;
     }
   }
 
@@ -144,6 +152,9 @@ class NotificationCubit extends Cubit<NotificationState> {
     final currentState = state;
     if (currentState is! NotificationLoaded) return;
 
+    // Skip if nothing to mark
+    if (currentState.notifications.every((n) => n.isRead)) return;
+
     emit(currentState.copyWith(isMarkingAllRead: true));
     try {
       final uid = _userId;
@@ -151,13 +162,14 @@ class NotificationCubit extends Cubit<NotificationState> {
       // user_id filter is required: without it, RLS prevents the UPDATE from
       // affecting any rows but it would otherwise scan the whole table.
       await _repo.markAllAsRead(uid);
+      if (isClosed) return;
 
       final updatedList = currentState.notifications
           .map((n) => n.copyWith(isRead: true))
           .toList();
-      emit(NotificationLoaded(notifications: updatedList));
+      emit(currentState.copyWith(notifications: updatedList, isMarkingAllRead: false));
     } catch (e) {
-      emit(currentState.copyWith(isMarkingAllRead: false));
+      if (!isClosed) emit(currentState.copyWith(isMarkingAllRead: false));
     }
   }
 
@@ -178,11 +190,25 @@ class NotificationCubit extends Cubit<NotificationState> {
     } catch (_) {
       // DB delete failed — restore the optimistically-removed item.
       if (previous != null && !isClosed) {
-        emit(NotificationLoaded(notifications: previous));
-      } else {
+        emit(NotificationLoaded(
+          notifications: previous,
+          hasMore: currentState is NotificationLoaded ? currentState.hasMore : true,
+        ));
+      } else if (!isClosed) {
         loadNotifications();
       }
     }
+  }
+
+  /// Restores a previously removed notification (used by swipe undo).
+  void undoDelete(List<NotificationModel> previousList) {
+    if (isClosed) return;
+    final currentState = state;
+    if (currentState is! NotificationLoaded) {
+      emit(NotificationLoaded(notifications: previousList));
+      return;
+    }
+    emit(currentState.copyWith(notifications: previousList));
   }
 
   void reset() {
@@ -190,6 +216,8 @@ class NotificationCubit extends Cubit<NotificationState> {
       _repo.unsubscribe(_channel!);
       _channel = null;
     }
+    _resolvedAccountId = null;
+    _isLoading = false;
     emit(const NotificationInitial());
   }
 
@@ -199,6 +227,8 @@ class NotificationCubit extends Cubit<NotificationState> {
       _repo.unsubscribe(_channel!);
       _channel = null;
     }
+    _resolvedAccountId = null;
+    _isLoading = false;
     return super.close();
   }
 }

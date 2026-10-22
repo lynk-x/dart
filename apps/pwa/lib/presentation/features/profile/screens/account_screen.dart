@@ -352,7 +352,9 @@ class _AccountPageState extends State<AccountPage> {
     showDialog(
       context: context,
       builder: (dialogContext) => DeleteAccountDialog(
-        onDelete: () => context.read<ProfileCubit>().deleteAccount(),
+        onDelete: () {
+          context.read<ProfileCubit>().deleteAccount();
+        },
       ),
     );
   }

@@ -102,7 +102,10 @@ class _JoinCardState extends State<JoinCard> {
     }
   }
 
-  void _broadcastJoinPresence(BuildContext context) {
+  /// Guards against duplicate join announcements from rapid successive
+  /// taps. Sets the flag and returns; the caller is responsible for the
+  /// actual broadcast — this method exists purely to prevent double-fires.
+  void _markJoined() {
     if (_hasJoined) return;
     _hasJoined = true;
   }
@@ -165,7 +168,7 @@ class _JoinCardState extends State<JoinCard> {
               onPressed: isEnded || widget.state == JoinCardState.connecting
                   ? null
                   : () {
-                      _broadcastJoinPresence(context);
+                      _markJoined();
                       widget.onAction?.call();
                     },
               style: ElevatedButton.styleFrom(

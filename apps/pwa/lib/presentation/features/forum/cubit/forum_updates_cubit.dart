@@ -2,7 +2,7 @@ import 'dart:async';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/foundation.dart';
 import 'package:lynk_x/presentation/features/forum/models/forum_model.dart';
-import 'package:lynk_x/core/utils/storage_utils.dart';
+import 'package:lynk_x/core/utils/storage.dart';
 import 'base_message_cubit.dart';
 import 'forum_updates_state.dart';
 import 'package:lynk_x/core/sync/sync_manager.dart';

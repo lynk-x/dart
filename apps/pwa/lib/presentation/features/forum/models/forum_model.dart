@@ -133,6 +133,10 @@ class ChatMessage {
   final bool isEdited;
 
   bool get isLiveSessionEvent {
+    // Fast path: typed live-announcement messages are always session events.
+    // The string scan below is the fallback for plain chat messages whose
+    // body mentions a live session (e.g. a participant narrating that the
+    // stream started) — intentionally broad.
     if (type.isLiveAnnouncement) return true;
     final lower = message.toLowerCase();
     return lower.contains('started the live stream') ||

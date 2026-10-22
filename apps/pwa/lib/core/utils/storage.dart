@@ -37,6 +37,9 @@ class _CachedSignedUrl {
   bool get isValid => DateTime.now().isBefore(expiresAt);
 }
 
+/// Cache key is "<bucket>:<path>" — a path alone is not unique across buckets,
+/// and two buckets sharing a path would otherwise serve one bucket's signed
+/// URL for the other.
 final Map<String, _CachedSignedUrl> _signedUrlCache = {};
 
 /// Batch-sign media paths using the media-signer Edge Function.
@@ -58,7 +61,8 @@ Future<Map<String, String>> batchSignStorageUrls(List<String> urls, String bucke
 
   // 1. Check in-memory cache for valid non-expired signed URLs
   for (final path in paths) {
-    final cached = _signedUrlCache[path];
+    final cacheKey = '$bucket:$path';
+    final cached = _signedUrlCache[cacheKey];
     if (cached != null && cached.isValid) {
       resultMap[path] = cached.signedUrl;
     } else {
@@ -96,7 +100,7 @@ Future<Map<String, String>> batchSignStorageUrls(List<String> urls, String bucke
     final expiresAt = DateTime.now().add(Duration(seconds: ttlSeconds));
 
     newSignedUrls.forEach((path, signedUrl) {
-      _signedUrlCache[path] = _CachedSignedUrl(signedUrl, expiresAt);
+      _signedUrlCache['$bucket:$path'] = _CachedSignedUrl(signedUrl, expiresAt);
       resultMap[path] = signedUrl;
     });
 

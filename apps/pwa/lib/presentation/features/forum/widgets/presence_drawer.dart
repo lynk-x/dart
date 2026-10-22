@@ -116,21 +116,15 @@ class _PresenceDrawerState extends State<PresenceDrawer> {
       if (userId.isNotEmpty) ids.add(userId);
     }
 
+    // The audio cubit's participants map is keyed by userId — use those
+    // keys directly rather than matching activeSpeakerNames (usernames)
+    // back to ids by scanning the roster. Usernames are generated
+    // anonymous adjective_noun+suffix strings, so the username match is
+    // indirect and collision-prone; the userId keys are the source of
+    // truth.
     final audioState = _audioCubit?.state;
     if (audioState != null && audioState.isLive) {
-      final speakerNames = audioState.activeSpeakerNames.toSet();
-      if (speakerNames.isNotEmpty) {
-        for (final m in widget.members) {
-          final id = (m['id'] ?? '').toString();
-          final name = (m['user_name'] ?? '').toString();
-          if (id.isNotEmpty && speakerNames.contains(name)) ids.add(id);
-        }
-        for (final u in widget.onlineUsers) {
-          final id = (u['user_id'] ?? u['id'] ?? '').toString();
-          final name = (u['user_name'] ?? u['full_name'] ?? '').toString();
-          if (id.isNotEmpty && speakerNames.contains(name)) ids.add(id);
-        }
-      }
+      ids.addAll(audioState.participants.keys);
     }
 
     return ids;

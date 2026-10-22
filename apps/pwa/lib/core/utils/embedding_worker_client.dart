@@ -73,6 +73,10 @@ class EmbeddingWorkerClient {
     }.jsify());
   }
 
+  /// Terminates the underlying Web Worker and marks the client as not ready.
+  /// The singleton [EmbeddingManager] never calls this today (the worker
+  /// outlives the page), but it is wired up so callers that want to free the
+  /// model between sessions can do so without reaching into the manager.
   void dispose() {
     _worker?.terminate();
     _worker = null;

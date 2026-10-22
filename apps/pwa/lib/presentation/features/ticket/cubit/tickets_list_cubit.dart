@@ -11,6 +11,7 @@ class TicketsListState {
   final bool hasMore;
   final List<TicketModel> tickets;
   final String? error;
+  final String? loadMoreError;
 
   /// Keyset cursor: (created_at, ticket_id) of the last row from the most
   /// recent fetch. Null until the first page has loaded.
@@ -23,6 +24,7 @@ class TicketsListState {
     this.hasMore = true,
     this.tickets = const [],
     this.error,
+    this.loadMoreError,
     this.cursorCreatedAt,
     this.cursorTicketId,
   });
@@ -33,6 +35,9 @@ class TicketsListState {
     bool? hasMore,
     List<TicketModel>? tickets,
     String? error,
+    bool clearError = false,
+    String? loadMoreError,
+    bool clearLoadMoreError = false,
     String? cursorCreatedAt,
     String? cursorTicketId,
   }) {
@@ -41,7 +46,8 @@ class TicketsListState {
       isLoadingMore: isLoadingMore ?? this.isLoadingMore,
       hasMore: hasMore ?? this.hasMore,
       tickets: tickets ?? this.tickets,
-      error: error,
+      error: clearError ? null : (error ?? this.error),
+      loadMoreError: clearLoadMoreError ? null : (loadMoreError ?? this.loadMoreError),
       cursorCreatedAt: cursorCreatedAt ?? this.cursorCreatedAt,
       cursorTicketId: cursorTicketId ?? this.cursorTicketId,
     );
@@ -60,16 +66,24 @@ class TicketsListCubit extends Cubit<TicketsListState> {
 
   Future<void> loadTickets() async {
     // 1. Instant offline cache load
-    final cached = await _cache.loadTickets();
-    if (cached != null && cached.isNotEmpty) {
-      emit(state.copyWith(isLoading: false, tickets: cached));
-    } else {
+      final cached = await _cache.loadTickets();
+      if (isClosed) return;
+      if (cached != null && cached.isNotEmpty) {
+        emit(state.copyWith(
+          isLoading: false,
+          tickets: cached,
+          hasMore: true,
+          clearError: true,
+          clearLoadMoreError: true,
+        ));
+      } else {
       emit(TicketsListState(isLoading: true));
     }
 
     try {
       final user = Supabase.instance.client.auth.currentUser;
       if (user == null) {
+        if (isClosed) return;
         if (state.tickets.isEmpty) {
           emit(state.copyWith(isLoading: false, error: 'User not logged in'));
         }
@@ -80,6 +94,7 @@ class TicketsListCubit extends Cubit<TicketsListState> {
         user.id,
         limit: _pageSize,
       );
+      if (isClosed) return;
 
       final tickets = rawTickets
           .map((data) => TicketModel.fromView(data))
@@ -88,16 +103,19 @@ class TicketsListCubit extends Cubit<TicketsListState> {
 
       // 2. Persist fresh tickets to offline cache
       await _cache.saveTickets(tickets);
+      if (isClosed) return;
 
       emit(state.copyWith(
         isLoading: false,
         tickets: tickets,
-        error: null,
+        clearError: true,
+        clearLoadMoreError: true,
         hasMore: tickets.length == _pageSize,
         cursorCreatedAt: last?['created_at'] as String?,
         cursorTicketId: last?['ticket_id'] as String?,
       ));
     } catch (e) {
+      if (isClosed) return;
       // 3. If cached tickets exist, preserve offline view gracefully
       if (state.tickets.isEmpty) {
         emit(state.copyWith(isLoading: false, error: e.toFriendlyMessage()));
@@ -110,12 +128,15 @@ class TicketsListCubit extends Cubit<TicketsListState> {
   /// Appends the next page of tickets. Guards against concurrent calls and
   /// signals end-of-list via `hasMore: false` when a partial page comes back.
   Future<void> loadMore() async {
+    if (isClosed) return;
     if (state.isLoading || state.isLoadingMore || !state.hasMore) return;
-    emit(state.copyWith(isLoadingMore: true));
+    if (state.cursorCreatedAt == null || state.cursorTicketId == null) return;
+    emit(state.copyWith(isLoadingMore: true, clearLoadMoreError: true));
     try {
       final user = Supabase.instance.client.auth.currentUser;
       if (user == null) {
-        emit(state.copyWith(isLoadingMore: false, error: 'User not logged in'));
+        if (isClosed) return;
+        emit(state.copyWith(isLoadingMore: false, loadMoreError: 'User not logged in'));
         return;
       }
 
@@ -125,6 +146,7 @@ class TicketsListCubit extends Cubit<TicketsListState> {
         beforeCreatedAt: state.cursorCreatedAt,
         beforeTicketId: state.cursorTicketId,
       );
+      if (isClosed) return;
 
       final more = rawMore
           .map((data) => TicketModel.fromView(data))
@@ -136,6 +158,7 @@ class TicketsListCubit extends Cubit<TicketsListState> {
         final last = rawMore.last;
         emit(state.copyWith(
           isLoadingMore: false,
+          clearLoadMoreError: true,
           tickets: [...state.tickets, ...more],
           hasMore: more.length == _pageSize,
           cursorCreatedAt: last['created_at'] as String?,
@@ -143,7 +166,8 @@ class TicketsListCubit extends Cubit<TicketsListState> {
         ));
       }
     } catch (e) {
-      emit(state.copyWith(isLoadingMore: false, error: e.toFriendlyMessage()));
+      if (isClosed) return;
+      emit(state.copyWith(isLoadingMore: false, loadMoreError: e.toFriendlyMessage()));
     }
   }
 

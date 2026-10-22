@@ -109,10 +109,16 @@ class _UserPresenceCardState extends State<UserPresenceCard> {
   @override
   void didUpdateWidget(UserPresenceCard oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.isMicMuted != null) {
+    // Only sync from the parent when the value actually changed — a
+    // user's in-flight toggle (set in _handleToggleMic/_handleToggleCamera)
+    // would otherwise be overwritten on the very next rebuild, killing the
+    // immediate visual feedback the local state exists to provide. The
+    // parent's resolved value wins on the rebuild after that, so the two
+    // can't drift.
+    if (widget.isMicMuted != null && widget.isMicMuted != _localMicMuted) {
       _localMicMuted = widget.isMicMuted!;
     }
-    if (widget.isCameraOn != null) {
+    if (widget.isCameraOn != null && widget.isCameraOn != _localCameraOn) {
       _localCameraOn = widget.isCameraOn!;
     }
   }
