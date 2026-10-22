@@ -159,8 +159,13 @@ class HomeCubit extends Cubit<HomeState> {
         // Otherwise stop to avoid an infinite loop (e.g. RLS/filter change).
         if (inPast) {
           hasMore = false;
+          break;
         }
-        break;
+        // No upcoming events, continue into past events
+        inPast = true;
+        cursorEnds = null;
+        cursorForum = null;
+        continue;
       }
       rows.addAll(batch);
       cursorEnds = batch.last['event_ends_at'] as String?;

@@ -7,7 +7,6 @@ import 'package:lynk_core/core.dart';
 import 'package:lynk_x/core/utils/safe_launch.dart';
 import 'package:lynk_x/l10n/app_localizations.dart';
 import 'package:lynk_x/app.dart';
-import 'package:lynk_x/presentation/shared/utils/app_snackbars.dart';
 
 class HomeDrawer extends StatefulWidget {
   const HomeDrawer({super.key});
@@ -19,14 +18,14 @@ class HomeDrawer extends StatefulWidget {
 class _HomeDrawerState extends State<HomeDrawer> {
   Future<void> _signOut() async {
     try {
-      await Supabase.instance.client.auth.signOut();
+      await Supabase.instance.client.auth.signOut(scope: SignOutScope.local);
       if (mounted) {
         context.go('/auth');
       }
     } catch (e) {
       if (mounted) {
-        final l10n = AppLocalizations.of(context)!;
-        AppSnackBars.showError(context, '${l10n.logout} Error: $e');
+        // Even if signOut fails, navigate to auth - session may already be invalid
+        context.go('/auth');
       }
     }
   }

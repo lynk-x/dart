@@ -161,16 +161,6 @@ class _WalletSettingsPageState extends State<WalletSettingsPage> {
                   fontWeight: FontWeight.bold,
                   color: Colors.white),
             ),
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.support_agent_rounded,
-                    color: Colors.white70),
-                onPressed: () {
-                  context.push('/support?context=general');
-                },
-              ),
-              const SizedBox(width: 8),
-            ],
           ),
           body: SingleChildScrollView(
             padding: const EdgeInsets.all(20),
