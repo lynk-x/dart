@@ -467,14 +467,6 @@ class _AccountPageState extends State<AccountPage> {
             color: Colors.white,
           ),
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.support_agent_rounded,
-                color: Colors.white70),
-            tooltip: 'Support',
-            onPressed: () => context.push('/support?context=general'),
-          ),
-        ],
       ),
       body: BlocBuilder<ProfileCubit, ProfileState>(
         builder: (context, state) {

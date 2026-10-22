@@ -21,6 +21,7 @@ import 'package:lynk_x/presentation/features/forum/models/forum_model.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/stream_stage.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/speaker_invite_dialog.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/mini_overlay.dart';
+import 'package:lynk_x/presentation/features/forum/services/mini_overlay_service.dart';
 import 'package:lynk_x/presentation/features/forum/services/stream_service.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/presence_drawer.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/media_viewer.dart';
@@ -165,6 +166,7 @@ class _ForumViewState extends State<ForumView> {
 
   @override
   void dispose() {
+    MiniOverlayService().endPipSession();
     ForumVideoStreamService()
         .pendingVideoInviteFromHostName
         .removeListener(_onVideoInviteChanged);

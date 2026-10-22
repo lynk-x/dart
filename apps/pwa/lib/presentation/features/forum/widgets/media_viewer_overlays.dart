@@ -109,7 +109,6 @@ class MediaMemberAction extends StatelessWidget {
   final VoidCallback onRevokeDistributionRights;
   final ValueChanged<bool> onToggleDistributionRights;
   final ValueChanged<String> onReport;
-  final void Function(ForumMedia)? onMention;
 
   const MediaMemberAction({
     super.key,
@@ -120,7 +119,6 @@ class MediaMemberAction extends StatelessWidget {
     required this.onRevokeDistributionRights,
     required this.onToggleDistributionRights,
     required this.onReport,
-    this.onMention,
   });
 
   void _confirmDelete(BuildContext context) {
@@ -209,40 +207,6 @@ class MediaMemberAction extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 16),
-              if (onMention != null) ...[
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color: Colors.blueAccent.withValues(alpha: 0.12),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(Icons.chat_bubble_outline_rounded,
-                        color: Colors.blueAccent, size: 20),
-                  ),
-                  title: const Text(
-                    'Discuss in Live Chat',
-                    style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 15),
-                  ),
-                  subtitle: const Text(
-                    'Attach this photo to a message in community chat',
-                    style: TextStyle(color: Colors.white54, fontSize: 12),
-                  ),
-                  trailing: const Icon(Icons.chevron_right,
-                      color: Colors.white38, size: 20),
-                  onTap: () {
-                    Navigator.pop(bottomSheetContext);
-                    Navigator.pop(context);
-                    onMention?.call(media);
-                  },
-                ),
-                const Divider(color: Colors.white12, height: 24),
-              ],
               if (isUploader || isAuthorized) ...[
                 ListTile(
                   contentPadding: EdgeInsets.zero,

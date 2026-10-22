@@ -37,7 +37,7 @@ class _CachedSignedUrl {
   bool get isValid => DateTime.now().isBefore(expiresAt);
 }
 
-/// Cache key is "<bucket>:<path>" — a path alone is not unique across buckets,
+/// Cache key is `<bucket>:<path>` — a path alone is not unique across buckets,
 /// and two buckets sharing a path would otherwise serve one bucket's signed
 /// URL for the other.
 final Map<String, _CachedSignedUrl> _signedUrlCache = {};

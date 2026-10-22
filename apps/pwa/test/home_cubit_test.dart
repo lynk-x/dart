@@ -52,6 +52,19 @@ class _FakeEventRepository extends EventRepository {
     }
     return source.skip(start).take(limit).toList();
   }
+
+  @override
+  RealtimeChannel subscribeToUserFeedChanges(
+    String userId, {
+    required void Function(Map<String, dynamic>) onFeedInvalidated,
+    required void Function(Map<String, dynamic>) onUnreadUpdated,
+  }) {
+    // Tests don't connect to Supabase Realtime WebSockets
+    throw UnimplementedError();
+  }
+
+  @override
+  void unsubscribe(RealtimeChannel channel) {}
 }
 
 Map<String, dynamic> _row(String id, {required bool past, bool unread = false}) {

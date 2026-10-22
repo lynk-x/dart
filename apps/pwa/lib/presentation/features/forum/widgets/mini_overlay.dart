@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:lynk_core/core.dart';
 import 'package:lynk_x/presentation/features/forum/cubit/forum_audio_stream_cubit.dart';
 import 'package:lynk_x/presentation/features/forum/cubit/forum_audio_stream_state.dart';
+import 'package:lynk_x/presentation/features/forum/cubit/forum_video_stream_cubit.dart';
 import 'package:lynk_x/presentation/features/forum/services/audio_telemetry_service.dart';
 import 'package:lynk_x/presentation/features/forum/services/mini_overlay_service.dart';
 import 'package:lynk_x/presentation/features/forum/services/stream_service.dart';
@@ -69,10 +70,20 @@ class _MiniOverlayState extends State<MiniOverlay> {
 
         final isLiveCall = overlayState.streamType == MiniOverlayType.liveCall;
 
-        // Check if audio cubit is inactive when displaying a live call
+        // Check if audio or video cubit is inactive when displaying its respective overlay
         if (isLiveCall) {
           final audioCubit = context.read<ForumAudioStreamCubit?>();
-          if (audioCubit == null || !audioCubit.state.isLive) {
+          final isConnecting = overlayState.isConnecting ||
+              (audioCubit?.state.isConnecting ?? false);
+          if (audioCubit == null || (!audioCubit.state.isLive && !isConnecting)) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              _pipService.endPipSession();
+            });
+            return const SizedBox.shrink();
+          }
+        } else {
+          final videoCubit = context.read<ForumVideoStreamCubit?>();
+          if (videoCubit == null || (!videoCubit.state.isLive && !_videoService.isLiveNotifier.value)) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
               _pipService.endPipSession();
             });
@@ -82,7 +93,9 @@ class _MiniOverlayState extends State<MiniOverlay> {
 
         // Dimensions: Live Call uses a slim strip; Live Stream uses 16:9 widescreen canvas
         final double currentWidth = isLiveCall ? 230.0 : 192.0;
-        final double currentHeight = isLiveCall ? 48.0 : 108.0;
+        final double currentHeight = isLiveCall
+            ? (overlayState.isConnecting ? 52.0 : 48.0)
+            : 108.0;
 
         return Positioned(
           left: _left,
@@ -108,7 +121,11 @@ class _MiniOverlayState extends State<MiniOverlay> {
               clipBehavior: Clip.antiAlias,
               color: const Color(0xFF161920),
               child: isLiveCall
-                  ? _buildLiveCallStrip(context, hostName: overlayState.hostName)
+                  ? _buildLiveCallStrip(
+                      context,
+                      hostName: overlayState.hostName,
+                      isConnecting: overlayState.isConnecting,
+                    )
                   : _buildLiveStreamContainer(context, hostName: overlayState.hostName),
             ),
           ),
@@ -118,7 +135,11 @@ class _MiniOverlayState extends State<MiniOverlay> {
   }
 
   /// Compact Audio Strip for Live Calls with Mic Toggle
-  Widget _buildLiveCallStrip(BuildContext context, {String hostName = ''}) {
+  Widget _buildLiveCallStrip(
+    BuildContext context, {
+    String hostName = '',
+    bool isConnecting = false,
+  }) {
     final audioCubit = context.read<ForumAudioStreamCubit?>();
     final cubit = audioCubit;
 
@@ -131,14 +152,17 @@ class _MiniOverlayState extends State<MiniOverlay> {
 
     return BlocConsumer<ForumAudioStreamCubit, ForumAudioStreamState>(
       bloc: cubit,
-      listenWhen: (previous, current) => previous.isLive != current.isLive,
+      listenWhen: (previous, current) =>
+          previous.isLive != current.isLive ||
+          previous.isConnecting != current.isConnecting,
       listener: (context, audioState) {
-        if (!audioState.isLive) {
+        if (!audioState.isLive && !audioState.isConnecting && !isConnecting) {
           _pipService.endPipSession();
         }
       },
       builder: (context, audioState) {
-        if (!audioState.isLive) {
+        final connecting = audioState.isConnecting || isConnecting;
+        if (!audioState.isLive && !connecting) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             _pipService.endPipSession();
           });
@@ -153,11 +177,14 @@ class _MiniOverlayState extends State<MiniOverlay> {
         return _buildRawCallStrip(
           context,
           hostName: hostName,
+          isConnecting: connecting,
           isMicMuted: audioState.isMicMuted,
           canSpeak: canSpeak,
-          onToggleMic: () async {
-            await cubit.toggleMic();
-          },
+          onToggleMic: connecting
+              ? null
+              : () async {
+                  await cubit.toggleMic();
+                },
         );
       },
     );
@@ -166,6 +193,7 @@ class _MiniOverlayState extends State<MiniOverlay> {
   Widget _buildRawCallStrip(
     BuildContext context, {
     required String hostName,
+    bool isConnecting = false,
     required bool isMicMuted,
     required bool canSpeak,
     required VoidCallback? onToggleMic,
@@ -179,27 +207,57 @@ class _MiniOverlayState extends State<MiniOverlay> {
       decoration: BoxDecoration(
         color: const Color(0xFF12141A),
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: context.accentColor.withValues(alpha: 0.5), width: 1.2),
+        border: Border.all(
+          color: context.accentColor.withValues(alpha: isConnecting ? 0.8 : 0.5),
+          width: 1.2,
+        ),
       ),
       child: Row(
         children: [
           Expanded(
-            child: Text(
-              displayHost,
-              style: AppTypography.interTight(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: Colors.white,
-              ),
-              overflow: TextOverflow.ellipsis,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  displayHost,
+                  style: AppTypography.interTight(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+                if (isConnecting)
+                  Text(
+                    'Connecting...',
+                    style: AppTypography.inter(
+                      fontSize: 10,
+                      color: context.accentColor,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+              ],
             ),
           ),
           const SizedBox(width: 6),
-          SoundwaveWidget(
-            isSpeaking: !isMicMuted,
-            audioLevelNotifier: _telemetry.levelNotifier,
-            barColor: context.accentColor,
-          ),
+          if (isConnecting) ...[
+            SizedBox(
+              width: 14,
+              height: 14,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: context.accentColor,
+              ),
+            ),
+            const SizedBox(width: 4),
+          ] else ...[
+            SoundwaveWidget(
+              isSpeaking: !isMicMuted,
+              audioLevelNotifier: _telemetry.levelNotifier,
+              barColor: context.accentColor,
+            ),
+          ],
           if (canSpeak) ...[
             const SizedBox(width: 8),
             GestureDetector(
@@ -208,15 +266,21 @@ class _MiniOverlayState extends State<MiniOverlay> {
               child: Container(
                 padding: const EdgeInsets.all(5),
                 decoration: BoxDecoration(
-                  color: isMicMuted
-                      ? Colors.red.withValues(alpha: 0.25)
-                      : context.accentColor.withValues(alpha: 0.25),
+                  color: isConnecting
+                      ? Colors.white12
+                      : (isMicMuted
+                          ? Colors.red.withValues(alpha: 0.25)
+                          : context.accentColor.withValues(alpha: 0.25)),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
-                  isMicMuted ? Icons.mic_off_rounded : Icons.mic_rounded,
+                  isConnecting
+                      ? Icons.mic_rounded
+                      : (isMicMuted ? Icons.mic_off_rounded : Icons.mic_rounded),
                   size: 16,
-                  color: isMicMuted ? Colors.redAccent : context.accentColor,
+                  color: isConnecting
+                      ? Colors.white38
+                      : (isMicMuted ? Colors.redAccent : context.accentColor),
                 ),
               ),
             ),

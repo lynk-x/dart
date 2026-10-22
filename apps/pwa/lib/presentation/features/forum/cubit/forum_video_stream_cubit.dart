@@ -35,8 +35,6 @@ class ForumVideoStreamCubit extends Cubit<ForumVideoStreamState> {
 
   static const String elementId = 'lynk_live_video_stage';
   static const String viewType = 'lynk-video-stage-view';
-  static bool _viewRegistered = false;
-  static web.HTMLVideoElement? _sharedVideoElement;
 
   // Fixed pool of pre-registered platform-view slots for co-hosts' video
   // tiles — matches GridStageOverlay's clamp(1, 4) (default
@@ -50,8 +48,6 @@ class ForumVideoStreamCubit extends Cubit<ForumVideoStreamState> {
     'lynk-video-participant-slot-2',
     'lynk-video-participant-slot-3',
   ];
-  static bool _participantSlotsRegistered = false;
-  static final List<web.HTMLVideoElement> participantSlotElements = [];
   // userId -> slot index, allocated as participants join, freed as they leave.
   final Map<String, int> participantSlotAssignment = {};
 

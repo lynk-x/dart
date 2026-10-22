@@ -53,6 +53,52 @@ class EventModel extends Equatable {
   bool get isPassed => endDatetime.isBefore(DateTime.now());
   bool get hasUnread => chatCount > 0;
 
+  EventModel copyWith({
+    String? id,
+    String? accountId,
+    String? reference,
+    String? forumReference,
+    String? title,
+    String? description,
+    DateTime? startDatetime,
+    DateTime? endDatetime,
+    String? timezone,
+    String? locationName,
+    String? thumbnailUrl,
+    String? category,
+    String? categoryId,
+    String? status,
+    bool? isPrivate,
+    bool? isOnline,
+    String? currency,
+    int? totalCapacity,
+    int? chatCount,
+    DateTime? createdAt,
+  }) {
+    return EventModel(
+      id: id ?? this.id,
+      accountId: accountId ?? this.accountId,
+      reference: reference ?? this.reference,
+      forumReference: forumReference ?? this.forumReference,
+      title: title ?? this.title,
+      description: description ?? this.description,
+      startDatetime: startDatetime ?? this.startDatetime,
+      endDatetime: endDatetime ?? this.endDatetime,
+      timezone: timezone ?? this.timezone,
+      locationName: locationName ?? this.locationName,
+      thumbnailUrl: thumbnailUrl ?? this.thumbnailUrl,
+      category: category ?? this.category,
+      categoryId: categoryId ?? this.categoryId,
+      status: status ?? this.status,
+      isPrivate: isPrivate ?? this.isPrivate,
+      isOnline: isOnline ?? this.isOnline,
+      currency: currency ?? this.currency,
+      totalCapacity: totalCapacity ?? this.totalCapacity,
+      chatCount: chatCount ?? this.chatCount,
+      createdAt: createdAt ?? this.createdAt,
+    );
+  }
+
   factory EventModel.fromMap(Map<String, dynamic> map) {
     // Accepts both raw table columns (starts_at) and view aliases (start_datetime /
     // event_starts_at from RPC results). Falls back safely rather than throwing.

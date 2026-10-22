@@ -436,7 +436,27 @@ class _MediaTabState extends State<MediaTab>
       final pickedFiles = await ImagePicker().pickMultipleMedia();
 
       if (pickedFiles.isNotEmpty && context.mounted) {
-        await _upload(context, mediaCubit, pickedFiles);
+        // Materialize bytes immediately upon picking while blob URLs from the
+        // HTML file input are fresh and not yet garbage-collected or revoked.
+        final materializedFiles = await Future.wait(
+          pickedFiles.map((file) async {
+            try {
+              final bytes = await file.readAsBytes();
+              return XFile.fromData(
+                bytes,
+                name: file.name,
+                mimeType: file.mimeType,
+                length: bytes.length,
+              );
+            } catch (e) {
+              debugPrint('[_actuallyPickFromGallery] Could not read bytes for ${file.name}: $e');
+              return file;
+            }
+          }),
+        );
+        if (context.mounted) {
+          await _upload(context, mediaCubit, materializedFiles);
+        }
       }
     } catch (e) {
       if (context.mounted) {
@@ -501,16 +521,12 @@ class _MediaTabState extends State<MediaTab>
   /// A still frame for a video tile in the preview sheet. Uses the picker's blob URL when there is
   /// one, so the video isn't copied into memory just to draw a thumbnail.
   Future<Uint8List?> _videoThumbnail(XFile file) async {
-    try {
-      final bytes = await file.readAsBytes();
-      return extractVideoPoster(
-        url: null,
-        bytes: bytes,
-        maxEdge: 160,
-      );
-    } catch (_) {
-      return null;
-    }
+    final isBlob = file.path.startsWith('blob:');
+    return extractVideoPoster(
+      url: isBlob ? file.path : null,
+      bytes: isBlob ? null : await file.readAsBytes(),
+      maxEdge: 160,
+    );
   }
 
   Future<void> _retryFailed(BuildContext context, ForumMediaCubit mediaCubit) async {

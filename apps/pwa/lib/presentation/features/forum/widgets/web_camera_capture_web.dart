@@ -300,7 +300,15 @@ class _WebCameraCaptureScreenState extends State<WebCameraCaptureScreen> {
   }
 
   void _usePickedGalleryItems() {
-    final files = [for (final item in _pickedGalleryItems) item.file];
+    final files = [
+      for (final item in _pickedGalleryItems)
+        XFile.fromData(
+          item.bytes,
+          name: item.file.name,
+          mimeType: item.file.mimeType,
+          length: item.bytes.length,
+        ),
+    ];
     Navigator.of(context).pop(WebCameraCaptureResult.pickedFiles(files));
   }
 

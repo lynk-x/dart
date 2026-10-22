@@ -431,8 +431,9 @@ void startForumAudioStream(
           ? forumState.userName
           : 'Host';
       MiniOverlayService().activateLiveCall(
-          hostName:
-              name);
+        hostName: name,
+        isConnecting: true,
+      );
       audioCubit
           .startAudioStream();
       context

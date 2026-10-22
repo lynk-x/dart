@@ -4,6 +4,7 @@ import '../widgets/header.dart';
 
 class ForumAudioStreamState extends Equatable {
   final bool isLive;
+  final bool isConnecting;
   final ForumHeaderRole role;
   final String? sessionId;
 
@@ -38,6 +39,7 @@ class ForumAudioStreamState extends Equatable {
 
   const ForumAudioStreamState({
     this.isLive = false,
+    this.isConnecting = false,
     this.role = ForumHeaderRole.listener,
     this.sessionId,
     this.participants = const {},
@@ -55,6 +57,7 @@ class ForumAudioStreamState extends Equatable {
 
   ForumAudioStreamState copyWith({
     bool? isLive,
+    bool? isConnecting,
     ForumHeaderRole? role,
     String? sessionId,
     Map<String, CallParticipant>? participants,
@@ -69,6 +72,7 @@ class ForumAudioStreamState extends Equatable {
   }) {
     return ForumAudioStreamState(
       isLive: isLive ?? this.isLive,
+      isConnecting: isConnecting ?? this.isConnecting,
       role: role ?? this.role,
       sessionId: sessionId ?? this.sessionId,
       participants: participants ?? this.participants,
@@ -88,6 +92,7 @@ class ForumAudioStreamState extends Equatable {
   @override
   List<Object?> get props => [
         isLive,
+        isConnecting,
         role,
         sessionId,
         participants,

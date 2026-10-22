@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:lynk_core/core.dart';
@@ -6,14 +7,20 @@ import 'home_state.dart';
 
 /// Business logic for the Home feed.
 ///
-/// Manages loading, pagination, sorting, and refreshing of [EventModel]s.
-/// The UI layer ([HomeView]) only calls methods here and reacts to [HomeState].
+/// Manages loading, pagination, sorting, refreshing, and real-time invalidation
+/// of [EventModel]s. The UI layer ([HomeView]) only calls methods here and reacts to [HomeState].
 class HomeCubit extends Cubit<HomeState> {
   /// How many items to load per page.
   static const int _pageSize = 15;
 
   final EventRepository _repo;
   final String? Function() _currentUserId;
+
+  /// Realtime channel subscription for feed invalidation broadcasts.
+  RealtimeChannel? _feedChannel;
+
+  /// Debounces rapid real-time invalidation signals to prevent thrashing.
+  Timer? _debounceTimer;
 
   /// [userId] defaults to the signed-in Supabase user; tests inject their own.
   HomeCubit(this._repo, {String? Function()? userId})
@@ -31,7 +38,7 @@ class HomeCubit extends Cubit<HomeState> {
 
   // ── Lifecycle ───────────────────────────────────────────────────────────────
 
-  /// Loads the first page of events and sets initial state.
+  /// Loads the first page of events, sets initial state, and subscribes to real-time feed updates.
   Future<void> init() async {
     final generation = ++_generation;
     _anchor = DateTime.now().toUtc();
@@ -47,6 +54,8 @@ class HomeCubit extends Cubit<HomeState> {
         emit(state.copyWith(isLoading: false));
         return;
       }
+
+      _subscribeToFeedChanges(userId);
 
       final page = await _fetchPage(userId, past: false);
       if (generation != _generation || isClosed) return;
@@ -64,6 +73,52 @@ class HomeCubit extends Cubit<HomeState> {
       if (generation != _generation || isClosed) return;
       emit(state.copyWith(isLoading: false, errorMessage: e.toFriendlyMessage()));
     }
+  }
+
+  /// Listens on the user's private channel for real-time feed invalidations and unread updates.
+  void _subscribeToFeedChanges(String userId) {
+    if (_feedChannel != null) return;
+    try {
+      _feedChannel = _repo.subscribeToUserFeedChanges(
+        userId,
+        onFeedInvalidated: (payload) => _onFeedInvalidated(),
+        onUnreadUpdated: _onUnreadUpdated,
+      );
+      _feedChannel?.subscribe();
+    } catch (_) {
+      // Best-effort subscription; fails gracefully in offline or test environments.
+    }
+  }
+
+  /// Updates an individual event's unread chat count in-memory without a network round-trip,
+  /// then re-sorts so unread items bubble to the top.
+  void _onUnreadUpdated(Map<String, dynamic> payload) {
+    if (isClosed) return;
+    final forumId = payload['forum_id'] as String?;
+    final chatCount = (payload['chat_count'] as num?)?.toInt() ??
+        (payload['unread_count'] as num?)?.toInt();
+    if (forumId == null || chatCount == null) return;
+
+    final index = state.events.indexWhere((e) => e.id == forumId);
+    if (index == -1) return;
+
+    final updatedEvent = state.events[index].copyWith(chatCount: chatCount);
+    final updatedList = List<EventModel>.from(state.events);
+    updatedList[index] = updatedEvent;
+
+    emit(state.copyWith(events: _sort(updatedList)));
+  }
+
+  /// Debounces rapid real-time invalidations (e.g., ticket buy + registration + status update)
+  /// into a single feed reload.
+  void _onFeedInvalidated() {
+    if (isClosed) return;
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(const Duration(milliseconds: 400), () {
+      if (!isClosed) {
+        refresh();
+      }
+    });
   }
 
   // ── Pagination ──────────────────────────────────────────────────────────────
@@ -210,6 +265,15 @@ class HomeCubit extends Cubit<HomeState> {
     return copy;
   }
 
+  @override
+  Future<void> close() {
+    _debounceTimer?.cancel();
+    if (_feedChannel != null) {
+      _repo.unsubscribe(_feedChannel!);
+      _feedChannel = null;
+    }
+    return super.close();
+  }
 }
 
 /// One fetched page plus where the next one starts.

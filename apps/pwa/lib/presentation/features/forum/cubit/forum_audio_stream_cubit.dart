@@ -608,6 +608,8 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
   Future<void> startAudioStream() async {
     if (state.isLive || _isJoiningOrStarting) return;
     _isJoiningOrStarting = true;
+    emit(state.copyWith(isConnecting: true));
+    MiniOverlayService().activateLiveCall(hostName: userName, isConnecting: true);
 
     try {
       final micGranted = await service.startLocalMicrophone();
@@ -615,6 +617,7 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
         MiniOverlayService().endPipSession();
         emit(state.copyWith(
           isLive: false,
+          isConnecting: false,
           errorMessage:
               'Microphone access is required to host a live audio stream.',
         ));
@@ -681,10 +684,11 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
       );
       service.requestWakeLock();
 
-      MiniOverlayService().activateLiveCall(hostName: userName);
+      MiniOverlayService().activateLiveCall(hostName: userName, isConnecting: false);
 
       emit(state.copyWith(
         isLive: true,
+        isConnecting: false,
         role: ForumHeaderRole.host,
         sessionId: sessionId,
         participants: {hostParticipant.userId: hostParticipant},
@@ -712,6 +716,7 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
       MiniOverlayService().endPipSession();
       emit(state.copyWith(
         isLive: false,
+        isConnecting: false,
         errorMessage: 'Failed to start audio stream: $e',
       ));
     } finally {
@@ -722,6 +727,10 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
   /// Ends an active Audio Stream (Invoked by host tapping stop button)
   Future<void> endAudioStream() async {
     if (!state.isLive) return;
+
+    // Play end-call chime immediately for the host. Remote attendees/co-hosts
+    // hear their tone via the incoming 'end_stream' broadcast event.
+    unawaited(CallSoundService.playEnd());
 
     // Stop local audio hardware immediately — no reason to keep the mic hot
     // while the network call below is in flight.
@@ -916,6 +925,7 @@ class ForumAudioStreamCubit extends Cubit<ForumAudioStreamState> {
   /// endAudioStream) leaves their speaking slot.
   Future<void> leaveCoHost() async {
     if (state.role != ForumHeaderRole.speaker) return;
+    unawaited(CallSoundService.playEnd());
     final callSummaryId = _callSummaryId;
 
     service.stopLocalMicrophone();

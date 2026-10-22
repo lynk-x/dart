@@ -56,4 +56,33 @@ class EventRepository {
         .eq('id', eventId)
         .maybeSingle();
   }
+
+  /// Subscribes to real-time feed invalidation and unread badge update events for [userId].
+  ///
+  /// Listens on the user's private channel (`user_feed:$userId`) for broadcast
+  /// signals such as `feed_invalidated` and `unread_updated`.
+  RealtimeChannel subscribeToUserFeedChanges(
+    String userId, {
+    required void Function(Map<String, dynamic>) onFeedInvalidated,
+    required void Function(Map<String, dynamic>) onUnreadUpdated,
+  }) {
+    return _client
+        .channel(
+          'user_feed:$userId',
+          opts: const RealtimeChannelConfig(private: true),
+        )
+        .onBroadcast(
+          event: 'feed_invalidated',
+          callback: onFeedInvalidated,
+        )
+        .onBroadcast(
+          event: 'unread_updated',
+          callback: onUnreadUpdated,
+        );
+  }
+
+  /// Unsubscribes and cleans up [channel].
+  void unsubscribe(RealtimeChannel channel) {
+    _client.removeChannel(channel);
+  }
 }

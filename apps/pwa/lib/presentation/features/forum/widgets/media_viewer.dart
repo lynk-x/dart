@@ -11,7 +11,6 @@ import 'package:lynk_x/presentation/features/forum/widgets/interstitial_ad.dart'
 import 'package:lynk_x/core/utils/download_helper.dart';
 import 'package:lynk_core/core.dart';
 import 'package:lynk_x/presentation/shared/utils/app_snackbars.dart';
-import 'package:lynk_x/presentation/features/forum/core/media_comment_rules.dart';
 import 'media_viewer_overlays.dart';
 import 'single_media_view.dart';
 
@@ -43,7 +42,6 @@ class MediaViewer extends StatefulWidget {
       Future<bool> Function(ForumMedia media, String text)? onSendComment,
       VoidCallback? onApprove,
       VoidCallback? onReject}) {
-        
     ForumMediaCubit? forumMediaCubit;
     ForumCubit? forumCubit;
     ForumAdsCubit? forumAdsCubit;
@@ -94,8 +92,6 @@ class _MediaViewerState extends State<MediaViewer> {
   int _currentIndex = 0;
   List<ForumMedia> _gallery = [];
   bool _isStandalone = true;
-  final TextEditingController _commentController = TextEditingController();
-  bool _isSendingComment = false;
 
   @override
   void initState() {
@@ -142,7 +138,6 @@ class _MediaViewerState extends State<MediaViewer> {
   @override
   void dispose() {
     _pageController.dispose();
-    _commentController.dispose();
     if (kIsWeb) {
       BrowserContextMenu.enableContextMenu();
     }
@@ -150,8 +145,6 @@ class _MediaViewerState extends State<MediaViewer> {
   }
 
   void _onPageChanged(int index) {
-    // A half-typed comment belongs to the photo it was written under, so it is dropped rather than carried over.
-    _commentController.clear();
     setState(() {
       _currentIndex = index;
     });
@@ -194,7 +187,8 @@ class _MediaViewerState extends State<MediaViewer> {
         final candidate = lastSegment.substring(dotIndex + 1).toLowerCase();
         // Guard against picking up a query-param fragment or an unreasonably
         // long "extension" from an opaque storage key with dots in it.
-        if (candidate.length <= 5 && RegExp(r'^[a-z0-9]+$').hasMatch(candidate)) {
+        if (candidate.length <= 5 &&
+            RegExp(r'^[a-z0-9]+$').hasMatch(candidate)) {
           extension = candidate;
         }
       }
@@ -249,7 +243,8 @@ class _MediaViewerState extends State<MediaViewer> {
       }
     } catch (e) {
       if (!mounted) return;
-      AppSnackBars.showError(context, 'Download failed: ${e.toFriendlyMessage()}');
+      AppSnackBars.showError(
+          context, 'Download failed: ${e.toFriendlyMessage()}');
     }
   }
 
@@ -260,98 +255,6 @@ class _MediaViewerState extends State<MediaViewer> {
         curve: Curves.easeInOut,
       );
     }
-  }
-
-  /// Sends the quick comment under [media] to Live Chat and keeps the viewer open.
-  Future<void> _sendComment(ForumMedia media) async {
-    final text = _commentController.text.trim();
-    final send = widget.onSendComment;
-    if (text.isEmpty || send == null || _isSendingComment) return;
-
-    setState(() => _isSendingComment = true);
-    final sent = await send(media, text);
-    if (!mounted) return;
-    setState(() => _isSendingComment = false);
-
-    if (sent) {
-      _commentController.clear();
-      FocusScope.of(context).unfocus();
-      AppSnackBars.showSuccess(context, 'Sent to Live Chat');
-    } else {
-      AppSnackBars.showError(context, 'Could not send your comment. Please try again.');
-    }
-  }
-
-  /// The quick comment box under the photo: type, send, and the message goes to Live Chat with this photo attached.
-  /// [bottomInset] adds the device's safe-area space when nothing sits below it.
-  Widget _buildCommentBox(ForumMedia media, {required bool bottomInset}) {
-    final noun = media.mediaType == 'video' ? 'video' : 'photo';
-    return Padding(
-      padding: EdgeInsets.fromLTRB(
-        16,
-        12,
-        16,
-        bottomInset ? MediaQuery.of(context).padding.bottom + 12 : 4,
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              decoration: BoxDecoration(
-                color: const Color(0xFFE0E0E0),
-                borderRadius: BorderRadius.circular(24),
-              ),
-              child: TextField(
-                key: const Key('media-viewer-comment-field'),
-                controller: _commentController,
-                enabled: !_isSendingComment,
-                cursorColor: AppColors.secondaryText,
-                style: AppTypography.inter(color: AppColors.secondaryText),
-                textInputAction: TextInputAction.send,
-                onSubmitted: (_) => _sendComment(media),
-                decoration: InputDecoration(
-                  hintText: 'Say something about this $noun',
-                  hintStyle: AppTypography.inter(
-                      color: AppColors.secondaryText.withValues(alpha: 0.5)),
-                  border: InputBorder.none,
-                  isDense: true,
-                  contentPadding: const EdgeInsets.symmetric(vertical: 12),
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          ValueListenableBuilder<TextEditingValue>(
-            valueListenable: _commentController,
-            builder: (context, value, _) {
-              final canSend = value.text.trim().isNotEmpty && !_isSendingComment;
-              return Semantics(
-                button: true,
-                label: 'Send to Live Chat',
-                child: IconButton.filled(
-                  key: const Key('media-viewer-comment-send'),
-                  onPressed: canSend ? () => _sendComment(media) : null,
-                  style: IconButton.styleFrom(
-                    backgroundColor: context.accentColor,
-                    foregroundColor: Colors.black,
-                    disabledBackgroundColor: Colors.white12,
-                    minimumSize: const Size(44, 44),
-                  ),
-                  icon: _isSendingComment
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black),
-                        )
-                      : const Icon(Icons.send_rounded, size: 20),
-                ),
-              );
-            },
-          ),
-        ],
-      ),
-    );
   }
 
   void _prevPage() {
@@ -383,364 +286,423 @@ class _MediaViewerState extends State<MediaViewer> {
         Navigator.pop(context);
       },
       child: Scaffold(
-      backgroundColor: Colors.black,
-      body: BlocConsumer<ForumMediaCubit, ForumMediaState>(
-        listener: (context, state) {
-          if (!_isStandalone) {
-            setState(() {
-              _gallery = state.mediaItems;
-            });
-          }
-        },
-        builder: (context, state) {
-          final currentMedia = _gallery.isNotEmpty && _currentIndex < _gallery.length 
-              ? _gallery[_currentIndex] 
-              : null;
+        backgroundColor: Colors.black,
+        body: BlocConsumer<ForumMediaCubit, ForumMediaState>(
+          listener: (context, state) {
+            if (!_isStandalone) {
+              setState(() {
+                _gallery = state.mediaItems;
+              });
+            }
+          },
+          builder: (context, state) {
+            final currentMedia =
+                _gallery.isNotEmpty && _currentIndex < _gallery.length
+                    ? _gallery[_currentIndex]
+                    : null;
 
-          bool isOrganizer = false;
-          bool isModerator = false;
-          String? currentUserId;
-          try {
-            final forumCubit = context.read<ForumCubit>();
-            isOrganizer = forumCubit.state.isOrganizer;
-            isModerator = forumCubit.state.isModerator;
-            currentUserId = forumCubit.userId;
-          } catch (_) {}
+            bool isOrganizer = false;
+            bool isModerator = false;
+            String? currentUserId;
+            try {
+              final forumCubit = context.read<ForumCubit>();
+              isOrganizer = forumCubit.state.isOrganizer;
+              isModerator = forumCubit.state.isModerator;
+              currentUserId = forumCubit.userId;
+            } catch (_) {}
 
-          final hasCubit = currentMedia != null && currentUserId != null;
-          final isAuthorized = isOrganizer || isModerator;
-          final isUploader = hasCubit && currentMedia.uploaderId == currentUserId;
+            final hasCubit = currentMedia != null && currentUserId != null;
+            final isAuthorized = isOrganizer || isModerator;
+            final isUploader =
+                hasCubit && currentMedia.uploaderId == currentUserId;
 
-          // The quick comment box follows the chat composer's own rules: it never shows to guests, in an archived
-          // or read-only forum (organizers excepted, as in the composer), or to a muted member, and only for
-          // approved media, since pending items are not visible to the forum yet.
-          var forumReadOnly = false;
-          var forumArchived = false;
-          var forumMuted = false;
-          try {
-            final forumState = context.read<ForumCubit>().state;
-            forumReadOnly = forumState.isReadOnly;
-            forumArchived = forumState.isArchived;
-            forumMuted = forumState.isMuted;
-          } catch (_) {}
-          final canComment = canCommentOnMedia(
-            chatEnabled: widget.onSendComment != null,
-            mediaId: currentMedia?.id,
-            mediaApproved: currentMedia?.isApproved ?? false,
-            userId: currentUserId,
-            isGuest: currentUserId != null && isGuestUser(currentUserId),
-            isOrganizer: isOrganizer,
-            forumReadOnly: forumReadOnly,
-            forumArchived: forumArchived,
-            isMuted: forumMuted,
-          );
+            // Live Chat mention follows chat permission rules: only offered for
+            // members in good standing and approved media, since pending items are
+            // not visible to the forum yet.
+            var forumReadOnly = false;
+            var forumArchived = false;
+            var forumMuted = false;
+            try {
+              final forumState = context.read<ForumCubit>().state;
+              forumReadOnly = forumState.isReadOnly;
+              forumArchived = forumState.isArchived;
+              forumMuted = forumState.isMuted;
+            } catch (_) {}
+            final canMentionInChat = widget.onMention != null &&
+                currentMedia != null &&
+                currentMedia.isApproved &&
+                !forumReadOnly &&
+                !forumArchived &&
+                !forumMuted;
 
-          final showApprove = hasCubit ? (isAuthorized && !currentMedia.isApproved) : (widget.onApprove != null);
-          final showDelete = hasCubit ? ((isAuthorized && !currentMedia.isApproved) || (isUploader && !isAuthorized)) : (widget.onReject != null);
-          // A moderator's bottom-bar action is "Reject" while the item is
-          // still pending review, but "Delete" once it's already approved —
-          // otherwise the label implies the item was never reviewed even
-          // when it's live and being removed after the fact. Organizers
-          // must not see the large delete button for already-approved media
-          // they uploaded; only non-organizer uploaders or pending review
-          // items can be removed via the bottom bar.
-          final deleteText = (hasCubit && isUploader && !isAuthorized)
-              ? 'Delete'
-              : (hasCubit && isAuthorized && !currentMedia.isApproved)
-                  ? 'Reject'
-                  : 'Delete';
+            final showApprove = hasCubit
+                ? (isAuthorized && !currentMedia.isApproved)
+                : (widget.onApprove != null);
+            final showDelete = hasCubit
+                ? ((isAuthorized && !currentMedia.isApproved) ||
+                    (isUploader && !isAuthorized))
+                : (widget.onReject != null);
+            // A moderator's bottom-bar action is "Reject" while the item is
+            // still pending review, but "Delete" once it's already approved —
+            // otherwise the label implies the item was never reviewed even
+            // when it's live and being removed after the fact. Organizers
+            // must not see the large delete button for already-approved media
+            // they uploaded; only non-organizer uploaders or pending review
+            // items can be removed via the bottom bar.
+            final deleteText = (hasCubit && isUploader && !isAuthorized)
+                ? 'Delete'
+                : (hasCubit && isAuthorized && !currentMedia.isApproved)
+                    ? 'Reject'
+                    : 'Delete';
 
-          return Column(
-            children: [
-              SafeArea(
-                bottom: false,
-                child: Container(
-                  // The icon buttons carry their own 10 px padding (a 44 px touch target), so the bar itself has
-                  // no side padding and the icons sit 10 px from the screen edge instead of 16.
-                  padding: const EdgeInsets.symmetric(vertical: 2),
-                  color: Colors.black,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      IconButton(
-                        padding: const EdgeInsets.all(10),
-                        constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
-                        icon: const Icon(Icons.close, color: Colors.white),
-                        tooltip: 'Close',
-                        onPressed: () => Navigator.pop(context),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          currentMedia != null
-                              ? '${currentMedia.mediaType.toUpperCase()} (${_currentIndex + 1}/${_gallery.length})'
-                              : 'MEDIA VIEWER',
-                          textAlign: TextAlign.center,
-                          style: AppTypography.inter(
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+            return Column(
+              children: [
+                SafeArea(
+                  bottom: false,
+                  child: Container(
+                    // The icon buttons carry their own 10 px padding (a 44 px touch target), so the bar itself has
+                    // no side padding and the icons sit 10 px from the screen edge instead of 16.
+                    padding: const EdgeInsets.symmetric(vertical: 2),
+                    color: Colors.black,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        IconButton(
+                          padding: const EdgeInsets.all(10),
+                          constraints:
+                              const BoxConstraints(minWidth: 44, minHeight: 44),
+                          icon: const Icon(Icons.close, color: Colors.white),
+                          tooltip: 'Close',
+                          onPressed: () => Navigator.pop(context),
                         ),
-                      ),
-                      IconButton(
-                        padding: const EdgeInsets.all(10),
-                        constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
-                        icon: const Icon(Icons.download_rounded, color: Colors.white),
-                        tooltip: 'Download',
-                        onPressed: _downloadMedia,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              Expanded(
-                child: Stack(
-                  children: [
-                    // Content Area (PageView)
-                    if (_gallery.isNotEmpty)
-                      PageView.builder(
-                        controller: _pageController,
-                        onPageChanged: _onPageChanged,
-                        itemCount: _gallery.length,
-                        itemBuilder: (context, index) {
-                          final media = _gallery[index];
-                          return SingleMediaView(
-                            url: media.url,
-                            mediaType: media.mediaType,
-                            isActive: index == _currentIndex,
-                          );
-                        },
-                      )
-                    else
-                      const Center(child: Icon(Icons.broken_image, color: Colors.white24)),
-
-                    // Navigation Chevrons (Desktop/Web only)
-                    if (kIsWeb && _gallery.length > 1)
-                      Positioned.fill(
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            if (_currentIndex > 0)
-                              IconButton(
-                                icon: const Icon(Icons.chevron_left, size: 50, color: Colors.white),
-                                onPressed: _prevPage,
-                              )
-                            else
-                              const SizedBox(width: 64),
-                            if (_currentIndex < _gallery.length - 1)
-                              IconButton(
-                                icon: const Icon(Icons.chevron_right, size: 50, color: Colors.white),
-                                onPressed: _nextPage,
-                              )
-                            else
-                              const SizedBox(width: 64),
-                          ],
-                        ),
-                      ),
-
-                  ],
-                ),
-              ),
-
-              // Attribution row — sits on the viewer's own dark chrome
-              // background rather than overlaid on the media, so it stays
-              // legible regardless of what's in the photo/video underneath.
-              if (currentMedia != null)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 12, 24, 0),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Flexible(
-                        child: MediaAttribution(
-                          media: currentMedia,
-                          isUploader: isUploader,
-                        ),
-                      ),
-                      // Members and organizers get an action menu next to the attribution chip:
-                      // - Uploader: Distribution rights toggle & Delete
-                      // - Attendee: Revoke distribution rights & Report Violation
-                      // - Organizer: Distribution rights toggle & Moderator controls
-                      if (currentUserId != null) ...[
                         const SizedBox(width: 8),
-                        MediaMemberAction(
-                          media: currentMedia,
-                          isUploader: isUploader,
-                          isAuthorized: isAuthorized,
-                          onMention: widget.onMention,
-                          onDelete: () async {
-                            if (!hasCubit) return;
-                            final success = await context.read<ForumMediaCubit>().deleteMedia(currentMedia);
-                            if (!context.mounted) return;
-                            if (success) {
-                              Navigator.pop(context);
-                            } else {
-                              AppSnackBars.showError(context, 'Failed to delete media. Please try again.');
-                            }
-                          },
-                          onRevokeDistributionRights: () async {
-                            if (!hasCubit) return;
-                            final success = await context.read<ForumMediaCubit>().revokeDistributionRights(currentMedia);
-                            if (!context.mounted) return;
-                            if (success) {
-                              AppSnackBars.showSuccess(context, 'Distribution rights revoked for this photo.');
-                            } else {
-                              AppSnackBars.showError(context, 'Couldn\'t update distribution rights. Please try again.');
-                            }
-                          },
-                          onToggleDistributionRights: (eligible) async {
-                            if (!hasCubit) return;
-                            final success = await context.read<ForumMediaCubit>().setDistributionRights(currentMedia, eligible);
-                            if (!context.mounted) return;
-                            if (success) {
-                              AppSnackBars.showSuccess(
-                                context,
-                                eligible
-                                    ? 'Distribution rights granted for this photo.'
-                                    : 'Distribution rights revoked for this photo.',
-                              );
-                            } else {
-                              AppSnackBars.showError(context, 'Couldn\'t update distribution rights. Please try again.');
-                            }
-                          },
-                          onReport: (reasonId) async {
-                            if (!hasCubit) return;
-                            try {
-                              await context.read<ForumMediaCubit>().reportMedia(currentMedia, reasonId);
-                              if (!context.mounted) return;
-                              if (reasonId == 'likeness_no_consent') {
-                                Navigator.pop(context);
-                                AppSnackBars.showSuccess(
-                                  context,
-                                  'Photo reported and hidden pending review.',
-                                );
-                              } else {
-                                AppSnackBars.showSuccess(context, 'Media reported.');
-                              }
-                            } catch (_) {
-                              if (context.mounted) {
-                                AppSnackBars.showError(context, 'Failed to submit report. Please try again.');
-                              }
-                            }
-                          },
+                        Expanded(
+                          child: Text(
+                            currentMedia != null
+                                ? '${currentMedia.mediaType.toUpperCase()} (${_currentIndex + 1}/${_gallery.length})'
+                                : 'MEDIA VIEWER',
+                            textAlign: TextAlign.center,
+                            style: AppTypography.inter(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        IconButton(
+                          padding: const EdgeInsets.all(10),
+                          constraints:
+                              const BoxConstraints(minWidth: 44, minHeight: 44),
+                          icon: const Icon(Icons.download_rounded,
+                              color: Colors.white),
+                          tooltip: 'Download',
+                          onPressed: _downloadMedia,
                         ),
                       ],
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: Stack(
+                    children: [
+                      // Content Area (PageView)
+                      if (_gallery.isNotEmpty)
+                        PageView.builder(
+                          controller: _pageController,
+                          onPageChanged: _onPageChanged,
+                          itemCount: _gallery.length,
+                          itemBuilder: (context, index) {
+                            final media = _gallery[index];
+                            return SingleMediaView(
+                              url: media.url,
+                              mediaType: media.mediaType,
+                              isActive: index == _currentIndex,
+                            );
+                          },
+                        )
+                      else
+                        const Center(
+                            child: Icon(Icons.broken_image,
+                                color: Colors.white24)),
+
+                      // Navigation Chevrons (Desktop/Web only)
+                      if (kIsWeb && _gallery.length > 1)
+                        Positioned.fill(
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              if (_currentIndex > 0)
+                                IconButton(
+                                  icon: const Icon(Icons.chevron_left,
+                                      size: 50, color: Colors.white),
+                                  onPressed: _prevPage,
+                                )
+                              else
+                                const SizedBox(width: 64),
+                              if (_currentIndex < _gallery.length - 1)
+                                IconButton(
+                                  icon: const Icon(Icons.chevron_right,
+                                      size: 50, color: Colors.white),
+                                  onPressed: _nextPage,
+                                )
+                              else
+                                const SizedBox(width: 64),
+                            ],
+                          ),
+                        ),
                     ],
                   ),
                 ),
 
-              // Message input removed from media viewer per requirements
-              // if (canComment && currentMedia != null)
-              //   _buildCommentBox(currentMedia, bottomInset: !(showApprove || showDelete)),
-
-              // Bottom Actions
-              if (showApprove || showDelete)
-                Padding(
-                  padding: EdgeInsets.only(
-                    bottom: MediaQuery.of(context).padding.bottom + 20,
-                    left: 24,
-                    right: 24,
-                    top: 16,
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      // Reject/Delete is outlined and Approve is filled —
-                      // establishes Approve as the expected path (most
-                      // reviews end in approval) without hiding Reject or
-                      // requiring a confirmation dialog for it.
-                      if (showDelete) ...[
-                        Expanded(
-                          child: SizedBox(
-                            height: 50,
-                            child: OutlinedButton.icon(
-                              icon: const Icon(Icons.delete_outline, size: 20),
-                              label: Text(
-                                deleteText,
-                                style: AppTypography.interTight(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                ),
+                // Attribution row — sits on the viewer's own dark chrome
+                // background rather than overlaid on the media, so it stays
+                // legible regardless of what's in the photo/video underneath.
+                if (currentMedia != null)
+                  Padding(
+                    padding: EdgeInsets.fromLTRB(
+                      24,
+                      6,
+                      24,
+                      6 +
+                          (showApprove || showDelete
+                              ? 0
+                              : MediaQuery.of(context).padding.bottom),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        // Left: Direct 1-tap Live Chat discuss/reply action
+                        if (canMentionInChat)
+                          GestureDetector(
+                            key: const Key('media-viewer-reply-chat'),
+                            onTap: () {
+                              Navigator.pop(context);
+                              widget.onMention?.call(currentMedia);
+                            },
+                            child: Container(
+                              width: 30,
+                              height: 30,
+                              decoration: BoxDecoration(
+                                color: Colors.black.withValues(alpha: 0.45),
+                                shape: BoxShape.circle,
                               ),
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: Colors.white54,
-                                side: BorderSide(color: Colors.white.withValues(alpha: 0.16)),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
+                              child: const Icon(
+                                Icons.reply_rounded,
+                                size: 18,
+                                color: Colors.white70,
                               ),
-                              onPressed: () {
-                                Future<void> performReject() async {
-                                  if (hasCubit) {
-                                    final success = await context.read<ForumMediaCubit>().deleteMedia(currentMedia);
-                                    if (!context.mounted) return;
-                                    if (success) {
-                                      Navigator.pop(context);
-                                    } else {
-                                      AppSnackBars.showError(context, 'Failed to remove media. Please try again.');
-                                    }
-                                  } else {
-                                    widget.onReject?.call();
-                                    Navigator.pop(context);
-                                  }
-                                }
-
-                                // Rejecting a still-pending item is instant —
-                                // nothing was ever visible to other members.
-                                // Deleting an already-approved (live) item
-                                // needs confirmation first, same as the
-                                // member-facing delete flow.
-                                final isDestructiveDelete =
-                                    hasCubit && isAuthorized && currentMedia.isApproved;
-                                if (isDestructiveDelete) {
-                                  showMediaDeleteConfirmation(context, performReject);
+                            ),
+                          )
+                        else
+                          const SizedBox(width: 30),
+                        const SizedBox(width: 8),
+                        Flexible(
+                          child: MediaAttribution(
+                            media: currentMedia,
+                            isUploader: isUploader,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        // Members and organizers get an action menu next to the attribution chip:
+                        // - Uploader: Distribution rights toggle & Delete
+                        // - Attendee: Revoke distribution rights & Report Violation
+                        // - Organizer: Distribution rights toggle & Moderator controls
+                        if (currentUserId != null)
+                          MediaMemberAction(
+                            media: currentMedia,
+                            isUploader: isUploader,
+                            isAuthorized: isAuthorized,
+                            onDelete: () async {
+                              if (!hasCubit) return;
+                              final success = await context
+                                  .read<ForumMediaCubit>()
+                                  .deleteMedia(currentMedia);
+                              if (!context.mounted) return;
+                              if (success) {
+                                Navigator.pop(context);
+                              } else {
+                                AppSnackBars.showError(context,
+                                    'Failed to delete media. Please try again.');
+                              }
+                            },
+                            onRevokeDistributionRights: () async {
+                              if (!hasCubit) return;
+                              final success = await context
+                                  .read<ForumMediaCubit>()
+                                  .revokeDistributionRights(currentMedia);
+                              if (!context.mounted) return;
+                              if (success) {
+                                AppSnackBars.showSuccess(context,
+                                    'Distribution rights revoked for this photo.');
+                              } else {
+                                AppSnackBars.showError(context,
+                                    'Couldn\'t update distribution rights. Please try again.');
+                              }
+                            },
+                            onToggleDistributionRights: (eligible) async {
+                              if (!hasCubit) return;
+                              final success = await context
+                                  .read<ForumMediaCubit>()
+                                  .setDistributionRights(
+                                      currentMedia, eligible);
+                              if (!context.mounted) return;
+                              if (success) {
+                                AppSnackBars.showSuccess(
+                                  context,
+                                  eligible
+                                      ? 'Distribution rights granted for this photo.'
+                                      : 'Distribution rights revoked for this photo.',
+                                );
+                              } else {
+                                AppSnackBars.showError(context,
+                                    'Couldn\'t update distribution rights. Please try again.');
+                              }
+                            },
+                            onReport: (reasonId) async {
+                              if (!hasCubit) return;
+                              try {
+                                await context
+                                    .read<ForumMediaCubit>()
+                                    .reportMedia(currentMedia, reasonId);
+                                if (!context.mounted) return;
+                                if (reasonId == 'likeness_no_consent') {
+                                  Navigator.pop(context);
+                                  AppSnackBars.showSuccess(
+                                    context,
+                                    'Photo reported and hidden pending review.',
+                                  );
                                 } else {
-                                  performReject();
+                                  AppSnackBars.showSuccess(
+                                      context, 'Media reported.');
+                                }
+                              } catch (_) {
+                                if (context.mounted) {
+                                  AppSnackBars.showError(context,
+                                      'Failed to submit report. Please try again.');
+                                }
+                              }
+                            },
+                          )
+                        else
+                          const SizedBox(width: 30),
+                      ],
+                    ),
+                  ),
+
+                // Bottom Actions
+                if (showApprove || showDelete)
+                  Padding(
+                    padding: EdgeInsets.only(
+                      bottom: MediaQuery.of(context).padding.bottom + 20,
+                      left: 24,
+                      right: 24,
+                      top: 16,
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        // Reject/Delete is outlined and Approve is filled —
+                        // establishes Approve as the expected path (most
+                        // reviews end in approval) without hiding Reject or
+                        // requiring a confirmation dialog for it.
+                        if (showDelete) ...[
+                          Expanded(
+                            child: SizedBox(
+                              height: 50,
+                              child: OutlinedButton.icon(
+                                icon:
+                                    const Icon(Icons.delete_outline, size: 20),
+                                label: Text(
+                                  deleteText,
+                                  style: AppTypography.interTight(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: Colors.white54,
+                                  side: BorderSide(
+                                      color:
+                                          Colors.white.withValues(alpha: 0.16)),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                                onPressed: () {
+                                  Future<void> performReject() async {
+                                    if (hasCubit) {
+                                      final success = await context
+                                          .read<ForumMediaCubit>()
+                                          .deleteMedia(currentMedia);
+                                      if (!context.mounted) return;
+                                      if (success) {
+                                        Navigator.pop(context);
+                                      } else {
+                                        AppSnackBars.showError(context,
+                                            'Failed to remove media. Please try again.');
+                                      }
+                                    } else {
+                                      widget.onReject?.call();
+                                      Navigator.pop(context);
+                                    }
+                                  }
+
+                                  // Rejecting a still-pending item is instant —
+                                  // nothing was ever visible to other members.
+                                  // Deleting an already-approved (live) item
+                                  // needs confirmation first, same as the
+                                  // member-facing delete flow.
+                                  final isDestructiveDelete = hasCubit &&
+                                      isAuthorized &&
+                                      currentMedia.isApproved;
+                                  if (isDestructiveDelete) {
+                                    showMediaDeleteConfirmation(
+                                        context, performReject);
+                                  } else {
+                                    performReject();
+                                  }
+                                },
+                              ),
+                            ),
+                          ),
+                          if (showApprove) const SizedBox(width: 16),
+                        ],
+                        if (showApprove)
+                          Expanded(
+                            child: PrimaryButton(
+                              icon: Icons.check_circle_outline,
+                              text: 'Approve',
+                              backgroundColor: context.accentColor,
+                              textColor: Colors.black,
+                              onPressed: () async {
+                                if (hasCubit) {
+                                  final success = await context
+                                      .read<ForumMediaCubit>()
+                                      .approveMedia(currentMedia);
+                                  if (!context.mounted) return;
+                                  if (success) {
+                                    Navigator.pop(context);
+                                  } else {
+                                    AppSnackBars.showError(context,
+                                        'Failed to approve media. Please try again.');
+                                  }
+                                } else {
+                                  widget.onApprove?.call();
+                                  Navigator.pop(context);
                                 }
                               },
                             ),
                           ),
-                        ),
-                        if (showApprove) const SizedBox(width: 16),
                       ],
-                      if (showApprove)
-                        Expanded(
-                          child: PrimaryButton(
-                            icon: Icons.check_circle_outline,
-                            text: 'Approve',
-                            backgroundColor: context.accentColor,
-                            textColor: Colors.black,
-                            onPressed: () async {
-                              if (hasCubit) {
-                                final success = await context.read<ForumMediaCubit>().approveMedia(currentMedia);
-                                if (!context.mounted) return;
-                                if (success) {
-                                  Navigator.pop(context);
-                                } else {
-                                  AppSnackBars.showError(context, 'Failed to approve media. Please try again.');
-                                }
-                              } else {
-                                widget.onApprove?.call();
-                                Navigator.pop(context);
-                              }
-                            },
-                          ),
-                        ),
-                    ],
+                    ),
                   ),
-                ),
-            ],
-          );
-        },
-      ),
+              ],
+            );
+          },
+        ),
       ),
     );
   }
-
 }
-
-
-

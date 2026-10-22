@@ -1,8 +1,6 @@
-import 'dart:async';
 import 'package:bloc_test/bloc_test.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lynk_x/presentation/features/ticket/cubit/tickets_list_cubit.dart';
-import 'package:lynk_x/presentation/features/ticket/models/ticket_model.dart';
 import 'package:lynk_x/presentation/features/ticket/utils/ticket_cache.dart';
 import 'package:lynk_x/data/repositories/ticket_repository.dart';
 import 'package:mocktail/mocktail.dart';

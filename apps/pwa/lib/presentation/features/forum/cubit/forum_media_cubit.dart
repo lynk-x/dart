@@ -355,6 +355,18 @@ class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
       clearError: true,
     ));
 
+    // Pre-read all file bytes in parallel upfront before any network operations start.
+    // On web, browser-managed blob: URLs from detached HTML file inputs can be garbage-collected
+    // or revoked while previous items in the batch are uploading over the network.
+    final preparedBytes = <XFile, Uint8List>{};
+    await Future.wait(files.map((file) async {
+      try {
+        preparedBytes[file] = await file.readAsBytes();
+      } catch (e) {
+        debugPrint('[ForumMediaCubit] Upfront byte read failed for ${file.name}: $e');
+      }
+    }));
+
     final succeeded = <String>[];
     final errors = <String>[];
     final failedFiles = <XFile>[];
@@ -372,12 +384,13 @@ class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
       }
 
       try {
-        final fileLength = await file.length();
+        final preRead = preparedBytes[file];
+        final fileLength = preRead != null ? preRead.length : await file.length();
         if (fileLength > maxFileSizeBytes) {
           throw Exception('File "${file.name}" exceeds the 100MB limit');
         }
 
-        var bytes = await file.readAsBytes();
+        var bytes = preRead ?? await file.readAsBytes();
         final ext = file.name.split('.').last.toLowerCase();
         final type = kUploadVideoExtensions.contains(ext) ? 'video' : 'image';
         final fileId = _uuid.v4();
@@ -403,11 +416,11 @@ class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
           }
           thumbBytes = await resizeImageToJpeg(bytes, maxEdge: _thumbMaxEdge, quality: 0.75);
         } else if (type == 'video') {
-          // A still frame for the grid. Use bytes we already read to avoid
-          // relying on potentially revoked blob: URLs.
+          // A still frame for the grid. Prefer the picker's blob: URL so the video isn't copied;
+          // null (undecodable codec, e.g. HEVC outside Safari) just means no thumbnail.
           thumbBytes = await extractVideoPoster(
-            url: null,
-            bytes: bytes,
+            url: file.path.startsWith('blob:') ? file.path : null,
+            bytes: file.path.startsWith('blob:') ? null : bytes,
             maxEdge: _thumbMaxEdge,
           );
         }
