@@ -42,13 +42,13 @@ class MediaAttribution extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(
-                Icons.shield_outlined,
+                Icons.privacy_tip,
                 size: 11,
                 color: Colors.amberAccent.withValues(alpha: 0.9),
               ),
               const SizedBox(width: 4),
               Text(
-                'No distribution rights',
+                'Restricted distribution rights',
                 style: AppTypography.inter(
                   fontSize: 10,
                   color: Colors.amberAccent.withValues(alpha: 0.9),
@@ -257,7 +257,9 @@ class MediaMemberAction extends StatelessWidget {
                           color: Colors.redAccent, size: 20),
                     ),
                     title: Text(
-                      media.mediaType == 'video' ? 'Delete Video' : 'Delete Photo',
+                      media.mediaType == 'video'
+                          ? 'Delete Video'
+                          : 'Delete Photo',
                       style: const TextStyle(
                           color: Colors.redAccent,
                           fontWeight: FontWeight.w600,
@@ -286,7 +288,7 @@ class MediaMemberAction extends StatelessWidget {
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
-                      Icons.shield_outlined,
+                      Icons.privacy_tip,
                       color: media.hasDistributionRights
                           ? Colors.amberAccent
                           : Colors.greenAccent,
