@@ -431,8 +431,8 @@ class ForumRepository {
   // cubit via createBroadcastChannel below, not through a separate
   // subscribeToX method like subscribeToMessages/subscribeToMediaChanges.
   // Channel *construction* goes through the repository so cubits never touch
-  // Supabase.instance.client directly (per CLAUDE.md's "cubits never call
-  // Supabase directly" rule) — but attaching broadcast/presence-specific
+  // Supabase.instance.client directly (per architectural rule: "cubits never call
+  // Supabase directly") — but attaching broadcast/presence-specific
   // listeners (onBroadcast, onPresenceSync, track/untrack, etc.) still
   // happens in the cubit, since those are channel-usage concerns, not data
   // access. No existing Supabase Realtime abstraction wraps broadcast/
