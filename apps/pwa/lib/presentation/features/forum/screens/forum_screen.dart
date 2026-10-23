@@ -725,7 +725,46 @@ class _ForumViewState extends State<ForumView> {
 
   void _viewMedia(String? url) {
     if (url == null) return;
-    MediaViewer.show(context, imageUrl: url);
+
+    ForumMedia? matchedItem;
+    try {
+      final items = context.read<ForumMediaCubit>().state.mediaItems;
+      matchedItem = items.cast<ForumMedia?>().firstWhere(
+            (m) => m?.url == url,
+            orElse: () => null,
+          );
+    } catch (_) {}
+
+    final showChat = context
+        .read<FeatureFlagCubit>()
+        .isEnabled('enable_forum_live_chat');
+
+    ForumMediaCubit? mediaCubit;
+    ForumCubit? forumCubit;
+    try {
+      mediaCubit = context.read<ForumMediaCubit>();
+      forumCubit = context.read<ForumCubit>();
+    } catch (_) {}
+
+    final isAuthorized = forumCubit != null &&
+        (forumCubit.state.isOrganizer || forumCubit.state.isModerator);
+    final isUploader = matchedItem != null &&
+        forumCubit != null &&
+        matchedItem.uploaderId == forumCubit.userId;
+
+    MediaViewer.show(
+      context,
+      imageUrl: url,
+      mediaItem: matchedItem,
+      onMention: showChat ? _handleMentionMedia : null,
+      onSendComment: showChat ? _sendMediaComment : null,
+      onApprove: (matchedItem != null && isAuthorized && !matchedItem.isApproved)
+          ? () => mediaCubit?.approveMedia(matchedItem!)
+          : null,
+      onReject: (matchedItem != null && (isAuthorized || isUploader))
+          ? () => mediaCubit?.deleteMedia(matchedItem!)
+          : null,
+    );
   }
 
   /// Posts [text] to Live Chat with [media] attached, for the media viewer's quick comment box. The message is
