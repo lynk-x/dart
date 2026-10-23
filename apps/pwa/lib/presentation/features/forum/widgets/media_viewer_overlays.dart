@@ -242,7 +242,7 @@ class MediaMemberAction extends StatelessWidget {
                     },
                   ),
                 ),
-                if (isUploader) ...[
+                if (isUploader || isAuthorized) ...[
                   const Divider(color: Colors.white12, height: 24),
                   ListTile(
                     contentPadding: EdgeInsets.zero,
@@ -256,9 +256,9 @@ class MediaMemberAction extends StatelessWidget {
                       child: const Icon(Icons.delete_outline,
                           color: Colors.redAccent, size: 20),
                     ),
-                    title: const Text(
-                      'Delete Photo',
-                      style: TextStyle(
+                    title: Text(
+                      media.mediaType == 'video' ? 'Delete Video' : 'Delete Photo',
+                      style: const TextStyle(
                           color: Colors.redAccent,
                           fontWeight: FontWeight.w600,
                           fontSize: 15),

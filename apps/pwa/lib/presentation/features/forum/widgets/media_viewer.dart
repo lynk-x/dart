@@ -197,12 +197,118 @@ class _MediaViewerState extends State<MediaViewer> {
     return '${safeName}_${label}_${index + 1}.$extension';
   }
 
+  bool get _isAuthorized {
+    try {
+      final forumCubit = context.read<ForumCubit>();
+      return forumCubit.state.isOrganizer || forumCubit.state.isModerator;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Prompts a modal sheet gating downloads when public distribution rights
+  /// have been revoked or restricted by the uploader or a pictured attendee.
+  Future<bool> _showDistributionConsentSheet(
+    BuildContext context,
+    ForumMedia media,
+  ) async {
+    final isAuthorized = _isAuthorized;
+    final isVideo = media.mediaType == 'video';
+    final mediaLabel = isVideo ? 'video' : 'photo';
+
+    final result = await showModalBottomSheet<bool>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (sheetContext) => Container(
+        padding: const EdgeInsets.fromLTRB(28, 24, 28, 32),
+        decoration: const BoxDecoration(
+          color: Color(0xFF161616),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+          border: Border(
+            top: BorderSide(color: Colors.white12, width: 1),
+          ),
+        ),
+        child: SafeArea(
+          top: false,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  color: Colors.amberAccent.withValues(alpha: 0.12),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.shield_outlined,
+                  color: Colors.amberAccent,
+                  size: 30,
+                ),
+              ),
+              const SizedBox(height: 20),
+              Text(
+                'Distribution Rights Restricted',
+                style: AppTypography.interTight(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 12),
+              Text(
+                isAuthorized
+                    ? 'The uploader or a pictured attendee has restricted external distribution for this $mediaLabel.\n\nAs an organizer, you may download a copy for archival or administrative records, but public redistribution or commercial use is prohibited.'
+                    : 'The uploader or a pictured attendee has restricted external distribution for this $mediaLabel.\n\nBy downloading, you agree this copy is strictly for personal, private viewing and will not be shared, posted on social media, or distributed elsewhere.',
+                style: AppTypography.inter(
+                  fontSize: 14,
+                  color: Colors.white70,
+                  height: 1.5,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 28),
+              PrimaryButton(
+                text: 'Agree & Download',
+                backgroundColor: context.accentColor,
+                textColor: Colors.black,
+                onPressed: () => Navigator.pop(sheetContext, true),
+              ),
+              const SizedBox(height: 12),
+              TextButton(
+                onPressed: () => Navigator.pop(sheetContext, false),
+                child: Text(
+                  'Cancel',
+                  style: AppTypography.inter(
+                    color: Colors.white38,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    return result ?? false;
+  }
+
   Future<void> _downloadMedia() async {
     if (_gallery.isEmpty) return;
     final media = _gallery[_currentIndex];
     final targetUrl = media.url;
     final uri = Uri.tryParse(targetUrl);
     if (uri == null) return;
+
+    // Enforce distribution rights: If external rights are revoked or restricted,
+    // require an explicit consent/permission acknowledgment before downloading.
+    if (!media.hasDistributionRights) {
+      final confirmed = await _showDistributionConsentSheet(context, media);
+      if (!confirmed || !mounted) return;
+    }
 
     ForumAdsCubit? adsCubit;
     try {
@@ -316,24 +422,9 @@ class _MediaViewerState extends State<MediaViewer> {
             final isUploader =
                 hasCubit && currentMedia.uploaderId == currentUserId;
 
-            // Live Chat mention follows chat permission rules: only offered for
-            // members in good standing and approved media, since pending items are
-            // not visible to the forum yet.
-            var forumReadOnly = false;
-            var forumArchived = false;
-            var forumMuted = false;
-            try {
-              final forumState = context.read<ForumCubit>().state;
-              forumReadOnly = forumState.isReadOnly;
-              forumArchived = forumState.isArchived;
-              forumMuted = forumState.isMuted;
-            } catch (_) {}
             final canMentionInChat = widget.onMention != null &&
                 currentMedia != null &&
-                currentMedia.isApproved &&
-                !forumReadOnly &&
-                !forumArchived &&
-                !forumMuted;
+                currentMedia.isApproved;
 
             final showApprove = hasCubit
                 ? (isAuthorized && !currentMedia.isApproved)
