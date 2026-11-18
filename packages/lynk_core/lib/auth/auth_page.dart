@@ -660,16 +660,24 @@ class _ReportLoginIssueDialogState extends State<_ReportLoginIssueDialog> {
 
   final _messageController = TextEditingController();
   final _emailController = TextEditingController();
+  final _honeypotController = TextEditingController();
   String? _emailError;
 
   @override
   void dispose() {
     _messageController.dispose();
     _emailController.dispose();
+    _honeypotController.dispose();
     super.dispose();
   }
 
   void _submit() {
+    // Honeypot — if filled, it is almost certainly a bot. Silently discard.
+    if (_honeypotController.text.isNotEmpty) {
+      Navigator.pop(context);
+      return;
+    }
+
     String? email;
     if (widget.needsEmail) {
       email = _emailController.text.trim();
@@ -730,6 +738,24 @@ class _ReportLoginIssueDialogState extends State<_ReportLoginIssueDialog> {
             maxLines: 4,
             style: const TextStyle(color: Colors.white),
             decoration: _fieldDecoration('What happened? (optional)'),
+          ),
+          // Honeypot — invisible to humans, filled by bots. If it has content,
+          // _submit() silently discards the submission.
+          Opacity(
+            opacity: 0.0,
+            child: SizedBox(
+              height: 1,
+              child: TextField(
+                controller: _honeypotController,
+                decoration: InputDecoration(
+                  hintText: 'Leave this empty',
+                  border: InputBorder.none,
+                ),
+                style: const TextStyle(color: Colors.transparent),
+                cursorColor: Colors.transparent,
+                enabled: true,
+              ),
+            ),
           ),
         ],
       ),
