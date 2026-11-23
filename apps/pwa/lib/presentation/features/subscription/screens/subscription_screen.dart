@@ -187,15 +187,11 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> with WidgetsBin
     }
   }
 
-  // ── payment sheet & checkout redirect ─────────────────────────────────────
+  // ── checkout redirect ─────────────────────────────────────────────────────
 
   Future<void> _redirectToWebCheckout() async {
     final plan = _selected;
     if (plan == null) return;
-
-    if (Navigator.canPop(context)) {
-      Navigator.pop(context);
-    }
 
     final user = _supabase.auth.currentUser;
     final phone = user?.phone ?? '';
@@ -210,23 +206,6 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> with WidgetsBin
 
     final uri = Uri.https('lynk-x.app', '/checkout', queryParams);
     await safeLaunchUrl(uri.toString(), mode: LaunchMode.externalApplication);
-  }
-
-  void _showPaymentSheet() {
-    final plan = _selected;
-    if (plan == null) return;
-
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: const Color(0xFF111111),
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-      builder: (ctx) => PaymentSheet(
-        plan: plan,
-        onWebCheckout: _redirectToWebCheckout,
-      ),
-    );
   }
 
   // ── feedback helpers ──────────────────────────────────────────────────────
@@ -501,7 +480,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> with WidgetsBin
                   ? null
                   : _isActivePlan
                       ? null
-                      : _showPaymentSheet,
+                      : _redirectToWebCheckout,
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.secondary,
                 disabledBackgroundColor:
