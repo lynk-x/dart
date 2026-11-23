@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -23,7 +23,13 @@ class WalletTransactionsPage extends StatefulWidget {
 class _WalletTransactionsPageState extends State<WalletTransactionsPage> {
   final _scrollController = ScrollController();
   String _selectedFilter = 'All';
-  final List<String> _filters = ['All', 'Top-ups', 'Withdrawals', 'Purchases', 'Transfers'];
+  final List<String> _filters = [
+    'All',
+    'Top-ups',
+    'Withdrawals',
+    'Purchases',
+    'Transfers'
+  ];
 
   @override
   void initState() {
@@ -53,12 +59,21 @@ class _WalletTransactionsPageState extends State<WalletTransactionsPage> {
       listenWhen: (prev, curr) {
         // Balance increase notification
         if (prev.balances.isNotEmpty && curr.balances.isNotEmpty) {
-          final pBal = prev.balances.cast<WalletBalance?>().firstWhere((b) => b?.currency == widget.currency, orElse: () => null);
-          final cBal = curr.balances.cast<WalletBalance?>().firstWhere((b) => b?.currency == widget.currency, orElse: () => null);
-          if (pBal != null && cBal != null && cBal.cashBalance > pBal.cashBalance) return true;
+          final pBal = prev.balances.cast<WalletBalance?>().firstWhere(
+              (b) => b?.currency == widget.currency,
+              orElse: () => null);
+          final cBal = curr.balances.cast<WalletBalance?>().firstWhere(
+              (b) => b?.currency == widget.currency,
+              orElse: () => null);
+          if (pBal != null &&
+              cBal != null &&
+              cBal.cashBalance > pBal.cashBalance) {
+            return true;
+          }
         }
         // Redirect URL emitted
-        return prev.topUpPaymentUrl != curr.topUpPaymentUrl && curr.topUpPaymentUrl != null;
+        return prev.topUpPaymentUrl != curr.topUpPaymentUrl &&
+            curr.topUpPaymentUrl != null;
       },
       listener: (context, state) {
         if (state.topUpPaymentUrl != null) {
@@ -73,7 +88,11 @@ class _WalletTransactionsPageState extends State<WalletTransactionsPage> {
       builder: (context, state) {
         final balance = state.balances.firstWhere(
           (b) => b.currency == widget.currency,
-          orElse: () => WalletBalance(currency: widget.currency, cashBalance: 0, pendingBalance: 0, creditBalance: 0),
+          orElse: () => WalletBalance(
+              currency: widget.currency,
+              cashBalance: 0,
+              pendingBalance: 0,
+              creditBalance: 0),
         );
 
         return Scaffold(
@@ -113,19 +132,21 @@ class _WalletTransactionsPageState extends State<WalletTransactionsPage> {
                         end: Alignment.bottomRight,
                       ),
                       borderRadius: BorderRadius.circular(24),
-                      border: Border.all(color: context.accentColor.withValues(alpha: 0.2)),
+                      border: Border.all(
+                          color: context.accentColor.withValues(alpha: 0.2)),
                     ),
                     child: Column(
                       children: [
                         Text(
                           'Available Balance',
-                          style: AppTypography.inter(fontSize: 14, color: Colors.white54),
+                          style: AppTypography.inter(
+                              fontSize: 14, color: Colors.white54),
                         ),
                         const SizedBox(height: 8),
                         Text(
                           state.isPrivacyModeEnabled
-                            ? '••••••'
-                            : '${balance.currency} ${balance.cashBalance.toStringAsFixed(2)}',
+                              ? '••••••'
+                              : '${balance.currency} ${balance.cashBalance.toStringAsFixed(2)}',
                           style: AppTypography.inter(
                             fontSize: 32,
                             fontWeight: FontWeight.bold,
@@ -136,18 +157,24 @@ class _WalletTransactionsPageState extends State<WalletTransactionsPage> {
                           const SizedBox(height: 4),
                           Text(
                             state.isPrivacyModeEnabled
-                              ? 'Credit: ••••••'
-                              : 'Credit: ${balance.currency} ${balance.creditBalance.toStringAsFixed(2)}',
-                            style: AppTypography.inter(fontSize: 14, fontWeight: FontWeight.w500, color: Colors.greenAccent.shade400),
+                                ? 'Credit: ••••••'
+                                : 'Credit: ${balance.currency} ${balance.creditBalance.toStringAsFixed(2)}',
+                            style: AppTypography.inter(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                                color: Colors.greenAccent.shade400),
                           ),
                         ],
                         if (balance.pendingBalance > 0) ...[
                           const SizedBox(height: 4),
                           Text(
                             state.isPrivacyModeEnabled
-                              ? '+ •••••• pending'
-                              : '+ ${balance.currency} ${balance.pendingBalance.toStringAsFixed(2)} pending',
-                            style: AppTypography.inter(fontSize: 12, color: context.accentColor.withValues(alpha: 0.7)),
+                                ? '+ •••••• pending'
+                                : '+ ${balance.currency} ${balance.pendingBalance.toStringAsFixed(2)} pending',
+                            style: AppTypography.inter(
+                                fontSize: 12,
+                                color:
+                                    context.accentColor.withValues(alpha: 0.7)),
                           ),
                         ],
                       ],
@@ -176,26 +203,38 @@ class _WalletTransactionsPageState extends State<WalletTransactionsPage> {
                           child: ListView.separated(
                             scrollDirection: Axis.horizontal,
                             itemCount: _filters.length,
-                            separatorBuilder: (context, index) => const SizedBox(width: 8),
+                            separatorBuilder: (context, index) =>
+                                const SizedBox(width: 8),
                             itemBuilder: (context, index) {
                               final f = _filters[index];
                               final isSelected = f == _selectedFilter;
                               return GestureDetector(
-                                onTap: () => setState(() => _selectedFilter = f),
+                                onTap: () =>
+                                    setState(() => _selectedFilter = f),
                                 child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 16, vertical: 8),
                                   decoration: BoxDecoration(
-                                    color: isSelected ? context.accentColor : Colors.white.withValues(alpha: 0.05),
+                                    color: isSelected
+                                        ? context.accentColor
+                                        : Colors.white.withValues(alpha: 0.05),
                                     borderRadius: BorderRadius.circular(20),
-                                    border: Border.all(color: isSelected ? context.accentColor : Colors.white10),
+                                    border: Border.all(
+                                        color: isSelected
+                                            ? context.accentColor
+                                            : Colors.white10),
                                   ),
                                   child: Center(
                                     child: Text(
                                       f,
                                       style: TextStyle(
-                                        color: isSelected ? Colors.black : Colors.white70,
+                                        color: isSelected
+                                            ? Colors.black
+                                            : Colors.white70,
                                         fontSize: 13,
-                                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                        fontWeight: isSelected
+                                            ? FontWeight.bold
+                                            : FontWeight.normal,
                                       ),
                                     ),
                                   ),
@@ -215,18 +254,34 @@ class _WalletTransactionsPageState extends State<WalletTransactionsPage> {
                   builder: (context) {
                     List<WalletTransaction> filteredTx = state.transactions;
                     if (_selectedFilter == 'Top-ups') {
-                      filteredTx = filteredTx.where((t) => t.entryType == 'top_up' || t.reason.startsWith('top_up')).toList();
+                      filteredTx = filteredTx
+                          .where((t) =>
+                              t.entryType == 'top_up' ||
+                              t.reason.startsWith('top_up'))
+                          .toList();
                     } else if (_selectedFilter == 'Withdrawals') {
-                      filteredTx = filteredTx.where((t) => t.entryType == 'payout' || t.reason.startsWith('withdrawal')).toList();
+                      filteredTx = filteredTx
+                          .where((t) =>
+                              t.entryType == 'payout' ||
+                              t.reason.startsWith('withdrawal'))
+                          .toList();
                     } else if (_selectedFilter == 'Purchases') {
-                      filteredTx = filteredTx.where((t) => t.reason.contains('purchase') || t.reason.contains('subscription')).toList();
+                      filteredTx = filteredTx
+                          .where((t) =>
+                              t.reason.contains('purchase') ||
+                              t.reason.contains('subscription'))
+                          .toList();
                     } else if (_selectedFilter == 'Transfers') {
-                      filteredTx = filteredTx.where((t) => t.reason.contains('transfer')).toList();
+                      filteredTx = filteredTx
+                          .where((t) => t.reason.contains('transfer'))
+                          .toList();
                     }
 
                     if (state.isLoading && state.transactions.isEmpty) {
                       return SliverFillRemaining(
-                        child: Center(child: CircularProgressIndicator(color: context.accentColor)),
+                        child: Center(
+                            child: CircularProgressIndicator(
+                                color: context.accentColor)),
                       );
                     }
                     if (filteredTx.isEmpty) {
@@ -240,7 +295,7 @@ class _WalletTransactionsPageState extends State<WalletTransactionsPage> {
                         ),
                       );
                     }
-                    
+
                     return SliverList(
                       delegate: SliverChildBuilderDelegate(
                         (context, index) {
@@ -248,7 +303,10 @@ class _WalletTransactionsPageState extends State<WalletTransactionsPage> {
                             return state.isLoadingMore
                                 ? Padding(
                                     padding: const EdgeInsets.all(16),
-                                    child: Center(child: CircularProgressIndicator(color: context.accentColor, strokeWidth: 2)),
+                                    child: Center(
+                                        child: CircularProgressIndicator(
+                                            color: context.accentColor,
+                                            strokeWidth: 2)),
                                   )
                                 : const SizedBox(height: 100);
                           }
@@ -259,7 +317,6 @@ class _WalletTransactionsPageState extends State<WalletTransactionsPage> {
                     );
                   },
                 ),
-
               ],
             ),
           ),
@@ -276,7 +333,8 @@ class _WalletTransactionsPageState extends State<WalletTransactionsPage> {
     final uri = Uri.tryParse(url);
     if (uri == null || uri.scheme != 'https') {
       if (context.mounted) {
-        AppSnackBars.showError(context, 'Invalid payment URL. Please contact support.');
+        AppSnackBars.showError(
+            context, 'Invalid payment URL. Please contact support.');
       }
       return;
     }
@@ -332,29 +390,33 @@ class TransactionTile extends StatelessWidget {
   const TransactionTile({super.key, required this.tx});
 
   static const _reasonLabels = {
-    'top_up_mpesa':      'M-Pesa Top Up',
-    'top_up_card':       'Card Top Up',
-    'ticket_purchase':   'Ticket Purchase',
-    'ticket_refund':     'Ticket Refund',
-    'subscription':      'Subscription Payment',
+    'top_up_mpesa': 'M-Pesa Top Up',
+    'top_up_card': 'Card Top Up',
+    'ticket_purchase': 'Ticket Purchase',
+    'ticket_refund': 'Ticket Refund',
+    'subscription': 'Subscription Payment',
     'subscription_refund': 'Subscription Refund',
-    'resale_sale':       'Ticket Resale — Sale',
-    'resale_purchase':   'Ticket Resale — Purchase',
-    'withdrawal':        'Withdrawal',
+    'resale_sale': 'Ticket Resale — Sale',
+    'resale_purchase': 'Ticket Resale — Purchase',
+    'withdrawal': 'Withdrawal',
     'withdrawal_refund': 'Withdrawal Refund',
-    'transfer_in':       'Transfer Received',
-    'transfer_out':      'Transfer Sent',
+    'transfer_in': 'Transfer Received',
+    'transfer_out': 'Transfer Sent',
   };
 
   String get _label =>
       _reasonLabels[tx.reason] ??
-      tx.reason.replaceAll('_', ' ').split(' ').map((w) => w.isEmpty ? '' : '${w[0].toUpperCase()}${w.substring(1)}').join(' ');
+      tx.reason
+          .replaceAll('_', ' ')
+          .split(' ')
+          .map((w) => w.isEmpty ? '' : '${w[0].toUpperCase()}${w.substring(1)}')
+          .join(' ');
 
   @override
   Widget build(BuildContext context) {
     final isIncoming = tx.category == 'incoming';
     final color = isIncoming ? context.accentColor : Colors.red.shade400;
-    final sign  = isIncoming ? '+' : '-';
+    final sign = isIncoming ? '+' : '-';
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
@@ -375,7 +437,8 @@ class TransactionTile extends StatelessWidget {
               ),
               child: Icon(
                 isIncoming ? Icons.arrow_downward : Icons.arrow_upward,
-                color: color, size: 18,
+                color: color,
+                size: 18,
               ),
             ),
             const SizedBox(width: 12),
@@ -385,11 +448,15 @@ class TransactionTile extends StatelessWidget {
                 children: [
                   Text(
                     _label,
-                    style: AppTypography.inter(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white70),
+                    style: AppTypography.inter(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white70),
                   ),
                   Text(
                     DateFormat.yMMMd().add_Hm().format(tx.createdAt),
-                    style: AppTypography.inter(fontSize: 11, color: Colors.white30),
+                    style: AppTypography.inter(
+                        fontSize: 11, color: Colors.white30),
                   ),
                 ],
               ),
@@ -397,10 +464,11 @@ class TransactionTile extends StatelessWidget {
             BlocBuilder<WalletCubit, WalletState>(
               builder: (context, state) {
                 return Text(
-                  state.isPrivacyModeEnabled 
-                    ? '••••••'
-                    : '$sign ${tx.currency} ${tx.amount.toStringAsFixed(2)}',
-                  style: AppTypography.inter(fontSize: 15, fontWeight: FontWeight.bold, color: color),
+                  state.isPrivacyModeEnabled
+                      ? '••••••'
+                      : '$sign ${tx.currency} ${tx.amount.toStringAsFixed(2)}',
+                  style: AppTypography.inter(
+                      fontSize: 15, fontWeight: FontWeight.bold, color: color),
                 );
               },
             ),

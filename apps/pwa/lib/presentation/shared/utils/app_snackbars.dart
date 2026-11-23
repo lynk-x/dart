@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:lynk_core/core.dart';
 
 /// Shared, consistently-styled snackbar helpers (success/error/info) so

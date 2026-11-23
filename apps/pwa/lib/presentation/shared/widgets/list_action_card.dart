@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:lynk_core/core.dart';
 
 /// Shared list-row card: leading icon (with an optional live-status dot),

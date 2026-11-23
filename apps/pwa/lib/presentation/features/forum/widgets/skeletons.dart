@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:lynk_core/core.dart';
 
 /// Shared loading-skeleton pieces for the forum feature's list-shaped

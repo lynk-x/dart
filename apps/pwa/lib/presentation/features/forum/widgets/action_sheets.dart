@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:lynk_core/core.dart';
 
 /// Modal bottom sheet content displaying option cards to add a Poll or Quiz to the Forum.

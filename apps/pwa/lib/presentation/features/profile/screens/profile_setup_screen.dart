@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:typed_data';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -52,7 +52,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
     super.initState();
     _fullNameController.addListener(_onFullNameChanged);
     _userNameController.addListener(_onUsernameChanged);
-    
+
     // Prefill fields from current profile
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -84,10 +84,12 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
 
   void _onUsernameChanged() {
     if (_debounceTimer?.isActive ?? false) _debounceTimer?.cancel();
-    
+
     final name = _userNameController.text.trim();
     if (name.length < 3) {
-      if (mounted) { setState(() => _isUsernameAvailable = null); }
+      if (mounted) {
+        setState(() => _isUsernameAvailable = null);
+      }
       return;
     }
 
@@ -114,21 +116,27 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
     });
   }
 
-
   Future<void> _pickImage() async {
     await PermissionAcks.ensureAcknowledged(
       context,
       PermissionAckType.media,
       title: 'Access your Media',
-      description: 'To set a profile photo, we need access to your device library.',
+      description:
+          'To set a profile photo, we need access to your device library.',
       icon: Icons.perm_media_rounded,
       actionLabel: 'Allow Access',
       onReady: () async {
         final picker = ImagePicker();
-        final pickedFile = await picker.pickImage(source: ImageSource.gallery, imageQuality: 70);
+        final pickedFile = await picker.pickImage(
+            source: ImageSource.gallery, imageQuality: 70);
         if (pickedFile != null) {
           final bytes = await pickedFile.readAsBytes();
-          if (mounted) setState(() { _imageFile = pickedFile; _imageBytes = bytes; });
+          if (mounted) {
+            setState(() {
+              _imageFile = pickedFile;
+              _imageBytes = bytes;
+            });
+          }
         }
       },
     );
@@ -239,7 +247,9 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                   duration: const Duration(milliseconds: 300),
                   height: 3,
                   decoration: BoxDecoration(
-                    color: (isActive || isComplete) ? context.accentColor : Colors.white12,
+                    color: (isActive || isComplete)
+                        ? context.accentColor
+                        : Colors.white12,
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -281,8 +291,11 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('Select Country', 
-              style: AppTypography.interTight(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
+            Text('Select Country',
+                style: AppTypography.interTight(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white)),
             const SizedBox(height: 16),
             Flexible(
               child: ListView.builder(
@@ -292,8 +305,11 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                   final country = kSupportedCountries[index];
                   final isSelected = _selectedCountryCode == country.code;
                   return ListTile(
-                    title: Text(country.name, style: const TextStyle(color: Colors.white)),
-                    trailing: isSelected ? Icon(Icons.check_circle, color: context.accentColor) : null,
+                    title: Text(country.name,
+                        style: const TextStyle(color: Colors.white)),
+                    trailing: isSelected
+                        ? Icon(Icons.check_circle, color: context.accentColor)
+                        : null,
                     onTap: () {
                       setState(() => _selectedCountryCode = country.code);
                       Navigator.pop(context);
@@ -324,7 +340,11 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
       children: [
         const Padding(
           padding: EdgeInsets.only(left: 4, bottom: 8),
-          child: Text('Country', style: TextStyle(color: Colors.white54, fontSize: 12, fontWeight: FontWeight.bold)),
+          child: Text('Country',
+              style: TextStyle(
+                  color: Colors.white54,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold)),
         ),
         InkWell(
           onTap: () => _showCountryPicker(context),
@@ -339,9 +359,12 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
             child: Row(
               children: [
                 if (country != null) ...[
-                  Text(country.name, style: const TextStyle(color: Colors.white, fontSize: 16)),
+                  Text(country.name,
+                      style:
+                          const TextStyle(color: Colors.white, fontSize: 16)),
                 ] else ...[
-                  const Text('Select Country', style: TextStyle(color: Colors.white54, fontSize: 16)),
+                  const Text('Select Country',
+                      style: TextStyle(color: Colors.white54, fontSize: 16)),
                 ],
                 const Spacer(),
                 const Icon(Icons.arrow_drop_down, color: Colors.white54),
@@ -366,23 +389,39 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
             const SizedBox(height: 48),
             _buildAvatarPicker(),
             const SizedBox(height: 48),
-            _buildCountrySelector().animate().slideX(begin: -0.1).fadeIn(delay: 100.ms),
+            _buildCountrySelector()
+                .animate()
+                .slideX(begin: -0.1)
+                .fadeIn(delay: 100.ms),
             const SizedBox(height: 24),
             _buildTextField(
               controller: _userNameController,
               label: 'Username',
               hint: 'johndoe_99',
-              helperText: _userNameController.text.isNotEmpty && _userNameController.text.trim().length < 3
+              helperText: _userNameController.text.isNotEmpty &&
+                      _userNameController.text.trim().length < 3
                   ? 'Username must be at least 3 characters'
                   : null,
               suffixIcon: _isCheckingUsername
-                ? const SizedBox(width: 20, height: 20, child: Padding(padding: EdgeInsets.all(12), child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white24)))
-                : (_isUsernameAvailable == true
-                    ? Icon(Icons.check_circle, color: context.accentColor, size: 20)
-                    : (_isUsernameAvailable == false 
-                        ? const Icon(Icons.error, color: Colors.redAccent, size: 20)
-                        : null)),
-              validator: (v) => v == null || v.isEmpty ? 'Required' : (_isUsernameAvailable == false ? 'Username already taken' : null),
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: Padding(
+                          padding: EdgeInsets.all(12),
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: Colors.white24)))
+                  : (_isUsernameAvailable == true
+                      ? Icon(Icons.check_circle,
+                          color: context.accentColor, size: 20)
+                      : (_isUsernameAvailable == false
+                          ? const Icon(Icons.error,
+                              color: Colors.redAccent, size: 20)
+                          : null)),
+              validator: (v) => v == null || v.isEmpty
+                  ? 'Required'
+                  : (_isUsernameAvailable == false
+                      ? 'Username already taken'
+                      : null),
             ).animate().slideX(begin: -0.1).fadeIn(delay: 200.ms),
             const SizedBox(height: 24),
             _buildTextField(
@@ -391,17 +430,21 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
               hint: 'John Doe',
               suffixIcon: _fullNameController.text.trim().isEmpty
                   ? null
-                  : Icon(Icons.check_circle, color: context.accentColor, size: 20),
+                  : Icon(Icons.check_circle,
+                      color: context.accentColor, size: 20),
               validator: (v) => v == null || v.isEmpty ? 'Required' : null,
             ).animate().slideX(begin: -0.1).fadeIn(delay: 300.ms),
             const SizedBox(height: 60),
             _isSubmitting
-                ? Center(child: CircularProgressIndicator(color: context.accentColor))
+                ? Center(
+                    child:
+                        CircularProgressIndicator(color: context.accentColor))
                 : PrimaryButton(
                     text: 'Continue',
-                    onPressed: (_isCheckingUsername || _isUsernameAvailable == false)
-                        ? null
-                        : _goToNextFromIdentity,
+                    onPressed:
+                        (_isCheckingUsername || _isUsernameAvailable == false)
+                            ? null
+                            : _goToNextFromIdentity,
                   ),
           ],
         ),
@@ -418,12 +461,16 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
         mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Icon(Icons.notifications_active_outlined, size: 80, color: context.accentColor).animate().scale(duration: 600.ms, curve: Curves.easeOutBack),
+          Icon(Icons.notifications_active_outlined,
+                  size: 80, color: context.accentColor)
+              .animate()
+              .scale(duration: 600.ms, curve: Curves.easeOutBack),
           const SizedBox(height: 40),
           const Text(
             'Stay in the loop',
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.white),
+            style: TextStyle(
+                fontSize: 28, fontWeight: FontWeight.bold, color: Colors.white),
           ).animate().fadeIn(delay: 200.ms),
           const SizedBox(height: 16),
           const Text(
@@ -433,13 +480,14 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
           ).animate().fadeIn(delay: 400.ms),
           const SizedBox(height: 60),
           PrimaryButton(
-            text: 'Enable Notifications', 
+            text: 'Enable Notifications',
             onPressed: () => _finishSetup(requestPermission: true),
           ),
           const SizedBox(height: 12),
           TextButton(
             onPressed: () => _finishSetup(requestPermission: false),
-            child: const Text('Skip for now', style: TextStyle(color: Colors.white38)),
+            child: const Text('Skip for now',
+                style: TextStyle(color: Colors.white38)),
           ),
           const SizedBox(height: 4),
           const Text(
@@ -457,7 +505,11 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(title, style: const TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.bold)),
+        Text(title,
+            style: const TextStyle(
+                color: Colors.white,
+                fontSize: 32,
+                fontWeight: FontWeight.bold)),
         const SizedBox(height: 8),
         Text(subtitle, style: TextStyle(color: Colors.white54, fontSize: 16)),
       ],
@@ -471,15 +523,32 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
         child: Stack(
           children: [
             Container(
-              width: 120, height: 120,
+              width: 120,
+              height: 120,
               decoration: BoxDecoration(
-                shape: BoxShape.circle, color: Colors.white10,
-                border: Border.all(color: context.accentColor.withValues(alpha: 0.3), width: 1.5),
-                image: _imageBytes != null ? DecorationImage(image: MemoryImage(_imageBytes!), fit: BoxFit.cover) : null,
+                shape: BoxShape.circle,
+                color: Colors.white10,
+                border: Border.all(
+                    color: context.accentColor.withValues(alpha: 0.3),
+                    width: 1.5),
+                image: _imageBytes != null
+                    ? DecorationImage(
+                        image: MemoryImage(_imageBytes!), fit: BoxFit.cover)
+                    : null,
               ),
-              child: _imageFile == null ? const Icon(Icons.person, size: 60, color: Colors.white24) : null,
+              child: _imageFile == null
+                  ? const Icon(Icons.person, size: 60, color: Colors.white24)
+                  : null,
             ),
-            Positioned(bottom: 0, right: 0, child: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: context.accentColor, shape: BoxShape.circle), child: const Icon(Icons.camera_alt, size: 20, color: Colors.black))),
+            Positioned(
+                bottom: 0,
+                right: 0,
+                child: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                        color: context.accentColor, shape: BoxShape.circle),
+                    child: const Icon(Icons.camera_alt,
+                        size: 20, color: Colors.black))),
           ],
         ),
       ).animate().scale(curve: Curves.easeOutBack),
@@ -498,14 +567,23 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.bold, letterSpacing: 0.5)),
+        Text(label,
+            style: const TextStyle(
+                color: Colors.white70,
+                fontSize: 13,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 0.5)),
         const SizedBox(height: 12),
         TextFormField(
-          controller: controller, validator: validator, obscureText: obscureText,
+          controller: controller,
+          validator: validator,
+          obscureText: obscureText,
           style: const TextStyle(color: Colors.white),
           decoration: InputDecoration(
-            hintText: hint, hintStyle: const TextStyle(color: Colors.white24),
-            filled: true, fillColor: Colors.white.withValues(alpha: 0.05),
+            hintText: hint,
+            hintStyle: const TextStyle(color: Colors.white24),
+            filled: true,
+            fillColor: Colors.white.withValues(alpha: 0.05),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
               borderSide: const BorderSide(color: Colors.white12),

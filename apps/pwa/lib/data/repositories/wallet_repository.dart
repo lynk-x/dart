@@ -1,4 +1,5 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:lynk_x/core/utils/uuid.dart';
 
 class WalletRepository {
   final SupabaseClient _client;
@@ -88,6 +89,7 @@ class WalletRepository {
     required String payerIdentity,
   }) async {
     final result = await _client.schema('api').rpc('initiate_wallet_topup', params: {
+      'p_idempotency_key': newIdempotencyKey(),
       'p_account_id': accountId,
       'p_amount': amount,
       'p_currency': currency,
@@ -167,6 +169,7 @@ class WalletRepository {
     required String label,
   }) async {
     await _client.schema('api').rpc('add_payout_method', params: {
+      'p_idempotency_key': newIdempotencyKey(),
       'p_provider_name': providerName,
       'p_identity': identity,
       'p_label': label,
@@ -185,6 +188,7 @@ class WalletRepository {
     required String pinHash,
   }) async {
     await _client.schema('api').rpc('request_account_withdrawal', params: {
+      'p_idempotency_key': newIdempotencyKey(),
       'p_account_id': null,
       'p_amount': amount,
       'p_currency': currency,
@@ -200,6 +204,7 @@ class WalletRepository {
     required String pinHash,
   }) async {
     await _client.schema('api').rpc('transfer_funds', params: {
+      'p_idempotency_key': newIdempotencyKey(),
       'p_amount': amount,
       'p_currency': currency,
       'p_recipient_account_id': recipientAccountId,

@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:lynk_core/core.dart';
 
 import '../core/forum_header_role.dart';
@@ -165,7 +165,8 @@ class _SearchSlotState extends State<SearchSlot> {
           behavior: HitTestBehavior.opaque,
           child: Padding(
             padding: const EdgeInsets.all(4.0),
-            child: Icon(_isSearching ? Icons.search : Icons.forum, color: Colors.black),
+            child: Icon(_isSearching ? Icons.search : Icons.forum,
+                color: Colors.black),
           ),
         ),
         const SizedBox(width: 8),
@@ -251,10 +252,13 @@ class AudioSessionSlot extends StatelessWidget {
   String _resolveCenterText() {
     if (isReconnecting) return 'Reconnecting…';
     if (activeSpeakerNames.isEmpty) {
-      return role == ForumHeaderRole.host ? 'Live Call (Hosting)' : 'Live Call happening';
+      return role == ForumHeaderRole.host
+          ? 'Live Call (Hosting)'
+          : 'Live Call happening';
     }
 
-    final isSelfSpeaking = currentUserName != null && activeSpeakerNames.contains(currentUserName);
+    final isSelfSpeaking =
+        currentUserName != null && activeSpeakerNames.contains(currentUserName);
     final otherSpeakers = currentUserName != null
         ? activeSpeakerNames.where((name) => name != currentUserName).toList()
         : activeSpeakerNames;
@@ -264,8 +268,12 @@ class AudioSessionSlot extends StatelessWidget {
       return 'You + ${otherSpeakers.length} other${otherSpeakers.length > 1 ? "s" : ""} (Speaking)';
     }
 
-    if (activeSpeakerNames.length == 1) return '${activeSpeakerNames[0]} (Speaking)';
-    if (activeSpeakerNames.length == 2) return '${activeSpeakerNames[0]} + ${activeSpeakerNames[1]} (Speaking)';
+    if (activeSpeakerNames.length == 1) {
+      return '${activeSpeakerNames[0]} (Speaking)';
+    }
+    if (activeSpeakerNames.length == 2) {
+      return '${activeSpeakerNames[0]} + ${activeSpeakerNames[1]} (Speaking)';
+    }
 
     return '${activeSpeakerNames[0]} + ${activeSpeakerNames.length - 1} others (Speaking)';
   }
@@ -281,10 +289,14 @@ class AudioSessionSlot extends StatelessWidget {
               ? const SizedBox(
                   width: 16,
                   height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.amber),
+                  child: CircularProgressIndicator(
+                      strokeWidth: 2, color: Colors.amber),
                 )
               : Icon(
-                  isWeakConnection ? Icons.signal_wifi_statusbar_connected_no_internet_4_rounded : Icons.graphic_eq_rounded,
+                  isWeakConnection
+                      ? Icons
+                          .signal_wifi_statusbar_connected_no_internet_4_rounded
+                      : Icons.graphic_eq_rounded,
                   color: isWeakConnection ? Colors.amber : Colors.black,
                   size: 20,
                 ),
@@ -372,11 +384,14 @@ class VideoSessionSlot extends StatelessWidget {
         else
           IconButton(
             icon: Icon(
-              isBroadcastMuted ? Icons.volume_off_rounded : Icons.volume_up_rounded,
+              isBroadcastMuted
+                  ? Icons.volume_off_rounded
+                  : Icons.volume_up_rounded,
               color: isBroadcastMuted ? Colors.red : Colors.black,
             ),
             onPressed: onToggleBroadcastMute,
-            tooltip: isBroadcastMuted ? 'Unmute Stream Audio' : 'Mute Stream Audio',
+            tooltip:
+                isBroadcastMuted ? 'Unmute Stream Audio' : 'Mute Stream Audio',
           ),
       ],
     );

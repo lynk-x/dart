@@ -1,9 +1,8 @@
 import 'dart:async';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:lynk_core/core.dart';
 import 'router.dart';
 import 'package:lynk_x/presentation/features/notifications/cubit/notification_cubit.dart';
@@ -340,9 +339,7 @@ class _LynkXAppState extends State<LynkXApp> with WidgetsBindingObserver {
       ],
       localizationsDelegates: const [
         AppLocalizations.delegate,
-        GlobalMaterialLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,
+        ...GlobalMaterialLocalizations.delegates,
       ],
     );
   }

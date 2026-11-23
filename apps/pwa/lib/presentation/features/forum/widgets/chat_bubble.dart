@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -88,10 +88,13 @@ class _ChatBubbleState extends State<ChatBubble> {
               ? CrossAxisAlignment.end
               : CrossAxisAlignment.start,
           children: [
-            if (!widget.message.isMe && widget.showSenderInfo) _buildSenderInfo(),
+            if (!widget.message.isMe && widget.showSenderInfo)
+              _buildSenderInfo(),
             Row(
               mainAxisSize: MainAxisSize.min,
-              mainAxisAlignment: widget.message.isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
+              mainAxisAlignment: widget.message.isMe
+                  ? MainAxisAlignment.end
+                  : MainAxisAlignment.start,
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 if (widget.message.isMe) ...[
@@ -122,7 +125,9 @@ class _ChatBubbleState extends State<ChatBubble> {
 
   Widget _buildReplyIcon() {
     final isLargeScreen = MediaQuery.of(context).size.width > 600;
-    if (!isLargeScreen || widget.onReply == null) return const SizedBox.shrink();
+    if (!isLargeScreen || widget.onReply == null) {
+      return const SizedBox.shrink();
+    }
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -159,7 +164,8 @@ class _ChatBubbleState extends State<ChatBubble> {
         child: SizedBox(
           width: 10,
           height: 10,
-          child: CircularProgressIndicator(strokeWidth: 1.5, color: Colors.white38),
+          child: CircularProgressIndicator(
+              strokeWidth: 1.5, color: Colors.white38),
         ),
       );
     }
@@ -179,7 +185,8 @@ class _ChatBubbleState extends State<ChatBubble> {
         mainAxisSize: MainAxisSize.min,
         children: [
           if (widget.message.isPremium) ...[
-            const Icon(Icons.star_rounded, size: 12, color: AppColors.secondary),
+            const Icon(Icons.star_rounded,
+                size: 12, color: AppColors.secondary),
             const SizedBox(width: 3),
           ],
           Text(
@@ -197,16 +204,15 @@ class _ChatBubbleState extends State<ChatBubble> {
         onTap: widget.onTapBubble,
         onLongPress: widget.onLongPressBubble,
         child: ConstrainedBox(
-          constraints:
-              BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
+          constraints: BoxConstraints(
+              maxWidth: MediaQuery.of(context).size.width * 0.75),
           child: _buildBody(Colors.white),
         ),
       );
     }
 
-    final bgColor = widget.message.isMe
-        ? context.accentColor
-        : AppColors.tertiary;
+    final bgColor =
+        widget.message.isMe ? context.accentColor : AppColors.tertiary;
     final textColor = widget.message.isMe ? Colors.black : Colors.white;
 
     return GestureDetector(
@@ -221,8 +227,10 @@ class _ChatBubbleState extends State<ChatBubble> {
           borderRadius: BorderRadius.only(
             topLeft: const Radius.circular(12),
             topRight: const Radius.circular(12),
-            bottomLeft: Radius.circular(widget.message.isMe ? 16 : (widget.isGrouped ? 12 : 0)),
-            bottomRight: Radius.circular(widget.message.isMe ? (widget.isGrouped ? 12 : 0) : 12),
+            bottomLeft: Radius.circular(
+                widget.message.isMe ? 16 : (widget.isGrouped ? 12 : 0)),
+            bottomRight: Radius.circular(
+                widget.message.isMe ? (widget.isGrouped ? 12 : 0) : 12),
           ),
           border: Border.all(color: Colors.transparent),
         ),
@@ -250,7 +258,8 @@ class _ChatBubbleState extends State<ChatBubble> {
   }
 
   Widget _buildBody(Color textColor) {
-    final pollsEnabled = context.read<FeatureFlagCubit>().isEnabled('enable_forum_polls');
+    final pollsEnabled =
+        context.read<FeatureFlagCubit>().isEnabled('enable_forum_polls');
 
     switch (widget.message.type) {
       case MessageType.chat:
@@ -362,7 +371,8 @@ class MediaAttachmentModule extends StatelessWidget {
   final ChatMessage message;
   final Function(String?)? onMediaTap;
 
-  const MediaAttachmentModule({super.key, required this.message, this.onMediaTap});
+  const MediaAttachmentModule(
+      {super.key, required this.message, this.onMediaTap});
 
   @override
   Widget build(BuildContext context) {
@@ -385,7 +395,8 @@ class MediaAttachmentModule extends StatelessWidget {
             height: 120,
             color: Colors.grey[900],
             child: Center(
-              child: CircularProgressIndicator(strokeWidth: 1.5, color: context.accentColor),
+              child: CircularProgressIndicator(
+                  strokeWidth: 1.5, color: context.accentColor),
             ),
           ),
           errorWidget: (context, url, err) => Container(
@@ -423,9 +434,8 @@ class MessageActionBar extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(top: 4, left: 4, right: 4),
       child: ActionBar(
-        mainAxisAlignment: message.isMe
-            ? MainAxisAlignment.end
-            : MainAxisAlignment.start,
+        mainAxisAlignment:
+            message.isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
         items: [
           if (onPin != null)
             ActionBarItem(
@@ -437,12 +447,14 @@ class MessageActionBar extends StatelessWidget {
                   final success = await result;
                   if (!context.mounted) return;
                   if (success) {
-                    AppSnackBars.showInfo(context, isPinned ? 'Message unpinned' : 'Message pinned');
+                    AppSnackBars.showInfo(context,
+                        isPinned ? 'Message unpinned' : 'Message pinned');
                   } else {
                     AppSnackBars.showError(context, 'Could not update pin.');
                   }
                 } else {
-                  AppSnackBars.showInfo(context, isPinned ? 'Message unpinned' : 'Message pinned');
+                  AppSnackBars.showInfo(context,
+                      isPinned ? 'Message unpinned' : 'Message pinned');
                 }
               },
               color: Colors.white70,
@@ -458,7 +470,8 @@ class MessageActionBar extends StatelessWidget {
               label: 'Copy',
               onTap: () {
                 Clipboard.setData(ClipboardData(text: message.message));
-                AppSnackBars.showSuccess(context, 'Message copied to clipboard');
+                AppSnackBars.showSuccess(
+                    context, 'Message copied to clipboard');
               },
               color: Colors.white70,
             ),
@@ -471,8 +484,10 @@ class MessageActionBar extends StatelessWidget {
                   context: context,
                   builder: (ctx) => AlertDialog(
                     backgroundColor: const Color(0xFF1A1A1A),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                    title: const Text('Delete message?', style: TextStyle(color: Colors.white)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16)),
+                    title: const Text('Delete message?',
+                        style: TextStyle(color: Colors.white)),
                     content: const Text(
                       'This message will be removed for everyone.',
                       style: TextStyle(color: Colors.white54),
@@ -480,11 +495,15 @@ class MessageActionBar extends StatelessWidget {
                     actions: [
                       TextButton(
                         onPressed: () => Navigator.pop(ctx, false),
-                        child: const Text('Cancel', style: TextStyle(color: Colors.white38)),
+                        child: const Text('Cancel',
+                            style: TextStyle(color: Colors.white38)),
                       ),
                       TextButton(
                         onPressed: () => Navigator.pop(ctx, true),
-                        child: const Text('Delete', style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
+                        child: const Text('Delete',
+                            style: TextStyle(
+                                color: Colors.redAccent,
+                                fontWeight: FontWeight.bold)),
                       ),
                     ],
                   ),
@@ -547,10 +566,12 @@ class _CategoryBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = ForumCategory.getColorForCategory(category, context.accentColor);
-    final textColor = ThemeData.estimateBrightnessForColor(color) == Brightness.light
-        ? Colors.black
-        : Colors.white;
+    final color =
+        ForumCategory.getColorForCategory(category, context.accentColor);
+    final textColor =
+        ThemeData.estimateBrightnessForColor(color) == Brightness.light
+            ? Colors.black
+            : Colors.white;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),

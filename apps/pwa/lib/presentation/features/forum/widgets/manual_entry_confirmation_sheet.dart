@@ -1,5 +1,5 @@
 import 'package:lynk_x/presentation/features/ticket/models/ticket_model.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:lynk_core/core.dart';
 
 /// "Confirm Manual Entry" bottom sheet shown after a staff member types a ticket code instead of

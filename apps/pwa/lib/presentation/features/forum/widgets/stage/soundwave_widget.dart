@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// Dynamic soundwave visualizer driven by a [ValueNotifier<double>] audio
 /// level — rebuilds only when the level actually changes, not on a fixed

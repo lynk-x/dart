@@ -1,5 +1,5 @@
 import 'package:flutter/gestures.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:lynk_x/presentation/features/forum/core/forum_config.dart';
 
 /// A widget that parses and renders message text, styling and making clickable:
@@ -37,7 +37,8 @@ class _ListLine {
   final String marker; // "•" for bulleted, "1", "2", ... for numbered
   final bool isNumbered;
   final String content;
-  const _ListLine({required this.marker, required this.isNumbered, required this.content});
+  const _ListLine(
+      {required this.marker, required this.isNumbered, required this.content});
 }
 
 final RegExp _bulletLineRegex = RegExp(r'^[ \t]*[-*][ \t]+(.*)$');
@@ -46,7 +47,8 @@ final RegExp _numberedLineRegex = RegExp(r'^[ \t]*(\d+)\.[ \t]+(.*)$');
 _ListLine? _matchListLine(String line) {
   final bulletMatch = _bulletLineRegex.firstMatch(line);
   if (bulletMatch != null) {
-    return _ListLine(marker: '•', isNumbered: false, content: bulletMatch.group(1)!);
+    return _ListLine(
+        marker: '•', isNumbered: false, content: bulletMatch.group(1)!);
   }
   final numberedMatch = _numberedLineRegex.firstMatch(line);
   if (numberedMatch != null) {
@@ -101,7 +103,8 @@ class _ParsedMessageTextState extends State<ParsedMessageText> {
         final username = token.substring(1);
 
         final isPrecededByWordChar = match.start > 0 &&
-            RegExp(r'\w').hasMatch(text.substring(match.start - 1, match.start));
+            RegExp(r'\w')
+                .hasMatch(text.substring(match.start - 1, match.start));
 
         if (isPrecededByWordChar) {
           spans.add(TextSpan(text: token, style: widget.style));
@@ -175,7 +178,9 @@ class _ParsedMessageTextState extends State<ParsedMessageText> {
       // before (this is the common case: plain messages, with or without
       // mentions/URLs, still get a single paragraph, not one row per line).
       final spans = _parseInlineSpans(widget.text);
-      if (widget.isEdited) spans.add(TextSpan(text: ' [edited]', style: _editedSuffixStyle));
+      if (widget.isEdited) {
+        spans.add(TextSpan(text: ' [edited]', style: _editedSuffixStyle));
+      }
       return Text.rich(TextSpan(children: spans));
     }
 
@@ -214,7 +219,8 @@ class _ParsedMessageTextState extends State<ParsedMessageText> {
               ),
             ),
             Expanded(
-              child: Text.rich(TextSpan(children: _parseInlineSpans(listLine.content))),
+              child: Text.rich(
+                  TextSpan(children: _parseInlineSpans(listLine.content))),
             ),
           ],
         ),
@@ -226,6 +232,9 @@ class _ParsedMessageTextState extends State<ParsedMessageText> {
       widgets.add(_buildEditedSuffix());
     }
 
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: widgets);
+    return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: widgets);
   }
 }

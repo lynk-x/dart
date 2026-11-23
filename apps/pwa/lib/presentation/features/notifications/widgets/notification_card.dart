@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:lynk_core/core.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import 'package:lynk_x/presentation/features/notifications/models/notification_model.dart';

@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:lynk_core/core.dart';
 
 /// Warns members before an `open` forum locks to read-only. The lock itself
@@ -64,7 +64,9 @@ class InputAccessoryBar extends StatelessWidget {
     final lockAt = endsAt.add(Duration(days: autoReadOnlyDays));
     final remaining = lockAt.difference(DateTime.now());
 
-    if (remaining.isNegative) return null; // Lock is due any moment — cron hasn't run yet, not worth a stale countdown.
+    if (remaining.isNegative) {
+      return null; // Lock is due any moment — cron hasn't run yet, not worth a stale countdown.
+    }
 
     if (remaining.inDays >= 1) {
       final days = remaining.inDays;

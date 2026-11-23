@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/info_banner.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/category_filter_bar.dart';

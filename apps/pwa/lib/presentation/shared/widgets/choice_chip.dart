@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart' as m;
+import 'package:material_ui/material_ui.dart' as m;
 import 'package:lynk_core/core.dart';
 
 class ChoiceChip extends m.StatelessWidget {

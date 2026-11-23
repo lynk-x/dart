@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:js_interop';
 import 'dart:ui_web' as ui_web;
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:lynk_core/core.dart';
 import 'package:web/web.dart' as web;
 

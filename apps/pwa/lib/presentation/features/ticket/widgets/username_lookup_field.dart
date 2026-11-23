@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:lynk_core/core.dart';
 import 'package:lynk_x/data/repositories/repositories.dart';
 
@@ -62,7 +62,12 @@ class _UsernameLookupFieldState extends State<UsernameLookupField> {
     final isEmail = widget.allowEmail && value.contains('@');
     if (value.isEmpty || value.length < 3 || isEmail) {
       _debounceTimer?.cancel();
-      if (mounted) setState(() { _setFound(null); _isChecking = false; });
+      if (mounted) {
+        setState(() {
+          _setFound(null);
+          _isChecking = false;
+        });
+      }
       return;
     }
 
@@ -75,7 +80,10 @@ class _UsernameLookupFieldState extends State<UsernameLookupField> {
       try {
         final found = await widget.repository.checkUsernameExists(checkedValue);
         if (mounted && widget.controller.text.trim() == checkedValue) {
-          setState(() { _setFound(found); _isChecking = false; });
+          setState(() {
+            _setFound(found);
+            _isChecking = false;
+          });
         }
       } catch (_) {
         if (mounted && widget.controller.text.trim() == checkedValue) {
@@ -92,13 +100,18 @@ class _UsernameLookupFieldState extends State<UsernameLookupField> {
         height: 20,
         child: Padding(
           padding: EdgeInsets.all(12),
-          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white24),
+          child:
+              CircularProgressIndicator(strokeWidth: 2, color: Colors.white24),
         ),
       );
     }
     if (widget.allowEmail && widget.controller.text.contains('@')) return null;
-    if (_recipientFound == true) return Icon(Icons.check_circle, color: context.accentColor, size: 20);
-    if (_recipientFound == false) return const Icon(Icons.error, color: Colors.redAccent, size: 20);
+    if (_recipientFound == true) {
+      return Icon(Icons.check_circle, color: context.accentColor, size: 20);
+    }
+    if (_recipientFound == false) {
+      return const Icon(Icons.error, color: Colors.redAccent, size: 20);
+    }
     return null;
   }
 
@@ -138,7 +151,9 @@ class _UsernameLookupFieldState extends State<UsernameLookupField> {
           else if (_recipientFound == true)
             Text(
               'Recipient found.',
-              style: TextStyle(color: context.accentColor.withValues(alpha: 0.8), fontSize: 12),
+              style: TextStyle(
+                  color: context.accentColor.withValues(alpha: 0.8),
+                  fontSize: 12),
             ),
         ],
       ],

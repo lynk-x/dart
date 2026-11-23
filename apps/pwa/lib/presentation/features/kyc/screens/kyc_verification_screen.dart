@@ -1,6 +1,6 @@
 import 'dart:typed_data' show Uint8List;
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lynk_core/core.dart';
@@ -48,14 +48,19 @@ class _KycView extends StatelessWidget {
       ),
       body: SafeArea(
         child: BlocConsumer<KycCubit, KycState>(
-          listenWhen: (a, b) => a.pendingReviewFile == null && b.pendingReviewFile != null,
+          listenWhen: (a, b) =>
+              a.pendingReviewFile == null && b.pendingReviewFile != null,
           listener: (context, state) => _showPendingReviewSheet(context),
           builder: (context, state) {
             if (state.isLoading) {
               return const Center(child: CircularProgressIndicator());
             }
-            if (state.error != null && state.requirements.isEmpty && state.status == KycStatus.notStarted) {
-              return _ErrorState(message: state.error!, onRetry: () => context.read<KycCubit>().load());
+            if (state.error != null &&
+                state.requirements.isEmpty &&
+                state.status == KycStatus.notStarted) {
+              return _ErrorState(
+                  message: state.error!,
+                  onRetry: () => context.read<KycCubit>().load());
             }
             if (state.submitted) {
               return const _SubmittedState();
@@ -75,7 +80,8 @@ class _KycView extends StatelessWidget {
                 icon: Icons.verified_rounded,
                 iconColor: Color(0xFF20F928),
                 title: 'You’re Verified',
-                message: 'Your identity has been verified. You have full access to withdrawals and payouts.',
+                message:
+                    'Your identity has been verified. You have full access to withdrawals and payouts.',
               );
             }
             return const _WizardBody();
@@ -103,7 +109,9 @@ class _KycView extends StatelessWidget {
             if (file == null) {
               // Review resolved (confirmed/retaken) — close the sheet.
               WidgetsBinding.instance.addPostFrameCallback((_) {
-                if (Navigator.of(sheetContext).canPop()) Navigator.of(sheetContext).pop();
+                if (Navigator.of(sheetContext).canPop()) {
+                  Navigator.of(sheetContext).pop();
+                }
               });
               return const SizedBox.shrink();
             }
@@ -114,14 +122,18 @@ class _KycView extends StatelessWidget {
                 children: [
                   const Text(
                     'Is this photo clear and readable?',
-                    style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
+                    style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600),
                   ),
                   const SizedBox(height: 16),
                   ClipRRect(
                     borderRadius: BorderRadius.circular(12),
                     child: AspectRatio(
                       aspectRatio: 4 / 3,
-                      child: Image.memory(_bytesOf(file.bytes), fit: BoxFit.cover),
+                      child:
+                          Image.memory(_bytesOf(file.bytes), fit: BoxFit.cover),
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -139,9 +151,11 @@ class _KycView extends StatelessWidget {
                           style: OutlinedButton.styleFrom(
                             padding: const EdgeInsets.symmetric(vertical: 14),
                             side: const BorderSide(color: Colors.white24),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10)),
                           ),
-                          child: const Text('Retake', style: TextStyle(color: Colors.white70)),
+                          child: const Text('Retake',
+                              style: TextStyle(color: Colors.white70)),
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -152,9 +166,11 @@ class _KycView extends StatelessWidget {
                             backgroundColor: context.accentColor,
                             foregroundColor: Colors.black,
                             padding: const EdgeInsets.symmetric(vertical: 14),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10)),
                           ),
-                          child: const Text('Use This Photo', style: TextStyle(fontWeight: FontWeight.w600)),
+                          child: const Text('Use This Photo',
+                              style: TextStyle(fontWeight: FontWeight.w600)),
                         ),
                       ),
                     ],
@@ -235,7 +251,8 @@ class _StepIndicator extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             for (final label in labels)
-              Text(label, style: const TextStyle(color: Colors.white38, fontSize: 11)),
+              Text(label,
+                  style: const TextStyle(color: Colors.white38, fontSize: 11)),
           ],
         ),
       ],
@@ -275,12 +292,15 @@ class _InfoStep extends StatelessWidget {
         const SizedBox(height: 20),
         KycRequirementsForm(
           requirements: state.textRequirements,
-          emptyStateHint: 'No additional information needed — continue to documents.',
+          emptyStateHint:
+              'No additional information needed — continue to documents.',
         ),
         const SizedBox(height: 8),
         PrimaryButton(
           text: 'Continue',
-          onPressed: satisfied ? () => context.read<KycCubit>().goToStep(KycStep.documents) : null,
+          onPressed: satisfied
+              ? () => context.read<KycCubit>().goToStep(KycStep.documents)
+              : null,
         ),
       ],
     );
@@ -297,7 +317,8 @@ class _DocumentsStep extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Upload your identification documents to verify your account.',
+        const Text(
+            'Upload your identification documents to verify your account.',
             style: TextStyle(color: Colors.white54, fontSize: 13)),
         const SizedBox(height: 20),
         KycRequirementsForm(
@@ -309,13 +330,16 @@ class _DocumentsStep extends StatelessWidget {
           children: [
             Expanded(
               child: OutlinedButton(
-                onPressed: () => context.read<KycCubit>().goToStep(KycStep.info),
+                onPressed: () =>
+                    context.read<KycCubit>().goToStep(KycStep.info),
                 style: OutlinedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   side: const BorderSide(color: Colors.white24),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
                 ),
-                child: const Text('Go Back', style: TextStyle(color: Colors.white70)),
+                child: const Text('Go Back',
+                    style: TextStyle(color: Colors.white70)),
               ),
             ),
             const SizedBox(width: 12),
@@ -323,7 +347,9 @@ class _DocumentsStep extends StatelessWidget {
               flex: 2,
               child: PrimaryButton(
                 text: 'Continue',
-                onPressed: satisfied ? () => context.read<KycCubit>().goToStep(KycStep.confirm) : null,
+                onPressed: satisfied
+                    ? () => context.read<KycCubit>().goToStep(KycStep.confirm)
+                    : null,
               ),
             ),
           ],
@@ -340,12 +366,17 @@ class _ConfirmStep extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocBuilder<KycCubit, KycState>(
       builder: (context, state) {
-        final canSubmit = state.consentAccepted && state.accuracyConfirmed && !state.isSubmitting;
+        final canSubmit = state.consentAccepted &&
+            state.accuracyConfirmed &&
+            !state.isSubmitting;
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text('Review & Confirm',
-                style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600)),
+                style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600)),
             const SizedBox(height: 6),
             const Text(
               'Please confirm the following before we submit your verification for review.',
@@ -354,15 +385,18 @@ class _ConfirmStep extends StatelessWidget {
             const SizedBox(height: 20),
             _ConsentCheckbox(
               value: state.accuracyConfirmed,
-              onChanged: (v) => context.read<KycCubit>().setAccuracyConfirmed(v),
-              label: 'I confirm that the documents and information I submitted are accurate, '
+              onChanged: (v) =>
+                  context.read<KycCubit>().setAccuracyConfirmed(v),
+              label:
+                  'I confirm that the documents and information I submitted are accurate, '
                   'genuinely mine and match the identity I am verifying.',
             ),
             const SizedBox(height: 12),
             _ConsentCheckbox(
               value: state.consentAccepted,
               onChanged: (v) => context.read<KycCubit>().setConsentAccepted(v),
-              label: 'I consent to Lynk-X processing and securely storing this data for the '
+              label:
+                  'I consent to Lynk-X processing and securely storing this data for the '
                   'purpose of identity verification, in line with the Privacy Policy.',
             ),
             const SizedBox(height: 24),
@@ -370,23 +404,32 @@ class _ConfirmStep extends StatelessWidget {
               children: [
                 Expanded(
                   child: OutlinedButton(
-                    onPressed:
-                        state.isSubmitting ? null : () => context.read<KycCubit>().goToStep(KycStep.documents),
+                    onPressed: state.isSubmitting
+                        ? null
+                        : () => context
+                            .read<KycCubit>()
+                            .goToStep(KycStep.documents),
                     style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       side: const BorderSide(color: Colors.white24),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
                     ),
-                    child: const Text('Go Back', style: TextStyle(color: Colors.white70)),
+                    child: const Text('Go Back',
+                        style: TextStyle(color: Colors.white70)),
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   flex: 2,
                   child: PrimaryButton(
-                    text: state.isSubmitting ? 'Processing...' : 'Submit Documents',
+                    text: state.isSubmitting
+                        ? 'Processing...'
+                        : 'Submit Documents',
                     isLoading: state.isSubmitting,
-                    onPressed: canSubmit ? () => context.read<KycCubit>().submit() : null,
+                    onPressed: canSubmit
+                        ? () => context.read<KycCubit>().submit()
+                        : null,
                   ),
                 ),
               ],
@@ -403,7 +446,8 @@ class _ConsentCheckbox extends StatelessWidget {
   final ValueChanged<bool> onChanged;
   final String label;
 
-  const _ConsentCheckbox({required this.value, required this.onChanged, required this.label});
+  const _ConsentCheckbox(
+      {required this.value, required this.onChanged, required this.label});
 
   @override
   Widget build(BuildContext context) {
@@ -425,7 +469,9 @@ class _ConsentCheckbox extends StatelessWidget {
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.only(top: 12),
-                child: Text(label, style: const TextStyle(color: Colors.white70, fontSize: 12.5, height: 1.4)),
+                child: Text(label,
+                    style: const TextStyle(
+                        color: Colors.white70, fontSize: 12.5, height: 1.4)),
               ),
             ),
           ],
@@ -446,15 +492,20 @@ class _RejectionBanner extends StatelessWidget {
       decoration: BoxDecoration(
         color: const Color(0xFFd32f2f).withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xFFd32f2f).withValues(alpha: 0.3)),
+        border:
+            Border.all(color: const Color(0xFFd32f2f).withValues(alpha: 0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text('Your previous submission was rejected',
-              style: TextStyle(color: Color(0xFFef5350), fontWeight: FontWeight.w600, fontSize: 13)),
+              style: TextStyle(
+                  color: Color(0xFFef5350),
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13)),
           const SizedBox(height: 4),
-          Text(reason, style: const TextStyle(color: Colors.white70, fontSize: 12.5)),
+          Text(reason,
+              style: const TextStyle(color: Colors.white70, fontSize: 12.5)),
           const SizedBox(height: 4),
           const Text('Please address the issue above before resubmitting.',
               style: TextStyle(color: Colors.white38, fontSize: 11)),
@@ -476,7 +527,8 @@ class _ErrorBanner extends StatelessWidget {
         color: const Color(0xFFd32f2f).withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(10),
       ),
-      child: Text(message, style: const TextStyle(color: Color(0xFFef5350), fontSize: 12.5)),
+      child: Text(message,
+          style: const TextStyle(color: Color(0xFFef5350), fontSize: 12.5)),
     );
   }
 }
@@ -496,7 +548,9 @@ class _ErrorState extends StatelessWidget {
           children: [
             const Icon(Icons.error_outline, color: Colors.white38, size: 40),
             const SizedBox(height: 16),
-            Text(message, textAlign: TextAlign.center, style: const TextStyle(color: Colors.white70, fontSize: 14)),
+            Text(message,
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.white70, fontSize: 14)),
             const SizedBox(height: 20),
             TextButton(onPressed: onRetry, child: const Text('Try Again')),
           ],
@@ -515,7 +569,8 @@ class _SubmittedState extends StatelessWidget {
       icon: Icons.check_circle_outline_rounded,
       iconColor: Color(0xFF20F928),
       title: 'Documents Submitted',
-      message: 'Your verification is now pending review. This usually takes 1-2 business days — '
+      message:
+          'Your verification is now pending review. This usually takes 1-2 business days — '
           "we'll notify you once a decision has been made. You can check your status anytime from here.",
     );
   }
@@ -552,24 +607,34 @@ class _StatusState extends StatelessWidget {
               child: Icon(icon, size: 48, color: iconColor),
             ),
             const SizedBox(height: 28),
-            Text(title, style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
+            Text(title,
+                style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold)),
             const SizedBox(height: 12),
             Text(
               message,
               textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 15, height: 1.5),
+              style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.6),
+                  fontSize: 15,
+                  height: 1.5),
             ),
             const SizedBox(height: 36),
             SizedBox(
               width: double.infinity,
               height: 52,
               child: OutlinedButton(
-                onPressed: () => context.canPop() ? context.pop() : context.go('/'),
+                onPressed: () =>
+                    context.canPop() ? context.pop() : context.go('/'),
                 style: OutlinedButton.styleFrom(
                   side: const BorderSide(color: Colors.white24),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
                 ),
-                child: const Text('Back to Wallet', style: TextStyle(color: Colors.white70, fontSize: 16)),
+                child: const Text('Back to Wallet',
+                    style: TextStyle(color: Colors.white70, fontSize: 16)),
               ),
             ),
           ],

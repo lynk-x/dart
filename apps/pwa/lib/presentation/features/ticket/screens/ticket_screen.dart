@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:crypto/crypto.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -24,7 +24,6 @@ import 'package:lynk_x/core/utils/timezone_abbreviation.dart';
 import 'package:lynk_x/presentation/shared/utils/app_snackbars.dart';
 import 'ticket_screen_widgets.dart';
 
-
 class TicketPage extends StatelessWidget {
   final String? ticketReference;
 
@@ -33,7 +32,8 @@ class TicketPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (context) => TicketCubit(ticketRepository)..loadTicket(ticketReference ?? ''),
+      create: (context) =>
+          TicketCubit(ticketRepository)..loadTicket(ticketReference ?? ''),
       child: const TicketView(),
     );
   }
@@ -85,15 +85,17 @@ class _TicketViewState extends State<TicketView> {
     if (_trackedExpiry == expiresAt) return;
     _trackedExpiry = expiresAt;
     _countdownTimer?.cancel();
-    _tick(expiresAt);
-    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (_) => _tick(expiresAt));
+    final diff = expiresAt.toLocal().difference(DateTime.now());
+    _remaining = diff.isNegative ? Duration.zero : diff;
+    _countdownTimer =
+        Timer.periodic(const Duration(seconds: 1), (_) => _tick(expiresAt));
   }
 
   void _tick(DateTime expiresAt) {
     if (!mounted) return;
     final diff = expiresAt.toLocal().difference(DateTime.now());
     setState(() => _remaining = diff.isNegative ? Duration.zero : diff);
-    if (!diff.isNegative && diff.inSeconds <= 0) _countdownTimer?.cancel();
+    if (diff.inSeconds <= 0) _countdownTimer?.cancel();
   }
 
   String _formatCountdown(Duration d) {
@@ -136,85 +138,92 @@ class _TicketViewState extends State<TicketView> {
         ],
       ),
       body: BlocListener<TicketCubit, TicketState>(
-        listenWhen: (p, c) => p.ticket?.isRedeemed == false && c.ticket?.isRedeemed == true,
+        listenWhen: (p, c) =>
+            p.ticket?.isRedeemed == false && c.ticket?.isRedeemed == true,
         listener: (context, state) {
-          AppSnackBars.showSuccess(context, 'Ticket Redeemed Safely — Enjoy the event!');
+          AppSnackBars.showSuccess(
+              context, 'Ticket Redeemed Safely — Enjoy the event!');
         },
         child: BlocBuilder<TicketCubit, TicketState>(
-        builder: (context, state) {
-          if (state.isLoading) {
-            return buildTicketSkeleton(context);
-          }
+          builder: (context, state) {
+            if (state.isLoading) {
+              return buildTicketSkeleton(context);
+            }
 
-          if (state.error != null) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.error_outline, size: 64, color: Colors.red),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Failed to load ticket',
-                    style: AppTypography.inter(color: Colors.white),
-                  ),
-                  const SizedBox(height: 8),
-                  TextButton(
-                    onPressed: () => context.read<TicketCubit>().refresh(),
-                    child: Text('Retry',
-                        style: TextStyle(color: context.accentColor)),
-                  ),
-                ],
-              ),
-            );
-          }
-
-          if (state.ticket == null) {
-            return Center(
-              child: Text(
-                'Ticket not found',
-                style: AppTypography.inter(color: Colors.white),
-              ),
-            );
-          }
-
-          return RefreshIndicator(
-            onRefresh: () => context.read<TicketCubit>().refresh(),
-            color: context.accentColor,
-            child: SingleChildScrollView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                children: [
-                  const SizedBox(height: 24), // Top spacer to push everything down
-                  // Constrain card width on tablets/desktops (max 920px for widescreen boarding pass)
-                  Breakpoints.constrain(
-                    _buildTicketCard(state.ticket!)
-                        .animate()
-                        .slideY(begin: 0.1, end: 0, curve: Curves.easeOutQuad)
-                        .fadeIn(),
-                    maxWidth: Breakpoints.isTablet(context) ? 920 : Breakpoints.maxCardWidth,
-                  ),
-                  if (state.pendingListing != null) ...[
+            if (state.error != null) {
+              return Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.error_outline,
+                        size: 64, color: Colors.red),
                     const SizedBox(height: 16),
-                    Breakpoints.constrain(
-                      _buildPendingOfferBanner(context, state.pendingListing!),
-                      maxWidth: Breakpoints.maxCardWidth,
+                    Text(
+                      'Failed to load ticket',
+                      style: AppTypography.inter(color: Colors.white),
+                    ),
+                    const SizedBox(height: 8),
+                    TextButton(
+                      onPressed: () => context.read<TicketCubit>().refresh(),
+                      child: Text('Retry',
+                          style: TextStyle(color: context.accentColor)),
                     ),
                   ],
-                  if (state.pendingRefundRequest != null) ...[
-                    const SizedBox(height: 16),
+                ),
+              );
+            }
+
+            if (state.ticket == null) {
+              return Center(
+                child: Text(
+                  'Ticket not found',
+                  style: AppTypography.inter(color: Colors.white),
+                ),
+              );
+            }
+
+            return RefreshIndicator(
+              onRefresh: () => context.read<TicketCubit>().refresh(),
+              color: context.accentColor,
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  children: [
+                    const SizedBox(
+                        height: 24), // Top spacer to push everything down
+                    // Constrain card width on tablets/desktops (max 920px for widescreen boarding pass)
                     Breakpoints.constrain(
-                      _buildPendingRefundBanner(state.pendingRefundRequest!),
-                      maxWidth: Breakpoints.maxCardWidth,
+                      _buildTicketCard(state.ticket!)
+                          .animate()
+                          .slideY(begin: 0.1, end: 0, curve: Curves.easeOutQuad)
+                          .fadeIn(),
+                      maxWidth: Breakpoints.isTablet(context)
+                          ? 920
+                          : Breakpoints.maxCardWidth,
                     ),
-                  ],
-                  const SizedBox(height: 24),
-                  Text(
-                    'Show this ticket at the entrance',
-                    style: AppTypography.inter(
-                      fontSize: 14,
-                      color: AppColors.secondaryText.withValues(alpha: 0.5),
-                    ),
+                    if (state.pendingListing != null) ...[
+                      const SizedBox(height: 16),
+                      Breakpoints.constrain(
+                        _buildPendingOfferBanner(
+                            context, state.pendingListing!),
+                        maxWidth: Breakpoints.maxCardWidth,
+                      ),
+                    ],
+                    if (state.pendingRefundRequest != null) ...[
+                      const SizedBox(height: 16),
+                      Breakpoints.constrain(
+                        _buildPendingRefundBanner(state.pendingRefundRequest!),
+                        maxWidth: Breakpoints.maxCardWidth,
+                      ),
+                    ],
+                    const SizedBox(height: 24),
+                    Text(
+                      'Show this ticket at the entrance',
+                      style: AppTypography.inter(
+                        fontSize: 14,
+                        color: AppColors.secondaryText.withValues(alpha: 0.5),
+                      ),
                     ),
                   ],
                 ),
@@ -246,7 +255,8 @@ class _TicketViewState extends State<TicketView> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: 40, height: 4,
+              width: 40,
+              height: 4,
               margin: const EdgeInsets.only(bottom: 20),
               decoration: BoxDecoration(
                 color: Colors.white24,
@@ -258,7 +268,8 @@ class _TicketViewState extends State<TicketView> {
               // Gift Ticket
               ListTile(
                 leading: const Icon(Icons.card_giftcard, color: Colors.white70),
-                title: const Text('Gift Ticket', style: TextStyle(color: Colors.white)),
+                title: const Text('Gift Ticket',
+                    style: TextStyle(color: Colors.white)),
                 subtitle: const Text(
                   'Transfer this ticket for free',
                   style: TextStyle(color: Colors.white54, fontSize: 12),
@@ -272,21 +283,26 @@ class _TicketViewState extends State<TicketView> {
               // Resell or Cancel Offer
               if (pendingListing != null)
                 ListTile(
-                  leading: const Icon(Icons.cancel_outlined, color: Colors.orange),
-                  title: const Text('Cancel Resale Offer', style: TextStyle(color: Colors.orange)),
+                  leading:
+                      const Icon(Icons.cancel_outlined, color: Colors.orange),
+                  title: const Text('Cancel Resale Offer',
+                      style: TextStyle(color: Colors.orange)),
                   subtitle: Text(
                     'Pending offer: ${pendingListing['currency']} ${(pendingListing['asking_price'] as num).toStringAsFixed(2)}',
                     style: const TextStyle(color: Colors.white54, fontSize: 12),
                   ),
                   onTap: () {
                     Navigator.pop(context);
-                    _cancelResaleListing(context, pendingListing['id'] as String);
+                    _cancelResaleListing(
+                        context, pendingListing['id'] as String);
                   },
                 )
               else
                 ListTile(
-                  leading: const Icon(Icons.sell_outlined, color: Colors.white70),
-                  title: const Text('Resell Ticket', style: TextStyle(color: Colors.white)),
+                  leading:
+                      const Icon(Icons.sell_outlined, color: Colors.white70),
+                  title: const Text('Resell Ticket',
+                      style: TextStyle(color: Colors.white)),
                   subtitle: const Text(
                     'Sell to a specific person via wallet',
                     style: TextStyle(color: Colors.white54, fontSize: 12),
@@ -301,7 +317,8 @@ class _TicketViewState extends State<TicketView> {
               if (pendingRefundRequest != null)
                 const ListTile(
                   leading: Icon(Icons.hourglass_top, color: Colors.orange),
-                  title: Text('Refund Request Pending', style: TextStyle(color: Colors.orange)),
+                  title: Text('Refund Request Pending',
+                      style: TextStyle(color: Colors.orange)),
                   subtitle: Text(
                     'Awaiting organizer review',
                     style: TextStyle(color: Colors.white54, fontSize: 12),
@@ -309,8 +326,10 @@ class _TicketViewState extends State<TicketView> {
                 )
               else
                 ListTile(
-                  leading: const Icon(Icons.request_quote_outlined, color: Colors.white70),
-                  title: const Text('Request Refund', style: TextStyle(color: Colors.white)),
+                  leading: const Icon(Icons.request_quote_outlined,
+                      color: Colors.white70),
+                  title: const Text('Request Refund',
+                      style: TextStyle(color: Colors.white)),
                   subtitle: const Text(
                     'Tickets are non-refundable — the organizer may grant an exception',
                     style: TextStyle(color: Colors.white54, fontSize: 12),
@@ -325,7 +344,8 @@ class _TicketViewState extends State<TicketView> {
             // Report an Issue
             ListTile(
               leading: const Icon(Icons.flag_outlined, color: Colors.red),
-              title: const Text('Report an Issue', style: TextStyle(color: Colors.redAccent)),
+              title: const Text('Report an Issue',
+                  style: TextStyle(color: Colors.redAccent)),
               subtitle: Text(
                 'Ref: #${ticket.displayCode}',
                 style: const TextStyle(color: Colors.white38, fontSize: 12),
@@ -341,20 +361,28 @@ class _TicketViewState extends State<TicketView> {
     );
   }
 
-  Future<void> _cancelResaleListing(BuildContext context, String listingId) async {
+  Future<void> _cancelResaleListing(
+      BuildContext context, String listingId) async {
     final cubit = context.read<TicketCubit>();
     setState(() => _isCancellingResale = true);
     try {
       await cubit.cancelResaleListing(listingId);
-      if (context.mounted) AppSnackBars.showSuccess(context, 'Resale offer cancelled.');
+      if (context.mounted) {
+        AppSnackBars.showSuccess(context, 'Resale offer cancelled.');
+      }
     } catch (e) {
-      if (context.mounted) AppSnackBars.showError(context, 'Failed to cancel: $e');
+      if (context.mounted) {
+        AppSnackBars.showError(context, 'Failed to cancel: $e');
+      }
     } finally {
-      if (mounted) setState(() => _isCancellingResale = false);
+      if (mounted) {
+        setState(() => _isCancellingResale = false);
+      }
     }
   }
 
-  Widget _buildPendingOfferBanner(BuildContext context, Map<String, dynamic> listing) {
+  Widget _buildPendingOfferBanner(
+      BuildContext context, Map<String, dynamic> listing) {
     final currency = listing['currency'] as String? ?? '';
     final price = (listing['asking_price'] as num).toStringAsFixed(2);
     final expiresAt = DateTime.tryParse(listing['expires_at'] as String? ?? '');
@@ -362,7 +390,9 @@ class _TicketViewState extends State<TicketView> {
 
     final expiresText = _remaining != null
         ? _formatCountdown(_remaining!)
-        : (expiresAt != null ? 'Expires ${DateFormat('dd/MM HH:mm').format(expiresAt.toLocal())}' : '');
+        : (expiresAt != null
+            ? 'Expires ${DateFormat('dd/MM HH:mm').format(expiresAt.toLocal())}'
+            : '');
 
     return Container(
       padding: const EdgeInsets.all(14),
@@ -381,10 +411,15 @@ class _TicketViewState extends State<TicketView> {
               children: [
                 Text(
                   'Resale Offer Pending — $currency $price',
-                  style: const TextStyle(color: Colors.orange, fontSize: 13, fontWeight: FontWeight.w600),
+                  style: const TextStyle(
+                      color: Colors.orange,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600),
                 ),
                 if (expiresText.isNotEmpty)
-                  Text(expiresText, style: const TextStyle(color: Colors.white38, fontSize: 11)),
+                  Text(expiresText,
+                      style:
+                          const TextStyle(color: Colors.white38, fontSize: 11)),
               ],
             ),
           ),
@@ -394,14 +429,18 @@ class _TicketViewState extends State<TicketView> {
               height: 36,
               child: Padding(
                 padding: EdgeInsets.all(8),
-                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.orange),
+                child: CircularProgressIndicator(
+                    strokeWidth: 2, color: Colors.orange),
               ),
             )
           else
             TextButton(
-              onPressed: () => _cancelResaleListing(context, listing['id'] as String),
-              style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 8)),
-              child: const Text('Cancel', style: TextStyle(color: Colors.orange, fontSize: 12)),
+              onPressed: () =>
+                  _cancelResaleListing(context, listing['id'] as String),
+              style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 8)),
+              child: const Text('Cancel',
+                  style: TextStyle(color: Colors.orange, fontSize: 12)),
             ),
         ],
       ),
@@ -426,7 +465,10 @@ class _TicketViewState extends State<TicketView> {
               children: [
                 Text(
                   'Refund Request Pending',
-                  style: TextStyle(color: Colors.orange, fontSize: 13, fontWeight: FontWeight.w600),
+                  style: TextStyle(
+                      color: Colors.orange,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600),
                 ),
                 Text(
                   'Awaiting organizer review',
@@ -444,7 +486,9 @@ class _TicketViewState extends State<TicketView> {
   /// to a display color and label. isRedeemed (status == 'used') takes
   /// priority over the raw status per the existing REDEEMED-label behavior.
   (Color, String) _statusDisplay(TicketModel ticket, BuildContext context) {
-    if (ticket.isRedeemed) return (AppColors.secondaryText.withValues(alpha: 0.6), 'REDEEMED');
+    if (ticket.isRedeemed) {
+      return (AppColors.secondaryText.withValues(alpha: 0.6), 'REDEEMED');
+    }
     switch (ticket.status.toLowerCase()) {
       case 'active':
         return (context.accentColor, 'VALID');
@@ -950,7 +994,8 @@ class _TicketViewState extends State<TicketView> {
                                 decoration: BoxDecoration(
                                   color: AppColors.primaryBackground,
                                   borderRadius: BorderRadius.circular(20),
-                                  border: Border.all(color: statusColor, width: 1.5),
+                                  border: Border.all(
+                                      color: statusColor, width: 1.5),
                                 ),
                                 child: Text(
                                   statusLabel,
@@ -984,7 +1029,8 @@ class _TicketViewState extends State<TicketView> {
               Expanded(
                 flex: 36,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 32),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 28, vertical: 32),
                   color: Colors.white,
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -1020,4 +1066,3 @@ class _TicketViewState extends State<TicketView> {
     );
   }
 }
-

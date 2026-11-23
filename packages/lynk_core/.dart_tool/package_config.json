@@ -2,34 +2,28 @@
   "configVersion": 2,
   "packages": [
     {
-      "name": "adaptive_number",
-      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/adaptive_number-1.0.0",
-      "packageUri": "lib/",
-      "languageVersion": "2.12"
-    },
-    {
       "name": "app_links",
-      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/app_links-6.4.1",
+      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/app_links-7.2.2",
       "packageUri": "lib/",
-      "languageVersion": "3.5"
+      "languageVersion": "3.12"
     },
     {
       "name": "app_links_linux",
-      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/app_links_linux-1.0.3",
+      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/app_links_linux-1.0.5",
       "packageUri": "lib/",
-      "languageVersion": "3.2"
+      "languageVersion": "3.12"
     },
     {
       "name": "app_links_platform_interface",
-      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/app_links_platform_interface-2.0.2",
+      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/app_links_platform_interface-2.0.4",
       "packageUri": "lib/",
-      "languageVersion": "3.2"
+      "languageVersion": "3.12"
     },
     {
       "name": "app_links_web",
-      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/app_links_web-1.0.4",
+      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/app_links_web-1.0.5",
       "packageUri": "lib/",
-      "languageVersion": "3.2"
+      "languageVersion": "3.12"
     },
     {
       "name": "args",
@@ -39,7 +33,7 @@
     },
     {
       "name": "async",
-      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/async-2.13.0",
+      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/async-2.13.1",
       "packageUri": "lib/",
       "languageVersion": "3.4"
     },
@@ -51,7 +45,7 @@
     },
     {
       "name": "bloc",
-      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/bloc-9.2.0",
+      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/bloc-9.2.1",
       "packageUri": "lib/",
       "languageVersion": "2.14"
     },
@@ -68,16 +62,22 @@
       "languageVersion": "3.4"
     },
     {
+      "name": "cli_util",
+      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/cli_util-0.6.1",
+      "packageUri": "lib/",
+      "languageVersion": "3.7"
+    },
+    {
       "name": "clock",
-      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/clock-1.1.2",
+      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/clock-1.1.3",
       "packageUri": "lib/",
       "languageVersion": "3.4"
     },
     {
       "name": "code_assets",
-      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/code_assets-1.0.0",
+      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/code_assets-2.2.0",
       "packageUri": "lib/",
-      "languageVersion": "3.9"
+      "languageVersion": "3.10"
     },
     {
       "name": "collection",
@@ -99,33 +99,33 @@
     },
     {
       "name": "cross_file",
-      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/cross_file-0.3.5+2",
+      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/cross_file-0.3.5+5",
       "packageUri": "lib/",
-      "languageVersion": "3.8"
+      "languageVersion": "3.10"
     },
     {
       "name": "crypto",
-      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/crypto-3.0.7",
+      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/crypto-3.0.8",
       "packageUri": "lib/",
       "languageVersion": "3.4"
     },
     {
+      "name": "cupertino_ui",
+      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/cupertino_ui-1.1.7",
+      "packageUri": "lib/",
+      "languageVersion": "3.13"
+    },
+    {
       "name": "dart_jsonwebtoken",
-      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/dart_jsonwebtoken-3.3.1",
+      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/dart_jsonwebtoken-3.4.1",
       "packageUri": "lib/",
       "languageVersion": "3.0"
     },
     {
-      "name": "ed25519_edwards",
-      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/ed25519_edwards-0.3.1",
-      "packageUri": "lib/",
-      "languageVersion": "2.12"
-    },
-    {
       "name": "equatable",
-      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/equatable-2.0.8",
+      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/equatable-2.1.0",
       "packageUri": "lib/",
-      "languageVersion": "2.12"
+      "languageVersion": "3.0"
     },
     {
       "name": "fake_async",
@@ -135,7 +135,7 @@
     },
     {
       "name": "ffi",
-      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/ffi-2.1.5",
+      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/ffi-2.2.0",
       "packageUri": "lib/",
       "languageVersion": "3.7"
     },
@@ -147,15 +147,15 @@
     },
     {
       "name": "file_selector_linux",
-      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/file_selector_linux-0.9.4",
+      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/file_selector_linux-0.9.4+1",
       "packageUri": "lib/",
-      "languageVersion": "3.8"
+      "languageVersion": "3.10"
     },
     {
       "name": "file_selector_macos",
-      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/file_selector_macos-0.9.5",
+      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/file_selector_macos-0.9.5+2",
       "packageUri": "lib/",
-      "languageVersion": "3.9"
+      "languageVersion": "3.13"
     },
     {
       "name": "file_selector_platform_interface",
@@ -165,21 +165,15 @@
     },
     {
       "name": "file_selector_windows",
-      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/file_selector_windows-0.9.3+5",
+      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/file_selector_windows-0.9.3+6",
       "packageUri": "lib/",
-      "languageVersion": "3.8"
-    },
-    {
-      "name": "fixnum",
-      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/fixnum-1.1.1",
-      "packageUri": "lib/",
-      "languageVersion": "3.1"
+      "languageVersion": "3.10"
     },
     {
       "name": "flutter",
       "rootUri": "file:///home/k3nny/snap/flutter/common/flutter/packages/flutter",
       "packageUri": "lib/",
-      "languageVersion": "3.10"
+      "languageVersion": "3.13"
     },
     {
       "name": "flutter_bloc",
@@ -194,40 +188,40 @@
       "languageVersion": "2.19"
     },
     {
-      "name": "flutter_plugin_android_lifecycle",
-      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/flutter_plugin_android_lifecycle-2.0.34",
+      "name": "flutter_localizations",
+      "rootUri": "file:///home/k3nny/snap/flutter/common/flutter/packages/flutter_localizations",
       "packageUri": "lib/",
-      "languageVersion": "3.9"
+      "languageVersion": "3.13"
+    },
+    {
+      "name": "flutter_plugin_android_lifecycle",
+      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/flutter_plugin_android_lifecycle-2.0.35",
+      "packageUri": "lib/",
+      "languageVersion": "3.10"
     },
     {
       "name": "flutter_svg",
-      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/flutter_svg-2.2.3",
+      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/flutter_svg-2.5.0",
       "packageUri": "lib/",
-      "languageVersion": "3.8"
+      "languageVersion": "3.12"
     },
     {
       "name": "flutter_test",
       "rootUri": "file:///home/k3nny/snap/flutter/common/flutter/packages/flutter_test",
       "packageUri": "lib/",
-      "languageVersion": "3.10"
+      "languageVersion": "3.13"
     },
     {
       "name": "flutter_web_plugins",
       "rootUri": "file:///home/k3nny/snap/flutter/common/flutter/packages/flutter_web_plugins",
       "packageUri": "lib/",
-      "languageVersion": "3.10"
+      "languageVersion": "3.13"
     },
     {
       "name": "functions_client",
-      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/functions_client-2.5.0",
+      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/functions_client-2.7.1",
       "packageUri": "lib/",
-      "languageVersion": "3.0"
-    },
-    {
-      "name": "glob",
-      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/glob-2.1.3",
-      "packageUri": "lib/",
-      "languageVersion": "3.3"
+      "languageVersion": "3.9"
     },
     {
       "name": "go_router",
@@ -243,21 +237,15 @@
     },
     {
       "name": "gotrue",
-      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/gotrue-2.18.0",
+      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/gotrue-2.27.3",
       "packageUri": "lib/",
-      "languageVersion": "3.3"
-    },
-    {
-      "name": "gtk",
-      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/gtk-2.1.0",
-      "packageUri": "lib/",
-      "languageVersion": "3.0"
+      "languageVersion": "3.9"
     },
     {
       "name": "hooks",
-      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/hooks-1.0.1",
+      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/hooks-2.2.0",
       "packageUri": "lib/",
-      "languageVersion": "3.9"
+      "languageVersion": "3.10"
     },
     {
       "name": "http",
@@ -273,15 +261,15 @@
     },
     {
       "name": "image_picker",
-      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/image_picker-1.2.1",
+      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/image_picker-1.2.4",
       "packageUri": "lib/",
-      "languageVersion": "3.7"
+      "languageVersion": "3.11"
     },
     {
       "name": "image_picker_android",
-      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/image_picker_android-0.8.13+16",
+      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/image_picker_android-0.8.13+25",
       "packageUri": "lib/",
-      "languageVersion": "3.9"
+      "languageVersion": "3.12"
     },
     {
       "name": "image_picker_for_web",
@@ -291,9 +279,9 @@
     },
     {
       "name": "image_picker_ios",
-      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/image_picker_ios-0.8.13+6",
+      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/image_picker_ios-0.8.13+16",
       "packageUri": "lib/",
-      "languageVersion": "3.10"
+      "languageVersion": "3.13"
     },
     {
       "name": "image_picker_linux",
@@ -309,15 +297,39 @@
     },
     {
       "name": "image_picker_platform_interface",
-      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/image_picker_platform_interface-2.11.1",
+      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/image_picker_platform_interface-2.11.2",
       "packageUri": "lib/",
-      "languageVersion": "3.7"
+      "languageVersion": "3.11"
     },
     {
       "name": "image_picker_windows",
       "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/image_picker_windows-0.2.2",
       "packageUri": "lib/",
       "languageVersion": "3.6"
+    },
+    {
+      "name": "intl",
+      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/intl-0.20.3",
+      "packageUri": "lib/",
+      "languageVersion": "3.9"
+    },
+    {
+      "name": "jni",
+      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/jni-1.2.1",
+      "packageUri": "lib/",
+      "languageVersion": "3.3"
+    },
+    {
+      "name": "jni_flutter",
+      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/jni_flutter-1.1.0",
+      "packageUri": "lib/",
+      "languageVersion": "3.3"
+    },
+    {
+      "name": "jni_util",
+      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/jni_util-1.0.0",
+      "packageUri": "lib/",
+      "languageVersion": "3.3"
     },
     {
       "name": "jovial_misc",
@@ -327,15 +339,15 @@
     },
     {
       "name": "jovial_svg",
-      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/jovial_svg-1.1.29",
+      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/jovial_svg-1.1.31",
       "packageUri": "lib/",
-      "languageVersion": "3.0"
+      "languageVersion": "3.12"
     },
     {
-      "name": "jwt_decode",
-      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/jwt_decode-0.3.1",
+      "name": "json_annotation",
+      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/json_annotation-4.12.0",
       "packageUri": "lib/",
-      "languageVersion": "2.12"
+      "languageVersion": "3.9"
     },
     {
       "name": "leak_tracker",
@@ -362,6 +374,12 @@
       "languageVersion": "3.0"
     },
     {
+      "name": "listen",
+      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/listen-1.0.1",
+      "packageUri": "lib/",
+      "languageVersion": "3.10"
+    },
+    {
       "name": "logging",
       "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/logging-1.3.0",
       "packageUri": "lib/",
@@ -369,9 +387,9 @@
     },
     {
       "name": "matcher",
-      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/matcher-0.12.19",
+      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/matcher-0.12.20",
       "packageUri": "lib/",
-      "languageVersion": "3.7"
+      "languageVersion": "3.10"
     },
     {
       "name": "material_color_utilities",
@@ -380,22 +398,22 @@
       "languageVersion": "3.5"
     },
     {
+      "name": "material_ui",
+      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/material_ui-1.11.1",
+      "packageUri": "lib/",
+      "languageVersion": "3.13"
+    },
+    {
       "name": "meta",
-      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/meta-1.18.0",
+      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/meta-1.19.0",
       "packageUri": "lib/",
       "languageVersion": "3.5"
     },
     {
       "name": "mime",
-      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/mime-2.0.0",
+      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/mime-2.1.0",
       "packageUri": "lib/",
       "languageVersion": "3.2"
-    },
-    {
-      "name": "native_toolchain_c",
-      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/native_toolchain_c-0.17.4",
-      "packageUri": "lib/",
-      "languageVersion": "3.9"
     },
     {
       "name": "nested",
@@ -405,9 +423,15 @@
     },
     {
       "name": "objective_c",
-      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/objective_c-9.3.0",
+      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/objective_c-9.6.4",
       "packageUri": "lib/",
       "languageVersion": "3.10"
+    },
+    {
+      "name": "package_config",
+      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/package_config-3.0.0",
+      "packageUri": "lib/",
+      "languageVersion": "3.11"
     },
     {
       "name": "package_info_plus",
@@ -420,6 +444,12 @@
       "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/package_info_plus_platform_interface-3.2.1",
       "packageUri": "lib/",
       "languageVersion": "2.18"
+    },
+    {
+      "name": "passkeys_platform_interface",
+      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/passkeys_platform_interface-2.11.0",
+      "packageUri": "lib/",
+      "languageVersion": "3.9"
     },
     {
       "name": "path",
@@ -435,13 +465,13 @@
     },
     {
       "name": "path_provider",
-      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/path_provider-2.1.5",
+      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/path_provider-2.1.6",
       "packageUri": "lib/",
-      "languageVersion": "3.4"
+      "languageVersion": "3.10"
     },
     {
       "name": "path_provider_android",
-      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/path_provider_android-2.2.22",
+      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/path_provider_android-2.3.1",
       "packageUri": "lib/",
       "languageVersion": "3.9"
     },
@@ -453,15 +483,15 @@
     },
     {
       "name": "path_provider_linux",
-      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/path_provider_linux-2.2.1",
+      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/path_provider_linux-2.2.2",
       "packageUri": "lib/",
-      "languageVersion": "2.19"
+      "languageVersion": "3.10"
     },
     {
       "name": "path_provider_platform_interface",
-      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/path_provider_platform_interface-2.1.2",
+      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/path_provider_platform_interface-2.1.3",
       "packageUri": "lib/",
-      "languageVersion": "3.0"
+      "languageVersion": "3.10"
     },
     {
       "name": "path_provider_windows",
@@ -471,15 +501,15 @@
     },
     {
       "name": "petitparser",
-      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/petitparser-7.0.1",
+      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/petitparser-7.1.0",
       "packageUri": "lib/",
-      "languageVersion": "3.8"
+      "languageVersion": "3.13"
     },
     {
       "name": "platform",
-      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/platform-3.1.6",
+      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/platform-3.2.0",
       "packageUri": "lib/",
-      "languageVersion": "3.2"
+      "languageVersion": "3.10"
     },
     {
       "name": "plugin_platform_interface",
@@ -495,9 +525,9 @@
     },
     {
       "name": "postgrest",
-      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/postgrest-2.6.0",
+      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/postgrest-2.9.1",
       "packageUri": "lib/",
-      "languageVersion": "3.0"
+      "languageVersion": "3.9"
     },
     {
       "name": "provider",
@@ -507,45 +537,39 @@
     },
     {
       "name": "pub_semver",
-      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/pub_semver-2.2.0",
+      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/pub_semver-2.2.1",
       "packageUri": "lib/",
       "languageVersion": "3.4"
     },
     {
       "name": "realtime_client",
-      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/realtime_client-2.7.0",
+      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/realtime_client-2.13.2",
       "packageUri": "lib/",
-      "languageVersion": "3.0"
+      "languageVersion": "3.9"
     },
     {
-      "name": "retry",
-      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/retry-3.1.2",
+      "name": "record_use",
+      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/record_use-1.1.1",
       "packageUri": "lib/",
-      "languageVersion": "3.0"
-    },
-    {
-      "name": "rxdart",
-      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/rxdart-0.28.0",
-      "packageUri": "lib/",
-      "languageVersion": "2.12"
+      "languageVersion": "3.10"
     },
     {
       "name": "shared_preferences",
-      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/shared_preferences-2.5.4",
+      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/shared_preferences-2.5.6",
       "packageUri": "lib/",
-      "languageVersion": "3.9"
+      "languageVersion": "3.11"
     },
     {
       "name": "shared_preferences_android",
-      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/shared_preferences_android-2.4.20",
+      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/shared_preferences_android-2.5.5",
       "packageUri": "lib/",
-      "languageVersion": "3.9"
+      "languageVersion": "3.12"
     },
     {
       "name": "shared_preferences_foundation",
-      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/shared_preferences_foundation-2.5.6",
+      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/shared_preferences_foundation-2.6.2",
       "packageUri": "lib/",
-      "languageVersion": "3.9"
+      "languageVersion": "3.13"
     },
     {
       "name": "shared_preferences_linux",
@@ -555,9 +579,9 @@
     },
     {
       "name": "shared_preferences_platform_interface",
-      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/shared_preferences_platform_interface-2.4.1",
+      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/shared_preferences_platform_interface-2.4.2",
       "packageUri": "lib/",
-      "languageVersion": "3.2"
+      "languageVersion": "3.9"
     },
     {
       "name": "shared_preferences_web",
@@ -575,7 +599,7 @@
       "name": "sky_engine",
       "rootUri": "file:///home/k3nny/snap/flutter/common/flutter/bin/cache/pkg/sky_engine",
       "packageUri": "lib/",
-      "languageVersion": "3.10"
+      "languageVersion": "3.13"
     },
     {
       "name": "source_span",
@@ -585,15 +609,15 @@
     },
     {
       "name": "stack_trace",
-      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/stack_trace-1.12.1",
+      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/stack_trace-1.12.2",
       "packageUri": "lib/",
       "languageVersion": "3.4"
     },
     {
       "name": "storage_client",
-      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/storage_client-2.4.1",
+      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/storage_client-2.8.1",
       "packageUri": "lib/",
-      "languageVersion": "3.0"
+      "languageVersion": "3.9"
     },
     {
       "name": "stream_channel",
@@ -609,15 +633,21 @@
     },
     {
       "name": "supabase",
-      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/supabase-2.10.2",
+      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/supabase-2.16.5",
       "packageUri": "lib/",
-      "languageVersion": "3.3"
+      "languageVersion": "3.9"
+    },
+    {
+      "name": "supabase_common",
+      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/supabase_common-0.1.2",
+      "packageUri": "lib/",
+      "languageVersion": "3.9"
     },
     {
       "name": "supabase_flutter",
-      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/supabase_flutter-2.12.0",
+      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/supabase_flutter-2.18.3",
       "packageUri": "lib/",
-      "languageVersion": "3.3"
+      "languageVersion": "3.9"
     },
     {
       "name": "term_glyph",
@@ -627,9 +657,9 @@
     },
     {
       "name": "test_api",
-      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/test_api-0.7.11",
+      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/test_api-0.7.14",
       "packageUri": "lib/",
-      "languageVersion": "3.7"
+      "languageVersion": "3.11"
     },
     {
       "name": "typed_data",
@@ -645,33 +675,33 @@
     },
     {
       "name": "url_launcher",
-      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/url_launcher-6.3.2",
+      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/url_launcher-6.3.3",
       "packageUri": "lib/",
-      "languageVersion": "3.6"
+      "languageVersion": "3.11"
     },
     {
       "name": "url_launcher_android",
-      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/url_launcher_android-6.3.28",
+      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/url_launcher_android-6.3.35",
       "packageUri": "lib/",
-      "languageVersion": "3.9"
+      "languageVersion": "3.12"
     },
     {
       "name": "url_launcher_ios",
-      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/url_launcher_ios-6.4.1",
+      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/url_launcher_ios-6.4.2",
       "packageUri": "lib/",
       "languageVersion": "3.10"
     },
     {
       "name": "url_launcher_linux",
-      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/url_launcher_linux-3.2.2",
+      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/url_launcher_linux-3.2.3",
       "packageUri": "lib/",
-      "languageVersion": "3.8"
+      "languageVersion": "3.10"
     },
     {
       "name": "url_launcher_macos",
-      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/url_launcher_macos-3.2.5",
+      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/url_launcher_macos-3.2.6",
       "packageUri": "lib/",
-      "languageVersion": "3.9"
+      "languageVersion": "3.10"
     },
     {
       "name": "url_launcher_platform_interface",
@@ -681,51 +711,51 @@
     },
     {
       "name": "url_launcher_web",
-      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/url_launcher_web-2.4.2",
+      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/url_launcher_web-2.4.3",
       "packageUri": "lib/",
       "languageVersion": "3.10"
     },
     {
       "name": "url_launcher_windows",
-      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/url_launcher_windows-3.1.5",
+      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/url_launcher_windows-3.1.6",
       "packageUri": "lib/",
-      "languageVersion": "3.8"
+      "languageVersion": "3.10"
     },
     {
       "name": "vector_graphics",
-      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/vector_graphics-1.1.19",
+      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/vector_graphics-1.3.1",
       "packageUri": "lib/",
-      "languageVersion": "3.6"
+      "languageVersion": "3.11"
     },
     {
       "name": "vector_graphics_codec",
-      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/vector_graphics_codec-1.1.13",
+      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/vector_graphics_codec-1.2.0",
       "packageUri": "lib/",
-      "languageVersion": "3.4"
+      "languageVersion": "3.11"
     },
     {
       "name": "vector_graphics_compiler",
-      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/vector_graphics_compiler-1.1.20",
+      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/vector_graphics_compiler-1.3.6",
       "packageUri": "lib/",
-      "languageVersion": "3.9"
+      "languageVersion": "3.11"
     },
     {
       "name": "vector_math",
-      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/vector_math-2.2.0",
+      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/vector_math-2.4.4",
       "packageUri": "lib/",
-      "languageVersion": "3.1"
+      "languageVersion": "3.10"
     },
     {
       "name": "vm_service",
-      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/vm_service-15.0.2",
+      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/vm_service-15.4.0",
       "packageUri": "lib/",
       "languageVersion": "3.5"
     },
     {
       "name": "web",
-      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/web-1.1.1",
+      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/web-1.1.2",
       "packageUri": "lib/",
-      "languageVersion": "3.4"
+      "languageVersion": "3.13"
     },
     {
       "name": "web_socket",
@@ -753,21 +783,21 @@
     },
     {
       "name": "xml",
-      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/xml-6.6.1",
+      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/xml-7.0.1",
       "packageUri": "lib/",
-      "languageVersion": "3.8"
+      "languageVersion": "3.11"
     },
     {
       "name": "yaml",
-      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/yaml-3.1.3",
+      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/yaml-3.1.4",
       "packageUri": "lib/",
       "languageVersion": "3.4"
     },
     {
       "name": "yet_another_json_isolate",
-      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/yet_another_json_isolate-2.1.0",
+      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/yet_another_json_isolate-2.1.1",
       "packageUri": "lib/",
-      "languageVersion": "3.0"
+      "languageVersion": "3.4"
     },
     {
       "name": "lynk_core",
@@ -777,8 +807,8 @@
     }
   ],
   "generator": "pub",
-  "generatorVersion": "3.12.1",
+  "generatorVersion": "3.14.0",
   "flutterRoot": "file:///home/k3nny/snap/flutter/common/flutter",
-  "flutterVersion": "3.44.1",
+  "flutterVersion": "3.50.1",
   "pubCache": "file:///home/k3nny/.pub-cache"
 }

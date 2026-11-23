@@ -1,7 +1,7 @@
 import 'package:lynk_x/presentation/features/ticket/models/ticket_model.dart';
 import 'dart:async';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -19,9 +19,9 @@ import 'package:lynk_x/presentation/shared/utils/app_snackbars.dart';
 import 'manual_entry_confirmation_sheet.dart';
 
 enum FeedbackMode {
-  sound,      // Sound + Vibration
-  vibration,  // Vibration Only
-  silent,     // Silent
+  sound, // Sound + Vibration
+  vibration, // Vibration Only
+  silent, // Silent
 }
 
 class TicketScannerSheet extends StatefulWidget {
@@ -44,7 +44,7 @@ class _TicketScannerSheetState extends State<TicketScannerSheet> {
   late final MobileScannerController? _controller;
   final TextEditingController _textController = TextEditingController();
   final AudioPlayer _audioPlayer = AudioPlayer();
-  
+
   ScanStatus _status = ScanStatus.scanning;
   FeedbackMode _feedbackMode = FeedbackMode.sound;
   String? _attendeeName;
@@ -64,7 +64,7 @@ class _TicketScannerSheetState extends State<TicketScannerSheet> {
     super.initState();
     _loadFeedbackMode();
     _checkPermission();
-    
+
     // Set AudioPlayer low latency mode on native to eliminate audio decoding delays
     _audioPlayer.setPlayerMode(PlayerMode.lowLatency);
 
@@ -118,7 +118,8 @@ class _TicketScannerSheetState extends State<TicketScannerSheet> {
     try {
       final prefs = await SharedPreferences.getInstance();
       final modeName = prefs.getString('scanner_feedback_mode');
-      final hasVibAcknowledged = await PermissionAcks.isAcknowledged(PermissionAckType.vibration);
+      final hasVibAcknowledged =
+          await PermissionAcks.isAcknowledged(PermissionAckType.vibration);
       if (mounted) {
         setState(() {
           _vibrationPermissionAcknowledged = hasVibAcknowledged;
@@ -139,7 +140,8 @@ class _TicketScannerSheetState extends State<TicketScannerSheet> {
 
   Future<void> _checkPermission() async {
     try {
-      final hasAcknowledged = await PermissionAcks.isAcknowledged(PermissionAckType.camera);
+      final hasAcknowledged =
+          await PermissionAcks.isAcknowledged(PermissionAckType.camera);
       if (mounted) {
         setState(() {
           _permissionAcknowledged = hasAcknowledged;
@@ -161,7 +163,8 @@ class _TicketScannerSheetState extends State<TicketScannerSheet> {
       context,
       PermissionAckType.camera,
       title: 'Ticket Scanner Access',
-      description: 'To scan ticket QR codes, we need access to your device camera.',
+      description:
+          'To scan ticket QR codes, we need access to your device camera.',
       icon: Icons.camera_alt_rounded,
       actionLabel: 'Enable Camera',
       isDismissible: false,
@@ -183,7 +186,8 @@ class _TicketScannerSheetState extends State<TicketScannerSheet> {
       context,
       PermissionAckType.vibration,
       title: 'Vibration Alerts',
-      description: 'To confirm ticket validation scans with haptic vibrations, we request permission to vibrate your device.',
+      description:
+          'To confirm ticket validation scans with haptic vibrations, we request permission to vibrate your device.',
       icon: Icons.vibration_rounded,
       actionLabel: 'Enable Vibration',
       isDismissible: false,
@@ -202,7 +206,8 @@ class _TicketScannerSheetState extends State<TicketScannerSheet> {
     final nextIndex = (_feedbackMode.index + 1) % FeedbackMode.values.length;
     final nextMode = FeedbackMode.values[nextIndex];
 
-    if (nextMode == FeedbackMode.vibration && !_vibrationPermissionAcknowledged) {
+    if (nextMode == FeedbackMode.vibration &&
+        !_vibrationPermissionAcknowledged) {
       _showVibrationPermissionSheet(
         onGranted: () async {
           await _saveAndSetFeedbackMode(FeedbackMode.vibration);
@@ -272,7 +277,8 @@ class _TicketScannerSheetState extends State<TicketScannerSheet> {
     if (!success) {
       if (mounted) {
         ScaffoldMessenger.of(context).clearSnackBars();
-        AppSnackBars.showError(context, 'Flashlight is not supported on this device/browser');
+        AppSnackBars.showError(
+            context, 'Flashlight is not supported on this device/browser');
       }
       return;
     }
@@ -306,7 +312,9 @@ class _TicketScannerSheetState extends State<TicketScannerSheet> {
       ScaffoldMessenger.of(context).clearSnackBars();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(success ? 'Switched camera source' : 'No alternative camera source available'),
+          content: Text(success
+              ? 'Switched camera source'
+              : 'No alternative camera source available'),
           duration: const Duration(seconds: 1),
           behavior: SnackBarBehavior.floating,
         ),
@@ -390,7 +398,9 @@ class _TicketScannerSheetState extends State<TicketScannerSheet> {
 
       final status = success
           ? ScanStatus.success
-          : ((result['error']?.toString() ?? '').toLowerCase().contains('already')
+          : ((result['error']?.toString() ?? '')
+                  .toLowerCase()
+                  .contains('already')
               ? ScanStatus.alreadyScanned
               : ScanStatus.error);
 
@@ -401,7 +411,8 @@ class _TicketScannerSheetState extends State<TicketScannerSheet> {
         attendeeName: result['attendee_name']?.toString(),
         username: result['username']?.toString(),
         status: status,
-        errorMessage: success ? null : (result['error']?.toString() ?? 'Unknown error'),
+        errorMessage:
+            success ? null : (result['error']?.toString() ?? 'Unknown error'),
         timestamp: DateTime.now(),
       );
 
@@ -422,7 +433,8 @@ class _TicketScannerSheetState extends State<TicketScannerSheet> {
         if (mounted) {
           context.read<TicketValidationCubit>().addScanHistoryItem(item);
           setState(() {
-            if (err.toLowerCase().contains('already checked in') || err.toLowerCase().contains('already scanned')) {
+            if (err.toLowerCase().contains('already checked in') ||
+                err.toLowerCase().contains('already scanned')) {
               _status = ScanStatus.alreadyScanned;
               _attendeeName = result['attendee_name']?.toString();
               _redeemedAt = result['redeemed_at']?.toString();
@@ -463,7 +475,8 @@ class _TicketScannerSheetState extends State<TicketScannerSheet> {
     final code = inputCode.trim();
     if (code.isEmpty) return;
 
-    final ticket = context.read<TicketValidationCubit>().lookupTicketOffline(code);
+    final ticket =
+        context.read<TicketValidationCubit>().lookupTicketOffline(code);
     ManualEntryConfirmationSheet.show(
       context,
       code: code,
@@ -498,443 +511,472 @@ class _TicketScannerSheetState extends State<TicketScannerSheet> {
         _backToForum(context);
       },
       child: Scaffold(
-      backgroundColor: Colors.black,
-      endDrawer: BlocBuilder<TicketValidationCubit, TicketValidationState>(
-        builder: (context, state) {
-          return ScanHistoryDrawer(
-            history: state.scanHistory,
-            onClearHistory: () {
-              context.read<TicketValidationCubit>().clearScanHistory();
-              if (Navigator.canPop(context)) {
-                Navigator.pop(context); // Close the drawer
-              }
-              ScaffoldMessenger.of(context).clearSnackBars();
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Scan history cleared'),
-                  duration: Duration(seconds: 1),
-                  behavior: SnackBarBehavior.floating,
-                ),
-              );
-            },
-          );
-        },
-      ),
-      appBar: AppBar(
         backgroundColor: Colors.black,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 32),
-          onPressed: () => Navigator.pop(context),
-        ),
-        titleSpacing: 0,
-        title: BlocBuilder<TicketValidationCubit, TicketValidationState>(
+        endDrawer: BlocBuilder<TicketValidationCubit, TicketValidationState>(
           builder: (context, state) {
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  'Ticket Scanner',
-                  style: AppTypography.interTight(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
+            return ScanHistoryDrawer(
+              history: state.scanHistory,
+              onClearHistory: () {
+                context.read<TicketValidationCubit>().clearScanHistory();
+                if (Navigator.canPop(context)) {
+                  Navigator.pop(context); // Close the drawer
+                }
+                ScaffoldMessenger.of(context).clearSnackBars();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Scan history cleared'),
+                    duration: Duration(seconds: 1),
+                    behavior: SnackBarBehavior.floating,
                   ),
-                ),
-                const SizedBox(height: 2),
-                Row(
-                  children: [
-                    Container(
-                      width: 6,
-                      height: 6,
-                      decoration: BoxDecoration(
-                        color: state.error != null ? Colors.orange : Colors.green,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      'tickets: ${state.tickets.length} • Last updated: ${_formatTime(state.lastSyncedAt)}',
-                      style: AppTypography.inter(
-                        fontSize: 11,
-                        color: Colors.white60,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+                );
+              },
             );
           },
         ),
-        actions: [
-          BlocBuilder<TicketValidationCubit, TicketValidationState>(
+        appBar: AppBar(
+          backgroundColor: Colors.black,
+          elevation: 0,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back_rounded,
+                color: Colors.white, size: 32),
+            onPressed: () => Navigator.pop(context),
+          ),
+          titleSpacing: 0,
+          title: BlocBuilder<TicketValidationCubit, TicketValidationState>(
             builder: (context, state) {
-              if (state.isLoading) {
-                return const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 16),
-                  child: Center(
-                    child: SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white70,
-                      ),
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Ticket Scanner',
+                    style: AppTypography.interTight(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
                     ),
                   ),
-                );
-              }
-              return const SizedBox.shrink();
+                  const SizedBox(height: 2),
+                  Row(
+                    children: [
+                      Container(
+                        width: 6,
+                        height: 6,
+                        decoration: BoxDecoration(
+                          color: state.error != null
+                              ? Colors.orange
+                              : Colors.green,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        'tickets: ${state.tickets.length} • Last updated: ${_formatTime(state.lastSyncedAt)}',
+                        style: AppTypography.inter(
+                          fontSize: 11,
+                          color: Colors.white60,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              );
             },
           ),
-          Builder(
-            builder: (context) => IconButton(
-              icon: const Icon(Icons.groups, color: Colors.white, size: 32),
-              onPressed: () {
-                Scaffold.of(context).openEndDrawer();
-              },
-            ),
-          ),
-        ],
-      ),
-          body: Stack(
-            children: [
-              // 1. Camera Feed / Native Scanner (Full screen background)
-              Positioned.fill(
-                child: !_permissionAcknowledged
-                    ? Container(
-                        color: Colors.black87,
-                        child: Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Icon(
-                                Icons.camera_alt_rounded,
-                                color: Colors.white30,
-                                size: 48,
-                              ),
-                              const SizedBox(height: 16),
-                              Text(
-                                'Camera Access Required',
-                                style: AppTypography.inter(
-                                  color: Colors.white70,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                'Enable camera to start scanning tickets.',
-                                style: AppTypography.inter(
-                                  color: Colors.white38,
-                                  fontSize: 12,
-                                ),
-                                textAlign: TextAlign.center,
-                              ),
-                              const SizedBox(height: 16),
-                              TextButton(
-                                onPressed: _showPermissionSheet,
-                                style: TextButton.styleFrom(
-                                  backgroundColor: context.accentColor,
-                                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                ),
-                                child: Text(
-                                  'Enable Camera',
-                                  style: AppTypography.inter(
-                                    color: Colors.black,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
+          actions: [
+            BlocBuilder<TicketValidationCubit, TicketValidationState>(
+              builder: (context, state) {
+                if (state.isLoading) {
+                  return const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 16),
+                    child: Center(
+                      child: SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white70,
                         ),
-                      )
-                    : (kIsWeb
-                        ? WebQrScanner(
-                            torchEnabled: _torchEnabled,
-                            onDetect: (code) {
-                              _processTicketCode(code);
-                            },
-                            onError: (errorMsg) {
-                              if (mounted) {
-                                ScaffoldMessenger.of(context).clearSnackBars();
-                                AppSnackBars.showError(context, 'Camera error: $errorMsg');
-                                // A prior "Enable Camera" acknowledgment doesn't
-                                // mean the browser will still honor it — if the
-                                // user revoked camera access at the OS/browser
-                                // level after acknowledging, this is where that
-                                // shows up. Reset so the "Enable Camera" retry
-                                // UI reappears instead of leaving a dead camera
-                                // feed with only a transient SnackBar.
-                                if (errorMsg.toLowerCase().contains('permission') ||
-                                    errorMsg.toLowerCase().contains('denied') ||
-                                    errorMsg.toLowerCase().contains('notallowed')) {
-                                  setState(() => _permissionAcknowledged = false);
-                                }
-                              }
-                            },
-                          )
-                        : MobileScanner(
-                            controller: _controller!,
-                            errorBuilder: (context, error) {
-                              if (error.errorCode == MobileScannerErrorCode.permissionDenied &&
-                                  _permissionAcknowledged) {
-                                WidgetsBinding.instance.addPostFrameCallback((_) {
-                                  if (mounted) setState(() => _permissionAcknowledged = false);
-                                });
-                              }
-                              return Container(
-                                color: Colors.black87,
-                                child: Center(
-                                  child: Text(
-                                    error.errorCode == MobileScannerErrorCode.permissionDenied
-                                        ? 'Camera permission was denied.'
-                                        : 'Could not start camera.',
-                                    style: const TextStyle(color: Colors.white70),
-                                    textAlign: TextAlign.center,
-                                  ),
-                                ),
-                              );
-                            },
-                            onDetect: (capture) {
-                              final List<Barcode> barcodes = capture.barcodes;
-                              if (barcodes.isNotEmpty) {
-                                final String? code = barcodes.first.rawValue;
-                                if (code != null && code.isNotEmpty) {
-                                  _processTicketCode(code);
-                                }
-                              }
-                            },
-                          )),
-              ),
-
-              // 2. Stylized Barcode Overlay Guide (Translucent vertical barcode stripes)
-              if (_status == ScanStatus.scanning && _permissionAcknowledged)
-                Center(
-                  child: Opacity(
-                    opacity: 0.18, // Subtly translucent as seen in reference image
-                    child: SizedBox(
-                      width: 260,
-                      height: 70,
-                      child: CustomPaint(
-                        painter: const BarcodeGuidePainter(),
                       ),
                     ),
-                  ),
-                ),
+                  );
+                }
+                return const SizedBox.shrink();
+              },
+            ),
+            Builder(
+              builder: (context) => IconButton(
+                icon: const Icon(Icons.groups, color: Colors.white, size: 32),
+                onPressed: () {
+                  Scaffold.of(context).openEndDrawer();
+                },
+              ),
+            ),
+          ],
+        ),
+        body: Stack(
+          children: [
+            // 1. Camera Feed / Native Scanner (Full screen background)
+            Positioned.fill(
+              child: !_permissionAcknowledged
+                  ? Container(
+                      color: Colors.black87,
+                      child: Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(
+                              Icons.camera_alt_rounded,
+                              color: Colors.white30,
+                              size: 48,
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              'Camera Access Required',
+                              style: AppTypography.inter(
+                                color: Colors.white70,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Enable camera to start scanning tickets.',
+                              style: AppTypography.inter(
+                                color: Colors.white38,
+                                fontSize: 12,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 16),
+                            TextButton(
+                              onPressed: _showPermissionSheet,
+                              style: TextButton.styleFrom(
+                                backgroundColor: context.accentColor,
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 20, vertical: 10),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                              ),
+                              child: Text(
+                                'Enable Camera',
+                                style: AppTypography.inter(
+                                  color: Colors.black,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    )
+                  : (kIsWeb
+                      ? WebQrScanner(
+                          torchEnabled: _torchEnabled,
+                          onDetect: (code) {
+                            _processTicketCode(code);
+                          },
+                          onError: (errorMsg) {
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).clearSnackBars();
+                              AppSnackBars.showError(
+                                  context, 'Camera error: $errorMsg');
+                              // A prior "Enable Camera" acknowledgment doesn't
+                              // mean the browser will still honor it — if the
+                              // user revoked camera access at the OS/browser
+                              // level after acknowledging, this is where that
+                              // shows up. Reset so the "Enable Camera" retry
+                              // UI reappears instead of leaving a dead camera
+                              // feed with only a transient SnackBar.
+                              if (errorMsg
+                                      .toLowerCase()
+                                      .contains('permission') ||
+                                  errorMsg.toLowerCase().contains('denied') ||
+                                  errorMsg
+                                      .toLowerCase()
+                                      .contains('notallowed')) {
+                                setState(() => _permissionAcknowledged = false);
+                              }
+                            }
+                          },
+                        )
+                      : MobileScanner(
+                          controller: _controller!,
+                          errorBuilder: (context, error) {
+                            if (error.errorCode ==
+                                    MobileScannerErrorCode.permissionDenied &&
+                                _permissionAcknowledged) {
+                              WidgetsBinding.instance.addPostFrameCallback((_) {
+                                if (mounted) {
+                                  setState(
+                                      () => _permissionAcknowledged = false);
+                                }
+                              });
+                            }
+                            return Container(
+                              color: Colors.black87,
+                              child: Center(
+                                child: Text(
+                                  error.errorCode ==
+                                          MobileScannerErrorCode
+                                              .permissionDenied
+                                      ? 'Camera permission was denied.'
+                                      : 'Could not start camera.',
+                                  style: const TextStyle(color: Colors.white70),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                            );
+                          },
+                          onDetect: (capture) {
+                            final List<Barcode> barcodes = capture.barcodes;
+                            if (barcodes.isNotEmpty) {
+                              final String? code = barcodes.first.rawValue;
+                              if (code != null && code.isNotEmpty) {
+                                _processTicketCode(code);
+                              }
+                            }
+                          },
+                        )),
+            ),
 
-              // 4. Result Overlays (Full screen success/error)
-              if (_status == ScanStatus.processing)
-                Positioned.fill(
-                  child: Container(
-                    color: Colors.black54,
-                    child: const Center(
-                      child: CircularProgressIndicator(color: Colors.white),
+            // 2. Stylized Barcode Overlay Guide (Translucent vertical barcode stripes)
+            if (_status == ScanStatus.scanning && _permissionAcknowledged)
+              Center(
+                child: Opacity(
+                  opacity:
+                      0.18, // Subtly translucent as seen in reference image
+                  child: SizedBox(
+                    width: 260,
+                    height: 70,
+                    child: CustomPaint(
+                      painter: const BarcodeGuidePainter(),
                     ),
                   ),
                 ),
+              ),
 
-              if (_status == ScanStatus.success)
-                Positioned.fill(
-                  child: _buildResultCard(
-                    color: const Color(0xFF2E7D32),
-                    icon: Icons.check_circle_outline_rounded,
-                    title: 'TICKET VALIDATED',
-                    subtitle: _attendeeName ?? 'Valid Attendee',
-                    extra: 'Username: ${_username ?? "N/A"}\nTier: ${_tierName ?? "General Admission"}',
+            // 4. Result Overlays (Full screen success/error)
+            if (_status == ScanStatus.processing)
+              Positioned.fill(
+                child: Container(
+                  color: Colors.black54,
+                  child: const Center(
+                    child: CircularProgressIndicator(color: Colors.white),
                   ),
                 ),
+              ),
 
-              if (_status == ScanStatus.alreadyScanned)
-                Positioned.fill(
-                  child: _buildResultCard(
-                    color: const Color(0xFFC62828),
-                    icon: Icons.error_outline_rounded,
-                    title: 'ALREADY REDEEMED',
-                    subtitle: _attendeeName ?? 'Attendee',
-                    extra: _redeemedAt != null
-                        ? 'Redeemed at: ${_formatTime(DateTime.tryParse(_redeemedAt!))}'
-                        : 'This ticket was already used.',
-                  ),
+            if (_status == ScanStatus.success)
+              Positioned.fill(
+                child: _buildResultCard(
+                  color: const Color(0xFF2E7D32),
+                  icon: Icons.check_circle_outline_rounded,
+                  title: 'TICKET VALIDATED',
+                  subtitle: _attendeeName ?? 'Valid Attendee',
+                  extra:
+                      'Username: ${_username ?? "N/A"}\nTier: ${_tierName ?? "General Admission"}',
                 ),
+              ),
 
-              if (_status == ScanStatus.error)
-                Positioned.fill(
-                  child: _buildResultCard(
-                    color: const Color(0xFFD84315),
-                    icon: Icons.warning_amber_rounded,
-                    title: 'INVALID TICKET',
-                    subtitle: _errorMessage ?? 'Verification Failed',
-                    extra: 'Please verify the ticket code or check attendee permissions.',
-                  ),
+            if (_status == ScanStatus.alreadyScanned)
+              Positioned.fill(
+                child: _buildResultCard(
+                  color: const Color(0xFFC62828),
+                  icon: Icons.error_outline_rounded,
+                  title: 'ALREADY REDEEMED',
+                  subtitle: _attendeeName ?? 'Attendee',
+                  extra: _redeemedAt != null
+                      ? 'Redeemed at: ${_formatTime(DateTime.tryParse(_redeemedAt!))}'
+                      : 'This ticket was already used.',
                 ),
+              ),
 
-              // 5. Floating Control Panel (Top-Right, vertical column)
-              if (_status == ScanStatus.scanning && _permissionAcknowledged)
-                Positioned(
-                  top: 16,
-                  right: 16,
+            if (_status == ScanStatus.error)
+              Positioned.fill(
+                child: _buildResultCard(
+                  color: const Color(0xFFD84315),
+                  icon: Icons.warning_amber_rounded,
+                  title: 'INVALID TICKET',
+                  subtitle: _errorMessage ?? 'Verification Failed',
+                  extra:
+                      'Please verify the ticket code or check attendee permissions.',
+                ),
+              ),
+
+            // 5. Floating Control Panel (Top-Right, vertical column)
+            if (_status == ScanStatus.scanning && _permissionAcknowledged)
+              Positioned(
+                top: 16,
+                right: 16,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Torch Toggle Button (Lightning bolt)
+                    _buildFloatingActionButton(
+                      icon: Icon(
+                        Icons.flash_on,
+                        color: _torchEnabled
+                            ? context.accentColor
+                            : Colors.white70,
+                        size: 24,
+                      ),
+                      onPressed: _toggleTorch,
+                      tooltip: 'Toggle Flashlight',
+                    ),
+                    const SizedBox(height: 12),
+                    // Feedback Toggle Button (Volume / Vibration / Off)
+                    _buildFloatingActionButton(
+                      icon: Icon(
+                        _feedbackMode == FeedbackMode.sound
+                            ? Icons.volume_up_rounded
+                            : _feedbackMode == FeedbackMode.vibration
+                                ? Icons.vibration_rounded
+                                : Icons.volume_off_rounded,
+                        color: Colors.white70,
+                        size: 22,
+                      ),
+                      onPressed: _cycleFeedbackMode,
+                      tooltip: 'Feedback Mode: ${_feedbackMode.name}',
+                    ),
+                    const SizedBox(height: 12),
+                    // Switch Camera Button
+                    _buildFloatingActionButton(
+                      icon: const Icon(
+                        Icons.flip_camera_ios_rounded,
+                        color: Colors.white70,
+                        size: 22,
+                      ),
+                      onPressed: _switchCamera,
+                      tooltip: 'Switch Camera',
+                    ),
+                  ],
+                ),
+              ),
+
+            // 6. Manual Entry Panel at the bottom
+            Positioned(
+              bottom: 0,
+              left: 0,
+              right: 0,
+              child: SafeArea(
+                child: Padding(
+                  padding: EdgeInsets.only(
+                    left: 16,
+                    right: 16,
+                    bottom: bottomInset > 0 ? bottomInset + 8 : 16,
+                  ),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      // Torch Toggle Button (Lightning bolt)
-                      _buildFloatingActionButton(
-                        icon: Icon(
-                          Icons.flash_on,
-                          color: _torchEnabled ? context.accentColor : Colors.white70,
-                          size: 24,
+                      if (_status != ScanStatus.scanning &&
+                          _status != ScanStatus.processing) ...[
+                        TextButton.icon(
+                          onPressed: _resetScanner,
+                          icon: const Icon(Icons.refresh_rounded,
+                              color: Colors.black),
+                          label: Text(
+                            'Scan Next Ticket',
+                            style: AppTypography.inter(
+                              color: Colors.black,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          style: TextButton.styleFrom(
+                            backgroundColor: context.accentColor,
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 24, vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
                         ),
-                        onPressed: _toggleTorch,
-                        tooltip: 'Toggle Flashlight',
-                      ),
-                      const SizedBox(height: 12),
-                      // Feedback Toggle Button (Volume / Vibration / Off)
-                      _buildFloatingActionButton(
-                        icon: Icon(
-                          _feedbackMode == FeedbackMode.sound
-                              ? Icons.volume_up_rounded
-                              : _feedbackMode == FeedbackMode.vibration
-                                  ? Icons.vibration_rounded
-                                  : Icons.volume_off_rounded,
-                          color: Colors.white70,
-                          size: 22,
+                        const SizedBox(height: 16),
+                      ],
+                      // Manual Entry Form
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: AppColors.tertiary,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: Colors.white10),
                         ),
-                        onPressed: _cycleFeedbackMode,
-                        tooltip: 'Feedback Mode: ${_feedbackMode.name}',
-                      ),
-                      const SizedBox(height: 12),
-                      // Switch Camera Button
-                      _buildFloatingActionButton(
-                        icon: const Icon(
-                          Icons.flip_camera_ios_rounded,
-                          color: Colors.white70,
-                          size: 22,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              'Manual Entry',
+                              style: AppTypography.interTight(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white70,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: TextField(
+                                    controller: _textController,
+                                    style: const TextStyle(color: Colors.white),
+                                    decoration: InputDecoration(
+                                      hintText: 'Enter ticket code...',
+                                      hintStyle: const TextStyle(
+                                          color: Colors.white38),
+                                      filled: true,
+                                      fillColor: Colors.black,
+                                      contentPadding:
+                                          const EdgeInsets.symmetric(
+                                              horizontal: 16, vertical: 12),
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                        borderSide: BorderSide.none,
+                                      ),
+                                    ),
+                                    onSubmitted: (val) {
+                                      if (val.trim().isNotEmpty) {
+                                        _showManualEntryConfirmationSheet(
+                                            val.trim());
+                                      }
+                                    },
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                InkWell(
+                                  onTap: () {
+                                    final val = _textController.text.trim();
+                                    if (val.isNotEmpty) {
+                                      _showManualEntryConfirmationSheet(val);
+                                    }
+                                  },
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: Container(
+                                    padding: const EdgeInsets.all(12),
+                                    decoration: BoxDecoration(
+                                      color: context.accentColor,
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: const Icon(
+                                        Icons.arrow_forward_rounded,
+                                        color: Colors.black),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
                         ),
-                        onPressed: _switchCamera,
-                        tooltip: 'Switch Camera',
                       ),
                     ],
                   ),
                 ),
-
-              // 6. Manual Entry Panel at the bottom
-              Positioned(
-                bottom: 0,
-                left: 0,
-                right: 0,
-                child: SafeArea(
-                  child: Padding(
-                    padding: EdgeInsets.only(
-                      left: 16,
-                      right: 16,
-                      bottom: bottomInset > 0 ? bottomInset + 8 : 16,
-                    ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (_status != ScanStatus.scanning && _status != ScanStatus.processing) ...[
-                          TextButton.icon(
-                            onPressed: _resetScanner,
-                            icon: const Icon(Icons.refresh_rounded, color: Colors.black),
-                            label: Text(
-                              'Scan Next Ticket',
-                              style: AppTypography.inter(
-                                color: Colors.black,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            style: TextButton.styleFrom(
-                              backgroundColor: context.accentColor,
-                              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                        ],
-                        // Manual Entry Form
-                        Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: AppColors.tertiary,
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: Colors.white10),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                'Manual Entry',
-                                style: AppTypography.interTight(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white70,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: TextField(
-                                      controller: _textController,
-                                      style: const TextStyle(color: Colors.white),
-                                      decoration: InputDecoration(
-                                        hintText: 'Enter ticket code...',
-                                        hintStyle: const TextStyle(color: Colors.white38),
-                                        filled: true,
-                                        fillColor: Colors.black,
-                                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                                        border: OutlineInputBorder(
-                                          borderRadius: BorderRadius.circular(12),
-                                          borderSide: BorderSide.none,
-                                        ),
-                                      ),
-                                      onSubmitted: (val) {
-                                        if (val.trim().isNotEmpty) {
-                                          _showManualEntryConfirmationSheet(val.trim());
-                                        }
-                                      },
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  InkWell(
-                                    onTap: () {
-                                      final val = _textController.text.trim();
-                                      if (val.isNotEmpty) {
-                                        _showManualEntryConfirmationSheet(val);
-                                      }
-                                    },
-                                    borderRadius: BorderRadius.circular(12),
-                                    child: Container(
-                                      padding: const EdgeInsets.all(12),
-                                      decoration: BoxDecoration(
-                                        color: context.accentColor,
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                      child: const Icon(Icons.arrow_forward_rounded, color: Colors.black),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
-      );
+      ),
+    );
   }
 
   Widget _buildResultCard({

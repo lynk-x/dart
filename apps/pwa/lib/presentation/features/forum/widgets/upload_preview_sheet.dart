@@ -1,6 +1,6 @@
 import 'dart:typed_data';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:lynk_core/core.dart';
 import 'package:lynk_x/presentation/features/forum/core/upload_preview_math.dart';

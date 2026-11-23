@@ -1,9 +1,9 @@
-import 'dart:async';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:lynk_core/core.dart';
+import 'package:lynk_x/core/utils/safe_launch.dart';
 import 'package:lynk_x/presentation/shared/utils/app_snackbars.dart';
 import 'subscription_widgets.dart';
 
@@ -15,7 +15,7 @@ class SubscriptionScreen extends StatefulWidget {
   State<SubscriptionScreen> createState() => _SubscriptionScreenState();
 }
 
-class _SubscriptionScreenState extends State<SubscriptionScreen> {
+class _SubscriptionScreenState extends State<SubscriptionScreen> with WidgetsBindingObserver {
   final _supabase = Supabase.instance.client;
 
   // ── loading / processing ───────────────────────────────────────────────────
@@ -33,54 +33,31 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
   String? _activePlanId;
   DateTime? _activeEndsAt;
 
-  // ── context for payment ────────────────────────────────────────────────────
-  String _walletCurrency = 'KES';
-  double _walletBalance = 0;
-
-  // ── M-Pesa async wait ─────────────────────────────────────────────────────
-  bool _waitingMpesa = false;
-  RealtimeChannel? _subChannel;
-  Timer? _mpesaCountdownTimer;
-  int _mpesaSecondsLeft = 180;
-
   // ── derived ───────────────────────────────────────────────────────────────
   PlanData? get _selected => _interval == 'year' ? _yearlyPlan : _monthlyPlan;
 
   bool get _isActivePlan => _selected?.id == _activePlanId;
-
-  bool get _walletSufficient =>
-      _walletBalance >= (_selected?.price ?? double.infinity);
 
   // ── lifecycle ─────────────────────────────────────────────────────────────
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _load();
   }
 
   @override
   void dispose() {
-    _subChannel?.unsubscribe();
-    _subChannel = null;
-    _mpesaCountdownTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
 
-  void _startMpesaCountdown() {
-    _mpesaCountdownTimer?.cancel();
-    _mpesaSecondsLeft = 180;
-    _mpesaCountdownTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (!mounted) return;
-      setState(() {
-        if (_mpesaSecondsLeft > 0) _mpesaSecondsLeft--;
-      });
-    });
-  }
-
-  void _cancelMpesaCountdown() {
-    _mpesaCountdownTimer?.cancel();
-    _mpesaCountdownTimer = null;
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _load();
+    }
   }
 
   // ── data loading ──────────────────────────────────────────────────────────
@@ -119,49 +96,13 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
 
         // Active subscription
         uid != null ? activeSubQuery.eq('user_id', uid).maybeSingle() : activeSubQuery.maybeSingle(),
-
-        // Wallet balances across currencies — selector below picks the best match.
-        // escrow_balance holds funds reserved for pending payouts; subtract it
-        // so users cannot spend money that is already earmarked.
-        _supabase
-            .schema('api')
-            .from('v1_wallet_balances')
-            .select('currency, cash_balance, escrow_balance')
-            .order('currency'),
       ]);
 
       final plansRaw = results[0] as List;
       final accountRaw = results[1] as Map<String, dynamic>?;
       final subRaw = results[2] as Map<String, dynamic>?;
-      final walletsRaw = results[3] as List;
 
       final country = (accountRaw?['country_code'] as String?) ?? '';
-      // `countries.currency` is the local ISO-4217 code derived from the active
-      // account's country. Used to pick the wallet that matches the active account's
-      // billing currency, falling back to USD when no local wallet exists.
-      final localCurrency =
-          (accountRaw?['countries']?['currency'] as String?) ?? '';
-
-      // Resolve spendable balance — prefer local-country currency, then USD.
-      // Subtract escrow_balance (funds reserved for pending payouts) so we never
-      // report funds that are already earmarked as available to spend.
-      String walletCurrency = 'USD';
-      double walletBalance = 0;
-      for (final w in walletsRaw) {
-        final c = w['currency'] as String;
-        final raw = (w['cash_balance'] as num).toDouble();
-        final escrow = (w['escrow_balance'] as num? ?? 0).toDouble();
-        final spendable = (raw - escrow).clamp(0.0, double.infinity);
-        if (localCurrency.isNotEmpty && c == localCurrency) {
-          walletCurrency = c;
-          walletBalance = spendable;
-          break;
-        }
-        if (c == 'USD') {
-          walletCurrency = 'USD';
-          walletBalance = spendable;
-        }
-      }
 
       PlanData? monthly;
       PlanData? yearly;
@@ -174,8 +115,6 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
 
       if (!mounted) return;
       setState(() {
-        _walletCurrency = walletCurrency;
-        _walletBalance = walletBalance;
         _monthlyPlan = monthly;
         _yearlyPlan = yearly;
         _activeSubId = subRaw?['id'] as String?;
@@ -189,99 +128,16 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
         _hasError = false;
       });
     } catch (_) {
-      if (mounted) setState(() { _isLoading = false; _hasError = true; });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _hasError = true;
+        });
+      }
     }
   }
 
   // ── payment flows ─────────────────────────────────────────────────────────
-
-  Future<void> _payWithWallet() async {
-    final plan = _selected;
-    if (plan == null) return;
-
-    Navigator.pop(context); // close payment sheet
-    setState(() => _isProcessing = true);
-
-    try {
-      await _supabase.schema('api').rpc('purchase_subscription', params: {
-        'p_price_id': plan.priceId,
-        'p_provider': 'wallet',
-      });
-
-      if (!mounted) return;
-      _showSuccess();
-    } catch (e) {
-      if (!mounted) return;
-      _showError(e.toFriendlyMessage());
-    } finally {
-      if (mounted) setState(() => _isProcessing = false);
-    }
-  }
-
-  Future<void> _payWithMpesa(String phone) async {
-    final plan = _selected;
-    if (plan == null) return;
-
-    Navigator.pop(context); // close payment sheet
-    setState(() {
-      _isProcessing = true;
-      _waitingMpesa = true;
-    });
-    _startMpesaCountdown();
-
-    // Listen for the webhook-created subscription row
-    _subChannel = _supabase
-        .channel('sub_watch_${DateTime.now().millisecondsSinceEpoch}')
-        .onPostgresChanges(
-          event: PostgresChangeEvent.insert,
-          schema: 'finance',
-          table: 'subscriptions',
-            callback: (_) {
-            if (!_waitingMpesa || !mounted) return;
-            _cancelMpesaCountdown();
-            _subChannel?.unsubscribe();
-            _subChannel = null;
-            setState(() {
-              _waitingMpesa = false;
-              _isProcessing = false;
-            });
-            _showSuccess();
-          },
-        )
-        .subscribe();
-
-    try {
-      await _supabase.functions.invoke(
-        'initiate-subscription-payment',
-        body: {
-          'price_id': plan.priceId,
-          'phone': phone,
-          'provider': 'mpesa_daraja',
-        },
-      );
-      // UI now shows "waiting for M-Pesa" — handled via the realtime listener above.
-      // Timeout after 3 minutes.
-      Future.delayed(const Duration(minutes: 3), () {
-        if (!mounted || !_waitingMpesa) return;
-        _cancelMpesaCountdown();
-        _subChannel?.unsubscribe();
-        _subChannel = null;
-        setState(() {
-          _waitingMpesa = false;
-          _isProcessing = false;
-        });
-        _showError('M-Pesa payment timed out. Please try again.');
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _isProcessing = false;
-        _waitingMpesa = false;
-      });
-      _subChannel?.unsubscribe();
-      _showError(e.toFriendlyMessage());
-    }
-  }
 
   Future<void> _cancelSubscription() async {
     final confirmed = await showDialog<bool>(
@@ -331,7 +187,30 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
     }
   }
 
-  // ── payment sheet ─────────────────────────────────────────────────────────
+  // ── payment sheet & checkout redirect ─────────────────────────────────────
+
+  Future<void> _redirectToWebCheckout() async {
+    final plan = _selected;
+    if (plan == null) return;
+
+    if (Navigator.canPop(context)) {
+      Navigator.pop(context);
+    }
+
+    final user = _supabase.auth.currentUser;
+    final phone = user?.phone ?? '';
+    final email = user?.email ?? '';
+
+    final queryParams = <String, String>{
+      'type': 'subscription',
+      'interval': plan.interval,
+      if (phone.isNotEmpty) 'phone': phone,
+      if (email.isNotEmpty) 'email': email,
+    };
+
+    final uri = Uri.https('lynk-x.app', '/checkout', queryParams);
+    await safeLaunchUrl(uri.toString(), mode: LaunchMode.externalApplication);
+  }
 
   void _showPaymentSheet() {
     final plan = _selected;
@@ -345,25 +224,12 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
           borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
       builder: (ctx) => PaymentSheet(
         plan: plan,
-        walletBalance: _walletBalance,
-        walletCurrency: _walletCurrency,
-        walletSufficient: _walletSufficient,
-        onWallet: _payWithWallet,
-        onTopUp: () {
-          Navigator.pop(ctx);
-          context.push('/wallet');
-        },
-        onMpesa: _payWithMpesa,
+        onWebCheckout: _redirectToWebCheckout,
       ),
     );
   }
 
   // ── feedback helpers ──────────────────────────────────────────────────────
-
-  void _showSuccess() {
-    AppSnackBars.showSuccess(context, 'Welcome to Premium!');
-    _load();
-  }
 
   void _showError(String msg) {
     AppSnackBars.showError(context, msg);
@@ -567,9 +433,6 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
           right: 0,
           child: _buildBottomCTA(plan),
         ),
-
-        // ── M-Pesa waiting overlay ────────────────────────────────────
-        if (_waitingMpesa) _buildMpesaWaiting(),
       ],
     );
   }
@@ -675,54 +538,6 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
             ),
           ],
         ],
-      ),
-    );
-  }
-
-  Widget _buildMpesaWaiting() {
-    return Container(
-      color: AppColors.primaryBackground.withValues(alpha: 0.92),
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const CircularProgressIndicator(color: AppColors.secondary),
-            const SizedBox(height: 24),
-            const Text(
-              'Waiting for M-Pesa...',
-              style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 10),
-            Text(
-              'Check your phone and enter your M-Pesa PIN.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.5), fontSize: 14),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Expires in ${(_mpesaSecondsLeft ~/ 60).toString().padLeft(2, '0')}:${(_mpesaSecondsLeft % 60).toString().padLeft(2, '0')}',
-              style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 12),
-            ),
-            const SizedBox(height: 28),
-            TextButton(
-            onPressed: () {
-              _cancelMpesaCountdown();
-              _subChannel?.unsubscribe();
-              _subChannel = null;
-              setState(() {
-                _waitingMpesa = false;
-                _isProcessing = false;
-              });
-            },
-              child: const Text('Cancel',
-                  style: TextStyle(color: Colors.white38, fontSize: 14)),
-            ),
-          ],
-        ),
       ),
     );
   }

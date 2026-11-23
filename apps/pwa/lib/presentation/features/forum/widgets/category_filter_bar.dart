@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart' hide ChoiceChip;
+import 'package:material_ui/material_ui.dart' hide ChoiceChip;
 import 'package:lynk_x/presentation/shared/widgets/choice_chip.dart';
 import 'package:lynk_x/presentation/features/forum/models/forum_model.dart';
 
