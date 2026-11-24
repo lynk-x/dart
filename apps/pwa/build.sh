@@ -4,7 +4,7 @@
 set -e
 
 # --- Configuration ---
-FLUTTER_VERSION="3.41.7-stable"
+FLUTTER_VERSION="3.50.1-stable"
 FLUTTER_SDK_URL="https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/flutter_linux_${FLUTTER_VERSION}.tar.xz"
 
 # --- Environment Setup ---
