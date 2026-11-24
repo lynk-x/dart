@@ -127,7 +127,8 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> with WidgetsBin
         _isLoading = false;
         _hasError = false;
       });
-    } catch (_) {
+    } catch (e, stack) {
+      debugPrint('[SubscriptionScreen] Error loading subscription plans: $e\n$stack');
       if (mounted) {
         setState(() {
           _isLoading = false;
