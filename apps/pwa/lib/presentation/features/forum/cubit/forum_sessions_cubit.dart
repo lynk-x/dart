@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -213,30 +214,72 @@ class ForumSessionsCubit extends Cubit<ForumSessionsState> {
     }
   }
 
-  Future<void> deleteSession(String sessionId) async {
-    emit(state.copyWith(isLoading: true, clearError: true));
-    try {
-      await _repo.deleteSession(sessionId);
+  /// Map of pending deletion timers keyed by session id.
+  final Map<String, Timer> _pendingDeletionTimers = {};
 
-      _onSessionDeleted(sessionId);
+  /// Tracks original sessions that are currently in the grace period of deletion.
+  final Map<String, SessionModel> _stagedDeletedSessions = {};
+
+  /// Deletes a session with a grace period for Undo.
+  /// If [gracePeriod] is non-zero, the session is optimistically removed from the
+  /// local state immediately, but the Supabase delete and realtime broadcast are
+  /// deferred until the timer elapses. Calling [undoDeleteSession] restores it with 0 backend calls.
+  void deleteSession(SessionModel session, {Duration gracePeriod = const Duration(seconds: 5)}) {
+    _pendingDeletionTimers[session.id]?.cancel();
+
+    _stagedDeletedSessions[session.id] = session;
+    _onSessionDeleted(session.id);
+
+    if (gracePeriod == Duration.zero) {
+      _commitDeleteSession(session);
+      return;
+    }
+
+    _pendingDeletionTimers[session.id] = Timer(gracePeriod, () {
+      _pendingDeletionTimers.remove(session.id);
+      _commitDeleteSession(session);
+    });
+  }
+
+  /// Cancels a staged session deletion and restores it back into state.
+  void undoDeleteSession(SessionModel session) {
+    final timer = _pendingDeletionTimers.remove(session.id);
+    final staged = _stagedDeletedSessions.remove(session.id) ?? session;
+    if (timer != null) {
+      timer.cancel();
+      _onSessionInserted(staged);
+    }
+  }
+
+  Future<void> _commitDeleteSession(SessionModel session) async {
+    _stagedDeletedSessions.remove(session.id);
+    try {
+      await _repo.deleteSession(session.id);
 
       _realtimeChannel?.sendBroadcastMessage(
         event: 'session_mutation',
         payload: {
           'action': 'delete',
-          'session': {'id': sessionId},
+          'session': {'id': session.id},
         },
       );
-
-      emit(state.copyWith(isLoading: false));
     } catch (e) {
-      emit(state.copyWith(
-          isLoading: false, errorMessage: 'Failed to delete session: $e'));
+      if (!isClosed) {
+        emit(state.copyWith(
+            isLoading: false, errorMessage: 'Failed to delete session: $e'));
+        // Re-insert into state if delete failed
+        _onSessionInserted(session);
+      }
     }
   }
 
   @override
   Future<void> close() {
+    for (final timer in _pendingDeletionTimers.values) {
+      timer.cancel();
+    }
+    _pendingDeletionTimers.clear();
+    _stagedDeletedSessions.clear();
     _realtimeChannel?.unsubscribe();
     return super.close();
   }

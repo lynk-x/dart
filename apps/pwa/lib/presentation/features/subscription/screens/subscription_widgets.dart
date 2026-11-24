@@ -112,24 +112,33 @@ class PlanData {
     // Pick country-specific price first, fall back to global (null country_code)
     Map<String, dynamic>? best;
     for (final pr in prices) {
+      if (pr is! Map<String, dynamic>) continue;
       final cc = pr['country_code'] as String?;
       if (cc == country && country.isNotEmpty) {
-        best = pr as Map<String, dynamic>;
+        best = pr;
         break;
       }
-      if (cc == null) best ??= pr as Map<String, dynamic>;
+      if (cc == null) best ??= pr;
     }
 
     final features = ((p['plan_features'] as List?) ?? [])
-        .map((pf) => (pf as Map<String, dynamic>)['display_name'] as String? ?? '')
+        .whereType<Map<String, dynamic>>()
+        .map((pf) => (pf['display_name'] as String? ?? ''))
         .where((f) => f.isNotEmpty)
         .toList();
 
+    final id = p['id'] as String?;
+    final name = p['display_name'] as String?;
+    final interval = p['interval'] as String?;
+    if (id == null || name == null || interval == null) {
+      throw ArgumentError('Plan missing required fields: id=$id, name=$name, interval=$interval');
+    }
+
     return PlanData(
-      id: p['id'] as String,
+      id: id,
       priceId: best?['id'] as String? ?? '',
-      name: p['display_name'] as String,
-      interval: p['interval'] as String,
+      name: name,
+      interval: interval,
       price: (best?['amount'] as num?)?.toDouble() ?? 0,
       currency: best?['currency'] as String? ?? 'USD',
       features: features,

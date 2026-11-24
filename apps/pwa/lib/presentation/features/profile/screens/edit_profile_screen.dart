@@ -9,7 +9,7 @@ import 'package:lynk_x/presentation/shared/widgets/text_field.dart';
 import 'package:lynk_x/presentation/shared/utils/permission_acks.dart';
 import '../widgets/profile_avatar.dart';
 import 'package:lynk_x/presentation/shared/utils/app_snackbars.dart';
-import 'package:lynk_x/presentation/shared/widgets/app_wheel_date_picker.dart';
+import 'package:lynk_x/presentation/shared/widgets/datetime_picker.dart';
 
 class EditProfilePage extends StatefulWidget {
   const EditProfilePage({super.key});

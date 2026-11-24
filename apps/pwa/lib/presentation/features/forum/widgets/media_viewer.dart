@@ -605,18 +605,20 @@ class _MediaViewerState extends State<MediaViewer> {
                             media: currentMedia,
                             isUploader: isUploader,
                             isAuthorized: isAuthorized,
-                            onDelete: () async {
+                            onDelete: () {
                               if (!hasCubit) return;
-                              final success = await context
-                                  .read<ForumMediaCubit>()
-                                  .deleteMedia(currentMedia);
-                              if (!context.mounted) return;
-                              if (success) {
-                                Navigator.pop(context);
-                              } else {
-                                AppSnackBars.showError(context,
-                                    'Failed to delete media. Please try again.');
-                              }
+                              final mediaCubit = context.read<ForumMediaCubit>();
+                              mediaCubit.deleteMedia(currentMedia);
+                              Navigator.pop(context);
+                              AppSnackBars.showAction(
+                                context,
+                                content: const Text('Media deleted'),
+                                action: SnackBarAction(
+                                  label: 'Undo',
+                                  textColor: context.accentColor,
+                                  onPressed: () => mediaCubit.undoDeleteMedia(currentMedia),
+                                ),
+                              );
                             },
                             onRevokeDistributionRights: () async {
                               if (!hasCubit) return;
@@ -722,18 +724,20 @@ class _MediaViewerState extends State<MediaViewer> {
                                   ),
                                 ),
                                 onPressed: () {
-                                  Future<void> performReject() async {
+                                  void performReject() {
                                     if (hasCubit) {
-                                      final success = await context
-                                          .read<ForumMediaCubit>()
-                                          .deleteMedia(currentMedia);
-                                      if (!context.mounted) return;
-                                      if (success) {
-                                        Navigator.pop(context);
-                                      } else {
-                                        AppSnackBars.showError(context,
-                                            'Failed to remove media. Please try again.');
-                                      }
+                                      final mediaCubit = context.read<ForumMediaCubit>();
+                                      mediaCubit.deleteMedia(currentMedia);
+                                      Navigator.pop(context);
+                                      AppSnackBars.showAction(
+                                        context,
+                                        content: const Text('Media removed'),
+                                        action: SnackBarAction(
+                                          label: 'Undo',
+                                          textColor: context.accentColor,
+                                          onPressed: () => mediaCubit.undoDeleteMedia(currentMedia),
+                                        ),
+                                      );
                                     } else {
                                       widget.onReject?.call();
                                       Navigator.pop(context);

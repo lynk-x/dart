@@ -55,26 +55,6 @@ class TicketBarcodeSection extends StatelessWidget {
                     letterSpacing: 2.2,
                   ),
                 ),
-                const SizedBox(height: 8),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.shield_outlined,
-                      size: 13,
-                      color: Colors.black38,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      'Refreshes in ${totpState.secondsRemaining}s',
-                      style: AppTypography.inter(
-                        fontSize: 11,
-                        color: Colors.black45,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
               ],
             ),
           );
@@ -109,24 +89,6 @@ class TicketBarcodeSection extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 6),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.shield_outlined,
-                    size: 12,
-                    color: Colors.black38,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    'Anti-screenshot dynamic code (${totpState.secondsRemaining}s)',
-                    style: AppTypography.inter(
-                      fontSize: 11,
-                      color: Colors.black38,
-                    ),
-                  ),
-                ],
-              ),
             ],
           ),
         );

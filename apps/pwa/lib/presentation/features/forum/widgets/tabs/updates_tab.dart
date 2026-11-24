@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:lynk_core/core.dart';
+import 'package:lynk_x/presentation/shared/utils/app_snackbars.dart';
 import 'package:lynk_x/presentation/features/forum/cubit/forum_cubit.dart';
 import 'package:lynk_x/presentation/features/forum/cubit/forum_state.dart';
 import 'package:lynk_x/presentation/features/forum/cubit/forum_updates_cubit.dart';
@@ -285,7 +286,18 @@ class _UpdatesScrollView extends StatelessWidget {
                       message: message,
                       isOrganizer: mainState.isOrganizer,
                       onPin: (msg) => mainCubit.pinMessage(msg),
-                      onDelete: (msg) => updatesCubit.deleteMessage(msg),
+                      onDelete: (msg) {
+                        updatesCubit.deleteMessage(msg);
+                        AppSnackBars.showAction(
+                          context,
+                          content: const Text('Announcement deleted'),
+                          action: SnackBarAction(
+                            label: 'Undo',
+                            textColor: context.accentColor,
+                            onPressed: () => updatesCubit.undoDeleteMessage(msg),
+                          ),
+                        );
+                      },
                       onEdit: (msg) => updatesCubit.setEditingMessage(msg),
                       onReport: (msg) => showReportSheet(
                             context,
@@ -303,6 +315,7 @@ class _UpdatesScrollView extends StatelessWidget {
                             selectedMessageId == message.id ? null : message.id);
                       },
                       onTapBubble: () => onSelectMessage(null),
+                      onActionSelected: () => onSelectMessage(null),
                       linkPreviewData: message.resolvedUrl != null
                           ? updatesState.linkPreviews[message.resolvedUrl!]
                           : null,
@@ -318,11 +331,14 @@ class _UpdatesScrollView extends StatelessWidget {
                   );
     }
 
-    return CustomScrollView(
-      controller: scrollController,
-      reverse: true,
-      slivers: [
-        if (updatesState.messages.isEmpty && !updatesState.isLoading)
+    return GestureDetector(
+      behavior: HitTestBehavior.deferToChild,
+      onTap: () => onSelectMessage(null),
+      child: CustomScrollView(
+        controller: scrollController,
+        reverse: true,
+        slivers: [
+          if (updatesState.messages.isEmpty && !updatesState.isLoading)
           const SliverFillRemaining(
             hasScrollBody: false,
             child: EmptyState(
@@ -352,10 +368,11 @@ class _UpdatesScrollView extends StatelessWidget {
           handle: NestedScrollView.sliverOverlapAbsorberHandleFor(context),
         ),
       ],
-    );
-  }
+    ),
+  );
 }
 
+}
 /// Join Card for a "started the live call" announcement message. Combines
 /// two signals so both a live-witnessed end AND an already-concluded call
 /// from before this card ever mounted resolve correctly:

@@ -1,5 +1,6 @@
 import 'package:hydrated_bloc/hydrated_bloc.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:uuid/uuid.dart';
@@ -523,11 +524,54 @@ class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
   }
 
   /// Returns `true` on success, `false` on permission denial or failure.
+  /// Map of pending deletion timers keyed by media id.
+  final Map<String, Timer> _pendingDeletionTimers = {};
+
+  /// Tracks original media items that are currently in the grace period of deletion.
+  final Map<String, ForumMedia> _stagedDeletedMedia = {};
+
   /// The "ForumMedia: delete" RLS policy already allows the uploader, a
   /// moderator/organizer, an account-level can_manage_forum holder, or a
   /// system admin — the same broader set as approveMedia's guard, so no
   /// client-side gate duplicates it here.
-  Future<bool> deleteMedia(ForumMedia media) async {
+  /// If [gracePeriod] is non-zero, the media is optimistically removed from the
+  /// local list immediately, but the Supabase DELETE is deferred until the timer elapses.
+  /// Calling [undoDeleteMedia] restores it with 0 backend calls.
+  void deleteMedia(ForumMedia media, {Duration gracePeriod = const Duration(seconds: 5)}) {
+    _pendingDeletionTimers[media.id]?.cancel();
+
+    _stagedDeletedMedia[media.id] = media;
+    if (!isClosed) {
+      final updated = state.mediaItems.where((m) => m.id != media.id).toList();
+      emit(state.copyWith(mediaItems: _sortMedia(updated)));
+    }
+
+    if (gracePeriod == Duration.zero) {
+      _commitDeleteMedia(media);
+      return;
+    }
+
+    _pendingDeletionTimers[media.id] = Timer(gracePeriod, () {
+      _pendingDeletionTimers.remove(media.id);
+      _commitDeleteMedia(media);
+    });
+  }
+
+  /// Cancels a staged media deletion and restores the item into state.
+  void undoDeleteMedia(ForumMedia media) {
+    final timer = _pendingDeletionTimers.remove(media.id);
+    final staged = _stagedDeletedMedia.remove(media.id) ?? media;
+    if (timer != null) {
+      timer.cancel();
+      if (!isClosed && !state.mediaItems.any((m) => m.id == staged.id)) {
+        final restored = [staged, ...state.mediaItems];
+        emit(state.copyWith(mediaItems: _sortMedia(restored)));
+      }
+    }
+  }
+
+  Future<void> _commitDeleteMedia(ForumMedia media) async {
+    _stagedDeletedMedia.remove(media.id);
     try {
       await Supabase.instance.client
           .schema('social')
@@ -536,11 +580,16 @@ class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
           .eq('id', media.id)
           .eq('created_at', media.createdAt.toIso8601String());
       await refreshMedia();
-      return true;
     } catch (e, stack) {
       debugPrint('[ForumMediaCubit] Error: $e\n$stack');
-      if (!isClosed) emit(state.copyWith(error: e.toString()));
-      return false;
+      if (!isClosed) {
+        emit(state.copyWith(error: e.toString()));
+        // Re-insert into state if delete failed
+        if (!state.mediaItems.any((m) => m.id == media.id)) {
+          final restored = [media, ...state.mediaItems];
+          emit(state.copyWith(mediaItems: _sortMedia(restored)));
+        }
+      }
     }
   }
 
@@ -639,6 +688,11 @@ class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
 
   @override
   Future<void> close() {
+    for (final timer in _pendingDeletionTimers.values) {
+      timer.cancel();
+    }
+    _pendingDeletionTimers.clear();
+    _stagedDeletedMedia.clear();
     _mediaSubscription?.unsubscribe();
     return super.close();
   }

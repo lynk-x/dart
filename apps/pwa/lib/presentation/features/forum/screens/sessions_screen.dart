@@ -8,7 +8,7 @@ import '../cubit/forum_sessions_state.dart';
 import '../widgets/skeletons.dart';
 import 'package:lynk_x/presentation/shared/utils/app_snackbars.dart';
 import 'package:lynk_x/data/repositories/repository_providers.dart';
-import 'package:lynk_x/presentation/shared/widgets/app_wheel_date_picker.dart';
+import 'package:lynk_x/presentation/shared/widgets/datetime_picker.dart';
 
 class SessionsScreen extends StatelessWidget {
   final String? forumId;
@@ -384,8 +384,17 @@ class SessionsView extends StatelessWidget {
                   height: 50,
                   child: ElevatedButton(
                     onPressed: () {
-                      cubit.deleteSession(session.id);
+                      cubit.deleteSession(session);
                       Navigator.pop(bottomContext);
+                      AppSnackBars.showAction(
+                        context,
+                        content: Text('${session.title} deleted'),
+                        action: SnackBarAction(
+                          label: 'Undo',
+                          textColor: context.accentColor,
+                          onPressed: () => cubit.undoDeleteSession(session),
+                        ),
+                      );
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.redAccent.withValues(alpha: 0.15),

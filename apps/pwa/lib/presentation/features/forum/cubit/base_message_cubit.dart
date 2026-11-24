@@ -375,17 +375,59 @@ abstract class BaseMessageCubit<T extends BaseMessageState>
     });
   }
 
-  /// Soft-deletes a message. `forum_messages.forum_messages` is partitioned by
-  /// `created_at` with composite PK (id, created_at), so the message's
-  /// `createdAt` must be in the WHERE clause or the UPDATE matches no rows.
-  Future<void> deleteMessage(ChatMessage message) async {
+  /// Map of pending deletion timers keyed by message id.
+  final Map<String, Timer> _pendingDeletionTimers = {};
+
+  /// Tracks original messages that are currently in the grace period of deletion.
+  final Map<String, ChatMessage> _stagedDeletedMessages = {};
+
+  /// Soft-deletes a message with a grace period for Undo.
+  /// If [gracePeriod] is non-zero, the message is optimistically removed from the
+  /// local state immediately, but the Supabase update and realtime broadcast are
+  /// deferred until the timer elapses. Calling [undoDeleteMessage] restores it with 0 backend calls.
+  void deleteMessage(ChatMessage message, {Duration gracePeriod = const Duration(seconds: 5)}) {
     if (userId == kGuestUserId) return;
-    final originalMessages = List<ChatMessage>.from(state.messages);
+
+    // Cancel any existing timer for this message
+    _pendingDeletionTimers[message.id]?.cancel();
+
+    // Optimistically remove from state
+    _stagedDeletedMessages[message.id] = message;
     if (!isClosed) {
       emit(copyWithState(
-          messages: state.messages.where((m) => m.id != message.id).toList()));
+        messages: state.messages.where((m) => m.id != message.id).toList(),
+      ));
     }
 
+    if (gracePeriod == Duration.zero) {
+      _commitDeleteMessage(message);
+      return;
+    }
+
+    _pendingDeletionTimers[message.id] = Timer(gracePeriod, () {
+      _pendingDeletionTimers.remove(message.id);
+      _commitDeleteMessage(message);
+    });
+  }
+
+  /// Cancels a staged deletion and restores the message back into state.
+  void undoDeleteMessage(ChatMessage message) {
+    final timer = _pendingDeletionTimers.remove(message.id);
+    final staged = _stagedDeletedMessages.remove(message.id) ?? message;
+    if (timer != null) {
+      timer.cancel();
+      // Restore message to local state
+      if (!isClosed && !state.messages.any((m) => m.id == staged.id)) {
+        final restored = [...state.messages, staged];
+        // Sort chronologically ascending
+        restored.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+        emit(copyWithState(messages: restored));
+      }
+    }
+  }
+
+  Future<void> _commitDeleteMessage(ChatMessage message) async {
+    _stagedDeletedMessages.remove(message.id);
     try {
       await Supabase.instance.client
           .schema('social')
@@ -400,10 +442,13 @@ abstract class BaseMessageCubit<T extends BaseMessageState>
           'id': message.id,
         },
       );
-      // No refresh() needed: the optimistic removal, broadcast to peers,
-      // and CDC pipeline already guarantee consistency.
     } catch (_) {
-      if (!isClosed) emit(copyWithState(messages: originalMessages));
+      // If backend fails, re-insert into state if not closed
+      if (!isClosed && !state.messages.any((m) => m.id == message.id)) {
+        final restored = [...state.messages, message];
+        restored.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+        emit(copyWithState(messages: restored));
+      }
     }
   }
 
@@ -549,6 +594,11 @@ abstract class BaseMessageCubit<T extends BaseMessageState>
 
   @override
   Future<void> close() {
+    for (final timer in _pendingDeletionTimers.values) {
+      timer.cancel();
+    }
+    _pendingDeletionTimers.clear();
+    _stagedDeletedMessages.clear();
     _syncSubscription?.cancel();
     _searchDebouncer.cancel();
     _preSearchMessages = const [];

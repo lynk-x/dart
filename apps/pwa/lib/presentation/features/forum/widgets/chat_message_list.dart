@@ -30,6 +30,8 @@ class ChatMessageList extends StatelessWidget {
   final Function(String, LinkPreviewData)? onLinkPreviewDataFetched;
   final Function(String?)? onMediaTap;
   final VoidCallback? onTapBubble;
+  final VoidCallback? onActionSelected;
+  final VoidCallback? onTapEmpty;
   final double topPadding;
 
   const ChatMessageList({
@@ -51,6 +53,8 @@ class ChatMessageList extends StatelessWidget {
     this.onLinkPreviewDataFetched,
     this.onMediaTap,
     this.onTapBubble,
+    this.onActionSelected,
+    this.onTapEmpty,
     this.topPadding = 0,
   });
 
@@ -145,6 +149,7 @@ class ChatMessageList extends StatelessWidget {
                         : null,
                     onLinkPreviewDataFetched: onLinkPreviewDataFetched,
                     onMediaTap: onMediaTap,
+                    onActionSelected: onActionSelected,
                   ),
                 );
 
@@ -160,32 +165,36 @@ class ChatMessageList extends StatelessWidget {
                 return bubble;
     }
 
-    return CustomScrollView(
-      key: const ValueKey('content'),
-      controller: scrollController,
-      reverse: true,
-      slivers: [
-        SliverPadding(
-          padding: EdgeInsets.fromLTRB(16, 16 + topPadding, 16, 16),
-          sliver: SliverList(
-            delegate: SliverChildBuilderDelegate(
-              (context, index) {
-                final item = buildItem(context, index);
-                return index < chatState.messages.length
-                    ? keyedMessageItem(chatState.messages[index], item)
-                    : item;
-              },
-              findChildIndexCallback: messageChildIndexFinder(chatState.messages),
-              childCount: chatState.messages.isNotEmpty
-                  ? chatState.messages.length + (chatState.isLoading ? 1 : 0)
-                  : 0,
+    return GestureDetector(
+      behavior: HitTestBehavior.deferToChild,
+      onTap: onTapEmpty,
+      child: CustomScrollView(
+        key: const ValueKey('content'),
+        controller: scrollController,
+        reverse: true,
+        slivers: [
+          SliverPadding(
+            padding: EdgeInsets.fromLTRB(16, 16 + topPadding, 16, 16),
+            sliver: SliverList(
+              delegate: SliverChildBuilderDelegate(
+                (context, index) {
+                  final item = buildItem(context, index);
+                  return index < chatState.messages.length
+                      ? keyedMessageItem(chatState.messages[index], item)
+                      : item;
+                },
+                findChildIndexCallback: messageChildIndexFinder(chatState.messages),
+                childCount: chatState.messages.isNotEmpty
+                    ? chatState.messages.length + (chatState.isLoading ? 1 : 0)
+                    : 0,
+              ),
             ),
           ),
-        ),
-        SliverOverlapInjector(
-          handle: NestedScrollView.sliverOverlapAbsorberHandleFor(context),
-        ),
-      ],
+          SliverOverlapInjector(
+            handle: NestedScrollView.sliverOverlapAbsorberHandleFor(context),
+          ),
+        ],
+      ),
     );
   }
 }

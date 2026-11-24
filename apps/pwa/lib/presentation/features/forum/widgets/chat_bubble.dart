@@ -39,6 +39,7 @@ class ChatBubble extends StatefulWidget {
   final bool showActions;
   final bool showSenderInfo;
   final bool isGrouped;
+  final VoidCallback? onActionSelected;
 
   const ChatBubble({
     super.key,
@@ -60,6 +61,7 @@ class ChatBubble extends StatefulWidget {
     this.showActions = false,
     this.showSenderInfo = true,
     this.isGrouped = false,
+    this.onActionSelected,
   });
 
   @override
@@ -116,6 +118,7 @@ class _ChatBubbleState extends State<ChatBubble> {
                 onEdit: widget.onEdit,
                 onDelete: widget.onDelete,
                 onReport: widget.onReport,
+                onActionSelected: widget.onActionSelected,
               ),
           ],
         ),
@@ -419,6 +422,7 @@ class MessageActionBar extends StatelessWidget {
   final Function(ChatMessage)? onEdit;
   final Function(ChatMessage)? onDelete;
   final Function(ChatMessage)? onReport;
+  final VoidCallback? onActionSelected;
 
   const MessageActionBar({
     super.key,
@@ -427,6 +431,7 @@ class MessageActionBar extends StatelessWidget {
     this.onEdit,
     this.onDelete,
     this.onReport,
+    this.onActionSelected,
   });
 
   @override
@@ -461,6 +466,7 @@ class MessageActionBar extends StatelessWidget {
                   AppSnackBars.showInfo(context,
                       isPinned ? 'Message unpinned' : 'Message pinned');
                 }
+                onActionSelected?.call();
               },
               color: Colors.white70,
             ),
@@ -468,7 +474,10 @@ class MessageActionBar extends StatelessWidget {
             ActionBarItem(
               label: 'Edit',
               color: Colors.white70,
-              onTap: () => onEdit?.call(message),
+              onTap: () {
+                onEdit?.call(message);
+                onActionSelected?.call();
+              },
             ),
           if (message.message.isNotEmpty)
             ActionBarItem(
@@ -477,6 +486,7 @@ class MessageActionBar extends StatelessWidget {
                 Clipboard.setData(ClipboardData(text: message.message));
                 AppSnackBars.showSuccess(
                     context, 'Message copied to clipboard');
+                onActionSelected?.call();
               },
               color: Colors.white70,
             ),
@@ -484,43 +494,19 @@ class MessageActionBar extends StatelessWidget {
             ActionBarItem(
               label: 'Delete',
               color: Colors.redAccent,
-              onTap: () async {
-                final confirmed = await showDialog<bool>(
-                  context: context,
-                  builder: (ctx) => AlertDialog(
-                    backgroundColor: const Color(0xFF1A1A1A),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16)),
-                    title: const Text('Delete message?',
-                        style: TextStyle(color: Colors.white)),
-                    content: const Text(
-                      'This message will be removed for everyone.',
-                      style: TextStyle(color: Colors.white54),
-                    ),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(ctx, false),
-                        child: const Text('Cancel',
-                            style: TextStyle(color: Colors.white38)),
-                      ),
-                      TextButton(
-                        onPressed: () => Navigator.pop(ctx, true),
-                        child: const Text('Delete',
-                            style: TextStyle(
-                                color: Colors.redAccent,
-                                fontWeight: FontWeight.bold)),
-                      ),
-                    ],
-                  ),
-                );
-                if (confirmed == true) onDelete?.call(message);
+              onTap: () {
+                onDelete?.call(message);
+                onActionSelected?.call();
               },
             ),
           if (!message.isMe)
             ActionBarItem(
               label: 'Report',
               color: Colors.red,
-              onTap: () => onReport?.call(message),
+              onTap: () {
+                onReport?.call(message);
+                onActionSelected?.call();
+              },
             ),
         ],
       ),

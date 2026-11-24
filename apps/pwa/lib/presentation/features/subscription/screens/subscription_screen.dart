@@ -99,9 +99,9 @@ class _SubscriptionScreenState extends State<SubscriptionScreen>
             : Future<dynamic>.value(null),
       ]);
 
-      final plansRaw = results[0] as List;
-      final accountRaw = results[1] as Map<String, dynamic>?;
-      final subRaw = results[2] as Map<String, dynamic>?;
+      final plansRaw = results[0] is List ? results[0] as List : <dynamic>[];
+      final accountRaw = results[1] is Map ? results[1] as Map<String, dynamic>? : null;
+      final subRaw = results[2] is Map ? results[2] as Map<String, dynamic>? : null;
 
       final country = (accountRaw?['country_code'] as String?) ?? '';
 
@@ -109,9 +109,14 @@ class _SubscriptionScreenState extends State<SubscriptionScreen>
       PlanData? yearly;
 
       for (final p in plansRaw) {
-        final plan = PlanData.fromSupabase(p as Map<String, dynamic>, country);
-        if (plan.interval == 'month') monthly = plan;
-        if (plan.interval == 'year') yearly = plan;
+        if (p is! Map<String, dynamic>) continue;
+        try {
+          final plan = PlanData.fromSupabase(p, country);
+          if (plan.interval == 'month') monthly = plan;
+          if (plan.interval == 'year') yearly = plan;
+        } catch (_) {
+          // Skip plans with missing required fields
+        }
       }
 
       if (!mounted) return;

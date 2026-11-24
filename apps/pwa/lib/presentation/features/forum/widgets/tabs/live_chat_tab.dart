@@ -2,6 +2,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:lynk_core/core.dart';
+import 'package:lynk_x/presentation/shared/utils/app_snackbars.dart';
 import 'package:lynk_x/presentation/features/forum/cubit/forum_chat_cubit.dart';
 import 'package:lynk_x/presentation/features/forum/cubit/forum_chat_state.dart';
 import 'package:lynk_x/presentation/features/forum/cubit/forum_cubit.dart';
@@ -116,7 +117,18 @@ class _LiveChatTabState extends State<LiveChatTab>
                         isOrganizer: mainState.isOrganizer,
                         isPremium: mainState.isPremium,
                         onPin: (msg) => mainCubit.pinMessage(msg),
-                        onDelete: (msg) => chatCubit.deleteMessage(msg),
+                        onDelete: (msg) {
+                          chatCubit.deleteMessage(msg);
+                          AppSnackBars.showAction(
+                            context,
+                            content: const Text('Message deleted'),
+                            action: SnackBarAction(
+                              label: 'Undo',
+                              textColor: context.accentColor,
+                              onPressed: () => chatCubit.undoDeleteMessage(msg),
+                            ),
+                          );
+                        },
                         onEdit: (msg) => chatCubit.setEditingMessage(msg),
                         onReport: (msg) => showReportSheet(
                           context,
@@ -128,6 +140,10 @@ class _LiveChatTabState extends State<LiveChatTab>
                         onBan: (msg) => mainCubit.banUser(msg.userId),
                         onReply: (msg) => chatCubit.setReplyTo(msg),
                         onTapBubble: () =>
+                            setState(() => _selectedMessageId = null),
+                        onActionSelected: () =>
+                            setState(() => _selectedMessageId = null),
+                        onTapEmpty: () =>
                             setState(() => _selectedMessageId = null),
                         onMessageLongPress: (msg) {
                           setState(() {
