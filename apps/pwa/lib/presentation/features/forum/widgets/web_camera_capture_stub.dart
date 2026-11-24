@@ -1,4 +1,4 @@
-import 'package:cross_file/cross_file.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:material_ui/material_ui.dart';
 
 void revokeWebCameraCaptureUrl(String url) {}
