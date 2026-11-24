@@ -4,6 +4,7 @@ import 'package:lynk_core/core.dart';
 import 'package:lynk_x/data/repositories/repository_providers.dart';
 import 'package:lynk_x/presentation/features/ticket/cubit/ticket_cubit.dart';
 import 'package:lynk_x/presentation/features/ticket/models/ticket_model.dart';
+import 'package:lynk_x/presentation/shared/widgets/text_field.dart' as tf;
 import 'package:lynk_x/presentation/shared/utils/app_snackbars.dart';
 import 'username_lookup_field.dart';
 
@@ -129,21 +130,13 @@ class _ResellTicketSheetState extends State<ResellTicketSheet> {
           // Price
           const Text('Asking Price', style: TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w600)),
           const SizedBox(height: 8),
-          TextField(
+          tf.TextField(
+            label: 'Asking Price',
             controller: _priceController,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            style: const TextStyle(color: Colors.white),
             onChanged: (_) => setState(() {}),
-            decoration: InputDecoration(
-              hintText: '0.00',
-              hintStyle: const TextStyle(color: Colors.white30),
-              prefixText: _currency.isNotEmpty ? '$_currency ' : null,
-              prefixStyle: const TextStyle(color: Colors.white54),
-              filled: true,
-              fillColor: Colors.white.withValues(alpha: 0.06),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: context.accentColor, width: 1)),
-            ),
+            hintText: '0.00',
+            prefixText: _currency.isNotEmpty ? '$_currency ' : null,
           ),
           if (_maxPrice != null && (double.tryParse(_priceController.text.trim()) ?? 0) > _maxPrice!) ...[
             const SizedBox(height: 6),

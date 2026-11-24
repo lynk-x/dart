@@ -13,7 +13,8 @@ void showSpeakerInviteDialog(BuildContext context, String fromHostName) {
   showDialog<void>(
     context: context,
     barrierDismissible: false,
-    builder: (_) => SpeakerInviteDialog(fromHostName: fromHostName, parentContext: context),
+    builder: (_) =>
+        SpeakerInviteDialog(fromHostName: fromHostName, parentContext: context),
   );
 }
 
@@ -41,7 +42,12 @@ class _SpeakerInviteDialogState extends State<SpeakerInviteDialog> {
     if (!mounted) return;
     Navigator.pop(context);
     if (!success && widget.parentContext.mounted) {
-      AppSnackBars.showError(widget.parentContext, 'Could not join as a speaker — please try again.');
+      AppSnackBars.showError(
+        widget.parentContext,
+        'Could not join as a speaker.',
+        actionLabel: 'Retry',
+        onAction: () => _accept(),
+      );
     }
   }
 
@@ -54,7 +60,8 @@ class _SpeakerInviteDialogState extends State<SpeakerInviteDialog> {
   Widget build(BuildContext context) {
     return AlertDialog(
       title: const Text('Invited to Speak'),
-      content: Text('${widget.fromHostName} has invited you to speak in this call.'),
+      content:
+          Text('${widget.fromHostName} has invited you to speak in this call.'),
       actions: [
         TextButton(
           onPressed: _isResponding ? null : _decline,
@@ -86,7 +93,8 @@ void showVideoSpeakerInviteDialog(BuildContext context, String fromHostName) {
   showDialog<void>(
     context: context,
     barrierDismissible: false,
-    builder: (_) => VideoSpeakerInviteDialog(fromHostName: fromHostName, parentContext: context),
+    builder: (_) => VideoSpeakerInviteDialog(
+        fromHostName: fromHostName, parentContext: context),
   );
 }
 
@@ -101,7 +109,8 @@ class VideoSpeakerInviteDialog extends StatefulWidget {
   });
 
   @override
-  State<VideoSpeakerInviteDialog> createState() => _VideoSpeakerInviteDialogState();
+  State<VideoSpeakerInviteDialog> createState() =>
+      _VideoSpeakerInviteDialogState();
 }
 
 class _VideoSpeakerInviteDialogState extends State<VideoSpeakerInviteDialog> {
@@ -118,7 +127,12 @@ class _VideoSpeakerInviteDialogState extends State<VideoSpeakerInviteDialog> {
     if (!mounted) return;
     Navigator.pop(context);
     if (!success && widget.parentContext.mounted) {
-      AppSnackBars.showError(widget.parentContext, 'Could not join as a speaker — please try again.');
+      AppSnackBars.showError(
+        widget.parentContext,
+        'Could not join as a speaker.',
+        actionLabel: 'Retry',
+        onAction: () => _accept(),
+      );
     }
   }
 
@@ -131,7 +145,8 @@ class _VideoSpeakerInviteDialogState extends State<VideoSpeakerInviteDialog> {
   Widget build(BuildContext context) {
     return AlertDialog(
       title: const Text('Invited to Speak'),
-      content: Text('${widget.fromHostName} has invited you to speak in this call.'),
+      content:
+          Text('${widget.fromHostName} has invited you to speak in this call.'),
       actions: [
         TextButton(
           onPressed: _isResponding ? null : _decline,

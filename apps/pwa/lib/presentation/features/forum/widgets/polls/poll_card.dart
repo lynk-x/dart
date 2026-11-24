@@ -168,7 +168,12 @@ class _PollCardState extends State<PollCard> {
     } catch (e) {
       if (mounted) {
         setState(() => _isSubmitting = false);
-        AppSnackBars.showError(context, 'Failed to submit vote: $e');
+        AppSnackBars.showError(
+          context,
+          'Failed to submit vote: $e',
+          actionLabel: 'Retry',
+          onAction: () => _vote(_selectedIndex!),
+        );
       }
     }
   }

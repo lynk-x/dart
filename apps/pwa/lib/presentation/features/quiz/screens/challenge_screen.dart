@@ -48,6 +48,7 @@ class _ChallengeScreenState extends State<ChallengeScreen> {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.white),
+          tooltip: 'Back',
           onPressed: widget.onBack,
         ),
         title: RepaintBoundary(

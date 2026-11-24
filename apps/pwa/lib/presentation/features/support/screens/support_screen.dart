@@ -48,7 +48,7 @@ class _SupportScreenState extends State<SupportScreen> {
   Future<void> _startLiveChat() async {
     final userId = Supabase.instance.client.auth.currentUser?.id;
     if (userId == null) {
-      AppSnackBars.showInfo(context, 'Please log in first');
+      AppSnackBars.showError(context, 'Please log in first');
       return;
     }
 

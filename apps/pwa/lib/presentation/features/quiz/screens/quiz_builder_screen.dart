@@ -157,6 +157,7 @@ class _QuizBuilderViewState extends State<QuizBuilderView> {
             elevation: 0,
             leading: IconButton(
               icon: const Icon(Icons.close, color: Colors.white),
+              tooltip: 'Close',
               onPressed: () => _handleExit(context),
             ),
             title: Text(

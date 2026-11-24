@@ -302,12 +302,12 @@ class _PayoutSheetState extends State<PayoutSheet> {
                     onPressed: (isSubmitting || _selectedMethodId == null) ? null : () {
                       final amount = double.tryParse(_amountController.text.trim());
                       if (amount == null || amount <= 0) {
-                        AppSnackBars.showInfo(context, 'Please enter a valid amount');
+                        AppSnackBars.showError(context, 'Please enter a valid amount');
                         return;
                       }
                        final pin = _pinController.text.trim();
                        if (pin.length < 4) {
-                         AppSnackBars.showInfo(context, 'Please enter your wallet PIN');
+                         AppSnackBars.showError(context, 'Please enter your wallet PIN');
                          return;
                        }
                        context.read<WalletCubit>().requestWithdrawal(

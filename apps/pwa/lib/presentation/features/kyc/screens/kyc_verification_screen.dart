@@ -39,6 +39,7 @@ class _KycView extends StatelessWidget {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, size: 28, color: Colors.white),
+          tooltip: 'Back',
           onPressed: () => context.canPop() ? context.pop() : context.go('/'),
         ),
         title: const Text(

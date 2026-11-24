@@ -116,7 +116,15 @@ class _HomeViewState extends State<HomeView>
     final uri = Uri.parse(kWebAppBaseUrl);
     if (!await launchUrl(uri, mode: LaunchMode.inAppBrowserView)) {
       if (mounted) {
-        AppSnackBars.showError(context, 'Could not open the web app.');
+        AppSnackBars.showAction(
+          context,
+          content: const Text('Could not open the web app.'),
+          action: SnackBarAction(
+            label: 'Retry',
+            textColor: context.accentColor,
+            onPressed: _launchWebApp,
+          ),
+        );
       }
     }
   }
@@ -410,6 +418,7 @@ class _HomeViewState extends State<HomeView>
           IconButton(
             icon: Icon(Icons.close,
                 color: Colors.white.withValues(alpha: 0.3), size: 16),
+            tooltip: 'Dismiss',
             onPressed: _dismissWelcomeBanner,
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),

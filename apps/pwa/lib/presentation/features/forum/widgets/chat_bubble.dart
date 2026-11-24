@@ -450,7 +450,12 @@ class MessageActionBar extends StatelessWidget {
                     AppSnackBars.showInfo(context,
                         isPinned ? 'Message unpinned' : 'Message pinned');
                   } else {
-                    AppSnackBars.showError(context, 'Could not update pin.');
+                    AppSnackBars.showError(
+                      context,
+                      'Could not update pin.',
+                      actionLabel: 'Retry',
+                      onAction: () => onPin?.call(message),
+                    );
                   }
                 } else {
                   AppSnackBars.showInfo(context,

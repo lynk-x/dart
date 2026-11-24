@@ -197,21 +197,19 @@ class _ForumViewState extends State<ForumView> {
               return;
             }
             if (state.waveFromName != null && state.waveFromUserId != null) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Row(
-                    children: [
-                      const Text('👋 ', style: TextStyle(fontSize: 24)),
-                      Text(
-                        '${state.waveFromName} waved at you!',
-                        style: const TextStyle(color: Colors.black),
-                      ),
-                    ],
-                  ),
-                  behavior: SnackBarBehavior.floating,
-                  backgroundColor: context.accentColor,
-                  duration: const Duration(seconds: 4),
+              AppSnackBars.showNeutral(
+                context,
+                content: Row(
+                  children: [
+                    const Text('👋 ', style: TextStyle(fontSize: 24)),
+                    Text(
+                      '${state.waveFromName} waved at you!',
+                      style: const TextStyle(color: Colors.black),
+                    ),
+                  ],
                 ),
+                backgroundColor: context.accentColor,
+                duration: const Duration(seconds: 4),
               );
             }
           },

@@ -220,6 +220,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, size: 32, color: Colors.white),
+          tooltip: 'Back',
           onPressed: () => context.go('/'),
         ),
         title: const Text(
@@ -357,18 +358,44 @@ class _NotificationsPageState extends State<NotificationsPage> {
                   final cubit = context.read<NotificationCubit>();
                   cubit.deleteNotification(notification);
 
-                  ScaffoldMessenger.of(context).clearSnackBars();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('${notification.title} dismissed'),
-                      action: previousList != null
-                          ? SnackBarAction(
-                              label: 'Undo',
-                              onPressed: () => cubit.undoDelete(previousList),
-                            )
-                          : null,
-                    ),
-                  );
+                  if (previousList != null) {
+                    AppSnackBars.showAction(
+                      context,
+                      content: Row(
+                        children: [
+                          Icon(Icons.notifications_outlined, color: Colors.white70, size: 20),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              '${notification.title} dismissed',
+                              style: AppTypography.inter(fontSize: 13, color: Colors.white),
+                            ),
+                          ),
+                        ],
+                      ),
+                      action: SnackBarAction(
+                        label: 'Undo',
+                        textColor: context.accentColor,
+                        onPressed: () => cubit.undoDelete(previousList),
+                      ),
+                    );
+                  } else {
+                    AppSnackBars.showNeutral(
+                      context,
+                      content: Row(
+                        children: [
+                          Icon(Icons.notifications_outlined, color: Colors.white70, size: 20),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              '${notification.title} dismissed',
+                              style: AppTypography.inter(fontSize: 13, color: Colors.white),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
                 },
                 child: NotificationCard(
                   model: notification,
@@ -380,16 +407,41 @@ class _NotificationsPageState extends State<NotificationsPage> {
                         ? List<NotificationModel>.from(s.notifications)
                         : null;
                     cubit.deleteNotification(notification);
-                    AppSnackBars.showInfo(context, '${notification.title} dismissed');
                     if (prev != null && mounted) {
-                      ScaffoldMessenger.of(context).clearSnackBars();
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('${notification.title} dismissed'),
-                          action: SnackBarAction(
-                            label: 'Undo',
-                            onPressed: () => cubit.undoDelete(prev),
-                          ),
+                      AppSnackBars.showAction(
+                        context,
+                        content: Row(
+                          children: [
+                            Icon(Icons.notifications_outlined, color: Colors.white70, size: 20),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                '${notification.title} dismissed',
+                                style: AppTypography.inter(fontSize: 13, color: Colors.white),
+                              ),
+                            ),
+                          ],
+                        ),
+                        action: SnackBarAction(
+                          label: 'Undo',
+                          textColor: context.accentColor,
+                          onPressed: () => cubit.undoDelete(prev),
+                        ),
+                      );
+                    } else if (mounted) {
+                      AppSnackBars.showNeutral(
+                        context,
+                        content: Row(
+                          children: [
+                            Icon(Icons.notifications_outlined, color: Colors.white70, size: 20),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                '${notification.title} dismissed',
+                                style: AppTypography.inter(fontSize: 13, color: Colors.white),
+                              ),
+                            ),
+                          ],
                         ),
                       );
                     }

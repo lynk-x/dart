@@ -7,7 +7,6 @@ import 'package:lynk_x/core/utils/safe_launch.dart';
 import 'package:lynk_x/presentation/shared/utils/app_snackbars.dart';
 import 'subscription_widgets.dart';
 
-
 class SubscriptionScreen extends StatefulWidget {
   const SubscriptionScreen({super.key});
 
@@ -15,7 +14,8 @@ class SubscriptionScreen extends StatefulWidget {
   State<SubscriptionScreen> createState() => _SubscriptionScreenState();
 }
 
-class _SubscriptionScreenState extends State<SubscriptionScreen> with WidgetsBindingObserver {
+class _SubscriptionScreenState extends State<SubscriptionScreen>
+    with WidgetsBindingObserver {
   final _supabase = Supabase.instance.client;
 
   // ── loading / processing ───────────────────────────────────────────────────
@@ -69,18 +69,16 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> with WidgetsBin
     try {
       final uid = _supabase.auth.currentUser?.id;
 
-        // Active subscription
+      // Active subscription
       final activeSubQuery = _supabase
           .schema('api')
           .from('v1_subscriptions')
           .select('id, plan_id, ends_at')
-          .inFilter('status', ['active', 'trialing'])
-          .eq('is_latest', true);
+          .inFilter('status', ['active', 'trialing']).eq('is_latest', true);
 
       final results = await Future.wait<dynamic>([
-        _supabase
-            .schema('api')
-            .rpc('get_subscription_catalog', params: {'p_product_type': 'attendee_premium'}),
+        _supabase.schema('api').rpc('get_subscription_catalog',
+            params: {'p_product_type': 'attendee_premium'}),
 
         // Get user's owner attendee account country.
         uid != null
@@ -96,7 +94,9 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> with WidgetsBin
             : Future<dynamic>.value(null),
 
         // Active subscription (RLS automatically scopes to the authenticated user's account)
-        uid != null ? activeSubQuery.maybeSingle() : Future<dynamic>.value(null),
+        uid != null
+            ? activeSubQuery.maybeSingle()
+            : Future<dynamic>.value(null),
       ]);
 
       final plansRaw = results[0] as List;
@@ -129,7 +129,8 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> with WidgetsBin
         _hasError = false;
       });
     } catch (e, stack) {
-      debugPrint('[SubscriptionScreen] Error loading subscription plans: $e\n$stack');
+      debugPrint(
+          '[SubscriptionScreen] Error loading subscription plans: $e\n$stack');
       if (mounted) {
         setState(() {
           _isLoading = false;
@@ -163,8 +164,8 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> with WidgetsBin
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Cancel',
-                style: TextStyle(color: Colors.redAccent)),
+            child:
+                const Text('Cancel', style: TextStyle(color: Colors.redAccent)),
           ),
         ],
       ),
@@ -179,11 +180,17 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> with WidgetsBin
         'p_reason': 'user_requested',
       });
       if (!mounted) return;
-      AppSnackBars.showInfo(context, 'Subscription cancelled. Access continues until period end.');
+      AppSnackBars.showInfo(context,
+          'Subscription cancelled. Access continues until period end.');
       _load();
     } catch (e) {
       if (!mounted) return;
-      _showError(e.toFriendlyMessage());
+      AppSnackBars.showError(
+        context,
+        e.toFriendlyMessage(),
+        actionLabel: 'Retry',
+        onAction: () => _cancelSubscription(),
+      );
     } finally {
       if (mounted) setState(() => _isProcessing = false);
     }
@@ -212,16 +219,21 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> with WidgetsBin
 
   // ── feedback helpers ──────────────────────────────────────────────────────
 
-  void _showError(String msg) {
-    AppSnackBars.showError(context, msg);
-  }
-
-  String _fmt(DateTime dt) =>
-      '${dt.day} ${_months[dt.month - 1]} ${dt.year}';
+  String _fmt(DateTime dt) => '${dt.day} ${_months[dt.month - 1]} ${dt.year}';
 
   static const _months = [
-    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
   ];
 
   // ── build ─────────────────────────────────────────────────────────────────
@@ -235,6 +247,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> with WidgetsBin
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, size: 28, color: Colors.white),
+          tooltip: 'Back',
           onPressed: () => context.go('/'),
         ),
         title: RepaintBoundary(
@@ -247,7 +260,8 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> with WidgetsBin
         centerTitle: true,
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: AppColors.secondary))
+          ? const Center(
+              child: CircularProgressIndicator(color: AppColors.secondary))
           : _hasError
               ? _buildError()
               : _monthlyPlan == null
@@ -267,7 +281,10 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> with WidgetsBin
             const SizedBox(height: 16),
             const Text(
               'Could not load plans',
-              style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+              style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
             const Text(
@@ -286,7 +303,8 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> with WidgetsBin
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.secondary,
                 foregroundColor: Colors.black,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
               ),
             ),
           ],
@@ -388,8 +406,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> with WidgetsBin
                 Text(
                   'Renews ${_fmt(_activeEndsAt!)}',
                   style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.4),
-                      fontSize: 13),
+                      color: Colors.white.withValues(alpha: 0.4), fontSize: 13),
                 ),
               ],
 

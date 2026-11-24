@@ -28,6 +28,7 @@ class WalletListPage extends StatelessWidget {
         actions: [
           IconButton(
             icon: const Icon(Icons.add, color: Colors.white),
+            tooltip: 'Add wallet',
             onPressed: () => _showAddWalletDialog(context),
           ),
           const SizedBox(width: 8),

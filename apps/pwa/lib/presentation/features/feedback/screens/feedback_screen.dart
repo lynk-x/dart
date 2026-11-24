@@ -46,7 +46,7 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
 
   Future<void> _submitFeedback() async {
     if (_feedbackController.text.trim().isEmpty) {
-      AppSnackBars.showInfo(context, 'Please enter your feedback');
+      AppSnackBars.showError(context, 'Please enter your feedback');
       return;
     }
 
@@ -122,6 +122,7 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, size: 32, color: Colors.white),
+          tooltip: 'Back',
           onPressed: () => context.pop(),
         ),
         title: Text(

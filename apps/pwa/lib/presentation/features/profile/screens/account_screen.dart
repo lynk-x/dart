@@ -441,6 +441,7 @@ class _AccountPageState extends State<AccountPage> {
         centerTitle: true,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
+          tooltip: 'Back',
           onPressed: () => context.pop(),
         ),
         title: Text(

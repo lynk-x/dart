@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:lynk_core/core.dart';
+import 'package:lynk_x/presentation/shared/widgets/text_field.dart' as tf;
 import 'package:lynk_x/presentation/features/ticket/cubit/ticket_cubit.dart';
 import 'package:lynk_x/presentation/features/ticket/models/ticket_model.dart';
 import 'package:lynk_x/presentation/shared/utils/app_snackbars.dart';
@@ -33,13 +34,31 @@ class _RequestRefundDialogState extends State<RequestRefundDialog> {
   final _reasonController = TextEditingController();
   bool _isSubmitting = false;
 
+  static const _commonReasons = [
+    "Can't attend",
+    'Event cancelled',
+    'Duplicate purchase',
+    'Wrong date selected',
+    'Other',
+  ];
+
   @override
   void dispose() {
     _reasonController.dispose();
     super.dispose();
   }
 
-  bool get _canSubmit => !_isSubmitting && _reasonController.text.trim().isNotEmpty;
+  void _selectReason(String reason) {
+    if (reason == 'Other') {
+      _reasonController.clear();
+    } else {
+      _reasonController.text = reason;
+    }
+    setState(() {});
+  }
+
+  bool get _canSubmit =>
+      !_isSubmitting && _reasonController.text.trim().isNotEmpty;
 
   Future<void> _submit() async {
     final reason = _reasonController.text.trim();
@@ -88,26 +107,35 @@ class _RequestRefundDialogState extends State<RequestRefundDialog> {
             style: TextStyle(color: Colors.white60),
           ),
           const SizedBox(height: 16),
-          TextField(
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: _commonReasons.map((reason) {
+              final isSelected = _reasonController.text.trim() == reason;
+              return ChoiceChip(
+                label: Text(
+                  reason,
+                  style: TextStyle(
+                    color: isSelected ? Colors.black : Colors.white70,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                selected: isSelected,
+                onSelected: (_) => _selectReason(reason),
+                selectedColor: context.accentColor,
+                backgroundColor: Colors.white.withValues(alpha: 0.06),
+                labelStyle: const TextStyle(fontSize: 12),
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 16),
+          tf.TextField(
+            label: 'Reason for refund',
             controller: _reasonController,
             autofocus: true,
             maxLines: 3,
-            style: const TextStyle(color: Colors.white),
             onChanged: (_) => setState(() {}),
-            decoration: InputDecoration(
-              hintText: 'Reason for refund',
-              hintStyle: const TextStyle(color: Colors.white30),
-              filled: true,
-              fillColor: Colors.white10,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide.none,
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: context.accentColor, width: 1),
-              ),
-            ),
           ),
         ],
       ),

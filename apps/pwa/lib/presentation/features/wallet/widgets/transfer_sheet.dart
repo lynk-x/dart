@@ -76,13 +76,13 @@ class _TransferSheetState extends State<TransferSheet> {
 
   void _submit() {
     if (_recipientDetails == null && !_isResolvingRecipient) {
-      AppSnackBars.showInfo(context, 'Recipient account not found');
+      AppSnackBars.showError(context, 'Recipient account not found');
       return;
     }
 
     final amount = _parsedAmount;
     if (amount == null || amount <= 0) {
-      AppSnackBars.showInfo(context, 'Please enter a valid amount');
+      AppSnackBars.showError(context, 'Please enter a valid amount');
       return;
     }
 
@@ -90,13 +90,13 @@ class _TransferSheetState extends State<TransferSheet> {
         .firstWhere((b) => b?.currency == _currency, orElse: () => null);
 
     if (balance == null || balance.cashBalance < amount) {
-      AppSnackBars.showInfo(context, 'Insufficient balance');
+      AppSnackBars.showError(context, 'Insufficient balance');
       return;
     }
 
     final pin = _pinController.text.trim();
     if (pin.length < 4) {
-      AppSnackBars.showInfo(context, 'Please enter your wallet PIN');
+      AppSnackBars.showError(context, 'Please enter your wallet PIN');
       return;
     }
 

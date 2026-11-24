@@ -159,6 +159,7 @@ class _WalletPageState extends State<WalletPage> {
           centerTitle: true,
           leading: IconButton(
             icon: const Icon(Icons.arrow_back, color: Colors.white70),
+            tooltip: 'Back',
             onPressed: () => context.go('/'),
           ),
           title: Text(

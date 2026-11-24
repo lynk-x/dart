@@ -76,6 +76,7 @@ class SessionsView extends StatelessWidget {
           centerTitle: true,
           leading: IconButton(
             icon: const Icon(Icons.arrow_back, color: Colors.white, size: 32),
+            tooltip: 'Back',
             onPressed: () => _backToForum(context),
           ),
           title: Text(
@@ -340,11 +341,11 @@ class SessionsView extends StatelessWidget {
                   onPressed: () {
                     final title = titleController.text.trim();
                     if (title.isEmpty) {
-                      AppSnackBars.showInfo(bottomContext, 'Session title is required.');
+                      AppSnackBars.showError(bottomContext, 'Session title is required.');
                       return;
                     }
                     if (!endsAt.isAfter(startsAt)) {
-                      AppSnackBars.showInfo(bottomContext, 'End time must be after start time.');
+                      AppSnackBars.showError(bottomContext, 'End time must be after start time.');
                       return;
                     }
 

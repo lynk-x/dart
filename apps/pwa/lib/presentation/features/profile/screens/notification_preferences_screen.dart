@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lynk_core/core.dart';
 import 'package:lynk_x/data/repositories/repository_providers.dart';
+import 'package:lynk_x/presentation/shared/utils/app_snackbars.dart';
 
 /// Client-side grouping of `notification_types` categories — the schema
 /// doesn't carry a group column, so this mirrors the taxonomy documented in
@@ -74,6 +75,7 @@ class _NotificationPreferencesView extends StatelessWidget {
         centerTitle: true,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
+          tooltip: 'Back',
           onPressed: () => context.pop(),
         ),
         title: Text(
@@ -89,11 +91,7 @@ class _NotificationPreferencesView extends StatelessWidget {
           NotificationPreferencesState>(
         listener: (context, state) {
           if (state is NotificationPreferencesLoaded && state.error != null) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                  content: Text(state.error!),
-                  backgroundColor: Colors.redAccent),
-            );
+            AppSnackBars.showError(context, state.error!);
           }
         },
         builder: (context, state) {

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:material_ui/material_ui.dart';
 import 'package:lynk_core/core.dart';
 import 'package:lynk_x/data/repositories/repositories.dart';
+import 'package:lynk_x/presentation/shared/widgets/text_field.dart' as tf;
 
 /// A username text field that debounces input and checks (via
 /// [TicketRepository.checkUsernameExists]) whether a matching user exists,
@@ -122,24 +123,10 @@ class _UsernameLookupFieldState extends State<UsernameLookupField> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        TextField(
+        tf.TextField(
+          label: widget.hintText,
           controller: widget.controller,
-          style: const TextStyle(color: Colors.white),
-          decoration: InputDecoration(
-            hintText: widget.hintText,
-            hintStyle: const TextStyle(color: Colors.white30),
-            filled: true,
-            fillColor: Colors.white.withValues(alpha: 0.06),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide.none,
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: context.accentColor, width: 1),
-            ),
-            suffixIcon: _suffixIcon(context),
-          ),
+          suffixIcon: _suffixIcon(context),
         ),
         if (value.length >= 3 && !isEmail && !_isChecking) ...[
           const SizedBox(height: 6),

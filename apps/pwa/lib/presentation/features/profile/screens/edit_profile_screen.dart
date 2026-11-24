@@ -404,6 +404,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
               centerTitle: true,
               leading: IconButton(
                 icon: const Icon(Icons.close, color: Colors.white),
+                tooltip: 'Close',
                 onPressed: () {
                   if (_hasChanges(profile)) {
                     // Trigger PopScope logic via Navigator pop

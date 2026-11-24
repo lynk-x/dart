@@ -238,19 +238,16 @@ class _TicketScannerSheetState extends State<TicketScannerSheet> {
     }
 
     if (mounted) {
-      ScaffoldMessenger.of(context).clearSnackBars();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            mode == FeedbackMode.sound
-                ? 'Audio and Vibration Enabled'
-                : mode == FeedbackMode.vibration
-                    ? 'Vibration Only'
-                    : 'Silent Mode Enabled',
-          ),
-          duration: const Duration(seconds: 1),
-          behavior: SnackBarBehavior.floating,
+      AppSnackBars.showNeutral(
+        context,
+        content: Text(
+          mode == FeedbackMode.sound
+              ? 'Audio and Vibration Enabled'
+              : mode == FeedbackMode.vibration
+                  ? 'Vibration Only'
+                  : 'Silent Mode Enabled',
         ),
+        duration: const Duration(seconds: 1),
       );
     }
   }
@@ -287,13 +284,10 @@ class _TicketScannerSheetState extends State<TicketScannerSheet> {
       setState(() {
         _torchEnabled = nextState;
       });
-      ScaffoldMessenger.of(context).clearSnackBars();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(_torchEnabled ? 'Flashlight ON' : 'Flashlight OFF'),
-          duration: const Duration(seconds: 1),
-          behavior: SnackBarBehavior.floating,
-        ),
+      AppSnackBars.showNeutral(
+        context,
+        content: Text(_torchEnabled ? 'Flashlight ON' : 'Flashlight OFF'),
+        duration: const Duration(seconds: 1),
       );
     }
   }
@@ -309,15 +303,12 @@ class _TicketScannerSheetState extends State<TicketScannerSheet> {
       }
     }
     if (mounted) {
-      ScaffoldMessenger.of(context).clearSnackBars();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(success
-              ? 'Switched camera source'
-              : 'No alternative camera source available'),
-          duration: const Duration(seconds: 1),
-          behavior: SnackBarBehavior.floating,
-        ),
+      AppSnackBars.showNeutral(
+        context,
+        content: Text(success
+            ? 'Switched camera source'
+            : 'No alternative camera source available'),
+        duration: const Duration(seconds: 1),
       );
     }
   }
@@ -521,13 +512,10 @@ class _TicketScannerSheetState extends State<TicketScannerSheet> {
                 if (Navigator.canPop(context)) {
                   Navigator.pop(context); // Close the drawer
                 }
-                ScaffoldMessenger.of(context).clearSnackBars();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Scan history cleared'),
-                    duration: Duration(seconds: 1),
-                    behavior: SnackBarBehavior.floating,
-                  ),
+                AppSnackBars.showNeutral(
+                  context,
+                  content: const Text('Scan history cleared'),
+                  duration: const Duration(seconds: 1),
                 );
               },
             );
@@ -539,6 +527,7 @@ class _TicketScannerSheetState extends State<TicketScannerSheet> {
           leading: IconButton(
             icon: const Icon(Icons.arrow_back_rounded,
                 color: Colors.white, size: 32),
+            tooltip: 'Back',
             onPressed: () => Navigator.pop(context),
           ),
           titleSpacing: 0,

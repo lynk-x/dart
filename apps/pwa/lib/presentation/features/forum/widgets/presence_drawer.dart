@@ -451,7 +451,21 @@ class _PresenceDrawerState extends State<PresenceDrawer> {
                 );
                 if (!context.mounted) return;
                 if (!ok) {
-                  AppSnackBars.showError(context, 'Could not switch camera.');
+                  AppSnackBars.showError(
+                    context,
+                    'Could not switch camera.',
+                    actionLabel: 'Retry',
+                    onAction: () async {
+                      final ok2 = await MediaDeviceManager().switchCameraDevice(
+                        ForumVideoStage.elementId,
+                        val,
+                      );
+                      if (!context.mounted) return;
+                      if (!ok2) {
+                        AppSnackBars.showError(context, 'Camera switch failed.');
+                      }
+                    },
+                  );
                 }
               },
             ),
@@ -468,7 +482,18 @@ class _PresenceDrawerState extends State<PresenceDrawer> {
                 final ok = await MediaDeviceManager().switchAudioDevice(val);
                 if (!context.mounted) return;
                 if (!ok) {
-                  AppSnackBars.showError(context, 'Could not switch microphone.');
+                  AppSnackBars.showError(
+                    context,
+                    'Could not switch microphone.',
+                    actionLabel: 'Retry',
+                    onAction: () async {
+                      final ok2 = await MediaDeviceManager().switchAudioDevice(val);
+                      if (!context.mounted) return;
+                      if (!ok2) {
+                        AppSnackBars.showError(context, 'Microphone switch failed.');
+                      }
+                    },
+                  );
                 }
               },
             ),
@@ -488,7 +513,21 @@ class _PresenceDrawerState extends State<PresenceDrawer> {
                 );
                 if (!context.mounted) return;
                 if (!ok) {
-                  AppSnackBars.showError(context, 'Could not switch audio output.');
+                  AppSnackBars.showError(
+                    context,
+                    'Could not switch audio output.',
+                    actionLabel: 'Retry',
+                    onAction: () async {
+                      final ok2 = await MediaDeviceManager().switchAudioOutputDevice(
+                        ForumVideoStage.elementId,
+                        val,
+                      );
+                      if (!context.mounted) return;
+                      if (!ok2) {
+                        AppSnackBars.showError(context, 'Audio output switch failed.');
+                      }
+                    },
+                  );
                 }
               },
             ),

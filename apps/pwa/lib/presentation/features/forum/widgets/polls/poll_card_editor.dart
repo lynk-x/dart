@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:lynk_core/core.dart';
 import 'package:lynk_x/data/repositories/repository_providers.dart';
 import 'package:lynk_x/presentation/shared/utils/app_snackbars.dart';
 import 'package:lynk_x/presentation/features/forum/cubit/forum_chat_cubit.dart';
@@ -145,7 +146,15 @@ class _PollCardEditorViewState extends State<_PollCardEditorView> {
           prev.error != curr.error || prev.isPublished != curr.isPublished,
       listener: (context, state) {
         if (state.error != null) {
-          AppSnackBars.showError(context, state.error!);
+          AppSnackBars.showAction(
+            context,
+            content: Text(state.error!),
+            action: SnackBarAction(
+              label: 'Retry',
+              textColor: context.accentColor,
+              onPressed: () => context.read<QuizBuilderCubit>().saveDraftAndPublish(widget.messageType),
+            ),
+          );
         } else if (state.isPublished) {
           AppSnackBars.showSuccess(context, 'Poll posted!');
           _pushLocalMessage(context, state);

@@ -537,16 +537,28 @@ class _MediaTabState extends State<MediaTab>
     } catch (e) {
       if (context.mounted) {
         final message = e.toString().replaceFirst('Exception: ', '');
-        AppSnackBars.showError(
-          context,
-          message.isNotEmpty
-              ? message
-              : 'Access denied or upload failed. Please check your device settings.',
-          actionLabel: mediaCubit.hasFailedUploads ? 'Retry' : null,
-          onAction: mediaCubit.hasFailedUploads
-              ? () => _retryFailed(context, mediaCubit)
-              : null,
-        );
+        if (mediaCubit.hasFailedUploads) {
+          AppSnackBars.showAction(
+            context,
+            content: Text(
+              message.isNotEmpty
+                  ? message
+                  : 'Access denied or upload failed. Please check your device settings.',
+            ),
+            action: SnackBarAction(
+              label: 'Retry',
+              textColor: context.accentColor,
+              onPressed: () => _retryFailed(context, mediaCubit),
+            ),
+          );
+        } else {
+          AppSnackBars.showError(
+            context,
+            message.isNotEmpty
+                ? message
+                : 'Access denied or upload failed. Please check your device settings.',
+          );
+        }
       }
     }
   }
@@ -571,14 +583,22 @@ class _MediaTabState extends State<MediaTab>
       }
     } catch (e) {
       if (context.mounted) {
-        AppSnackBars.showError(
-          context,
-          e.toString().replaceFirst('Exception: ', ''),
-          actionLabel: mediaCubit.hasFailedUploads ? 'Retry' : null,
-          onAction: mediaCubit.hasFailedUploads
-              ? () => _retryFailed(context, mediaCubit)
-              : null,
-        );
+        if (mediaCubit.hasFailedUploads) {
+          AppSnackBars.showAction(
+            context,
+            content: Text(e.toString().replaceFirst('Exception: ', '')),
+            action: SnackBarAction(
+              label: 'Retry',
+              textColor: context.accentColor,
+              onPressed: () => _retryFailed(context, mediaCubit),
+            ),
+          );
+        } else {
+          AppSnackBars.showError(
+            context,
+            e.toString().replaceFirst('Exception: ', ''),
+          );
+        }
       }
     }
   }

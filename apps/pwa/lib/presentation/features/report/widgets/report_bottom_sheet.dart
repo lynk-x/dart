@@ -218,6 +218,7 @@ class _ReportSheetState extends State<_ReportSheet> {
                     ),
                     IconButton(
                       icon: const Icon(Icons.close, color: Colors.white54),
+                      tooltip: 'Close',
                       onPressed: () => Navigator.pop(context),
                     ),
                   ],

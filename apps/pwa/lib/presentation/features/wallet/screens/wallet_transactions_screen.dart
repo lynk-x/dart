@@ -2,6 +2,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:go_router/go_router.dart';
 import 'package:lynk_core/core.dart';
 import 'package:lynk_x/presentation/features/wallet/cubit/wallet_cubit.dart';
 import 'package:lynk_x/presentation/features/wallet/cubit/wallet_state.dart';
@@ -331,20 +332,29 @@ class _WalletTransactionsPageState extends State<WalletTransactionsPage> {
 
   Future<void> _openCardPaymentUrl(BuildContext context, String url) async {
     final uri = Uri.tryParse(url);
-    if (uri == null || uri.scheme != 'https') {
-      if (context.mounted) {
-        AppSnackBars.showError(
-            context, 'Invalid payment URL. Please contact support.');
+      if (uri == null || uri.scheme != 'https') {
+        if (context.mounted) {
+          AppSnackBars.showError(
+            context,
+            'Invalid payment URL. Please contact support.',
+            actionLabel: 'Support',
+            onAction: () => context.push('/support'),
+          );
+        }
+        return;
       }
-      return;
-    }
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.inAppBrowserView);
-    } else {
-      if (context.mounted) {
-        AppSnackBars.showError(context, 'Could not open payment page.');
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.inAppBrowserView);
+      } else {
+        if (context.mounted) {
+          AppSnackBars.showError(
+            context,
+            'Could not open payment page.',
+            actionLabel: 'Retry',
+            onAction: () => _openCardPaymentUrl(context, url),
+          );
+        }
       }
-    }
     if (context.mounted) {
       context.read<WalletCubit>().resetTopUp();
     }

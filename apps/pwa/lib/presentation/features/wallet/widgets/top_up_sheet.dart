@@ -70,14 +70,14 @@ class _TopUpSheetState extends State<TopUpSheet> {
   void _submit() {
     final amount = _parsedAmount;
     if (amount == null || amount <= 0) {
-      AppSnackBars.showInfo(context, 'Please enter a valid amount');
+      AppSnackBars.showError(context, 'Please enter a valid amount');
       return;
     }
     final cubit = context.read<WalletCubit>();
     if (_isMpesa) {
       final phone = _phoneController.text.trim();
       if (phone.length < 9) {
-        AppSnackBars.showInfo(context, 'Please enter a valid phone number');
+        AppSnackBars.showError(context, 'Please enter a valid phone number');
         return;
       }
       cubit.initiateTopUp(
