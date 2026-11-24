@@ -74,8 +74,9 @@ class _SubscriptionScreenState extends State<SubscriptionScreen>
           .schema('api')
           .from('v1_subscriptions')
           .select('id, plan_id, ends_at')
-          .inFilter('status', ['active', 'trialing']).eq('is_latest', true)
-          .limit(1);
+          .inFilter('status', ['active', 'trialing'])
+          .eq('is_latest', true)
+          .order('ends_at', ascending: false);
 
       final results = await Future.wait<dynamic>([
         _supabase.schema('api').rpc('get_subscription_catalog',
@@ -96,13 +97,14 @@ class _SubscriptionScreenState extends State<SubscriptionScreen>
 
         // Active subscription (RLS automatically scopes to the authenticated user's account)
         uid != null
-            ? activeSubQuery.maybeSingle()
+            ? activeSubQuery
             : Future<dynamic>.value(null),
       ]);
 
       final plansRaw = results[0] is List ? results[0] as List : <dynamic>[];
       final accountRaw = results[1] is Map ? results[1] as Map<String, dynamic>? : null;
-      final subRaw = results[2] is Map ? results[2] as Map<String, dynamic>? : null;
+      final subList = results[2] is List ? results[2] as List<dynamic>? : null;
+      final subRaw = subList?.isNotEmpty == true ? subList!.first as Map<String, dynamic> : null;
 
       final country = (accountRaw?['country_code'] as String?) ?? '';
 
