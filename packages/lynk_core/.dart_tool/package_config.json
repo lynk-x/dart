@@ -38,12 +38,6 @@
       "languageVersion": "3.4"
     },
     {
-      "name": "auth_buttons",
-      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/auth_buttons-3.0.3",
-      "packageUri": "lib/",
-      "languageVersion": "3.3"
-    },
-    {
       "name": "bloc",
       "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/bloc-9.2.1",
       "packageUri": "lib/",
@@ -60,12 +54,6 @@
       "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/characters-1.4.1",
       "packageUri": "lib/",
       "languageVersion": "3.4"
-    },
-    {
-      "name": "cli_util",
-      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/cli_util-0.6.1",
-      "packageUri": "lib/",
-      "languageVersion": "3.7"
     },
     {
       "name": "clock",
@@ -90,12 +78,6 @@
       "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/convert-3.1.2",
       "packageUri": "lib/",
       "languageVersion": "3.4"
-    },
-    {
-      "name": "country_flags",
-      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/country_flags-4.1.2",
-      "packageUri": "lib/",
-      "languageVersion": "3.0"
     },
     {
       "name": "cross_file",
@@ -198,12 +180,6 @@
       "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/flutter_plugin_android_lifecycle-2.0.35",
       "packageUri": "lib/",
       "languageVersion": "3.10"
-    },
-    {
-      "name": "flutter_svg",
-      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/flutter_svg-2.5.0",
-      "packageUri": "lib/",
-      "languageVersion": "3.12"
     },
     {
       "name": "flutter_test",
@@ -332,18 +308,6 @@
       "languageVersion": "3.3"
     },
     {
-      "name": "jovial_misc",
-      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/jovial_misc-0.10.0",
-      "packageUri": "lib/",
-      "languageVersion": "3.0"
-    },
-    {
-      "name": "jovial_svg",
-      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/jovial_svg-1.1.31",
-      "packageUri": "lib/",
-      "languageVersion": "3.12"
-    },
-    {
       "name": "json_annotation",
       "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/json_annotation-4.12.0",
       "packageUri": "lib/",
@@ -458,12 +422,6 @@
       "languageVersion": "3.4"
     },
     {
-      "name": "path_parsing",
-      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/path_parsing-1.1.0",
-      "packageUri": "lib/",
-      "languageVersion": "3.3"
-    },
-    {
       "name": "path_provider",
       "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/path_provider-2.1.6",
       "packageUri": "lib/",
@@ -498,12 +456,6 @@
       "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/path_provider_windows-2.3.0",
       "packageUri": "lib/",
       "languageVersion": "3.2"
-    },
-    {
-      "name": "petitparser",
-      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/petitparser-7.1.0",
-      "packageUri": "lib/",
-      "languageVersion": "3.13"
     },
     {
       "name": "platform",
@@ -722,24 +674,6 @@
       "languageVersion": "3.10"
     },
     {
-      "name": "vector_graphics",
-      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/vector_graphics-1.3.1",
-      "packageUri": "lib/",
-      "languageVersion": "3.11"
-    },
-    {
-      "name": "vector_graphics_codec",
-      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/vector_graphics_codec-1.2.0",
-      "packageUri": "lib/",
-      "languageVersion": "3.11"
-    },
-    {
-      "name": "vector_graphics_compiler",
-      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/vector_graphics_compiler-1.3.6",
-      "packageUri": "lib/",
-      "languageVersion": "3.11"
-    },
-    {
       "name": "vector_math",
       "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/vector_math-2.4.4",
       "packageUri": "lib/",
@@ -780,12 +714,6 @@
       "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/xdg_directories-1.1.0",
       "packageUri": "lib/",
       "languageVersion": "3.3"
-    },
-    {
-      "name": "xml",
-      "rootUri": "file:///home/k3nny/.pub-cache/hosted/pub.dev/xml-7.0.1",
-      "packageUri": "lib/",
-      "languageVersion": "3.11"
     },
     {
       "name": "yaml",

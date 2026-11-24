@@ -1,6 +1,5 @@
-import 'package:material_ui/material_ui.dart' hide Badge;
+import 'package:material_ui/material_ui.dart';
 import 'package:web/web.dart' as web;
-import 'package:badges/badges.dart' as badges;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -450,15 +449,10 @@ class _HomeViewState extends State<HomeView>
             final unreadCount =
                 state is NotificationLoaded ? state.unreadCount : 0;
             return IconButton(
-              icon: badges.Badge(
-                showBadge: unreadCount > 0,
-                badgeContent: null,
-                badgeStyle: const badges.BadgeStyle(
-                  badgeColor: Colors.red,
-                  padding: EdgeInsets.all(4),
-                  elevation: 0,
-                ),
-                position: badges.BadgePosition.topEnd(top: 5, end: 5),
+              icon: Badge(
+                isLabelVisible: unreadCount > 0,
+                backgroundColor: Colors.red,
+                smallSize: 8,
                 child: const Icon(
                   Icons.notifications,
                   color: Colors.white,

@@ -1,5 +1,5 @@
 import 'package:material_ui/material_ui.dart';
-import 'package:timeago/timeago.dart' as timeago;
+import 'package:lynk_x/core/utils/time_ago.dart';
 import 'package:lynk_x/presentation/features/forum/models/forum_model.dart';
 import 'package:lynk_core/core.dart';
 
@@ -17,7 +17,7 @@ class MediaAttribution extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final relativeTime = timeago.format(media.createdAt, locale: 'en_short');
+    final relativeTime = formatTimeAgo(media.createdAt);
     final uploaderName = media.uploaderName;
     final displayName = isUploader ? 'You' : uploaderName;
     final text = displayName != null && displayName.isNotEmpty

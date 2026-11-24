@@ -1,6 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:lynk_core/core.dart';
-import 'package:timeago/timeago.dart' as timeago;
+import 'package:lynk_x/core/utils/time_ago.dart';
 import 'package:lynk_x/presentation/features/notifications/models/notification_model.dart';
 import 'package:lynk_x/core/utils/breakpoints.dart';
 
@@ -81,7 +81,7 @@ class NotificationCard extends StatelessWidget {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(
-                            timeago.format(model.createdAt, locale: 'en_short'),
+                            formatTimeAgo(model.createdAt),
                             style: AppTypography.inter(
                               fontSize: 12,
                               color: isRead ? Colors.white38 : Colors.white60,

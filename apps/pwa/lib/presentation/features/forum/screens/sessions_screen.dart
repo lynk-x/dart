@@ -1,5 +1,4 @@
 import 'package:material_ui/material_ui.dart';
-import 'package:cupertino_ui/cupertino_ui.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:lynk_core/core.dart';
@@ -9,6 +8,7 @@ import '../cubit/forum_sessions_state.dart';
 import '../widgets/skeletons.dart';
 import 'package:lynk_x/presentation/shared/utils/app_snackbars.dart';
 import 'package:lynk_x/data/repositories/repository_providers.dart';
+import 'package:lynk_x/presentation/shared/widgets/app_wheel_date_picker.dart';
 
 class SessionsScreen extends StatelessWidget {
   final String? forumId;
@@ -673,74 +673,14 @@ class _DateTimePicker extends StatelessWidget {
             if (maximumDate != null && clampedInitial.isAfter(maximumDate!)) {
               clampedInitial = maximumDate!;
             }
-            DateTime tempDateTime = clampedInitial;
-            showCupertinoModalPopup<void>(
-              context: context,
-              builder: (BuildContext modalContext) => CupertinoTheme(
-                data: const CupertinoThemeData(
-                  brightness: Brightness.dark,
-                ),
-                child: Container(
-                  height: 300,
-                  color: AppColors.surface,
-                  child: Column(
-                    children: [
-                      Container(
-                        decoration: const BoxDecoration(
-                          color: AppColors.tertiary,
-                          border: Border(
-                            bottom: BorderSide(color: Colors.white12, width: 0.5),
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            CupertinoButton(
-                              child: const Text('Cancel', style: TextStyle(color: Colors.white54, fontSize: 15)),
-                              onPressed: () => Navigator.pop(modalContext),
-                            ),
-                            Text(
-                              label,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                decoration: TextDecoration.none,
-                              ),
-                            ),
-                            CupertinoButton(
-                              child: Text(
-                                'Done',
-                                style: TextStyle(
-                                  color: context.accentColor,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 15,
-                                ),
-                              ),
-                              onPressed: () {
-                                onChanged(tempDateTime);
-                                Navigator.pop(modalContext);
-                              },
-                            ),
-                          ],
-                        ),
-                      ),
-                      Expanded(
-                        child: CupertinoDatePicker(
-                          initialDateTime: clampedInitial,
-                          minimumDate: minimumDate,
-                          maximumDate: maximumDate,
-                          mode: CupertinoDatePickerMode.dateAndTime,
-                          use24hFormat: false,
-                          onDateTimeChanged: (DateTime newDateTime) {
-                            tempDateTime = newDateTime;
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
+            LynkWheelDatePicker.show(
+              context,
+              mode: LynkWheelPickerMode.dateAndTime,
+              title: label,
+              initialDateTime: clampedInitial,
+              minimumDate: minimumDate,
+              maximumDate: maximumDate,
+              onConfirmed: onChanged,
             );
           },
           child: Container(

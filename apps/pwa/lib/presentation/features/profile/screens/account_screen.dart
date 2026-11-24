@@ -5,7 +5,6 @@ import 'package:go_router/go_router.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:lynk_core/core.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:country_flags/country_flags.dart';
 import 'package:lynk_x/services/push_notification_service.dart';
 import '../models/country.dart';
 import '../widgets/delete_account_dialog.dart';
@@ -369,20 +368,6 @@ class _AccountPageState extends State<AccountPage> {
     return 'Not set';
   }
 
-  Widget _buildFlag(String? code, {double size = 22}) {
-    if (code == null || code == 'GL') {
-      return Text('🌐', style: TextStyle(fontSize: size));
-    }
-    return SizedBox(
-      width: size * 1.4,
-      height: size,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(4),
-        child: CountryFlag.fromCountryCode(code),
-      ),
-    );
-  }
-
   void _showCountryPicker(BuildContext context, String? currentCode) {
     showModalBottomSheet(
       context: context,
@@ -412,7 +397,6 @@ class _AccountPageState extends State<AccountPage> {
                   final isSelected =
                       currentCode?.toUpperCase() == country.code.toUpperCase();
                   return ListTile(
-                    leading: _buildFlag(country.code, size: 20),
                     title: Text(country.name,
                         style: const TextStyle(color: Colors.white)),
                     trailing: isSelected
@@ -536,9 +520,6 @@ class _AccountPageState extends State<AccountPage> {
                   title: 'Country',
                   subtitle: _getCountryName(profile.countryCode),
                   icon: Icons.public_rounded,
-                  leadingWidget: profile.countryCode != null
-                      ? _buildFlag(profile.countryCode)
-                      : null,
                   onTap: () => _showCountryPicker(context, profile.countryCode),
                   trailing: const Icon(Icons.chevron_right_rounded,
                       color: Colors.white24),

@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'package:material_ui/material_ui.dart' hide TextField;
-import 'package:cupertino_ui/cupertino_ui.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -10,6 +9,7 @@ import 'package:lynk_x/presentation/shared/widgets/text_field.dart';
 import 'package:lynk_x/presentation/shared/utils/permission_acks.dart';
 import '../widgets/profile_avatar.dart';
 import 'package:lynk_x/presentation/shared/utils/app_snackbars.dart';
+import 'package:lynk_x/presentation/shared/widgets/app_wheel_date_picker.dart';
 
 class EditProfilePage extends StatefulWidget {
   const EditProfilePage({super.key});
@@ -289,78 +289,20 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
   Future<void> _showDobPicker(BuildContext context) async {
     final initialDate = _selectedDateOfBirth ?? DateTime(2000, 1, 1);
-    DateTime tempDateTime = initialDate;
-    showCupertinoModalPopup<void>(
-      context: context,
-      builder: (BuildContext modalContext) => CupertinoTheme(
-        data: const CupertinoThemeData(
-          brightness: Brightness.dark,
-        ),
-        child: Container(
-          height: 300,
-          color: const Color(0xFF1E1E1E),
-          child: Column(
-            children: [
-              Container(
-                decoration: const BoxDecoration(
-                  color: Color(0xFF2C2C2C),
-                  border: Border(
-                    bottom: BorderSide(color: Colors.white12, width: 0.5),
-                  ),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    CupertinoButton(
-                      child: const Text('Cancel',
-                          style:
-                              TextStyle(color: Colors.white54, fontSize: 15)),
-                      onPressed: () => Navigator.pop(modalContext),
-                    ),
-                    const Text(
-                      'Date of Birth',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        decoration: TextDecoration.none,
-                      ),
-                    ),
-                    CupertinoButton(
-                      child: Text(
-                        'Done',
-                        style: TextStyle(
-                          color: context.accentColor,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 15,
-                        ),
-                      ),
-                      onPressed: () {
-                        setState(() {
-                          _selectedDateOfBirth = tempDateTime;
-                          _dobController.text =
-                              DateFormat('yyyy-MM-dd').format(tempDateTime);
-                        });
-                        _onFieldChanged();
-                        Navigator.pop(modalContext);
-                      },
-                    ),
-                  ],
-                ),
-              ),
-              Expanded(
-                child: CupertinoDatePicker(
-                  initialDateTime: initialDate,
-                  mode: CupertinoDatePickerMode.date,
-                  onDateTimeChanged: (DateTime newDateTime) {
-                    tempDateTime = newDateTime;
-                  },
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+    await LynkWheelDatePicker.show(
+      context,
+      mode: LynkWheelPickerMode.date,
+      title: 'Date of Birth',
+      initialDateTime: initialDate,
+      minimumDate: DateTime(1900, 1, 1),
+      maximumDate: DateTime.now(),
+      onConfirmed: (dateTime) {
+        setState(() {
+          _selectedDateOfBirth = dateTime;
+          _dobController.text = DateFormat('yyyy-MM-dd').format(dateTime);
+        });
+        _onFieldChanged();
+      },
     );
   }
 

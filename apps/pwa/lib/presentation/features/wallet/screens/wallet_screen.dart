@@ -5,7 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:lynk_core/core.dart';
 import 'package:lynk_x/presentation/features/wallet/cubit/wallet_cubit.dart';
 import 'package:lynk_x/presentation/features/wallet/cubit/wallet_state.dart';
-import 'package:qr_flutter/qr_flutter.dart';
+import 'package:barcode_widget/barcode_widget.dart' as bw;
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:lynk_x/presentation/features/wallet/widgets/wallet_pin_setup_sheet.dart';
@@ -342,19 +342,14 @@ class _QRCard extends StatelessWidget {
             child: Stack(
               alignment: Alignment.center,
               children: [
-                QrImageView(
+                bw.BarcodeWidget(
+                  barcode: bw.Barcode.qrCode(
+                    errorCorrectLevel: bw.BarcodeQRCorrectionLevel.high,
+                  ),
                   data: 'https://lynk-x.app/pay/$accountReference',
-                  version: QrVersions.auto,
-                  size: 200.0,
-                  errorCorrectionLevel: QrErrorCorrectLevel.H,
-                  eyeStyle: const QrEyeStyle(
-                    eyeShape: QrEyeShape.circle,
-                    color: Colors.black,
-                  ),
-                  dataModuleStyle: const QrDataModuleStyle(
-                    dataModuleShape: QrDataModuleShape.square,
-                    color: Colors.black,
-                  ),
+                  width: 200,
+                  height: 200,
+                  color: Colors.black,
                 ),
                 // Custom Logo Overlay with Background
                 Container(

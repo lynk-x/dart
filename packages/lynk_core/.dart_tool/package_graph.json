@@ -7,8 +7,6 @@
       "name": "lynk_core",
       "version": "0.0.1",
       "dependencies": [
-        "auth_buttons",
-        "country_flags",
         "equatable",
         "flutter",
         "flutter_bloc",
@@ -69,15 +67,6 @@
       "name": "web",
       "version": "1.1.2",
       "dependencies": []
-    },
-    {
-      "name": "country_flags",
-      "version": "4.1.2",
-      "dependencies": [
-        "collection",
-        "flutter",
-        "jovial_svg"
-      ]
     },
     {
       "name": "image_picker",
@@ -147,15 +136,6 @@
         "bloc",
         "flutter",
         "provider"
-      ]
-    },
-    {
-      "name": "auth_buttons",
-      "version": "3.0.3",
-      "dependencies": [
-        "flutter",
-        "flutter_svg",
-        "google_fonts"
       ]
     },
     {
@@ -307,15 +287,6 @@
       ]
     },
     {
-      "name": "flutter_localizations",
-      "version": "0.0.0",
-      "dependencies": [
-        "flutter",
-        "intl",
-        "path"
-      ]
-    },
-    {
       "name": "intl",
       "version": "0.20.3",
       "dependencies": [
@@ -325,17 +296,22 @@
       ]
     },
     {
-      "name": "jovial_svg",
-      "version": "1.1.31",
+      "name": "flutter_localizations",
+      "version": "0.0.0",
       "dependencies": [
-        "args",
+        "flutter",
+        "intl",
+        "path"
+      ]
+    },
+    {
+      "name": "cupertino_ui",
+      "version": "1.1.7",
+      "dependencies": [
         "collection",
         "flutter",
-        "http",
-        "jovial_misc",
-        "meta",
-        "vector_math",
-        "xml"
+        "flutter_localizations",
+        "intl"
       ]
     },
     {
@@ -533,17 +509,6 @@
       ]
     },
     {
-      "name": "flutter_svg",
-      "version": "2.5.0",
-      "dependencies": [
-        "flutter",
-        "http",
-        "vector_graphics",
-        "vector_graphics_codec",
-        "vector_graphics_compiler"
-      ]
-    },
-    {
       "name": "logging",
       "version": "1.3.0",
       "dependencies": []
@@ -696,30 +661,6 @@
       ]
     },
     {
-      "name": "jovial_misc",
-      "version": "0.10.0",
-      "dependencies": [
-        "async",
-        "collection",
-        "convert",
-        "meta"
-      ]
-    },
-    {
-      "name": "args",
-      "version": "2.7.0",
-      "dependencies": []
-    },
-    {
-      "name": "xml",
-      "version": "7.0.1",
-      "dependencies": [
-        "collection",
-        "meta",
-        "petitparser"
-      ]
-    },
-    {
       "name": "file_selector_windows",
       "version": "0.9.3+6",
       "dependencies": [
@@ -801,33 +742,6 @@
       "version": "1.0.0",
       "dependencies": [
         "flutter"
-      ]
-    },
-    {
-      "name": "vector_graphics_compiler",
-      "version": "1.3.6",
-      "dependencies": [
-        "args",
-        "cli_util",
-        "meta",
-        "path",
-        "path_parsing",
-        "vector_graphics_codec",
-        "xml"
-      ]
-    },
-    {
-      "name": "vector_graphics_codec",
-      "version": "1.2.0",
-      "dependencies": []
-    },
-    {
-      "name": "vector_graphics",
-      "version": "1.3.1",
-      "dependencies": [
-        "flutter",
-        "http",
-        "vector_graphics_codec"
       ]
     },
     {
@@ -1047,38 +961,6 @@
       "dependencies": []
     },
     {
-      "name": "convert",
-      "version": "3.1.2",
-      "dependencies": [
-        "typed_data"
-      ]
-    },
-    {
-      "name": "petitparser",
-      "version": "7.1.0",
-      "dependencies": [
-        "collection",
-        "meta"
-      ]
-    },
-    {
-      "name": "path_parsing",
-      "version": "1.1.0",
-      "dependencies": [
-        "meta",
-        "vector_math"
-      ]
-    },
-    {
-      "name": "cli_util",
-      "version": "0.6.1",
-      "dependencies": [
-        "ffi",
-        "meta",
-        "path"
-      ]
-    },
-    {
       "name": "file",
       "version": "7.0.1",
       "dependencies": [
@@ -1199,6 +1081,11 @@
       ]
     },
     {
+      "name": "args",
+      "version": "2.7.0",
+      "dependencies": []
+    },
+    {
       "name": "web_socket",
       "version": "1.0.1",
       "dependencies": [
@@ -1211,6 +1098,13 @@
       "dependencies": [
         "collection",
         "convert"
+      ]
+    },
+    {
+      "name": "convert",
+      "version": "3.1.2",
+      "dependencies": [
+        "typed_data"
       ]
     },
     {
@@ -1229,16 +1123,6 @@
         "collection",
         "meta",
         "pub_semver"
-      ]
-    },
-    {
-      "name": "cupertino_ui",
-      "version": "1.1.7",
-      "dependencies": [
-        "collection",
-        "flutter",
-        "flutter_localizations",
-        "intl"
       ]
     }
   ],

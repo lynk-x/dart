@@ -1,5 +1,4 @@
 import 'package:material_ui/material_ui.dart';
-import 'package:photo_view/photo_view.dart';
 import 'package:video_player/video_player.dart';
 import 'package:lynk_core/core.dart';
 
@@ -154,12 +153,16 @@ class _SingleMediaViewState extends State<SingleMediaView> {
           aspectRatio: aspectRatio,
           child: Stack(
             children: [
-              PhotoView(
-                imageProvider: NetworkImage(widget.url),
-                backgroundDecoration: const BoxDecoration(color: Colors.transparent),
-                minScale: PhotoViewComputedScale.contained,
-                maxScale: PhotoViewComputedScale.covered * 2,
-                heroAttributes: PhotoViewHeroAttributes(tag: widget.url),
+              InteractiveViewer(
+                minScale: 1.0,
+                maxScale: 4.0,
+                child: Hero(
+                  tag: widget.url,
+                  child: Image.network(
+                    widget.url,
+                    fit: BoxFit.contain,
+                  ),
+                ),
               ),
             ],
           ),
