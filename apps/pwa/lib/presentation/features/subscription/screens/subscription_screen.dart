@@ -82,15 +82,16 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> with WidgetsBin
             .schema('api')
             .rpc('get_subscription_catalog', params: {'p_product_type': 'attendee_premium'}),
 
-        // Get user's owner attendee account country + the country's local currency.
+        // Get user's owner attendee account country.
         uid != null
             ? _supabase
                 .schema('api')
                 .from('v1_account_memberships')
-                .select('country_code, countries:v1_countries(currency)')
+                .select('country_code')
                 .eq('user_id', uid)
                 .eq('type', 'attendee')
                 .eq('role_slug', 'owner')
+                .limit(1)
                 .maybeSingle()
             : Future<dynamic>.value(null),
 
