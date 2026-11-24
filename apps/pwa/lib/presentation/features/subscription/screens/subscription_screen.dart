@@ -94,8 +94,8 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> with WidgetsBin
                 .maybeSingle()
             : Future<dynamic>.value(null),
 
-        // Active subscription
-        uid != null ? activeSubQuery.eq('user_id', uid).maybeSingle() : activeSubQuery.maybeSingle(),
+        // Active subscription (RLS automatically scopes to the authenticated user's account)
+        uid != null ? activeSubQuery.maybeSingle() : Future<dynamic>.value(null),
       ]);
 
       final plansRaw = results[0] as List;
