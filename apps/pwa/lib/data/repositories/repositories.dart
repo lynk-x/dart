@@ -1,9 +1,7 @@
 export 'account_repository.dart';
 export 'event_repository.dart';
 export 'forum_repository.dart';
-export 'kyc_repository.dart';
 export 'notification_repository.dart';
 export 'quiz_repository.dart';
 export 'ticket_repository.dart';
-export 'wallet_repository.dart';
 export 'support_repository.dart';

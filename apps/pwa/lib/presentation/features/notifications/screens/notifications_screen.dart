@@ -125,7 +125,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
         break;
       case NotificationType.moneyIn:
       case NotificationType.moneyOut:
-        context.push('/wallet');
+        context.push('/tickets');
         break;
       case NotificationType.ticketResaleOffer:
         final listingId = data['listing_id'] as String?;

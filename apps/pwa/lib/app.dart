@@ -6,7 +6,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:lynk_core/core.dart';
 import 'router.dart';
 import 'package:lynk_x/presentation/features/notifications/cubit/notification_cubit.dart';
-import 'package:lynk_x/presentation/features/wallet/cubit/wallet_cubit.dart';
 import 'package:lynk_x/l10n/app_localizations.dart';
 import 'package:lynk_x/data/repositories/repository_providers.dart';
 import 'package:lynk_x/presentation/shared/utils/app_snackbars.dart';
@@ -15,8 +14,7 @@ import 'package:lynk_x/core/utils/embedding_manager.dart';
 
 /// Root widget wrapper providing global BLoC/Cubit instances and dynamic locale management.
 ///
-/// Houses global providers ([FeatureFlagCubit], [ProfileCubit], [NotificationCubit],
-/// [WalletCubit]) above the routing layer so state is retained across page transitions.
+/// Houses global providers ([FeatureFlagCubit], [ProfileCubit], [NotificationCubit])
 class LynkXAppWrapper extends StatefulWidget {
   const LynkXAppWrapper({super.key});
 
@@ -53,7 +51,6 @@ class _LynkXAppWrapperState extends State<LynkXAppWrapper> {
         BlocProvider(
             create: (context) =>
                 NotificationCubit(notificationRepository, accountRepository)),
-        BlocProvider(create: (context) => WalletCubit(walletRepository)),
       ],
       child: LynkXApp(locale: _locale),
     );
@@ -159,15 +156,13 @@ class _LynkXAppState extends State<LynkXApp> with WidgetsBindingObserver {
           }
         } else if (data.event == AuthChangeEvent.tokenRefreshed) {
           // Session token was silently refreshed (e.g. app foregrounded after
-          // expiry). Re-sync profile and wallet so they hold fresh data.
+          // expiry). Re-sync profile so they hold fresh data.
           if (!mounted) return;
           context.read<ProfileCubit>().loadProfile();
-          context.read<WalletCubit>().refresh();
         } else if (data.event == AuthChangeEvent.signedOut) {
           if (!mounted) return;
           context.read<ProfileCubit>().reset();
           context.read<NotificationCubit>().reset();
-          context.read<WalletCubit>().reset();
           PushNotificationService.instance.removeToken();
         }
       });

@@ -6,17 +6,9 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lynk_x/presentation/shared/utils/app_snackbars.dart';
 
-enum SupportContext { wallet, events, general }
-
-/// Support hub screen — active tickets, FAQs, and entry into live chat,
-/// scoped by [SupportContext] (wallet/events/general).
+/// Support hub screen — active tickets, FAQs, and entry into live chat.
 class SupportScreen extends StatefulWidget {
-  final SupportContext supportContext;
-
-  const SupportScreen({
-    super.key,
-    this.supportContext = SupportContext.general,
-  });
+  const SupportScreen({super.key});
 
   @override
   State<SupportScreen> createState() => _SupportScreenState();
@@ -24,8 +16,22 @@ class SupportScreen extends StatefulWidget {
 
 class _SupportScreenState extends State<SupportScreen> {
   late Future<List<Map<String, dynamic>>> _activeTicketsFuture;
-  late Future<Map<String, dynamic>?> _faqsFuture;
   bool _isLoadingChat = false;
+
+  static const List<Map<String, String>> _faqs = [
+    {
+      'q': 'How do I buy tickets for an event?',
+      'a': 'Browse the event listing, select your ticket type and quantity, then checkout. Your ticket will appear in "My Tickets" immediately after payment.',
+    },
+    {
+      'q': 'Can I transfer my ticket to someone else?',
+      'a': 'Yes. Go to the ticket details page, tap "Transfer", and enter the recipient\'s Lynk-X username. Some events disable transfers within 24 hours of the start time.',
+    },
+    {
+      'q': 'How do I request a refund?',
+      'a': 'Refund policies are set by the event organizer. You can generally request a refund up to 72 hours before the event via the ticket details page.',
+    },
+  ];
 
   @override
   void initState() {
@@ -38,10 +44,7 @@ class _SupportScreenState extends State<SupportScreen> {
         Supabase.instance.client.auth.currentUser?.id ?? 'mock-user-id';
 
     setState(() {
-      _activeTicketsFuture = supportRepository.getActiveTickets(
-          userId, widget.supportContext.name);
-      _faqsFuture =
-          supportRepository.getFaqsByContext(widget.supportContext.name);
+      _activeTicketsFuture = supportRepository.getActiveTickets(userId, 'general');
     });
   }
 
@@ -56,14 +59,11 @@ class _SupportScreenState extends State<SupportScreen> {
     try {
       final ticketId = await supportRepository.createTicket(
           userId,
-          widget.supportContext.name,
-          'New ${widget.supportContext.name.toUpperCase()} Request',
-          'I need help with my ${widget.supportContext.name}.');
+          'general',
+          'New Support Request',
+          'I need help with my account.');
       if (mounted) {
-        context.push(
-          '/support/chat?context=${widget.supportContext.name}',
-          extra: {'ticketId': ticketId},
-        ).then((_) => _loadData());
+        context.push('/support/chat?ticketId=$ticketId').then((_) => _loadData());
       }
     } catch (e) {
       if (mounted) {
@@ -138,7 +138,8 @@ class _SupportScreenState extends State<SupportScreen> {
                     child: CircularProgressIndicator(
                         valueColor:
                             AlwaysStoppedAnimation<Color>(context.accentColor)),
-                  ));
+                    ),
+                  );
                 }
                 final tickets = snapshot.data ?? [];
                 if (tickets.isEmpty) {
@@ -156,37 +157,14 @@ class _SupportScreenState extends State<SupportScreen> {
 
             const SizedBox(height: 32),
             _buildSectionHeader('Frequently Asked Questions'),
-            FutureBuilder<Map<String, dynamic>?>(
-              future: _faqsFuture,
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return Center(
-                      child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: CircularProgressIndicator(
-                        valueColor:
-                            AlwaysStoppedAnimation<Color>(context.accentColor)),
-                  ));
-                }
-                final faqs = snapshot.data;
-                if (faqs == null || faqs['faqs'] == null) {
-                  return const Padding(
-                    padding: EdgeInsets.all(8.0),
-                    child: Text('No FAQs available.',
-                        style: TextStyle(color: Colors.white54)),
-                  );
-                }
-                final faqList = faqs['faqs'] as List<dynamic>;
-                return Column(
-                  children: faqList
-                      .map((faq) => _buildFaqTile(
-                            context,
-                            question: faq['q'] ?? '',
-                            answer: faq['a'] ?? '',
-                          ))
-                      .toList(),
-                );
-              },
+            Column(
+              children: _faqs
+                  .map((faq) => _buildFaqTile(
+                        context,
+                        question: faq['q']!,
+                        answer: faq['a']!,
+                      ))
+                  .toList(),
             ),
           ],
         ),
@@ -273,9 +251,7 @@ class _SupportScreenState extends State<SupportScreen> {
           Navigator.push(
             context,
             MaterialPageRoute(
-                builder: (_) => LiveChatScreen(
-                    supportContext: widget.supportContext,
-                    ticketId: ticket['id'])),
+                builder: (_) => LiveChatScreen(ticketId: ticket['id'])),
           ).then((_) => _loadData());
         },
         borderRadius: BorderRadius.circular(16),

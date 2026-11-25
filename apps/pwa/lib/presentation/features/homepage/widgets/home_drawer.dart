@@ -261,19 +261,6 @@ class _HomeDrawerState extends State<HomeDrawer> {
                     context.push('/edit-profile');
                   },
                 ),
-                if (context
-                    .watch<FeatureFlagCubit>()
-                    .isEnabled('enable_wallet'))
-                  ListTile(
-                    leading: const Icon(Icons.account_balance_wallet,
-                        color: Colors.white),
-                    title: const Text('My Wallet',
-                        style: TextStyle(color: Colors.white)),
-                    onTap: () {
-                      context.pop();
-                      context.push('/wallet');
-                    },
-                  ),
                 ListTile(
                   leading:
                       const Icon(Icons.confirmation_num, color: Colors.white),

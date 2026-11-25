@@ -1,7 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// Resolves the caller's personal account — shared by any feature that needs
-/// "the current user's own account_id" (wallet, KYC, etc.) so this lookup
+/// "the current user's own account_id" so this lookup
 /// has one definition instead of drifting per-cubit.
 class AccountRepository {
   final SupabaseClient _client;

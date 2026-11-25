@@ -26,15 +26,6 @@ import 'package:lynk_x/presentation/features/profile/screens/account_screen.dart
 import 'package:lynk_x/presentation/features/profile/screens/notification_preferences_screen.dart';
 import 'package:lynk_x/presentation/features/feedback/screens/feedback_screen.dart';
 import 'package:lynk_x/presentation/features/support/screens/support_screen.dart';
-
-import 'package:lynk_x/presentation/features/wallet/screens/wallet_screen.dart';
-import 'package:lynk_x/presentation/features/wallet/screens/wallet_list_screen.dart';
-import 'package:lynk_x/presentation/features/wallet/screens/wallet_transactions_screen.dart';
-import 'package:lynk_x/presentation/features/wallet/screens/wallet_history_screen.dart';
-import 'package:lynk_x/presentation/features/wallet/screens/wallet_settings_screen.dart';
-import 'package:lynk_x/presentation/features/wallet/screens/payment_methods_screen.dart';
-import 'package:lynk_x/presentation/features/wallet/widgets/wallet_security_gate.dart';
-import 'package:lynk_x/presentation/features/kyc/screens/kyc_verification_screen.dart';
 import 'package:lynk_x/presentation/features/subscription/screens/subscription_screen.dart';
 import 'package:lynk_x/presentation/shared/screens/system_error_screen.dart';
 import 'package:lynk_x/presentation/features/forum/widgets/web_camera_capture.dart';
@@ -406,81 +397,6 @@ GoRouter createRouter(
           child: const TicketsListScreen(),
         ),
       ),
-      ShellRoute(
-        builder: (context, state, child) {
-          if (!context.read<FeatureFlagCubit>().isEnabled('enable_wallet')) {
-            return Title(
-              title: 'Feature Unavailable',
-              color: Colors.black,
-              child: const SystemErrorScreen(
-                title: 'Feature Unavailable',
-                message: 'The wallet is not available in your region yet.',
-              ),
-            );
-          }
-          return WalletSecurityGate(child: child);
-        },
-        routes: [
-          GoRoute(
-            path: '/wallet',
-            builder: (context, state) {
-              final pay = state.uri.queryParameters['pay'];
-              return Title(
-                title: 'My Wallet',
-                color: Colors.black,
-                child: WalletPage(prefilledRecipientId: pay),
-              );
-            },
-            routes: [
-              GoRoute(
-                path: 'list',
-                builder: (_, __) => Title(
-                  title: 'Currencies',
-                  color: Colors.black,
-                  child: const WalletListPage(),
-                ),
-                routes: [
-                  GoRoute(
-                    path: ':currency',
-                    builder: (context, state) {
-                      final currency = state.pathParameters['currency']!;
-                      return Title(
-                        title: '${currency.toUpperCase()} Transactions',
-                        color: Colors.black,
-                        child: WalletTransactionsPage(currency: currency),
-                      );
-                    },
-                  ),
-                ],
-              ),
-              GoRoute(
-                path: 'history',
-                builder: (_, __) => Title(
-                  title: 'Transaction History',
-                  color: Colors.black,
-                  child: const WalletHistoryPage(),
-                ),
-              ),
-              GoRoute(
-                path: 'settings',
-                builder: (_, __) => Title(
-                  title: 'Wallet Settings',
-                  color: Colors.black,
-                  child: const WalletSettingsPage(),
-                ),
-              ),
-              GoRoute(
-                path: 'payment-methods',
-                builder: (_, __) => Title(
-                  title: 'Payment Methods',
-                  color: Colors.black,
-                  child: const PaymentMethodsScreen(),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
       GoRoute(
         path: '/edit-profile',
         builder: (_, __) => Title(
@@ -515,19 +431,11 @@ GoRouter createRouter(
       ),
       GoRoute(
         path: '/support',
-        builder: (context, state) {
-          final supportContext = state.uri.queryParameters['context'];
+        builder: (context, __) {
           return Title(
             title: 'Support',
             color: Colors.black,
-            child: SupportScreen(
-              supportContext: supportContext != null
-                  ? SupportContext.values.firstWhere(
-                      (e) => e.name == supportContext,
-                      orElse: () => SupportContext.general,
-                    )
-                  : SupportContext.general,
-            ),
+            child: const SupportScreen(),
           );
         },
       ),
@@ -546,34 +454,6 @@ GoRouter createRouter(
           color: Colors.black,
           child: ProfileSetupScreen(next: state.uri.queryParameters['next']),
         ),
-      ),
-      GoRoute(
-        path: '/pay/:recipientId',
-        redirect: (context, state) {
-          final recipientId = state.pathParameters['recipientId'];
-          return '/wallet?pay=$recipientId';
-        },
-      ),
-      GoRoute(
-        path: '/kyc',
-        builder: (context, __) {
-          if (!context.read<FeatureFlagCubit>().isEnabled('enable_kyc')) {
-            return Title(
-              title: 'Feature Unavailable',
-              color: Colors.black,
-              child: const SystemErrorScreen(
-                title: 'Feature Unavailable',
-                message:
-                    'Identity verification is not available in your region yet.',
-              ),
-            );
-          }
-          return Title(
-            title: 'Identity Verification',
-            color: Colors.black,
-            child: const KycVerificationScreen(),
-          );
-        },
       ),
       GoRoute(
         path: '/upgrade',

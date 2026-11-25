@@ -5,14 +5,12 @@ import 'package:lynk_x/data/repositories/repository_providers.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:lynk_x/presentation/shared/utils/app_snackbars.dart';
 
-/// Live support chat screen for a specific ticket or general support context.
+/// Live support chat screen for a specific ticket or general support.
 class LiveChatScreen extends StatefulWidget {
-  final SupportContext supportContext;
   final String? ticketId;
-  
+
   const LiveChatScreen({
     super.key,
-    this.supportContext = SupportContext.general,
     this.ticketId,
   });
 
@@ -34,50 +32,16 @@ class _LiveChatScreenState extends State<LiveChatScreen> {
         'text': 'Hi! I am the Lynk-X Support Assistant. How can I help you today?',
         'time': '10:00 AM'
       },
-      if (widget.supportContext == SupportContext.wallet) ...[
-        {
-          'isMe': true,
-          'text': 'My 50,000 KES M-Pesa top-up hasn\'t reflected yet.',
-          'time': '10:01 AM'
-        },
-        {
-          'isMe': false,
-          'text': 'I apologize for the delay. Let me check your account...',
-          'time': '10:01 AM'
-        },
-        {
-          'isMe': false,
-          'text': 'I can see the M-Pesa transaction is currently pending network clearance. It should reflect in your wallet within the next 5-10 minutes. Is there anything else I can assist you with?',
-          'time': '10:02 AM'
-        },
-      ] else if (widget.supportContext == SupportContext.events) ...[
-        {
-          'isMe': true,
-          'text': 'I bought a ticket for Afrofest but can\'t see the QR code.',
-          'time': '10:01 AM'
-        },
-        {
-          'isMe': false,
-          'text': 'Let me check your ticket inventory...',
-          'time': '10:01 AM'
-        },
-        {
-          'isMe': false,
-          'text': 'Your transaction was successful, but the QR generation is slightly delayed due to high demand. I have manually triggered it for you. Please pull to refresh your "My Tickets" tab.',
-          'time': '10:02 AM'
-        },
-      ] else ...[
-        {
-          'isMe': true,
-          'text': 'How long does account verification take?',
-          'time': '10:01 AM'
-        },
-        {
-          'isMe': false,
-          'text': 'Standard KYC verification typically takes 1-2 business days. Would you like me to check the status of your specific application?',
-          'time': '10:02 AM'
-        },
-      ]
+      {
+        'isMe': true,
+        'text': 'I need help with my account.',
+        'time': '10:01 AM'
+      },
+      {
+        'isMe': false,
+        'text': 'An agent will be with you shortly to assist with this.',
+        'time': '10:02 AM'
+      },
     ];
   }
 
