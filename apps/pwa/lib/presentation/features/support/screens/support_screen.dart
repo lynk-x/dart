@@ -317,13 +317,16 @@ class _SupportScreenState extends State<SupportScreen> {
         child: ExpansionTile(
           iconColor: Colors.white54,
           collapsedIconColor: Colors.white54,
-          title: Text(
-            question,
-            style: AppTypography.inter(
-                fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
+          title: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Text(
+              question,
+              style: AppTypography.inter(
+                  fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
+            ),
           ),
           childrenPadding:
-              const EdgeInsets.only(left: 16, right: 16, bottom: 16),
+              const EdgeInsets.only(left: 80, right: 16, bottom: 16),
           children: [
             Text(
               answer,

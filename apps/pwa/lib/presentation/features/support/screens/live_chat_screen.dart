@@ -1,6 +1,5 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:lynk_core/core.dart';
-import 'package:lynk_x/presentation/features/support/screens/support_screen.dart';
 import 'package:lynk_x/data/repositories/repository_providers.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:lynk_x/presentation/shared/utils/app_snackbars.dart';
@@ -21,7 +20,8 @@ class LiveChatScreen extends StatefulWidget {
 class _LiveChatScreenState extends State<LiveChatScreen> {
   final TextEditingController _controller = TextEditingController();
   late List<Map<String, dynamic>> _mockMessages;
-  final String _currentUserId = Supabase.instance.client.auth.currentUser?.id ?? '';
+  final String _currentUserId =
+      Supabase.instance.client.auth.currentUser?.id ?? '';
 
   @override
   void initState() {
@@ -29,7 +29,8 @@ class _LiveChatScreenState extends State<LiveChatScreen> {
     _mockMessages = [
       {
         'isMe': false,
-        'text': 'Hi! I am the Lynk-X Support Assistant. How can I help you today?',
+        'text':
+            'Hi! I am the Lynk-X Support Assistant. How can I help you today?',
         'time': '10:00 AM'
       },
       {
@@ -48,14 +49,15 @@ class _LiveChatScreenState extends State<LiveChatScreen> {
   Future<void> _sendMessage() async {
     final text = _controller.text.trim();
     if (text.isEmpty) return;
-    
+
     _controller.clear();
     FocusScope.of(context).unfocus();
 
     if (widget.ticketId != null) {
       // Send real message to backend
       try {
-        await supportRepository.sendMessage(widget.ticketId!, _currentUserId, text);
+        await supportRepository.sendMessage(
+            widget.ticketId!, _currentUserId, text);
       } catch (e) {
         if (mounted) {
           AppSnackBars.showError(context, 'Failed to send message: $e');
@@ -64,13 +66,9 @@ class _LiveChatScreenState extends State<LiveChatScreen> {
     } else {
       // Mock logic
       setState(() {
-        _mockMessages.add({
-          'isMe': true,
-          'text': text,
-          'time': 'Now'
-        });
+        _mockMessages.add({'isMe': true, 'text': text, 'time': 'Now'});
       });
-      
+
       Future.delayed(const Duration(seconds: 1), () {
         if (mounted) {
           setState(() {
@@ -111,11 +109,15 @@ class _LiveChatScreenState extends State<LiveChatScreen> {
               children: [
                 Text(
                   'Lynk-X Support',
-                  style: AppTypography.inter(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+                  style: AppTypography.inter(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white),
                 ),
                 Text(
                   'Typically replies in 2 mins',
-                  style: AppTypography.inter(fontSize: 12, color: Colors.greenAccent),
+                  style: AppTypography.inter(
+                      fontSize: 12, color: Colors.greenAccent),
                 ),
               ],
             ),
@@ -140,14 +142,16 @@ class _LiveChatScreenState extends State<LiveChatScreen> {
       stream: supportRepository.streamMessages(widget.ticketId!),
       builder: (context, snapshot) {
         if (snapshot.hasError) {
-          return Center(child: Text('Error loading messages', style: TextStyle(color: Colors.white54)));
+          return Center(
+              child: Text('Error loading messages',
+                  style: TextStyle(color: Colors.white54)));
         }
         if (!snapshot.hasData) {
           return const Center(child: CircularProgressIndicator());
         }
-        
+
         final messages = snapshot.data!;
-        
+
         if (messages.isEmpty) {
           return Center(
             child: Text(
@@ -167,10 +171,10 @@ class _LiveChatScreenState extends State<LiveChatScreen> {
           itemBuilder: (context, index) {
             final msg = reversedMessages[index];
             final isMe = msg['sender_id'] == _currentUserId;
-            
+
             // Format time simply for showcase
-            final timeStr = 'Now'; 
-            
+            final timeStr = 'Now';
+
             return _buildMessageBubble(
               text: msg['message'] as String? ?? '',
               time: timeStr,
@@ -191,7 +195,7 @@ class _LiveChatScreenState extends State<LiveChatScreen> {
       itemBuilder: (context, index) {
         final msg = reversedMock[index];
         final isMe = msg['isMe'] as bool;
-        
+
         return _buildMessageBubble(
           text: msg['text'] as String,
           time: msg['time'] as String,
@@ -201,34 +205,43 @@ class _LiveChatScreenState extends State<LiveChatScreen> {
     );
   }
 
-  Widget _buildMessageBubble({required String text, required String time, required bool isMe}) {
+  Widget _buildMessageBubble(
+      {required String text, required String time, required bool isMe}) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: Column(
-        crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+        crossAxisAlignment:
+            isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
         children: [
           Row(
-            mainAxisAlignment: isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
+            mainAxisAlignment:
+                isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               if (!isMe) ...[
                 const CircleAvatar(
                   backgroundColor: AppColors.primary,
                   radius: 12,
-                  child: Icon(Icons.support_agent, color: Colors.black, size: 14),
+                  child:
+                      Icon(Icons.support_agent, color: Colors.black, size: 14),
                 ),
                 const SizedBox(width: 8),
               ],
               Flexible(
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   decoration: BoxDecoration(
                     color: isMe ? context.accentColor : AppColors.surface,
                     borderRadius: BorderRadius.only(
                       topLeft: const Radius.circular(16),
                       topRight: const Radius.circular(16),
-                      bottomLeft: isMe ? const Radius.circular(16) : const Radius.circular(4),
-                      bottomRight: isMe ? const Radius.circular(4) : const Radius.circular(16),
+                      bottomLeft: isMe
+                          ? const Radius.circular(16)
+                          : const Radius.circular(4),
+                      bottomRight: isMe
+                          ? const Radius.circular(4)
+                          : const Radius.circular(16),
                     ),
                   ),
                   child: Text(
@@ -268,7 +281,8 @@ class _LiveChatScreenState extends State<LiveChatScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         color: AppColors.surface,
-        border: Border(top: BorderSide(color: Colors.white.withValues(alpha: 0.05))),
+        border: Border(
+            top: BorderSide(color: Colors.white.withValues(alpha: 0.05))),
       ),
       child: SafeArea(
         child: Row(
@@ -283,7 +297,8 @@ class _LiveChatScreenState extends State<LiveChatScreen> {
                 decoration: BoxDecoration(
                   color: AppColors.primaryBackground,
                   borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+                  border:
+                      Border.all(color: Colors.white.withValues(alpha: 0.1)),
                 ),
                 child: TextField(
                   controller: _controller,
@@ -306,7 +321,8 @@ class _LiveChatScreenState extends State<LiveChatScreen> {
                 shape: BoxShape.circle,
               ),
               child: IconButton(
-                icon: const Icon(Icons.send_rounded, color: Colors.black, size: 20),
+                icon: const Icon(Icons.send_rounded,
+                    color: Colors.black, size: 20),
                 onPressed: _sendMessage,
               ),
             ),
