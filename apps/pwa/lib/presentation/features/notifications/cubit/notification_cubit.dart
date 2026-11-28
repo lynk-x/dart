@@ -37,13 +37,17 @@ class NotificationCubit extends Cubit<NotificationState> {
     _isLoading = true;
     emit(const NotificationLoading());
     try {
-      _resolvedAccountId ??= await _accountRepo.resolveOwnerAccountId(uid);
+      _resolvedAccountId ??= await _accountRepo
+          .resolveOwnerAccountId(uid)
+          .timeout(const Duration(seconds: 15));
       if (isClosed) return;
 
-      final notifications = await _repo.getNotifications(
-        accountId: _resolvedAccountId,
-        limit: _pageSize,
-      );
+      final notifications = await _repo
+          .getNotifications(
+            accountId: _resolvedAccountId,
+            limit: _pageSize,
+          )
+          .timeout(const Duration(seconds: 15));
       if (isClosed) return;
 
       emit(NotificationLoaded(
@@ -70,11 +74,13 @@ class NotificationCubit extends Cubit<NotificationState> {
 
     emit(currentState.copyWith(isLoadingMore: true));
     try {
-      final nextPage = await _repo.getNotifications(
-        accountId: _resolvedAccountId,
-        offset: currentState.notifications.length,
-        limit: _pageSize,
-      );
+      final nextPage = await _repo
+          .getNotifications(
+            accountId: _resolvedAccountId,
+            offset: currentState.notifications.length,
+            limit: _pageSize,
+          )
+          .timeout(const Duration(seconds: 15));
 
       if (isClosed) return;
       emit(currentState.copyWith(
@@ -105,6 +111,7 @@ class NotificationCubit extends Cubit<NotificationState> {
   /// directly inside the trigger before RLS ever applies, so old_record is
   /// always the full row here.
   void _handleRealtimeUpdate(Map<String, dynamic> payload) {
+    if (isClosed) return;
     final currentState = state;
     if (currentState is! NotificationLoaded) return;
 
@@ -133,6 +140,7 @@ class NotificationCubit extends Cubit<NotificationState> {
   /// by created_at with composite PK (id, created_at), so the createdAt must be
   /// in the WHERE clause or the UPDATE matches no rows.
   Future<void> markAsRead(NotificationModel notification) async {
+    if (isClosed) return;
     // Optimistic update — real-time listener confirms; this prevents stale badge
     final currentState = state;
     if (currentState is NotificationLoaded) {

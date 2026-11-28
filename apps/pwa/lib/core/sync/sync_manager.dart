@@ -154,9 +154,11 @@ class SyncManager {
   static const Duration _kQueueWatchdogTimeout = Duration(seconds: 45);
 
   Timer? _queueWatchdogTimer;
+  Timer? _retryTimer;
 
   void dispose() {
     _queueWatchdogTimer?.cancel();
+    _retryTimer?.cancel();
     _connectivitySub?.cancel();
     _statusController.close();
     _conflictController.close();
@@ -367,8 +369,15 @@ class SyncManager {
       final backoffSeconds = (1 << retryCount).clamp(1, 30);
       debugPrint(
           '[SyncManager] Scheduling retry in ${backoffSeconds}s (attempt #$retryCount)');
-      Timer(Duration(seconds: backoffSeconds), _processQueue);
+      _retryTimer?.cancel();
+      _retryTimer = Timer(Duration(seconds: backoffSeconds), _processQueue);
     }
+  }
+
+  /// Resolves the PostgREST query builder for [item], defaulting to the `api`
+  /// schema so un-scoped items never fall through to `public`.
+  SupabaseQueryBuilder _tableQuery(SupabaseClient client, SyncItem item) {
+    return client.schema(item.schema ?? 'api').from(item.table);
   }
 
   Future<_ExecuteOutcome> _execute(SyncItem item) async {
@@ -377,11 +386,7 @@ class SyncManager {
     switch (item.action) {
       case SyncAction.insert:
         try {
-          var query = client.from(item.table);
-          if (item.schema != null) {
-            query = client.schema(item.schema!).from(item.table);
-          }
-          await query.insert(item.payload);
+          await _tableQuery(client, item).insert(item.payload);
           return _ExecuteOutcome.success;
         } on PostgrestException catch (e) {
           if (e.code == '23505') {
@@ -406,11 +411,7 @@ class SyncManager {
 
       case SyncAction.delete:
         final id = item.payload['id'] as String;
-        var query = client.from(item.table);
-        if (item.schema != null) {
-          query = client.schema(item.schema!).from(item.table);
-        }
-        var del = query.delete().eq('id', id);
+        var del = _tableQuery(client, item).delete().eq('id', id);
         if (item.partitionKeyName != null && item.partitionKeyValue != null) {
           del = del.eq(item.partitionKeyName!, item.partitionKeyValue!);
         }
@@ -480,9 +481,7 @@ class SyncManager {
   ) async {
     final id = item.payload['id'] as String;
     final baseline = item.serverUpdatedAtBaseline!;
-    var query = client.from(item.table);
-    if (item.schema != null) query = client.schema(item.schema!).from(item.table);
-    var upd = query
+    var upd = _tableQuery(client, item)
         .update(item.payload)
         .eq('id', id)
         .eq('updated_at', baseline);
@@ -498,9 +497,7 @@ class SyncManager {
     SyncItem item,
   ) async {
     final id = item.payload['id'] as String;
-    var query = client.from(item.table);
-    if (item.schema != null) query = client.schema(item.schema!).from(item.table);
-    var upd = query.update(item.payload).eq('id', id);
+    var upd = _tableQuery(client, item).update(item.payload).eq('id', id);
     if (item.partitionKeyName != null && item.partitionKeyValue != null) {
       upd = upd.eq(item.partitionKeyName!, item.partitionKeyValue!);
     }
@@ -514,11 +511,7 @@ class SyncManager {
     SyncItem item,
   ) async {
     final id = item.payload['id'] as String;
-    var fullRowsQuery = client.from(item.table);
-    if (item.schema != null) {
-      fullRowsQuery = client.schema(item.schema!).from(item.table);
-    }
-    var full = fullRowsQuery.select().eq('id', id);
+    var full = _tableQuery(client, item).select().eq('id', id);
     if (item.partitionKeyName != null && item.partitionKeyValue != null) {
       full = full.eq(item.partitionKeyName!, item.partitionKeyValue!);
     }

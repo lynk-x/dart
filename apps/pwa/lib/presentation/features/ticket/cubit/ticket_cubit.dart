@@ -25,8 +25,14 @@ class TicketCubit extends Cubit<TicketState> {
 
   @override
   Future<void> close() {
-    _ticketChannel?.unsubscribe();
-    _listingChannel?.unsubscribe();
+    if (_ticketChannel != null) {
+      _repo.unsubscribe(_ticketChannel!);
+      _ticketChannel = null;
+    }
+    if (_listingChannel != null) {
+      _repo.unsubscribe(_listingChannel!);
+      _listingChannel = null;
+    }
     _reconnectTimer?.cancel();
     return super.close();
   }
@@ -37,6 +43,7 @@ class TicketCubit extends Cubit<TicketState> {
   Future<void> loadTicket(String reference, {bool isSilent = false}) async {
     // Attempt instant load from offline cache
     final cached = await _cache.loadTicketByReference(reference);
+    if (isClosed) return;
     if (cached != null) {
       emit(state.copyWith(isLoading: false, ticket: cached));
     } else if (!isSilent) {
@@ -44,9 +51,11 @@ class TicketCubit extends Cubit<TicketState> {
     }
 
     try {
-
       // 1. Fetch ticket data from the secure API proxy view via repository
-      final response = await _repo.getTicketByReference(reference);
+      final response = await _repo
+          .getTicketByReference(reference)
+          .timeout(const Duration(seconds: 15));
+      if (isClosed) return;
       if (response == null) {
         if (state.ticket == null) {
           throw Exception('Ticket not found');
@@ -60,7 +69,8 @@ class TicketCubit extends Cubit<TicketState> {
       final results = await Future.wait([
         _repo.getPendingListing(ticket.id),
         _repo.getPendingRefundRequest(ticket.id),
-      ]);
+      ]).timeout(const Duration(seconds: 15));
+      if (isClosed) return;
       final pendingListing = results[0];
       final pendingRefundRequest = results[1];
 
@@ -78,6 +88,7 @@ class TicketCubit extends Cubit<TicketState> {
         _subscribeToUpdates(ticket.id, reference);
       }
     } catch (e) {
+      if (isClosed) return;
       if (state.ticket == null && !isSilent) {
         emit(state.copyWith(isLoading: false, error: e.toFriendlyMessage()));
       } else {
@@ -87,7 +98,10 @@ class TicketCubit extends Cubit<TicketState> {
   }
 
   void _subscribeToUpdates(String ticketId, String reference) {
-    _ticketChannel?.unsubscribe();
+    if (_ticketChannel != null) {
+      _repo.unsubscribe(_ticketChannel!);
+      _ticketChannel = null;
+    }
     // Subscribe to ticket status updates through repository
     _ticketChannel = _repo.subscribeToTicket(ticketId, (payload) {
       // When the steward scans the QR code, redeemed_at is updated.
@@ -96,6 +110,7 @@ class TicketCubit extends Cubit<TicketState> {
     });
 
     _ticketChannel!.subscribe((status, [error]) {
+      if (isClosed) return;
       if (status == RealtimeSubscribeStatus.channelError ||
           status == RealtimeSubscribeStatus.timedOut) {
         _scheduleTicketReconnect(ticketId, reference);
@@ -108,7 +123,10 @@ class TicketCubit extends Cubit<TicketState> {
 
     // Subscribe to ticket_listings updates through repository so resale offer
     // status updates reflect immediately without requiring a manual refresh.
-    _listingChannel?.unsubscribe();
+    if (_listingChannel != null) {
+      _repo.unsubscribe(_listingChannel!);
+      _listingChannel = null;
+    }
     _listingChannel = _repo.subscribeToTicketListing(ticketId, (payload) {
       loadTicket(reference, isSilent: true);
     });
@@ -118,6 +136,7 @@ class TicketCubit extends Cubit<TicketState> {
   void _scheduleTicketReconnect(String ticketId, String reference) {
     _reconnectTimer?.cancel();
     _reconnectTimer = Timer(_reconnectDelay, () {
+      if (isClosed) return;
       _reconnectDelay = _reconnectDelay * 2;
       if (_reconnectDelay > const Duration(seconds: 30)) {
         _reconnectDelay = const Duration(seconds: 30);
@@ -147,20 +166,24 @@ class TicketCubit extends Cubit<TicketState> {
       clearPurchaseError: true,
     ));
     try {
-      await _repo.purchaseTickets(
-        eventId: eventId,
-        tierId: tierId,
-        quantity: quantity,
-        reservationId: reservationId,
-        provider: provider,
-        promoCode: promoCode,
-      );
+      await _repo
+          .purchaseTickets(
+            eventId: eventId,
+            tierId: tierId,
+            quantity: quantity,
+            reservationId: reservationId,
+            provider: provider,
+            promoCode: promoCode,
+          )
+          .timeout(const Duration(seconds: 20));
+      if (isClosed) return;
       emit(state.copyWith(purchaseStatus: PurchaseStatus.success));
       // Refresh ticket list so the newly purchased ticket appears immediately.
       if (state.ticket != null) {
         await loadTicket(state.ticket!.reference, isSilent: true);
       }
     } catch (e) {
+      if (isClosed) return;
       emit(state.copyWith(
         purchaseStatus: PurchaseStatus.failure,
         purchaseError: e.toFriendlyMessage(),
@@ -222,13 +245,17 @@ class TicketCubit extends Cubit<TicketState> {
       clearRefundRequestError: true,
     ));
     try {
-      final result = await _repo.requestRefund(ticketId: ticket.id, reason: reason);
+      final result = await _repo
+          .requestRefund(ticketId: ticket.id, reason: reason)
+          .timeout(const Duration(seconds: 15));
+      if (isClosed) return;
       if (result['success'] != true) {
         throw Exception(result['error'] as String? ?? 'Failed to submit refund request');
       }
       emit(state.copyWith(refundRequestStatus: RefundRequestStatus.success));
       await loadTicket(ticket.reference, isSilent: true);
     } catch (e) {
+      if (isClosed) return;
       emit(state.copyWith(
         refundRequestStatus: RefundRequestStatus.failure,
         refundRequestError: e.toFriendlyMessage(),

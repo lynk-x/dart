@@ -40,7 +40,8 @@ class FeatureFlagCubit extends Cubit<FeatureFlagState> {
           .from('v1_profiles')
           .select('country_code')
           .eq('id', userId)
-          .maybeSingle();
+          .maybeSingle()
+          .timeout(const Duration(seconds: 15));
       final country = data?['country_code'] as String?;
       if (country != null && !isClosed) {
         emit(state.copyWith(userCountry: country.toUpperCase()));
@@ -53,14 +54,20 @@ class FeatureFlagCubit extends Cubit<FeatureFlagState> {
   Future<void> fetchFlags() async {
     emit(state.copyWith(isLoading: true));
     try {
-      final data =
-          await Supabase.instance.client.schema('api').from('v1_feature_flags').select();
+      final data = await Supabase.instance.client
+          .schema('api')
+          .from('v1_feature_flags')
+          .select()
+          .timeout(const Duration(seconds: 15));
+      if (isClosed) return;
 
       final flags =
           (data as List).map((json) => FeatureFlag.fromMap(json)).toList();
       emit(state.copyWith(flags: flags, isLoading: false));
     } catch (e) {
-      emit(state.copyWith(isLoading: false, error: e.toString()));
+      if (!isClosed) {
+        emit(state.copyWith(isLoading: false, error: e.toString()));
+      }
     }
   }
 

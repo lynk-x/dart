@@ -40,11 +40,11 @@ class _SupportScreenState extends State<SupportScreen> {
   }
 
   void _loadData() {
-    final userId =
-        Supabase.instance.client.auth.currentUser?.id ?? 'mock-user-id';
-
+    final userId = Supabase.instance.client.auth.currentUser?.id;
     setState(() {
-      _activeTicketsFuture = supportRepository.getActiveTickets(userId, 'general');
+      _activeTicketsFuture = userId != null
+          ? supportRepository.getActiveTickets(userId, 'general')
+          : Future.value([]);
     });
   }
 

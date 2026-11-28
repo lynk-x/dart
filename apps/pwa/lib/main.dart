@@ -8,7 +8,6 @@ import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
 import 'package:flutter_web_plugins/url_strategy.dart';
 import 'app.dart';
-import 'core/sync/sync_manager.dart';
 
 /// Fallback [Storage] implementation used when [HydratedStorage.build] fails
 /// (e.g. IndexedDB is unavailable in private/incognito browsing mode or blocked by
@@ -88,18 +87,16 @@ void main() async {
     debugPrint('[Main] Firebase initialization skipped/failed: $e');
   }
 
-  try {
-    final url = supabaseUrl.isNotEmpty
-        ? supabaseUrl
-        : 'https://placeholder.supabase.co';
-    final key = supabaseAnonKey.isNotEmpty
-        ? supabaseAnonKey
-        : 'placeholder_publishable_key';
-    await Supabase.initialize(url: url, publishableKey: key);
-    // Resume any offline actions queued before the app was last closed.
-    unawaited(SyncManager.instance.init());
-  } catch (e) {
-    debugPrint('[Main] Supabase initialization failed: $e');
+  if (supabaseUrl.isNotEmpty && supabaseAnonKey.isNotEmpty) {
+    try {
+      await Supabase.initialize(url: supabaseUrl, publishableKey: supabaseAnonKey);
+    } catch (e) {
+      debugPrint('[Main] Supabase initialization failed: $e');
+    }
+  } else {
+    debugPrint(
+      '[Main] Supabase credentials missing (SUPABASE_URL / SUPABASE_PUBLISHABLE_KEY). Skipping initialization.',
+    );
   }
 
   if (sentryDsn.isNotEmpty) {

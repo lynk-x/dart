@@ -10,6 +10,7 @@ import 'package:lynk_x/l10n/app_localizations.dart';
 import 'package:lynk_x/data/repositories/repository_providers.dart';
 import 'package:lynk_x/presentation/shared/utils/app_snackbars.dart';
 import 'services/push_notification_service.dart';
+import 'package:lynk_x/core/sync/sync_manager.dart';
 import 'package:lynk_x/core/utils/embedding_manager.dart';
 
 /// Root widget wrapper providing global BLoC/Cubit instances and dynamic locale management.
@@ -42,9 +43,10 @@ class _LynkXAppWrapperState extends State<LynkXAppWrapper> {
       providers: [
         BlocProvider(create: (context) => FeatureFlagCubit()..init()),
         BlocProvider(create: (context) => SystemConfigCubit()),
-        BlocProvider(
-            create: (context) =>
-                ProfileCubit(profileRepository)..loadProfile()),
+        // ProfileCubit is NOT auto-loaded here — onAuthStateChange
+        // (initialSession / signedIn) triggers loadProfile() once auth settles,
+        // avoiding a duplicate cold-start fetch or an unauthenticated error.
+        BlocProvider(create: (context) => ProfileCubit(profileRepository)),
         // NotificationCubit is NOT auto-loaded here — it force-unwraps
         // currentUser, which is null on a cold start before auth resolves.
         // loadNotifications() is triggered from the signedIn auth event instead.
@@ -72,6 +74,8 @@ class _LynkXAppState extends State<LynkXApp> with WidgetsBindingObserver {
   StreamSubscription<FeatureFlagState>? _featureFlagSubscription;
   bool _isSupabaseInitialized = true;
   bool _isLoading = false;
+  bool _routerInitialized = false;
+  bool _syncInitialized = false;
 
   @override
   void initState() {
@@ -107,20 +111,24 @@ class _LynkXAppState extends State<LynkXApp> with WidgetsBindingObserver {
       authStream = const Stream.empty();
     }
 
-    _router = createRouter(
-      authStream,
-      context.read<ProfileCubit>().stream,
-      context.read<FeatureFlagCubit>().stream,
-    );
+    if (!_routerInitialized) {
+      _router = createRouter(
+        authStream,
+        context.read<ProfileCubit>().stream,
+        context.read<FeatureFlagCubit>().stream,
+      );
+      _routerInitialized = true;
 
-    // Wire push notification taps to GoRouter
-    PushNotificationService.instance.onNotificationTap = (route) {
-      if (_isSupabaseInitialized) {
-        _router.go(route);
-      }
-    };
+      // Wire push notification taps to GoRouter
+      PushNotificationService.instance.onNotificationTap = (route) {
+        if (_isSupabaseInitialized) {
+          _router.go(route);
+        }
+      };
+    }
 
     // Initialize and listen to the client embedding feature flag
+    _featureFlagSubscription?.cancel();
     final featureFlags = context.read<FeatureFlagCubit>();
     _featureFlagSubscription = featureFlags.stream.listen((state) {
       EmbeddingManager.instance.init(
@@ -140,25 +148,39 @@ class _LynkXAppState extends State<LynkXApp> with WidgetsBindingObserver {
 
     // Auth state listener — handles sign-in and sign-out (phone+OTP only, no
     // password recovery flow).
+    _authSubscription?.cancel();
     try {
       _authSubscription =
           Supabase.instance.client.auth.onAuthStateChange.listen((data) {
         if (data.event == AuthChangeEvent.initialSession ||
             data.event == AuthChangeEvent.signedIn) {
           if (!mounted) return;
-          context.read<ProfileCubit>().loadProfile();
-          context.read<NotificationCubit>().loadNotifications();
-          PushNotificationService.instance.init();
-
           final user = Supabase.instance.client.auth.currentUser;
           if (user != null) {
+            context.read<ProfileCubit>().loadProfile();
+            context.read<NotificationCubit>().loadNotifications();
+            PushNotificationService.instance.init();
             context.read<SystemConfigCubit>().fetchConfigs();
+            if (!_syncInitialized) {
+              _syncInitialized = true;
+              // Resume any offline actions queued before the app was last closed,
+              // deferred until auth settles so queued writes don't race token refresh.
+              unawaited(SyncManager.instance.init());
+            }
           }
         } else if (data.event == AuthChangeEvent.tokenRefreshed) {
-          // Session token was silently refreshed (e.g. app foregrounded after
-          // expiry). Re-sync profile so they hold fresh data.
+          // Only re-fetch profile on token refresh if an earlier load hadn't
+          // succeeded yet (e.g. cold start with an expired token on slow net).
           if (!mounted) return;
-          context.read<ProfileCubit>().loadProfile();
+          final profileCubit = context.read<ProfileCubit>();
+          if (profileCubit.state is! ProfileLoaded) {
+            profileCubit.loadProfile();
+          }
+          if (!_syncInitialized &&
+              Supabase.instance.client.auth.currentUser != null) {
+            _syncInitialized = true;
+            unawaited(SyncManager.instance.init());
+          }
         } else if (data.event == AuthChangeEvent.signedOut) {
           if (!mounted) return;
           context.read<ProfileCubit>().reset();
@@ -211,18 +233,25 @@ class _LynkXAppState extends State<LynkXApp> with WidgetsBindingObserver {
     }
   }
 
+  Future<void> _refreshExpiredSession() async {
+    try {
+      final session = Supabase.instance.client.auth.currentSession;
+      if (session != null && session.isExpired) {
+        await Supabase.instance.client.auth
+            .refreshSession()
+            .timeout(const Duration(seconds: 12));
+      }
+    } catch (e) {
+      debugPrint('[LynkXApp] Session refresh check on resume failed: $e');
+    }
+  }
+
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed && _isSupabaseInitialized) {
-      // Re-verify Supabase session freshness on app foregrounding
-      try {
-        final session = Supabase.instance.client.auth.currentSession;
-        if (session == null || session.isExpired) {
-          Supabase.instance.client.auth.refreshSession();
-        }
-      } catch (e) {
-        debugPrint('[LynkXApp] Session refresh check on resume failed: $e');
-      }
+      // Re-verify Supabase session freshness on app foregrounding without
+      // calling refreshSession() when signed out.
+      unawaited(_refreshExpiredSession());
       // Force repaint to recover lost WebGL / CanvasKit surface after resume
       if (mounted) setState(() {});
     }

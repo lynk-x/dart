@@ -76,7 +76,8 @@ GoRouter createRouter(
         const publicRoutes = {
           '/auth',
           '/maintenance',
-          '/error'
+          '/update-required',
+          '/error',
         };
         final isBridgeRoute = pathNoQuery == '/auth/bridge';
         final isPublic = isBridgeRoute || publicRoutes.any((r) => path.startsWith(r));
@@ -127,11 +128,12 @@ GoRouter createRouter(
         path: '/auth',
         builder: (context, state) {
           final next = state.uri.queryParameters['next'];
+          final target = (next != null && next.isNotEmpty) ? next : '/';
           return Title(
             title: 'Access Account',
             color: Colors.black,
             child: AuthPage(
-              onVerified: () => GoRouter.of(context).go(next ?? '/'),
+              onVerified: () => GoRouter.of(context).go(target),
             ),
           );
         },

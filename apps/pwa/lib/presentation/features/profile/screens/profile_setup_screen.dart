@@ -98,10 +98,13 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
       if (!mounted) return;
       setState(() => _isCheckingUsername = true);
       try {
-        final response = await sb.Supabase.instance.client.schema('api').rpc(
-          'is_username_available',
-          params: {'username_to_check': name},
-        );
+        final response = await sb.Supabase.instance.client
+            .schema('api')
+            .rpc(
+              'is_username_available',
+              params: {'username_to_check': name},
+            )
+            .timeout(const Duration(seconds: 10));
         // Discard stale responses: a faster later request may have already
         // landed and updated the UI.
         if (!mounted || requestId != _usernameRequestId) return;
@@ -174,8 +177,8 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
         });
       }
     } catch (e) {
-      setState(() => _isSubmitting = false);
       if (mounted) {
+        setState(() => _isSubmitting = false);
         AppSnackBars.showError(context, 'Error: $e');
       }
     }

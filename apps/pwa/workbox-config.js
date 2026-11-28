@@ -42,6 +42,7 @@ module.exports = {
   // so users get the latest code without needing to close all tabs.
   skipWaiting: true,
   clientsClaim: true,
+  cleanupOutdatedCaches: true,
 
   // ── Navigation Fallback ───────────────────────────────────────────────────
   // Flutter uses client-side routing (GoRouter). Any navigation request that

@@ -99,7 +99,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen>
         uid != null
             ? activeSubQuery
             : Future<dynamic>.value(null),
-      ]);
+      ]).timeout(const Duration(seconds: 15));
 
       final plansRaw = results[0] is List ? results[0] as List : <dynamic>[];
       final accountRaw = results[1] is Map ? results[1] as Map<String, dynamic>? : null;
@@ -183,10 +183,13 @@ class _SubscriptionScreenState extends State<SubscriptionScreen>
 
     setState(() => _isProcessing = true);
     try {
-      await _supabase.schema('api').rpc('cancel_subscription', params: {
-        'p_subscription_id': _activeSubId,
-        'p_reason': 'user_requested',
-      });
+      await _supabase
+          .schema('api')
+          .rpc('cancel_subscription', params: {
+            'p_subscription_id': _activeSubId,
+            'p_reason': 'user_requested',
+          })
+          .timeout(const Duration(seconds: 15));
       if (!mounted) return;
       AppSnackBars.showInfo(context,
           'Subscription cancelled. Access continues until period end.');

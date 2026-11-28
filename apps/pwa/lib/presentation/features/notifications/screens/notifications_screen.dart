@@ -26,10 +26,15 @@ class _NotificationsPageState extends State<NotificationsPage> {
     super.initState();
     final cubit = context.read<NotificationCubit>();
     if (cubit.state is NotificationInitial) {
-      cubit.loadNotifications();
+      cubit.loadNotifications().then((_) {
+        if (mounted) {
+          context.read<NotificationCubit>().markAllAsRead();
+        }
+      });
+    } else {
+      // Mark all as read immediately so the badge clears when the screen is opened.
+      cubit.markAllAsRead();
     }
-    // Mark all as read immediately so the badge clears when the screen is opened.
-    cubit.markAllAsRead();
     _scrollController.addListener(_onScroll);
   }
 

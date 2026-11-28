@@ -20,12 +20,17 @@ class LiveChatScreen extends StatefulWidget {
 class _LiveChatScreenState extends State<LiveChatScreen> {
   final TextEditingController _controller = TextEditingController();
   late List<Map<String, dynamic>> _mockMessages;
-  final String _currentUserId =
+  Stream<List<Map<String, dynamic>>>? _messagesStream;
+
+  String get _currentUserId =>
       Supabase.instance.client.auth.currentUser?.id ?? '';
 
   @override
   void initState() {
     super.initState();
+    if (widget.ticketId != null) {
+      _messagesStream = supportRepository.streamMessages(widget.ticketId!);
+    }
     _mockMessages = [
       {
         'isMe': false,
@@ -139,7 +144,7 @@ class _LiveChatScreenState extends State<LiveChatScreen> {
 
   Widget _buildRealtimeMessages() {
     return StreamBuilder<List<Map<String, dynamic>>>(
-      stream: supportRepository.streamMessages(widget.ticketId!),
+      stream: _messagesStream,
       builder: (context, snapshot) {
         if (snapshot.hasError) {
           return Center(

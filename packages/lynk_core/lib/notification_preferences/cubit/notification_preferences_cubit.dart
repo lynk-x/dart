@@ -13,7 +13,8 @@ class NotificationPreferencesCubit extends Cubit<NotificationPreferencesState> {
       final results = await Future.wait([
         _repo.getCategories(),
         _repo.getPreferences(),
-      ]);
+      ]).timeout(const Duration(seconds: 15));
+      if (isClosed) return;
       final categories = results[0] as List<NotificationCategory>;
       final preferences = results[1] as List<NotificationPreference>;
       final byType = {for (final p in preferences) p.type: p};
@@ -28,7 +29,9 @@ class NotificationPreferencesCubit extends Cubit<NotificationPreferencesState> {
 
       emit(NotificationPreferencesLoaded(items: items));
     } catch (e) {
-      emit(NotificationPreferencesError(e.toFriendlyMessage()));
+      if (!isClosed) {
+        emit(NotificationPreferencesError(e.toFriendlyMessage()));
+      }
     }
   }
 
@@ -66,17 +69,21 @@ class NotificationPreferencesCubit extends Cubit<NotificationPreferencesState> {
     ));
 
     try {
-      await _repo.upsertPreference(
-        type: type,
-        inApp: updatedPreference.inApp,
-        push: updatedPreference.push,
-        email: updatedPreference.email,
-      );
+      await _repo
+          .upsertPreference(
+            type: type,
+            inApp: updatedPreference.inApp,
+            push: updatedPreference.push,
+            email: updatedPreference.email,
+          )
+          .timeout(const Duration(seconds: 15));
+      if (isClosed) return;
       final next = state;
       if (next is! NotificationPreferencesLoaded) return;
       emit(next.copyWith(clearSavingType: true));
     } catch (e) {
       debugPrint('[NotificationPreferencesCubit] updatePreference failed: $e');
+      if (isClosed) return;
       final next = state;
       if (next is! NotificationPreferencesLoaded) return;
       final revertedItems = List<NotificationPreferenceItem>.from(next.items);

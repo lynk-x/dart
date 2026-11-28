@@ -87,12 +87,15 @@ class _AccountPageState extends State<AccountPage> {
         return null;
       },
       sendCode: (value) => Supabase.instance.client.auth
-          .updateUser(UserAttributes(phone: value)),
-      verifyCode: (value, code) => Supabase.instance.client.auth.verifyOTP(
-        phone: value,
-        token: code,
-        type: OtpType.phoneChange,
-      ),
+          .updateUser(UserAttributes(phone: value))
+          .timeout(const Duration(seconds: 15)),
+      verifyCode: (value, code) => Supabase.instance.client.auth
+          .verifyOTP(
+            phone: value,
+            token: code,
+            type: OtpType.phoneChange,
+          )
+          .timeout(const Duration(seconds: 15)),
       successMessage: 'Phone number updated successfully',
       onPendingChanged: (pending) =>
           setState(() => _phonePendingConfirmation = pending),
@@ -121,12 +124,15 @@ class _AccountPageState extends State<AccountPage> {
         return null;
       },
       sendCode: (value) => Supabase.instance.client.auth
-          .updateUser(UserAttributes(email: value)),
-      verifyCode: (value, code) => Supabase.instance.client.auth.verifyOTP(
-        email: value,
-        token: code,
-        type: OtpType.emailChange,
-      ),
+          .updateUser(UserAttributes(email: value))
+          .timeout(const Duration(seconds: 15)),
+      verifyCode: (value, code) => Supabase.instance.client.auth
+          .verifyOTP(
+            email: value,
+            token: code,
+            type: OtpType.emailChange,
+          )
+          .timeout(const Duration(seconds: 15)),
       successMessage: 'Email address updated successfully',
       onPendingChanged: (pending) =>
           setState(() => _emailPendingConfirmation = pending),
@@ -173,6 +179,7 @@ class _AccountPageState extends State<AccountPage> {
               setDialogState(() => isUpdating = true);
               try {
                 await sendCode(valueController.text.trim());
+                if (!sheetContext.mounted) return;
                 setDialogState(() {
                   isUpdating = false;
                   codeSent = true;
@@ -181,8 +188,8 @@ class _AccountPageState extends State<AccountPage> {
                 if (sheetContext.mounted) {
                   AppSnackBars.showError(
                       sheetContext, 'Error: ${e.toFriendlyMessage()}');
+                  setDialogState(() => isUpdating = false);
                 }
-                setDialogState(() => isUpdating = false);
               }
             }
 
@@ -212,7 +219,9 @@ class _AccountPageState extends State<AccountPage> {
                       sheetContext, 'Error: ${e.toFriendlyMessage()}');
                 }
               } finally {
-                setDialogState(() => isUpdating = false);
+                if (sheetContext.mounted) {
+                  setDialogState(() => isUpdating = false);
+                }
               }
             }
 

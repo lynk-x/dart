@@ -28,7 +28,10 @@ class QuizCubit extends Cubit<QuizState> {
   Future<void> init() async {
     try {
       // 1. Initial Fetch
-      final data = await _repo.getQuestionnaire(questionnaireId);
+      final data = await _repo
+          .getQuestionnaire(questionnaireId)
+          .timeout(const Duration(seconds: 15));
+      if (isClosed) return;
 
       emit(state.copyWith(
         status: _mapStatus(data['session_state']),
@@ -43,6 +46,7 @@ class QuizCubit extends Cubit<QuizState> {
       if (state.status == QuizStatus.playing ||
           state.status == QuizStatus.reveal) {
         await _fetchCurrentQuestion(state.currentQuestionIndex);
+        if (isClosed) return;
         _startLocalTimer(data['state_expires_at']);
       }
 
@@ -52,6 +56,7 @@ class QuizCubit extends Cubit<QuizState> {
         await fetchLeaderboard();
       }
     } catch (e) {
+      if (isClosed) return;
       emit(state.copyWith(
           status: QuizStatus.error, errorMessage: e.toFriendlyMessage()));
     }
@@ -84,6 +89,7 @@ class QuizCubit extends Cubit<QuizState> {
     if (newStatus == QuizStatus.leaderboard || newStatus == QuizStatus.podium) {
       await fetchLeaderboard();
     }
+    if (isClosed) return;
 
     emit(state.copyWith(
       status: newStatus,
@@ -119,7 +125,10 @@ class QuizCubit extends Cubit<QuizState> {
   Future<void> _fetchCurrentQuestion(int index) async {
     if (index < 0) return;
     try {
-      final data = await _repo.getQuestion(questionnaireId, index);
+      final data = await _repo
+          .getQuestion(questionnaireId, index)
+          .timeout(const Duration(seconds: 15));
+      if (isClosed) return;
       if (data != null) {
         emit(state.copyWith(
           currentQuestion: data,
@@ -138,6 +147,10 @@ class QuizCubit extends Cubit<QuizState> {
     final expiresAt = DateTime.parse(expiresAtStr);
 
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (isClosed) {
+        timer.cancel();
+        return;
+      }
       final now = DateTime.now().toUtc();
       final diff = expiresAt.difference(now).inSeconds;
 
@@ -177,16 +190,20 @@ class QuizCubit extends Cubit<QuizState> {
     try {
       // responses.responses columns: question_id NOT NULL, selected_answer jsonb
       // (array of indices). The legacy 'answers' name was wrong.
-      await _repo.submitAnswer(
-        questionnaireId: questionnaireId,
-        questionId: questionId,
-        userId: userId,
-        selectedAnswer: [storedIndex],
-      );
+      await _repo
+          .submitAnswer(
+            questionnaireId: questionnaireId,
+            questionId: questionId,
+            userId: userId,
+            selectedAnswer: [storedIndex],
+          )
+          .timeout(const Duration(seconds: 15));
+      if (isClosed) return;
       // Only record the answer locally after the server confirms it, so the
       // UI never shows an answer as submitted when the RPC failed.
       emit(state.copyWith(myAnswerIndex: storedIndex));
     } catch (e) {
+      if (isClosed) return;
       emit(state.copyWith(
           clearMyAnswer: true, errorMessage: "Failed to submit answer"));
       debugPrint('Error submitting answer: $e');
@@ -195,7 +212,10 @@ class QuizCubit extends Cubit<QuizState> {
 
   Future<void> fetchLeaderboard() async {
     try {
-      final data = await _repo.getLeaderboard(questionnaireId);
+      final data = await _repo
+          .getLeaderboard(questionnaireId)
+          .timeout(const Duration(seconds: 15));
+      if (isClosed) return;
       emit(state.copyWith(leaderboard: data));
     } catch (e) {
       debugPrint('Error fetching leaderboard: $e');
@@ -307,7 +327,10 @@ class QuizCubit extends Cubit<QuizState> {
   @override
   Future<void> close() {
     _timer?.cancel();
-    _channel?.unsubscribe();
+    if (_channel != null) {
+      Supabase.instance.client.removeChannel(_channel!);
+      _channel = null;
+    }
     return super.close();
   }
 }

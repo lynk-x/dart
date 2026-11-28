@@ -19,18 +19,20 @@ class ProfileCubit extends Cubit<ProfileState> {
   }
 
   Future<void> loadProfile() async {
+    if (state is ProfileLoading) return;
     final uid = userId;
     if (uid == null) {
-      emit(const ProfileError('Not authenticated'));
+      if (!isClosed) emit(const ProfileError('Not authenticated'));
       return;
     }
 
     emit(const ProfileLoading());
     try {
-      final profile = await _repo.getProfile(uid);
-      emit(ProfileLoaded(profile: profile));
+      final profile =
+          await _repo.getProfile(uid).timeout(const Duration(seconds: 15));
+      if (!isClosed) emit(ProfileLoaded(profile: profile));
     } catch (e) {
-      emit(ProfileError(e.toFriendlyMessage()));
+      if (!isClosed) emit(ProfileError(e.toFriendlyMessage()));
     }
   }
 
@@ -61,18 +63,23 @@ class ProfileCubit extends Cubit<ProfileState> {
           gender != null ||
           dateOfBirth != null;
       if (hasRpcUpdate) {
-        await _repo.updateProfile(
-          fullName: fullName,
-          gender: gender,
-          dateOfBirth: dateOfBirth,
-          countryCode: countryCode,
-        );
+        await _repo
+            .updateProfile(
+              fullName: fullName,
+              gender: gender,
+              dateOfBirth: dateOfBirth,
+              countryCode: countryCode,
+            )
+            .timeout(const Duration(seconds: 15));
       }
 
       // user_name is not covered by update_my_profile; direct UPDATE via repo.
       if (userName != null) {
-        await _repo.updateUserName(uid, userName);
+        await _repo
+            .updateUserName(uid, userName)
+            .timeout(const Duration(seconds: 15));
       }
+      if (isClosed) return;
 
       final updatedProfile = currentState.profile.copyWith(
         fullName: fullName,
@@ -84,7 +91,10 @@ class ProfileCubit extends Cubit<ProfileState> {
       emit(ProfileLoaded(profile: updatedProfile));
     } catch (e) {
       debugPrint('[ProfileCubit] updateProfile failed: $e');
-      emit(currentState.copyWith(isUpdating: false, error: e.toFriendlyMessage()));
+      if (!isClosed) {
+        emit(currentState.copyWith(
+            isUpdating: false, error: e.toFriendlyMessage()));
+      }
     }
   }
 
@@ -101,14 +111,22 @@ class ProfileCubit extends Cubit<ProfileState> {
       final rawExt = imageFile.name.split('.').last.toLowerCase();
       final (bytes, ext) = await convertImageToWebP(rawBytes, rawExt);
 
-      final imageUrl = await _repo.uploadAvatar(uid, bytes, ext);
-      await _repo.updateAvatarUrl(uid, imageUrl);
+      final imageUrl = await _repo
+          .uploadAvatar(uid, bytes, ext)
+          .timeout(const Duration(seconds: 20));
+      await _repo
+          .updateAvatarUrl(uid, imageUrl)
+          .timeout(const Duration(seconds: 15));
+      if (isClosed) return;
 
       final updatedProfile = currentState.profile.copyWith(avatarUrl: imageUrl);
       emit(ProfileLoaded(profile: updatedProfile));
     } catch (e) {
       debugPrint('[ProfileCubit] uploadAvatar failed: $e');
-      emit(currentState.copyWith(isUpdating: false, error: e.toFriendlyMessage()));
+      if (!isClosed) {
+        emit(currentState.copyWith(
+            isUpdating: false, error: e.toFriendlyMessage()));
+      }
     }
   }
 
@@ -119,13 +137,19 @@ class ProfileCubit extends Cubit<ProfileState> {
 
     emit(currentState.copyWith(isUpdating: true));
     try {
-      await _repo.updateAvatarUrl(uid, null);
+      await _repo
+          .updateAvatarUrl(uid, null)
+          .timeout(const Duration(seconds: 15));
+      if (isClosed) return;
 
       final updatedProfile = currentState.profile.copyWith(clearAvatarUrl: true);
       emit(ProfileLoaded(profile: updatedProfile));
     } catch (e) {
       debugPrint('[ProfileCubit] removeAvatar failed: $e');
-      emit(currentState.copyWith(isUpdating: false, error: e.toFriendlyMessage()));
+      if (!isClosed) {
+        emit(currentState.copyWith(
+            isUpdating: false, error: e.toFriendlyMessage()));
+      }
     }
   }
 
@@ -135,10 +159,15 @@ class ProfileCubit extends Cubit<ProfileState> {
 
     emit(currentState.copyWith(isUpdating: true));
     try {
-      await _repo.deleteAccount();
-      await Supabase.instance.client.auth.signOut();
+      await _repo.deleteAccount().timeout(const Duration(seconds: 15));
+      await Supabase.instance.client.auth
+          .signOut()
+          .timeout(const Duration(seconds: 10));
     } catch (e) {
-      emit(currentState.copyWith(isUpdating: false, error: e.toFriendlyMessage()));
+      if (!isClosed) {
+        emit(currentState.copyWith(
+            isUpdating: false, error: e.toFriendlyMessage()));
+      }
     }
   }
 
@@ -154,9 +183,11 @@ class ProfileCubit extends Cubit<ProfileState> {
     final requestId = ++_usernameRequestId;
     emit(currentState.copyWith(isCheckingUsername: true, isUsernameAvailable: null));
     try {
-      final available = await _repo.isUsernameAvailable(username);
+      final available = await _repo
+          .isUsernameAvailable(username)
+          .timeout(const Duration(seconds: 10));
       // Discard stale responses.
-      if (requestId != _usernameRequestId) return;
+      if (isClosed || requestId != _usernameRequestId) return;
       // Re-read state in case it changed during the await.
       final next = state;
       if (next is! ProfileLoaded) return;
@@ -165,7 +196,7 @@ class ProfileCubit extends Cubit<ProfileState> {
         isUsernameAvailable: available,
       ));
     } catch (e) {
-      if (requestId != _usernameRequestId) return;
+      if (isClosed || requestId != _usernameRequestId) return;
       final next = state;
       if (next is! ProfileLoaded) return;
       emit(next.copyWith(isCheckingUsername: false));
@@ -181,7 +212,10 @@ class ProfileCubit extends Cubit<ProfileState> {
 
     emit(currentState.copyWith(isRegeneratingUsername: true));
     try {
-      final newUsername = await _repo.regenerateUsername();
+      final newUsername = await _repo
+          .regenerateUsername()
+          .timeout(const Duration(seconds: 15));
+      if (isClosed) return;
       final next = state;
       if (next is! ProfileLoaded) return;
       final updatedProfile = next.profile.copyWith(userName: newUsername);
@@ -191,6 +225,7 @@ class ProfileCubit extends Cubit<ProfileState> {
       ));
     } catch (e) {
       debugPrint('[ProfileCubit] regenerateUsername failed: $e');
+      if (isClosed) return;
       final next = state;
       if (next is! ProfileLoaded) return;
       emit(next.copyWith(

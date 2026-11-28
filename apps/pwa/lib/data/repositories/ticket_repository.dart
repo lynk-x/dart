@@ -164,6 +164,10 @@ class TicketRepository {
         );
   }
 
+  void unsubscribe(RealtimeChannel channel) {
+    _client.removeChannel(channel);
+  }
+
   Future<Map<String, dynamic>?> getPendingListing(String ticketId) async {
     final listingsResponse = await _client
         .from('ticket_listings')

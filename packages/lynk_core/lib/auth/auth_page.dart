@@ -201,12 +201,13 @@ class _DialCodeCountry {
 class _PhoneFormState extends State<_PhoneForm> {
   final _phoneController = TextEditingController();
   bool _isLoading = false;
-  bool _isLoadingCountries = true;
 
-  List<_DialCodeCountry> _countries = const [];
-  _DialCodeCountry _selectedCountry = const _DialCodeCountry(
+  static const _defaultCountry = _DialCodeCountry(
     code: 'KE', displayName: 'Kenya', phonePrefix: '+254', phoneDigits: 9,
   );
+
+  List<_DialCodeCountry> _countries = const [_defaultCountry];
+  _DialCodeCountry _selectedCountry = _defaultCountry;
 
   @override
   void initState() {
@@ -216,7 +217,8 @@ class _PhoneFormState extends State<_PhoneForm> {
 
   // Backed by api.v1_countries' phone_prefix/phone_digits columns — the same
   // source checkout's CountryPhoneSelect uses, so both sides normalize a
-  // phone number to the identical E.164 shape.
+  // phone number to the identical E.164 shape. Defaults to Kenya immediately
+  // so slow networks never block phone entry on a country-list spinner.
   Future<void> _loadCountries() async {
     try {
       final data = await Supabase.instance.client
@@ -225,7 +227,8 @@ class _PhoneFormState extends State<_PhoneForm> {
           .select('code, display_name, phone_prefix, phone_digits')
           .eq('is_active', true)
           .not('phone_prefix', 'is', null)
-          .order('display_name');
+          .order('display_name')
+          .timeout(const Duration(seconds: 10));
 
       final countries = (data as List)
           .map((row) => _DialCodeCountry(
@@ -236,15 +239,14 @@ class _PhoneFormState extends State<_PhoneForm> {
               ))
           .toList();
 
-      if (!mounted) return;
+      if (!mounted || countries.isEmpty) return;
       setState(() {
         _countries = countries;
         final match = countries.where((c) => c.code == _selectedCountry.code);
         if (match.isNotEmpty) _selectedCountry = match.first;
-        _isLoadingCountries = false;
       });
     } catch (_) {
-      if (mounted) setState(() => _isLoadingCountries = false);
+      // Keep default Kenya (+254) fallback if country fetch fails/times out.
     }
   }
 
@@ -282,14 +284,16 @@ class _PhoneFormState extends State<_PhoneForm> {
     }
     setState(() => _isLoading = true);
     try {
-      await Supabase.instance.client.auth.signInWithOtp(
-        phone: phone,
-        channel: OtpChannel.sms,
-        // Tags a first-time signup so internal.handle_new_user() knows to
-        // auto-provision an attendee profile+account atomically. Ignored by
-        // GoTrue for an existing user (login, not signup) — safe to always send.
-        data: const {'account_type': 'attendee'},
-      );
+      await Supabase.instance.client.auth
+          .signInWithOtp(
+            phone: phone,
+            channel: OtpChannel.sms,
+            // Tags a first-time signup so internal.handle_new_user() knows to
+            // auto-provision an attendee profile+account atomically. Ignored by
+            // GoTrue for an existing user (login, not signup) — safe to always send.
+            data: const {'account_type': 'attendee'},
+          )
+          .timeout(const Duration(seconds: 20));
       if (mounted) widget.onCodeSent(phone);
     } catch (e) {
       if (mounted) {
@@ -315,35 +319,26 @@ class _PhoneFormState extends State<_PhoneForm> {
             color: Colors.white,
             borderRadius: BorderRadius.circular(12),
           ),
-          child: _isLoadingCountries
-              ? const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: Padding(
-                    padding: EdgeInsets.all(4),
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  ),
-                )
-              : DropdownButtonHideUnderline(
-                  child: DropdownButton<String>(
-                    value: _selectedCountry.code,
-                    isExpanded: true,
-                    icon: const Icon(Icons.arrow_drop_down, color: Colors.black54),
-                    style: const TextStyle(color: Colors.black, fontSize: 15),
-                    items: _countries
-                        .map((c) => DropdownMenuItem(
-                              value: c.code,
-                              child: Text('${c.displayName} (${c.phonePrefix})'),
-                            ))
-                        .toList(),
-                    onChanged: (code) {
-                      final match = _countries.where((c) => c.code == code);
-                      if (match.isNotEmpty) {
-                        setState(() => _selectedCountry = match.first);
-                      }
-                    },
-                  ),
-                ),
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<String>(
+              value: _selectedCountry.code,
+              isExpanded: true,
+              icon: const Icon(Icons.arrow_drop_down, color: Colors.black54),
+              style: const TextStyle(color: Colors.black, fontSize: 15),
+              items: _countries
+                  .map((c) => DropdownMenuItem(
+                        value: c.code,
+                        child: Text('${c.displayName} (${c.phonePrefix})'),
+                      ))
+                  .toList(),
+              onChanged: (code) {
+                final match = _countries.where((c) => c.code == code);
+                if (match.isNotEmpty) {
+                  setState(() => _selectedCountry = match.first);
+                }
+              },
+            ),
+          ),
         ),
         const SizedBox(height: 12),
         CustomTextField(
@@ -391,13 +386,15 @@ class _EmailFormState extends State<_EmailForm> {
     }
     setState(() => _isLoading = true);
     try {
-      await Supabase.instance.client.auth.signInWithOtp(
-        email: email,
-        // Tags a first-time signup so internal.handle_new_user() knows to
-        // auto-provision an attendee profile+account atomically. Ignored by
-        // GoTrue for an existing user (login, not signup) — safe to always send.
-        data: const {'account_type': 'attendee'},
-      );
+      await Supabase.instance.client.auth
+          .signInWithOtp(
+            email: email,
+            // Tags a first-time signup so internal.handle_new_user() knows to
+            // auto-provision an attendee profile+account atomically. Ignored by
+            // GoTrue for an existing user (login, not signup) — safe to always send.
+            data: const {'account_type': 'attendee'},
+          )
+          .timeout(const Duration(seconds: 20));
       if (mounted) widget.onCodeSent(email);
     } catch (e) {
       if (mounted) {
@@ -496,12 +493,15 @@ class _OtpFormState extends State<_OtpForm> {
     }
     setState(() => _isLoading = true);
     try {
-      await Supabase.instance.client.auth.verifyOTP(
-        phone: _isPhone ? widget.identifier : null,
-        email: _isPhone ? null : widget.identifier,
-        token: code,
-        type: widget.type,
-      );
+      await Supabase.instance.client.auth
+          .verifyOTP(
+            phone: _isPhone ? widget.identifier : null,
+            email: _isPhone ? null : widget.identifier,
+            token: code,
+            type: widget.type,
+          )
+          .timeout(const Duration(seconds: 20));
+      if (!mounted) return;
       widget.onVerified?.call();
     } catch (e) {
       if (mounted) {
@@ -553,11 +553,13 @@ class _OtpFormState extends State<_OtpForm> {
   Future<void> _resend() async {
     setState(() => _isResending = true);
     try {
-      await Supabase.instance.client.auth.signInWithOtp(
-        phone: _isPhone ? widget.identifier : null,
-        email: _isPhone ? null : widget.identifier,
-        channel: OtpChannel.sms, // ignored by the SDK when email is set
-      );
+      await Supabase.instance.client.auth
+          .signInWithOtp(
+            phone: _isPhone ? widget.identifier : null,
+            email: _isPhone ? null : widget.identifier,
+            channel: OtpChannel.sms, // ignored by the SDK when email is set
+          )
+          .timeout(const Duration(seconds: 20));
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Code resent')),

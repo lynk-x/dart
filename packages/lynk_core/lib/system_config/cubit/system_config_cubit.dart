@@ -29,7 +29,9 @@ class SystemConfigCubit extends Cubit<SystemConfigState> {
           .schema('api')
           .from('v1_system_config')
           .select('key, value, data_type')
-          .eq('is_active', true);
+          .eq('is_active', true)
+          .timeout(const Duration(seconds: 15));
+      if (isClosed) return;
 
       final Map<String, SystemConfigEntry> entries = {};
       for (final item in (data as List)) {
@@ -43,7 +45,9 @@ class SystemConfigCubit extends Cubit<SystemConfigState> {
 
       emit(state.copyWith(entries: entries, isLoading: false));
     } catch (e) {
-      emit(state.copyWith(isLoading: false, error: e.toString()));
+      if (!isClosed) {
+        emit(state.copyWith(isLoading: false, error: e.toString()));
+      }
     }
   }
 }

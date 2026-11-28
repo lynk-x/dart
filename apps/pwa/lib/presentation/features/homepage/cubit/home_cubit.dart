@@ -57,7 +57,8 @@ class HomeCubit extends Cubit<HomeState> {
 
       _subscribeToFeedChanges(userId);
 
-      final page = await _fetchPage(userId, past: false);
+      final page = await _fetchPage(userId, past: false)
+          .timeout(const Duration(seconds: 15));
       if (generation != _generation || isClosed) return;
 
       emit(state.copyWith(
@@ -144,7 +145,7 @@ class HomeCubit extends Cubit<HomeState> {
         past: state.showingPast,
         afterEndsAt: state.cursorEndsAt,
         afterForumId: state.cursorForumId,
-      );
+      ).timeout(const Duration(seconds: 15));
       if (generation != _generation || isClosed) return;
 
       // Keyset pages shouldn't overlap, but never show an event twice if one slips through.

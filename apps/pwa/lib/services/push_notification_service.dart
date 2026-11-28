@@ -16,6 +16,7 @@ class PushNotificationService {
   late final _messaging = FirebaseMessaging.instance;
   StreamSubscription<RemoteMessage>? _foregroundSub;
   StreamSubscription<RemoteMessage>? _openedSub;
+  StreamSubscription<String>? _tokenRefreshSub;
 
   /// Callback invoked with the destination route when a user taps a notification.
   void Function(String route)? onNotificationTap;
@@ -38,11 +39,13 @@ class PushNotificationService {
   /// foreground listeners and performs token registration with retry logic.
   Future<void> init() async {
     try {
-      final settings = await _messaging.requestPermission(
-        alert: true,
-        badge: true,
-        sound: true,
-      );
+      final settings = await _messaging
+          .requestPermission(
+            alert: true,
+            badge: true,
+            sound: true,
+          )
+          .timeout(const Duration(seconds: 10));
 
       if (settings.authorizationStatus == AuthorizationStatus.denied) {
         debugPrint('[Push] Permission denied');
@@ -51,9 +54,11 @@ class PushNotificationService {
       }
 
       // Listen to foreground messages (Web displays these via browser UI if configured)
+      await _foregroundSub?.cancel();
       _foregroundSub = FirebaseMessaging.onMessage.listen(_handleForeground);
 
       // Listen to notification taps
+      await _openedSub?.cancel();
       _openedSub =
           FirebaseMessaging.onMessageOpenedApp.listen(_handleNotificationTap);
 
@@ -61,7 +66,8 @@ class PushNotificationService {
       await _registerTokenWithRetry();
 
       // Listen for token refreshes
-      _messaging.onTokenRefresh.listen((newToken) {
+      await _tokenRefreshSub?.cancel();
+      _tokenRefreshSub = _messaging.onTokenRefresh.listen((newToken) {
         _saveTokenToSupabase(newToken);
       });
 
@@ -140,9 +146,13 @@ class PushNotificationService {
             debugPrint('[Push] FIREBASE_VAPID_KEY is not set — skipping web push registration');
             return;
           }
-          token = await _messaging.getToken(vapidKey: vapidKey);
+          token = await _messaging
+              .getToken(vapidKey: vapidKey)
+              .timeout(const Duration(seconds: 10));
         } else {
-          token = await _messaging.getToken();
+          token = await _messaging
+              .getToken()
+              .timeout(const Duration(seconds: 10));
         }
 
         if (token != null) {
@@ -185,10 +195,14 @@ class PushNotificationService {
       if (kIsWeb) {
         const vapidKey = String.fromEnvironment('FIREBASE_VAPID_KEY');
         if (vapidKey.isNotEmpty) {
-          token = await _messaging.getToken(vapidKey: vapidKey);
+          token = await _messaging
+              .getToken(vapidKey: vapidKey)
+              .timeout(const Duration(seconds: 10));
         }
       } else {
-        token = await _messaging.getToken();
+        token = await _messaging
+            .getToken()
+            .timeout(const Duration(seconds: 10));
       }
 
       if (token != null) {
@@ -203,9 +217,10 @@ class PushNotificationService {
     }
   }
 
-  /// Cancels active message and app-opened stream subscriptions.
+  /// Cancels active message, token-refresh, and app-opened stream subscriptions.
   void dispose() {
     _foregroundSub?.cancel();
     _openedSub?.cancel();
+    _tokenRefreshSub?.cancel();
   }
 }

@@ -72,19 +72,6 @@ class _HomeViewState extends State<HomeView>
     });
   }
 
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    // Refresh when returning to this screen
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        try {
-          context.read<HomeCubit>().refresh();
-        } catch (_) {}
-      }
-    });
-  }
-
   Future<void> _loadWelcomeBanner() async {
     final prefs = await SharedPreferences.getInstance();
     final dismissed = prefs.getBool('home_welcome_dismissed') ?? false;
@@ -107,7 +94,10 @@ class _HomeViewState extends State<HomeView>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed && mounted) {
-      context.read<HomeCubit>().refresh();
+      final cubit = context.read<HomeCubit>();
+      if (cubit.state.events.isEmpty && !cubit.state.isLoading) {
+        cubit.refresh();
+      }
     }
   }
 

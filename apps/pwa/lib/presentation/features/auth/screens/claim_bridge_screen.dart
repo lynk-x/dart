@@ -58,10 +58,12 @@ class _ClaimBridgeScreenState extends State<ClaimBridgeScreen> {
 
     if (tokenHash != null && tokenHash.isNotEmpty && !hasSession) {
       try {
-        await Supabase.instance.client.auth.verifyOTP(
-          tokenHash: tokenHash,
-          type: OtpType.magiclink,
-        );
+        await Supabase.instance.client.auth
+            .verifyOTP(
+              tokenHash: tokenHash,
+              type: OtpType.magiclink,
+            )
+            .timeout(const Duration(seconds: 20));
       } catch (e) {
         // Token is single-use and short-lived — expired/already-consumed is
         // expected for a bookmarked confirmation page or a reopened old
