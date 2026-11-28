@@ -79,17 +79,15 @@ class QuizRepository {
 
   RealtimeChannel subscribeToQuizSession(
     String questionnaireId,
-    void Function(PostgresChangePayload) callback,
+    void Function(Map<String, dynamic>) callback,
   ) {
-    return _client.channel('quiz_live_$questionnaireId').onPostgresChanges(
-          event: PostgresChangeEvent.update,
-          schema: 'surveys',
-          table: 'questionnaires',
-          filter: PostgresChangeFilter(
-            type: PostgresChangeFilterType.eq,
-            column: 'id',
-            value: questionnaireId,
-          ),
+    return _client
+        .channel(
+          'quiz_live_$questionnaireId',
+          opts: const RealtimeChannelConfig(private: true),
+        )
+        .onBroadcast(
+          event: 'quiz_state_change',
           callback: callback,
         );
   }

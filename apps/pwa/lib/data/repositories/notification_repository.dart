@@ -17,10 +17,16 @@ class NotificationRepository {
     int offset = 0,
     int limit = 30,
   }) async {
+    final userId = _client.auth.currentUser?.id;
+    if (userId == null) return [];
+
+    // Explicit user_id filter lets Postgres use idx_notifications_unread_by_user
+    // instead of scanning all partitions when relying solely on RLS auth.uid().
     var query = _client
         .schema('api')
         .from('v1_notifications')
-        .select();
+        .select()
+        .eq('user_id', userId);
 
     if (accountId != null) {
       query = query.eq('data->>account_id', accountId);

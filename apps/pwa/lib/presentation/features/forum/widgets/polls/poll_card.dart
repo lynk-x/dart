@@ -52,20 +52,16 @@ class _PollCardState extends State<PollCard> {
     _checkExistingVote();
     _fetchResults();
     _channel = _supabase
-        .channel('poll_results_${widget.questionId}')
+        .channel(
+          'poll_results_${widget.questionId}',
+          opts: const RealtimeChannelConfig(private: true),
+        )
         .onBroadcast(
           event: 'poll_results',
           callback: (payload) => _applyResults(payload['results'] as List?),
         )
-        .onPostgresChanges(
-          event: PostgresChangeEvent.all,
-          schema: 'surveys',
-          table: 'poll_summaries',
-          filter: PostgresChangeFilter(
-            type: PostgresChangeFilterType.eq,
-            column: 'question_id',
-            value: widget.questionId,
-          ),
+        .onBroadcast(
+          event: 'poll_summary_change',
           callback: (_) => _fetchResults(),
         )
         .subscribe();

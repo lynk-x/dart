@@ -153,7 +153,7 @@ class TicketRepository {
         .channel('ticket_listings:$ticketId')
         .onPostgresChanges(
           event: PostgresChangeEvent.all,
-          schema: 'public',
+          schema: 'ticketing',
           table: 'ticket_listings',
           filter: PostgresChangeFilter(
             type: PostgresChangeFilterType.eq,

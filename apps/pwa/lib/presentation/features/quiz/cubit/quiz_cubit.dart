@@ -59,7 +59,10 @@ class QuizCubit extends Cubit<QuizState> {
 
   void _setupRealtimeListener() {
     _channel = _repo.subscribeToQuizSession(questionnaireId, (payload) {
-      _handleUpdate(payload.newRecord);
+      final record = payload['record'] as Map<String, dynamic>?;
+      if (record != null) {
+        _handleUpdate(record);
+      }
     }).subscribe();
   }
 

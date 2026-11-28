@@ -11,6 +11,7 @@ import 'package:lynk_x/core/utils/upload.dart';
 import 'package:lynk_x/core/utils/storage.dart';
 import 'package:lynk_x/data/repositories/forum_repository.dart';
 import 'package:lynk_x/presentation/features/forum/core/upload_preview_math.dart';
+import 'package:lynk_x/presentation/features/forum/services/forum_broadcast_service.dart';
 import 'forum_media_state.dart';
 
 /// Owns the forum's media tab — upload (via R2 presigned URLs), moderation
@@ -22,7 +23,7 @@ class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
   final bool isOrganizer;
   final bool isModerator;
   final ForumRepository repo;
-  RealtimeChannel? _mediaSubscription;
+  ForumBroadcastListener? _mediaListener;
 
   // Files whose last upload attempt failed, kept so the user can retry without re-picking them.
   List<XFile> _failedFiles = const [];
@@ -93,9 +94,20 @@ class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
   }
 
   void _setupRealtimeListener() {
-    _mediaSubscription = repo.subscribeToMediaChanges(forumId, (payload) async {
-      if (payload.eventType == PostgresChangeEvent.insert) {
-        final data = payload.newRecord;
+    if (_mediaListener != null) {
+      ForumBroadcastService().unregister(
+        forumId,
+        _mediaListener!,
+        event: 'forum_media_change',
+      );
+    }
+
+    _mediaListener = (payload) async {
+      final op = payload['operation'] as String?;
+      final data = payload['record'] as Map<String, dynamic>?;
+      final oldData = payload['old_record'] as Map<String, dynamic>?;
+
+      if (op == 'INSERT' && data != null) {
         final mediaItem = ForumMedia.fromMap(data);
 
         // Deduplicate
@@ -119,8 +131,7 @@ class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
           final updatedItems = [finalItem, ...state.mediaItems.where((m) => m.id != finalItem.id)];
           emit(state.copyWith(mediaItems: _sortMedia(updatedItems)));
         }
-      } else if (payload.eventType == PostgresChangeEvent.update) {
-        final data = payload.newRecord;
+      } else if (op == 'UPDATE' && data != null) {
         final mediaItem = ForumMedia.fromMap(data);
         final isOwnUpload = mediaItem.uploaderId == userId;
 
@@ -159,13 +170,19 @@ class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
             }
           }
         }
-      } else if (payload.eventType == PostgresChangeEvent.delete) {
-        final id = payload.oldRecord['id'] as String?;
+      } else if (op == 'DELETE') {
+        final id = oldData?['id'] as String?;
+        if (id == null) return;
         final updated = state.mediaItems.where((m) => m.id != id).toList();
         if (!isClosed) emit(state.copyWith(mediaItems: _sortMedia(updated)));
       }
-    });
-    _mediaSubscription?.subscribe();
+    };
+
+    ForumBroadcastService().register(
+      forumId,
+      _mediaListener!,
+      event: 'forum_media_change',
+    );
   }
 
   Future<void> refreshMedia() async {
@@ -693,7 +710,13 @@ class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
     }
     _pendingDeletionTimers.clear();
     _stagedDeletedMedia.clear();
-    _mediaSubscription?.unsubscribe();
+    if (_mediaListener != null) {
+      ForumBroadcastService().unregister(
+        forumId,
+        _mediaListener!,
+        event: 'forum_media_change',
+      );
+    }
     return super.close();
   }
 }

@@ -41,7 +41,7 @@ class _InterstitialAdState extends State<InterstitialAd> {
       unawaited(
         Supabase.instance.client
             .schema('api')
-            .rpc('log_ad_interaction', params: {
+            .rpc('log_interaction', params: {
               'p_serve_token': serveToken,
               'p_interaction_type': 'click',
             })

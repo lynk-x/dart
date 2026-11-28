@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:lynk_x/data/repositories/repositories.dart';
 import 'package:lynk_x/presentation/features/forum/models/forum_model.dart';
+import 'package:lynk_x/presentation/features/forum/services/forum_broadcast_service.dart';
 import 'forum_state.dart';
 import 'package:flutter/foundation.dart';
 import 'package:lynk_core/core.dart';
@@ -15,8 +16,9 @@ class ForumCubit extends Cubit<ForumState> {
   late String userId;
   late String userName;
   RealtimeChannel? _channel;
-  RealtimeChannel? _statusChannel;
-  RealtimeChannel? _forumStatusChannel;
+  ForumBroadcastListener? _memberListener;
+  ForumBroadcastListener? _forumStatusListener;
+  String? _registeredForumId;
   RealtimeChannel? get channel => _channel;
   Timer? _progressTimer;
 
@@ -73,38 +75,68 @@ class ForumCubit extends Cubit<ForumState> {
   void _setupUserStatusListener() {
     final fId = forumId;
     if (userId == kGuestUserId || fId == null) return;
-    _statusChannel?.unsubscribe();
+    if (_memberListener != null && _registeredForumId != null) {
+      ForumBroadcastService().unregister(
+        _registeredForumId!,
+        _memberListener!,
+        event: 'forum_member_change',
+      );
+    }
 
-    _statusChannel = _repo.subscribeToMemberChanges(fId, userId, (payload) {
-      final data = payload.newRecord;
-      if (data['forum_id'] == fId) {
-        final String? roleId = data['role_id'] as String?;
-        final bool isMuted = data['is_muted'] == true;
-        final bool hasMutedLiveChatsMedia =
-            data['has_muted_live_chats_media'] == true;
-
-        if (!isClosed) {
-          emit(state.copyWith(
-            isMuted: isMuted,
-            hasMutedLiveChatsMedia: hasMutedLiveChatsMedia,
-            isModerator: roleId == 'organizer',
-            isOrganizer: roleId == 'organizer',
-          ));
-        }
+    _registeredForumId = fId;
+    _memberListener = (payload) {
+      final data = payload['record'] as Map<String, dynamic>?;
+      if (data == null || data['forum_id'] != fId || data['user_id'] != userId) {
+        return;
       }
-    }).subscribe();
+
+      final String? roleId = data['role_id'] as String?;
+      final bool isMuted = data['is_muted'] == true;
+      final bool hasMutedLiveChatsMedia =
+          data['has_muted_live_chats_media'] == true;
+
+      if (!isClosed) {
+        emit(state.copyWith(
+          isMuted: isMuted,
+          hasMutedLiveChatsMedia: hasMutedLiveChatsMedia,
+          isModerator: roleId == 'organizer',
+          isOrganizer: roleId == 'organizer',
+        ));
+      }
+    };
+
+    ForumBroadcastService().register(
+      fId,
+      _memberListener!,
+      event: 'forum_member_change',
+    );
   }
 
   void _setupForumStatusListener() {
     final fId = forumId;
     if (fId == null) return;
-    _forumStatusChannel?.unsubscribe();
-    _forumStatusChannel = _repo.subscribeToForumChanges(fId, (payload) {
-      final String? newStatus = payload.newRecord['status'] as String?;
+    if (_forumStatusListener != null && _registeredForumId != null) {
+      ForumBroadcastService().unregister(
+        _registeredForumId!,
+        _forumStatusListener!,
+        event: 'forum_status_change',
+      );
+    }
+
+    _registeredForumId = fId;
+    _forumStatusListener = (payload) {
+      final data = payload['record'] as Map<String, dynamic>?;
+      final String? newStatus = data?['status'] as String?;
       if (newStatus != null && !isClosed) {
         emit(state.copyWith(forumStatus: newStatus));
       }
-    }).subscribe();
+    };
+
+    ForumBroadcastService().register(
+      fId,
+      _forumStatusListener!,
+      event: 'forum_status_change',
+    );
   }
 
   Future<void> _syncUserStatus() async {
@@ -275,8 +307,22 @@ class ForumCubit extends Cubit<ForumState> {
     // cubit is going away, and the back button awaits markAsRead() itself when it can.
     unawaited(markAsRead());
     _channel?.unsubscribe();
-    _statusChannel?.unsubscribe();
-    _forumStatusChannel?.unsubscribe();
+    if (_registeredForumId != null) {
+      if (_memberListener != null) {
+        ForumBroadcastService().unregister(
+          _registeredForumId!,
+          _memberListener!,
+          event: 'forum_member_change',
+        );
+      }
+      if (_forumStatusListener != null) {
+        ForumBroadcastService().unregister(
+          _registeredForumId!,
+          _forumStatusListener!,
+          event: 'forum_status_change',
+        );
+      }
+    }
     _progressTimer?.cancel();
     return super.close();
   }

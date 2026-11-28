@@ -9,7 +9,7 @@ import 'package:lynk_x/core/utils/storage.dart';
 import 'package:lynk_x/core/sync/sync_manager.dart';
 import 'package:lynk_x/presentation/features/forum/services/stream_service.dart';
 import 'package:lynk_x/presentation/features/forum/services/mini_overlay_service.dart';
-import 'package:lynk_x/presentation/features/forum/services/forum_cdc_service.dart';
+import 'package:lynk_x/presentation/features/forum/services/forum_broadcast_service.dart';
 import 'package:lynk_x/core/utils/debounce.dart';
 import 'base_message_state.dart';
 
@@ -43,9 +43,9 @@ abstract class BaseMessageCubit<T extends BaseMessageState>
   /// inactivity so typing "abc" doesn't fire three round-trips.
   final Debouncer _searchDebouncer = Debouncer(const Duration(milliseconds: 300));
 
-  /// Stored function reference for [ForumCdcService] — must be the same object
+  /// Stored function reference for [ForumBroadcastService] — must be the same object
   /// used in both [register] and [unregister] calls.
-  void Function(PostgresChangePayload)? _cdcListener;
+  ForumBroadcastListener? _cdcListener;
   StreamSubscription? _syncSubscription;
   bool _wasDisconnected = false;
 
@@ -208,20 +208,24 @@ abstract class BaseMessageCubit<T extends BaseMessageState>
     // regardless of how many cubits are subscribed. Each cubit filters
     // by its own messageTypes inside _handleCdcPayload.
     _cdcListener = _handleCdcPayload;
-    ForumCdcService().register(forumId, _cdcListener!);
+    ForumBroadcastService().register(forumId, _cdcListener!);
   }
 
-  /// Handles a Postgres CDC event dispatched by [ForumCdcService].
+  /// Handles a private Broadcast event dispatched by [ForumBroadcastService].
   /// Filters by [messageTypes] so Chat and Updates cubits sharing the same
-  /// channel each only act on their own message kinds.
-  void _handleCdcPayload(PostgresChangePayload payload) {
+  /// `forum:$forumId` channel each only act on their own message kinds.
+  void _handleCdcPayload(Map<String, dynamic> payload) {
     try {
-      if (payload.eventType == PostgresChangeEvent.delete) {
-        final id = payload.oldRecord['id'] as String?;
+      final op = payload['operation'] as String?;
+      final data = payload['record'] as Map<String, dynamic>?;
+      final oldData = payload['old_record'] as Map<String, dynamic>?;
+
+      if (op == 'DELETE') {
+        final id = oldData?['id'] as String?;
+        if (id == null) return;
         final updated = state.messages.where((m) => m.id != id).toList();
         if (!isClosed) emit(copyWithState(messages: updated));
-      } else if (payload.eventType == PostgresChangeEvent.insert) {
-        final data = payload.newRecord;
+      } else if (op == 'INSERT' && data != null) {
         if (!messageTypes.contains(data['message_type'])) return;
 
         final id = data['id'] as String;
@@ -236,8 +240,7 @@ abstract class BaseMessageCubit<T extends BaseMessageState>
 
         final msg = ChatMessage.fromMap(data, userId);
         onBroadcastMessageReceived(msg);
-      } else if (payload.eventType == PostgresChangeEvent.update) {
-        final data = payload.newRecord;
+      } else if (op == 'UPDATE' && data != null) {
         if (!messageTypes.contains(data['message_type'])) return;
 
         if (data['deleted_at'] != null) {
@@ -258,7 +261,7 @@ abstract class BaseMessageCubit<T extends BaseMessageState>
         }
       }
     } catch (e, stack) {
-      debugPrint('[BaseMessageCubit] CDC payload parse error: $e\n$stack');
+      debugPrint('[BaseMessageCubit] Broadcast payload parse error: $e\n$stack');
     }
   }
 
@@ -605,7 +608,7 @@ abstract class BaseMessageCubit<T extends BaseMessageState>
     if (_cdcListener != null) {
       // Unregister from the shared CDC singleton — decrements ref count;
       // channel is torn down automatically when no listeners remain.
-      ForumCdcService().unregister(forumId, _cdcListener!);
+      ForumBroadcastService().unregister(forumId, _cdcListener!);
     }
     channel?.unsubscribe();
     return super.close();

@@ -5,6 +5,15 @@ class ForumRepository {
   final SupabaseClient _client;
   ForumRepository(this._client);
 
+  // Explicit projection omitting `fts` (tsvector) so message fetches never
+  // transfer raw lexeme maps over the wire.
+  static const String _messageColumns =
+      'id, created_at, forum_id, forum_created_at, channel_id, channel_created_at, '
+      'author_id, message_type, hashtag, content, is_pinned, is_hidden, '
+      'media_id, media_created_at, reply_to_id, reply_to_created_at, '
+      'reply_count, edit_count, deleted_at, updated_at, '
+      'user_profile, forum_members, forum_media';
+
   /// Forum screen entry point: profile, forum (by id or reference), the
   /// caller's membership row, first channel, sessions, and member list in
   /// one call. Replaces what used to be 6 sequential queries split across
@@ -170,8 +179,10 @@ class ForumRepository {
     List<String>? messageTypes,
     String? hashtag,
   }) async {
-    var query =
-        _client.from('vw_forum_messages').select().eq('forum_id', forumId);
+    var query = _client
+        .from('vw_forum_messages')
+        .select(_messageColumns)
+        .eq('forum_id', forumId);
 
     if (messageTypes != null && messageTypes.isNotEmpty) {
       query = query.inFilter('message_type', messageTypes);
@@ -182,6 +193,8 @@ class ForumRepository {
     }
 
     if (searchQuery != null && searchQuery.isNotEmpty) {
+      // identity.lynk_search is COPY = pg_catalog.english (+ unaccent), and
+      // PostgREST's fts(config) syntax rejects schema-qualified regconfig names.
       query = query.textSearch('fts', searchQuery, config: 'english');
     }
 
@@ -221,75 +234,6 @@ class ForumRepository {
         .update({'deleted_at': DateTime.now().toIso8601String()})
         .eq('id', messageId)
         .eq('created_at', createdAt);
-  }
-
-  RealtimeChannel subscribeToMessages(
-    String forumId,
-    void Function(PostgresChangePayload) callback,
-  ) {
-    return _client.channel('forum_messages_$forumId').onPostgresChanges(
-          event: PostgresChangeEvent.all,
-          schema: 'social',
-          table: 'forum_messages',
-          filter: PostgresChangeFilter(
-            type: PostgresChangeFilterType.eq,
-            column: 'forum_id',
-            value: forumId,
-          ),
-          callback: callback,
-        );
-  }
-
-  RealtimeChannel subscribeToForumChanges(
-    String forumId,
-    void Function(PostgresChangePayload) callback,
-  ) {
-    return _client.channel('forum_status_$forumId').onPostgresChanges(
-          event: PostgresChangeEvent.update,
-          schema: 'social',
-          table: 'forums',
-          filter: PostgresChangeFilter(
-            type: PostgresChangeFilterType.eq,
-            column: 'id',
-            value: forumId,
-          ),
-          callback: callback,
-        );
-  }
-
-  RealtimeChannel subscribeToMemberChanges(
-    String forumId,
-    String userId,
-    void Function(PostgresChangePayload) callback,
-  ) {
-    return _client.channel('forum_member_${forumId}_$userId').onPostgresChanges(
-          event: PostgresChangeEvent.all,
-          schema: 'social',
-          table: 'forum_members',
-          filter: PostgresChangeFilter(
-            type: PostgresChangeFilterType.eq,
-            column: 'user_id',
-            value: userId,
-          ),
-          callback: callback,
-        );
-  }
-
-  RealtimeChannel subscribeToMediaChanges(
-    String forumId,
-    void Function(PostgresChangePayload) callback,
-  ) {
-    return _client.channel('forum_media_$forumId').onPostgresChanges(
-          event: PostgresChangeEvent.all,
-          schema: 'social',
-          table: 'forum_media',
-          filter: PostgresChangeFilter(
-            type: PostgresChangeFilterType.eq,
-            column: 'forum_id',
-            value: forumId,
-          ),
-          callback: callback,
-        );
   }
 
   // ── Sessions (event schedule) ────────────────────────────────────────────

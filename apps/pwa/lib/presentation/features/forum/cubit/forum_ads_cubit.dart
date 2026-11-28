@@ -140,7 +140,7 @@ class ForumAdsCubit extends Cubit<ForumAdsState> {
       try {
         await Supabase.instance.client
             .schema('api')
-            .rpc('log_ad_interaction', params: {
+            .rpc('log_interaction', params: {
           'p_serve_token': serveToken,
           'p_interaction_type': 'impression',
         });
@@ -172,7 +172,7 @@ class ForumAdsCubit extends Cubit<ForumAdsState> {
     try {
       await Supabase.instance.client
           .schema('api')
-          .rpc('log_ad_interaction', params: {
+          .rpc('log_interaction', params: {
         'p_serve_token': serveToken,
         'p_interaction_type': 'click',
       });

@@ -1,9 +1,9 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:lynk_core/core.dart';
 import 'package:lynk_x/data/repositories/forum_repository.dart';
+import 'package:lynk_x/presentation/features/forum/services/forum_broadcast_service.dart';
 import 'forum_sessions_state.dart';
 
 class ForumSessionsCubit extends Cubit<ForumSessionsState> {
@@ -14,7 +14,9 @@ class ForumSessionsCubit extends Cubit<ForumSessionsState> {
 
   String? _resolvedForumId;
   DateTime? _resolvedForumCreatedAt;
-  RealtimeChannel? _realtimeChannel;
+  String? _realtimeForumId;
+  ForumBroadcastListener? _sessionBroadcastListener;
+  ForumBroadcastListener? _sessionDbListener;
 
   String get activeForumId => _resolvedForumId ?? forumId;
   DateTime? get activeForumCreatedAt =>
@@ -28,70 +30,67 @@ class ForumSessionsCubit extends Cubit<ForumSessionsState> {
   })  : _repo = repo,
         super(const ForumSessionsState());
 
-  /// Sets up the Supabase Realtime Channel for client-to-client Broadcast mutations
-  /// and PostgreSQL CDC table change listening.
+  /// Subscribes to multiplexed `forum:$fId` Broadcast events for instant
+  /// optimistic client mutations and DB-trigger session updates.
   void setupRealtime() {
-    if (_realtimeChannel != null) return;
+    if (_realtimeForumId != null) return;
 
     final fId = activeForumId;
     if (fId.isEmpty) return;
 
-    final channelName = 'forum_sessions_realtime_$fId';
-    _realtimeChannel = _repo.createBroadcastChannel(channelName);
+    _realtimeForumId = fId;
 
     // 1. Listen for instant client Broadcast mutations
-    _realtimeChannel!.onBroadcast(
+    _sessionBroadcastListener = (payload) {
+      try {
+        final action = payload['action'] as String?;
+        final data = payload['session'] as Map<String, dynamic>?;
+        if (data == null || action == null) return;
+
+        final session = SessionModel.fromMap(data);
+
+        if (action == 'insert') {
+          _onSessionInserted(session);
+        } else if (action == 'update') {
+          _onSessionUpdated(session);
+        } else if (action == 'delete') {
+          _onSessionDeleted(session.id);
+        }
+      } catch (e) {
+        debugPrint('[ForumSessionsCubit] Broadcast callback error: $e');
+      }
+    };
+
+    // 2. Listen to server Broadcast from Database trigger (source of truth)
+    _sessionDbListener = (payload) {
+      try {
+        final op = payload['operation'] as String?;
+        final data = payload['record'] as Map<String, dynamic>?;
+        final oldData = payload['old_record'] as Map<String, dynamic>?;
+
+        if (op == 'INSERT' && data != null) {
+          _onSessionInserted(SessionModel.fromMap(data));
+        } else if (op == 'UPDATE' && data != null) {
+          _onSessionUpdated(SessionModel.fromMap(data));
+        } else if (op == 'DELETE') {
+          final id = oldData?['id'] as String?;
+          if (id != null) _onSessionDeleted(id);
+        }
+      } catch (e) {
+        debugPrint('[ForumSessionsCubit] Server broadcast callback error: $e');
+      }
+    };
+
+    ForumBroadcastService().register(
+      fId,
+      _sessionBroadcastListener!,
       event: 'session_mutation',
-      callback: (payload) {
-        try {
-          final action = payload['action'] as String?;
-          final data = payload['session'] as Map<String, dynamic>?;
-          if (data == null || action == null) return;
-
-          final session = SessionModel.fromMap(data);
-
-          if (action == 'insert') {
-            _onSessionInserted(session);
-          } else if (action == 'update') {
-            _onSessionUpdated(session);
-          } else if (action == 'delete') {
-            _onSessionDeleted(session.id);
-          }
-        } catch (e) {
-          debugPrint('[ForumSessionsCubit] Broadcast callback error: $e');
-        }
-      },
     );
-
-    // 2. Listen to PostgreSQL CDC Changes (Absolute DB state source of truth)
-    _realtimeChannel!.onPostgresChanges(
-      event: PostgresChangeEvent.all,
-      schema: 'social',
-      table: 'forum_sessions',
-      filter: PostgresChangeFilter(
-        type: PostgresChangeFilterType.eq,
-        column: 'forum_id',
-        value: fId,
-      ),
-      callback: (payload) {
-        try {
-          if (payload.eventType == PostgresChangeEvent.insert) {
-            final session = SessionModel.fromMap(payload.newRecord);
-            _onSessionInserted(session);
-          } else if (payload.eventType == PostgresChangeEvent.update) {
-            final session = SessionModel.fromMap(payload.newRecord);
-            _onSessionUpdated(session);
-          } else if (payload.eventType == PostgresChangeEvent.delete) {
-            final id = payload.oldRecord['id'] as String;
-            _onSessionDeleted(id);
-          }
-        } catch (e) {
-          debugPrint('[ForumSessionsCubit] CDC callback error: $e');
-        }
-      },
+    ForumBroadcastService().register(
+      fId,
+      _sessionDbListener!,
+      event: 'forum_session_change',
     );
-
-    _realtimeChannel!.subscribe();
   }
 
   void _onSessionInserted(SessionModel session) {
@@ -125,7 +124,8 @@ class ForumSessionsCubit extends Cubit<ForumSessionsState> {
   }
 
   void _broadcastMutation(String action, SessionModel session) {
-    _realtimeChannel?.sendBroadcastMessage(
+    ForumBroadcastService().sendBroadcast(
+      activeForumId,
       event: 'session_mutation',
       payload: {
         'action': action,
@@ -256,7 +256,8 @@ class ForumSessionsCubit extends Cubit<ForumSessionsState> {
     try {
       await _repo.deleteSession(session.id);
 
-      _realtimeChannel?.sendBroadcastMessage(
+      ForumBroadcastService().sendBroadcast(
+        activeForumId,
         event: 'session_mutation',
         payload: {
           'action': 'delete',
@@ -280,7 +281,22 @@ class ForumSessionsCubit extends Cubit<ForumSessionsState> {
     }
     _pendingDeletionTimers.clear();
     _stagedDeletedSessions.clear();
-    _realtimeChannel?.unsubscribe();
+    if (_realtimeForumId != null) {
+      if (_sessionBroadcastListener != null) {
+        ForumBroadcastService().unregister(
+          _realtimeForumId!,
+          _sessionBroadcastListener!,
+          event: 'session_mutation',
+        );
+      }
+      if (_sessionDbListener != null) {
+        ForumBroadcastService().unregister(
+          _realtimeForumId!,
+          _sessionDbListener!,
+          event: 'forum_session_change',
+        );
+      }
+    }
     return super.close();
   }
 }
