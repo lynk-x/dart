@@ -53,19 +53,18 @@ class ForumRepository {
 
   Future<void> updateMemberSettings(
       String forumId, String userId, Map<String, dynamic> data) async {
-    await _client
-        .schema('social')
-        .from('forum_members')
-        .update(data)
-        .eq('forum_id', forumId)
-        .eq('user_id', userId);
+    await _client.schema('api').rpc('update_forum_member_settings', params: {
+      'p_forum_id': forumId,
+      'p_has_muted_live_chats_media':
+          data['has_muted_live_chats_media'] == true,
+    });
   }
 
   Future<void> updateForumStatus(String forumId, String status) async {
-    await _client
-        .schema('social')
-        .from('forums')
-        .update({'status': status}).eq('id', forumId);
+    await _client.schema('api').rpc('update_forum_status', params: {
+      'p_forum_id': forumId,
+      'p_status': status,
+    });
   }
 
   Future<void> promoteForumMember(String forumId, String userId) async {
@@ -93,42 +92,6 @@ class ForumRepository {
       'p_forum_id': forumId,
       'p_reason': reason ?? 'Violated forum rules',
     });
-  }
-
-  Future<bool> toggleReaction(
-    String messageId,
-    String messageCreatedAt,
-    String userId,
-    String emojiCode,
-  ) async {
-    // Partition pruning: Reaction's created_at must be >= message_created_at.
-    final existing = await _client
-        .schema('social')
-        .from('message_reactions')
-        .select('id, created_at')
-        .eq('message_id', messageId)
-        .eq('user_id', userId)
-        .eq('emoji_code', emojiCode)
-        .gte('created_at', messageCreatedAt)
-        .maybeSingle();
-
-    if (existing != null) {
-      await _client
-          .schema('social')
-          .from('message_reactions')
-          .delete()
-          .eq('id', existing['id'] as String)
-          .eq('created_at', existing['created_at'] as String);
-      return false;
-    } else {
-      await _client.schema('social').from('message_reactions').insert({
-        'message_id': messageId,
-        'message_created_at': messageCreatedAt,
-        'user_id': userId,
-        'emoji_code': emojiCode,
-      });
-      return true;
-    }
   }
 
   /// Goes through api.pin_message rather than a direct table UPDATE: the
@@ -218,22 +181,34 @@ class ForumRepository {
   }
 
   Future<Map<String, dynamic>> sendMessage(Map<String, dynamic> payload) async {
-    final data = await _client
-        .schema('social')
-        .from('forum_messages')
-        .insert(payload)
-        .select()
-        .single();
-    return data;
+    final data = await _client.schema('api').rpc('send_forum_message', params: {
+      'p_forum_id': payload['forum_id'],
+      'p_content': payload['content'],
+      'p_message_type': payload['message_type'] ?? 'chat',
+      if (payload['id'] != null) 'p_id': payload['id'],
+      if (payload['created_at'] != null) 'p_created_at': payload['created_at'],
+      if (payload['forum_created_at'] != null)
+        'p_forum_created_at': payload['forum_created_at'],
+      if (payload['channel_id'] != null) 'p_channel_id': payload['channel_id'],
+      if (payload['channel_created_at'] != null)
+        'p_channel_created_at': payload['channel_created_at'],
+      if (payload['hashtag'] != null) 'p_hashtag': payload['hashtag'],
+      if (payload['media_id'] != null) 'p_media_id': payload['media_id'],
+      if (payload['media_created_at'] != null)
+        'p_media_created_at': payload['media_created_at'],
+      if (payload['reply_to_id'] != null)
+        'p_reply_to_id': payload['reply_to_id'],
+      if (payload['reply_to_created_at'] != null)
+        'p_reply_to_created_at': payload['reply_to_created_at'],
+    });
+    return Map<String, dynamic>.from(data as Map);
   }
 
   Future<void> deleteMessage(String messageId, String createdAt) async {
-    await _client
-        .schema('social')
-        .from('forum_messages')
-        .update({'deleted_at': DateTime.now().toIso8601String()})
-        .eq('id', messageId)
-        .eq('created_at', createdAt);
+    await _client.schema('api').rpc('delete_forum_message', params: {
+      'p_message_id': messageId,
+      'p_created_at': createdAt,
+    });
   }
 
   // ── Sessions (event schedule) ────────────────────────────────────────────

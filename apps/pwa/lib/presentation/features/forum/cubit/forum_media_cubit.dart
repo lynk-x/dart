@@ -526,11 +526,11 @@ class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
   Future<bool> approveMedia(ForumMedia media) async {
     try {
       await Supabase.instance.client
-          .schema('social')
-          .from('forum_media')
-          .update({'is_approved': true})
-          .eq('id', media.id)
-          .eq('created_at', media.createdAt.toIso8601String());
+          .schema('api')
+          .rpc('approve_forum_media', params: {
+        'p_media_id': media.id,
+        'p_created_at': media.createdAt.toIso8601String(),
+      });
       await refreshMedia();
       return true;
     } catch (e, stack) {
@@ -591,11 +591,11 @@ class ForumMediaCubit extends HydratedCubit<ForumMediaState> {
     _stagedDeletedMedia.remove(media.id);
     try {
       await Supabase.instance.client
-          .schema('social')
-          .from('forum_media')
-          .delete()
-          .eq('id', media.id)
-          .eq('created_at', media.createdAt.toIso8601String());
+          .schema('api')
+          .rpc('delete_forum_media', params: {
+        'p_media_id': media.id,
+        'p_created_at': media.createdAt.toIso8601String(),
+      });
       await refreshMedia();
     } catch (e, stack) {
       debugPrint('[ForumMediaCubit] Error: $e\n$stack');

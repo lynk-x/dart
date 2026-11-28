@@ -433,11 +433,11 @@ abstract class BaseMessageCubit<T extends BaseMessageState>
     _stagedDeletedMessages.remove(message.id);
     try {
       await Supabase.instance.client
-          .schema('social')
-          .from('forum_messages')
-          .update({'deleted_at': DateTime.now().toIso8601String()})
-          .eq('id', message.id)
-          .eq('created_at', message.createdAt.toIso8601String());
+          .schema('api')
+          .rpc('delete_forum_message', params: {
+        'p_message_id': message.id,
+        'p_created_at': message.createdAt.toIso8601String(),
+      });
 
       channel?.sendBroadcastMessage(
         event: 'delete_message',
@@ -476,11 +476,13 @@ abstract class BaseMessageCubit<T extends BaseMessageState>
 
     try {
       await Supabase.instance.client
-          .schema('social')
-          .from('forum_messages')
-          .update({'content': newContent, 'hashtag': category})
-          .eq('id', message.id)
-          .eq('created_at', message.createdAt.toIso8601String());
+          .schema('api')
+          .rpc('edit_forum_message', params: {
+        'p_message_id': message.id,
+        'p_created_at': message.createdAt.toIso8601String(),
+        'p_content': newContent,
+        'p_hashtag': category,
+      });
 
       channel?.sendBroadcastMessage(
         event: 'edit_message',
