@@ -289,8 +289,9 @@ class ForumUpdatesCubit extends BaseMessageCubit<ForumUpdatesState> {
   Future<void> reconcileMissedMessages(String afterTimestamp) async {
     try {
       var query = Supabase.instance.client
-          .from('vw_forum_messages')
-          .select()
+          .schema('api')
+          .from('v1_forum_messages')
+          .select(ForumRepository.messageColumns)
           .eq('forum_id', forumId)
           .inFilter('message_type', messageTypes)
           .gt('created_at', afterTimestamp);

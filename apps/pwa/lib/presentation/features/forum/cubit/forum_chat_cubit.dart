@@ -117,7 +117,7 @@ class ForumChatCubit extends BaseMessageCubit<ForumChatState> {
     if (isClosed) return;
     emit(state.copyWith(isLoading: true));
     try {
-      // Reads go through vw_forum_messages — it pre-shapes user_profile,
+      // Reads go through api.v1_forum_messages — it pre-shapes user_profile,
       // forum_members, and forum_media for ChatMessage.fromMap. Direct embeds
       // on forum_messages.forum_messages don't work because there is no FK
       // from forum_messages to forum_members.

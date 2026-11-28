@@ -7,7 +7,7 @@ class ForumRepository {
 
   // Explicit projection omitting `fts` (tsvector) so message fetches never
   // transfer raw lexeme maps over the wire.
-  static const String _messageColumns =
+  static const String messageColumns =
       'id, created_at, forum_id, forum_created_at, channel_id, channel_created_at, '
       'author_id, message_type, hashtag, content, is_pinned, is_hidden, '
       'media_id, media_created_at, reply_to_id, reply_to_created_at, '
@@ -143,8 +143,9 @@ class ForumRepository {
     String? hashtag,
   }) async {
     var query = _client
-        .from('vw_forum_messages')
-        .select(_messageColumns)
+        .schema('api')
+        .from('v1_forum_messages')
+        .select(messageColumns)
         .eq('forum_id', forumId);
 
     if (messageTypes != null && messageTypes.isNotEmpty) {
